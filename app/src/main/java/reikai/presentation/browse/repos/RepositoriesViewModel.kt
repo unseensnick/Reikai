@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.update
 import mihon.domain.extension.interactor.AddExtensionStore
 import mihon.domain.extension.interactor.GetExtensionStores
 import mihon.domain.extension.interactor.RemoveExtensionStore
-import mihon.domain.extension.interactor.UpdateExtensionStores
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.toRepoStatus
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -42,7 +41,6 @@ class RepositoriesViewModel(
     getExtensionStores: GetExtensionStores,
     private val addExtensionStore: AddExtensionStore,
     private val removeExtensionStore: RemoveExtensionStore,
-    private val updateExtensionStores: UpdateExtensionStores,
     private val extensionManager: ExtensionManager,
     private val registries: LnRepoRegistries,
     prefs: NovelPreferences,
@@ -95,7 +93,7 @@ class RepositoriesViewModel(
         viewModelScope.launchIO {
             storesRefreshing.value = true
             try {
-                updateExtensionStores()
+                extensionManager.refreshStores()
                 extensionManager.findAvailableExtensions()
             } finally {
                 storesRefreshing.value = false

@@ -45,7 +45,6 @@ class RepositoriesViewModelTest {
             getExtensionStores = mockk { every { subscribe() } returns flowOf(emptyList()) },
             addExtensionStore = mockk(),
             removeExtensionStore = mockk(),
-            updateExtensionStores = mockk(),
             extensionManager = mockk { every { storeStatuses } returns MutableStateFlow(emptyMap()) },
             registries = mockk {
                 every { results } returns flowOf(emptyMap())

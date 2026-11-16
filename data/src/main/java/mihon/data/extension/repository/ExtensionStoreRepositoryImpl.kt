@@ -23,6 +23,8 @@ import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.extension.model.ExtensionStore
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import reikai.domain.extension.NO_SIGNING_KEY
+import reikai.domain.extension.RefusedStore
+import reikai.domain.extension.servesAnotherStore
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -71,7 +73,8 @@ class ExtensionStoreRepositoryImpl(
         )
     }
 
-    override suspend fun refreshAll() {
+    override suspend fun refreshAll(): List<RefusedStore> { // RK: the refused stores
+        val refused = mutableListOf<RefusedStore>() // RK
         try {
             val refreshed = stores.first().mapNotNull { store ->
                 service.fetch(store.indexUrl)
@@ -81,13 +84,21 @@ class ExtensionStoreRepositoryImpl(
                         }
                     }
                     .getOrNull()
-                    ?.let { store.indexUrl to it }
+                    ?.let { store to it } // RK: the saved store, whose key the fetched one is checked against
             }
             database.transaction {
-                refreshed.forEach { (indexUrl, store) ->
+                refreshed.forEach { (saved, store) ->
+                    // RK
+                    val indexUrl = saved.indexUrl // RK
                     if (!database.extension_storeQueries.contains(indexUrl).awaitAsOne()) {
                         return@forEach
                     }
+                    // RK --> another store's index at this address never replaces the saved store
+                    if (saved.servesAnotherStore(store.signingKey)) {
+                        refused += RefusedStore(indexUrl, saved.name, store.signingKey, store.name)
+                        return@forEach
+                    }
+                    // RK <--
                     upsert(store)
                     if (indexUrl != store.indexUrl) {
                         database.extension_storeQueries.delete(indexUrl)
@@ -97,6 +108,7 @@ class ExtensionStoreRepositoryImpl(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
         }
+        return refused // RK
     }
 
     override suspend fun upsert(store: ExtensionStore) {

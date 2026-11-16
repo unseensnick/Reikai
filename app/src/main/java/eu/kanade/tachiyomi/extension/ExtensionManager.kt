@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.extension
 
 import android.content.Context
+import android.widget.Toast
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -35,8 +36,10 @@ import mihon.domain.extension.interactor.UpdateExtensionStores
 import mihon.domain.extension.model.ExtensionStore
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import reikai.domain.extension.KindListing
+import reikai.domain.extension.RefusedStore
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.SharedRefresh
+import reikai.domain.extension.StoreKeyChangedException
 import reikai.domain.extension.extensionsInNotice
 import reikai.domain.extension.hasSigningKey
 import reikai.domain.extension.hasUpdate
@@ -333,7 +336,7 @@ class ExtensionManager(
      */
     suspend fun checkForUpdates() {
         val extensions = try {
-            updateExtensionStores()
+            refreshStores() // RK
             fetchExtensions()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
@@ -354,9 +357,45 @@ class ExtensionManager(
         }
     }
 
+    // RK -->
+
+    /**
+     * Refreshes the saved stores and keeps the ones refused because their address now serves another key,
+     * so their listing stays refused across restarts. Each refusal is told once, not on every daily check.
+     */
+    suspend fun refreshStores() {
+        val refused = updateExtensionStores()
+        val told = preferences.refusedExtensionStores.get().mapNotNullTo(HashSet(), RefusedStore::decode)
+        preferences.refusedExtensionStores.set(refused.mapTo(HashSet()) { it.encode() })
+        val untold = refused.filter { it !in told }
+        if (untold.isEmpty()) return
+        withUIContext {
+            untold.forEach {
+                context.toast(
+                    context.stringResource(MR.strings.repo_key_changed_toast, it.name, it.servedName),
+                    Toast.LENGTH_LONG,
+                )
+            }
+        }
+    }
+
+    /** A refused store's listing is another store's, so it reads as refused, never as the saved store's. */
+    private suspend fun withoutRefusedListings(
+        byStore: Map<String, Result<List<Extension.Available>>>,
+    ): Map<String, Result<List<Extension.Available>>> {
+        val refused = preferences.refusedExtensionStores.get().mapNotNull(RefusedStore::decode)
+        if (refused.isEmpty()) return byStore
+        val saved = extensionStoreRepository.getAll().associateBy { it.indexUrl }
+        return byStore.mapValues { (indexUrl, result) ->
+            val refusal = saved[indexUrl]?.let { store -> refused.find { it.appliesTo(store) } }
+            refusal?.let { Result.failure(StoreKeyChangedException(it.servedName)) } ?: result
+        }
+    }
+    // RK <--
+
     // RK: fetched per store, so each store's outcome is kept for the Repos screen
     private suspend fun fetchExtensions(): List<Extension.Available> {
-        val byStore = withIOContext { extensionStoreRepository.fetchExtensionsByStore() }
+        val byStore = withIOContext { withoutRefusedListings(extensionStoreRepository.fetchExtensionsByStore()) }
         storeStatuses.value = byStore.mapValues { (_, result) -> result.toRepoStatus() }
         return byStore.values.flatMap { it.getOrDefault(emptyList()) }
     }

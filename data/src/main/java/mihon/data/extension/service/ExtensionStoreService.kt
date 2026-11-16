@@ -25,6 +25,8 @@ import okio.gzip
 import reikai.data.extension.isIReaderIndex
 import reikai.data.extension.readIReaderExtensions
 import reikai.data.extension.readIReaderStore
+import reikai.domain.extension.StoreKeyChangedException
+import reikai.domain.extension.servesAnotherStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import kotlin.coroutines.cancellation.CancellationException
@@ -104,6 +106,9 @@ class ExtensionStoreService(
                         0x7B.toByte() -> json.decodeFromBufferedSource<NetworkExtensionStore>(source)
                         else -> protoBuf.decodeFromByteArray<NetworkExtensionStore>(source.readByteArray())
                     }
+                        // RK --> an index signed by another key is another store, not this one's listing
+                        .also { if (store.servesAnotherStore(it.signingKey)) throw StoreKeyChangedException(it.name) }
+                        // RK <--
                         .extensionList!!
                         .toAvailableExtensions(store)
                 }

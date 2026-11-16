@@ -239,7 +239,7 @@ private fun RepoCard(
             Text(
                 text = statusText(card),
                 style = MaterialTheme.typography.bodySmall,
-                color = if (card.status is RepoStatus.Unreachable) {
+                color = if (card.status is RepoStatus.Unreachable || card.status is RepoStatus.KeyChanged) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
@@ -285,6 +285,7 @@ private fun RepoCard(
 private fun statusText(card: RepoCardUi): String = when (val status = card.status) {
     RepoStatus.Checking -> stringResource(MR.strings.repo_checking)
     is RepoStatus.Unreachable -> stringResource(MR.strings.repo_unreachable)
+    is RepoStatus.KeyChanged -> stringResource(MR.strings.repo_key_changed)
     is RepoStatus.Reached -> when (card.format) {
         RepoFormat.STORE -> (status.manga + status.novels).let {
             pluralStringResource(MR.plurals.repo_extensions, it, it)
@@ -309,6 +310,12 @@ private fun RepoDetailsSheet(
             card.signingKey?.let { DetailLine(label = stringResource(MR.strings.repo_signing_key), value = it) }
             (card.status as? RepoStatus.Unreachable)?.let {
                 DetailLine(label = stringResource(MR.strings.repo_unreachable), value = it.message)
+            }
+            (card.status as? RepoStatus.KeyChanged)?.let {
+                DetailLine(
+                    label = stringResource(MR.strings.repo_key_changed),
+                    value = stringResource(MR.strings.repo_key_changed_detail, it.servedName),
+                )
             }
             if (card.discord != null) {
                 IconButton(onClick = onOpenDiscord) {

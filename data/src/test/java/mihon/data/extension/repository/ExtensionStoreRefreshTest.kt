@@ -11,13 +11,14 @@ import mihon.domain.extension.model.ExtensionStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.extension.RefusedStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
 /**
  * Refreshing fetches every store first and then writes them together (mihon 8066b8dfc), and a store removed
  * while its index is still being fetched stays removed (mihon fc5592ff7). The service is the network
- * boundary, so it is the one mock.
+ * boundary, so it is the one mock. A fetched index signed by another key never replaces a saved store.
  */
 class ExtensionStoreRefreshTest {
 
@@ -85,6 +86,19 @@ class ExtensionStoreRefreshTest {
         listOf(nameOf(URL), nameOf(OTHER_URL)) shouldBe listOf("Store", "Renamed")
     }
 
+    @Test
+    fun `a store whose address now serves another key keeps its record and is reported`() = runTest {
+        val service = mockk<ExtensionStoreService> {
+            coEvery { fetch(URL) } returns Result.success(store(URL, "Other", signingKey = "other"))
+        }
+        val repository = ExtensionStoreRepositoryImpl(backgroundScope, service, database)
+        repository.upsert(store(URL, "Store"))
+
+        val refused = repository.refreshAll()
+
+        listOf(refused, nameOf(URL)) shouldBe listOf(listOf(RefusedStore(URL, "Store", "other", "Other")), "Store")
+    }
+
     private suspend fun nameOf(indexUrl: String): String? =
         database.extension_storeQueries.getAll().awaitAsList().firstOrNull { it.index_url == indexUrl }?.name
 
@@ -92,11 +106,11 @@ class ExtensionStoreRefreshTest {
         const val URL = "https://example.org/index.min.json"
         const val OTHER_URL = "https://example.com/index.min.json"
 
-        fun store(indexUrl: String, name: String) = ExtensionStore(
+        fun store(indexUrl: String, name: String, signingKey: String = "key") = ExtensionStore(
             indexUrl = indexUrl,
             name = name,
             badgeLabel = name,
-            signingKey = "key",
+            signingKey = signingKey,
             contact = ExtensionStore.Contact(website = "https://example.org", discord = null),
             isLegacy = false,
             extensionListUrl = null,

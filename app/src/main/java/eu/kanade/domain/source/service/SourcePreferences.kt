@@ -71,6 +71,13 @@ class SourcePreferences(
         emptySet(),
     )
 
+    // RK --> encoded RefusedStore entries, so a refused store's listing stays refused across restarts
+    val refusedExtensionStores: Preference<Set<String>> = preferenceStore.getStringSet(
+        Preference.appStateKey("refused_extension_stores"),
+        emptySet(),
+    )
+    // RK <--
+
     val globalSearchFilterState: Preference<Boolean> = preferenceStore.getBoolean(
         Preference.appStateKey("has_filters_toggle_state"),
         false,

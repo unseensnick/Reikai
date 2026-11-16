@@ -447,6 +447,9 @@
     <string name="repo_kind_plugins">Plugin repo</string>
     <string name="repo_checking">Checking…</string>
     <string name="repo_unreachable">Couldn\'t reach this repo</string>
+    <string name="repo_key_changed">Now serves another repo</string>
+    <string name="repo_key_changed_detail">%1$s, signed by a different key. Remove this repo and add it again to use it</string>
+    <string name="repo_key_changed_toast">%1$s now serves %2$s, signed by a different key. Remove the repo and add it again to use it</string>
     <string name="action_add_repo">Add repo</string>
     <string name="repo_address">Address</string>
     <string name="repo_signing_key">Signing key</string>

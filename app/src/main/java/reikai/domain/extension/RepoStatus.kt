@@ -14,6 +14,9 @@ sealed interface RepoStatus {
     data class Reached(val manga: Int, val novels: Int) : RepoStatus
 
     data class Unreachable(val message: String) : RepoStatus
+
+    /** The store's address now serves [servedName], signed by another key, so its listing is refused. */
+    data class KeyChanged(val servedName: String) : RepoStatus
 }
 
 fun Result<List<Extension.Available>>.toRepoStatus(): RepoStatus = fold(
@@ -21,7 +24,12 @@ fun Result<List<Extension.Available>>.toRepoStatus(): RepoStatus = fold(
         val novels = listing.count { it.kind != Extension.Kind.MANGA }
         RepoStatus.Reached(manga = listing.size - novels, novels = novels)
     },
-    onFailure = { RepoStatus.Unreachable(it.messageOrName) },
+    onFailure = {
+        when (it) {
+            is StoreKeyChangedException -> RepoStatus.KeyChanged(it.servedName)
+            else -> RepoStatus.Unreachable(it.messageOrName)
+        }
+    },
 )
 
 /** Every LN plugin is a novel source. */

@@ -387,6 +387,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Requests that reach a site through WebView to get past Cloudflare no longer fail when several sites load at once.**
 - **A signed-in request that a Cloudflare-protected site redirects elsewhere is now followed through WebView too.**
 - **Galleries from a self-hosted archive server running a newer server version load their details again (from Komikku).**
+- **An extension repo whose address starts serving a different repo now says so on its card, instead of its extensions silently stopping updating (from Komikku).**
 
 ### Updates & History
 
