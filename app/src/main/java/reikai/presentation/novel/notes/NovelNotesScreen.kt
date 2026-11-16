@@ -31,7 +31,7 @@ import reikai.presentation.notes.EntryNotesScreen
 /**
  * Full-screen markdown notes editor for a novel, the twin of
  * [eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen], pinned by the shared [EntryNotesScreen] it
- * renders through. Saves surgically via a [NovelUpdate] patch. Constructor args are primitives so the Voyager
+ * renders through and by NotesSaveConformanceTest for the save. Saves surgically via a [NovelUpdate] patch. Constructor args are primitives so the Voyager
  * screen stays serializable across state-save.
  */
 class NovelNotesScreen(
