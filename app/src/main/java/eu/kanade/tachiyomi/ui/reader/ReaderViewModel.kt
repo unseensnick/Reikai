@@ -1000,6 +1000,9 @@ class ReaderViewModel(
             // Walked as opened, so a chapter whose sibling copy is on disk is that copy, not one to fetch.
             val opened = mergedGroup?.takeIf { !sourceScoped && it.isMerged }?.let(::groupAsOpened)
                 ?.takeIf { chapters -> chapters.any { c -> c.id == nextChapter.id } }
+            // RK: read answered from the group as stored now, as the novel reader does: the chapters loaded
+            // at open miss what this session marked read since, which would be queued again.
+            val readNow = mergedGroup?.takeIf { it.isMerged }?.let { groupChapters() }
             val chaptersToDownload = if (opened != null) {
                 // Sorted the way the reader itself pages, not by stitch position: a group sorted by
                 // upload date or by name otherwise queues chapters the reader never steps into next.
@@ -1010,7 +1013,7 @@ class ReaderViewModel(
                     ahead,
                     from = ahead.indexOfFirst { it.id == nextChapter.id },
                     count = downloadAheadAmount,
-                    isRead = groupFlags(opened)::isRead,
+                    isRead = groupFlags(opened, pooled = readNow ?: opened)::isRead,
                 )
             } else {
                 // RK --> ordered by the group's shared chapter settings, the settings owner's, as the reader pages, not
@@ -1021,7 +1024,9 @@ class ReaderViewModel(
                     // RK <--
                     .let { next -> navigable(next, nextChapter, forwardEligibility(next)) }
                     // RK: a source-scoped session on a merged series skips what another source read too.
-                    .let { own -> chaptersToDownloadAhead(own, 0, downloadAheadAmount, groupFlags(own)::isRead) }
+                    .let { own ->
+                        chaptersToDownloadAhead(own, 0, downloadAheadAmount, groupFlags(own, readNow ?: own)::isRead)
+                    }
             }
 
             // RK: a chapter whose source is gone fetches an installed source's copy, or nothing
