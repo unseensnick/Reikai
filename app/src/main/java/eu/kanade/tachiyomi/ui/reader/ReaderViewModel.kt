@@ -1063,7 +1063,8 @@ class ReaderViewModel(
         }
 
         // If chapter is completely read, no need to download it
-        chapterToDownload = null
+        // RK: only when it is the chapter held: a skip finishes the chapter left, not the one opened
+        if (chapterToDownload?.chapter?.id == currentChapter.chapter.id) chapterToDownload = null
 
         if (chapterToDelete == null || !chapterToDelete.chapter.read) return
 

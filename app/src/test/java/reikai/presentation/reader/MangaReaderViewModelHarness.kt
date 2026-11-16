@@ -10,6 +10,7 @@ import eu.kanade.domain.download.interactor.DeleteDownload
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
@@ -193,6 +194,9 @@ class MangaReaderViewModelHarness private constructor(
      * are private. A source in [missingSources] resolves to a stub, as an uninstalled extension's does. The
      * device is on Wi-Fi only when [wifi] is set, so by default the next chapter's eager preload is held. A
      * first open that fails throws its error, unless [allowInitError] hands the failed state to [probe] instead.
+     *
+     * @param queuedDownloads the chapters waiting in the download queue
+     * @param onRequeue hears the chapters the reader puts back in the queue
      */
     suspend fun <T> open(
         manga: Manga,
@@ -211,6 +215,8 @@ class MangaReaderViewModelHarness private constructor(
         onDelete: (List<Chapter>) -> Unit = {},
         onEnqueueDelete: (List<Chapter>) -> Unit = {},
         onLoad: (chapterId: Long, fromSource: Boolean) -> Unit = { _, _ -> },
+        queuedDownloads: Set<Long> = emptySet(),
+        onRequeue: (List<Long>) -> Unit = {},
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
     ): T {
         val resolved = group ?: single(manga)
@@ -244,6 +250,13 @@ class MangaReaderViewModelHarness private constructor(
                 coEvery { downloadChapters(any(), any(), any()) } answers { onDownload(secondArg()) }
                 coEvery { deleteChapters(any(), any(), any()) } answers { onDelete(firstArg()) }
                 coEvery { enqueueChaptersToDelete(any(), any()) } answers { onEnqueueDelete(firstArg()) }
+                every { getQueuedDownloadOrNull(any()) } answers {
+                    resolved.pooledChapters.find { it.id == firstArg<Long>() && it.id in queuedDownloads }
+                        ?.let { Download(mockk(relaxed = true), manga, it) }
+                }
+                coEvery { addDownloadsToStartOfQueue(any()) } answers {
+                    onRequeue(firstArg<List<Download>>().map { it.chapter.id })
+                }
             }
             val getManga = GetManga(mangas)
             val sourceManager = mockk<SourceManager>(relaxed = true)
