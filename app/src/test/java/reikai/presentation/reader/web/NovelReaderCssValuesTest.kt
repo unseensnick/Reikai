@@ -5,7 +5,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.presentation.components.toHexRgb
+import reikai.presentation.reader.readerBackgroundColorInt
+import reikai.presentation.reader.readerColorOrNull
 import reikai.presentation.reader.readerDarkPreset
+import reikai.presentation.reader.readerTextColorInt
 import reikai.presentation.reader.readerThemePresets
 
 /**
@@ -104,5 +107,13 @@ class NovelReaderCssValuesTest {
     @Test
     fun `an empty family stays empty`() {
         cssFontFamily("") shouldBe ""
+    }
+
+    /** The page and the native renderer fall back from one rule, so a bad stored value draws alike in both. */
+    @ParameterizedTest
+    @ValueSource(strings = ["#12345", "red", ""])
+    fun `an unreadable colour falls back as the native renderer's does`(stored: String) {
+        listOf(cssBackgroundColor(stored), cssTextColor(stored)).map(::readerColorOrNull) shouldBe
+            listOf(readerBackgroundColorInt(stored), readerTextColorInt(stored))
     }
 }

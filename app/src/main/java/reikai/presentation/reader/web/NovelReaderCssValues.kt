@@ -3,8 +3,8 @@ package reikai.presentation.reader.web
 import reikai.novel.font.ReaderFontSource
 import reikai.novel.font.fontDisplayName
 import reikai.novel.font.readerFontSource
-import reikai.presentation.reader.readerColorOrNull
-import reikai.presentation.reader.readerDarkPreset
+import reikai.presentation.reader.readerBackgroundOrDefault
+import reikai.presentation.reader.readerTextColorOrDefault
 
 /*
  * Preference values on their way into the reader document's <style> block. Restoring a backup writes
@@ -14,13 +14,10 @@ import reikai.presentation.reader.readerDarkPreset
  * because CSS escaping is per-context while these shapes are small enough to state exactly.
  */
 
-/** [value] when it is a colour [readerColorOrNull] reads, which is what the native renderer draws too. */
-fun cssColorOrDefault(value: String, fallback: String): String =
-    if (readerColorOrNull(value) != null) value else fallback
+/** Only a colour [reikai.presentation.reader.readerColorOrNull] reads, which is what the native renderer draws. */
+fun cssBackgroundColor(value: String): String = readerBackgroundOrDefault(value)
 
-fun cssBackgroundColor(value: String): String = cssColorOrDefault(value, readerDarkPreset.background)
-
-fun cssTextColor(value: String): String = cssColorOrDefault(value, readerDarkPreset.textColor)
+fun cssTextColor(value: String): String = readerTextColorOrDefault(value)
 
 /**
  * A family name as CSS can read it, quoted or not: the characters that would end the declaration or

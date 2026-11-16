@@ -20,9 +20,16 @@ fun readerColorOrNull(value: String): Int? {
     return ((alpha shl 24) or rgb).toInt()
 }
 
-/** The page background [value] names, or the reader's own dark default when it names none. */
-fun readerBackgroundColorInt(value: String): Int =
-    readerColorOrNull(value) ?: readerColorOrNull(readerDarkPreset.background)!!
+/** The page background [value] names, or the reader's own dark default when it names none, for both renderers. */
+fun readerBackgroundOrDefault(value: String): String =
+    value.takeIf { readerColorOrNull(it) != null } ?: readerDarkPreset.background
 
-/** The text colour [value] names, or the reader's own dark default when it names none. */
-fun readerTextColorInt(value: String): Int = readerColorOrNull(value) ?: readerColorOrNull(readerDarkPreset.textColor)!!
+/** The text colour [value] names, or the reader's own dark default when it names none, for both renderers. */
+fun readerTextColorOrDefault(value: String): String =
+    value.takeIf { readerColorOrNull(it) != null } ?: readerDarkPreset.textColor
+
+/** [readerBackgroundOrDefault] as an ARGB int. */
+fun readerBackgroundColorInt(value: String): Int = readerColorOrNull(readerBackgroundOrDefault(value))!!
+
+/** [readerTextColorOrDefault] as an ARGB int. */
+fun readerTextColorInt(value: String): Int = readerColorOrNull(readerTextColorOrDefault(value))!!
