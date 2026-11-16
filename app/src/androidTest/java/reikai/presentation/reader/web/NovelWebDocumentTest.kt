@@ -17,7 +17,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,6 +31,7 @@ import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.LORA_LOADED
 import reikai.presentation.reader.NovelChapterNavigationClient
 import reikai.presentation.reader.WebViewHostActivity
+import reikai.presentation.reader.onMain
 import reikai.presentation.reader.readerTestSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.NovelBionicSpans
@@ -154,6 +154,15 @@ class NovelWebDocumentTest {
         /** Unrecorded, but missing it threw in the page's frame before the end and fit checks ran. */
         @JavascriptInterface
         fun onTopLine(documentToken: String, chapterId: String, line: Int) = Unit
+
+        @JavascriptInterface
+        fun onPagedMoved(documentToken: String) = Unit
+
+        @JavascriptInterface
+        fun onPagedPicturesLanded(documentToken: String, chapterId: String) = Unit
+
+        @JavascriptInterface
+        fun onPictureOpened(documentToken: String, src: String) = Unit
     }
 
     /** How many settled positions, and how many boundary retries, the page sent the host. */
@@ -184,14 +193,14 @@ class NovelWebDocumentTest {
     ) { _, _ -> error("no chapter pictures here") }
 
     /** The last fit answer the page sent per chapter. */
-    private val fitsReports = mutableMapOf<String, Boolean>()
+    private val fitsReports = ConcurrentHashMap<String, Boolean>()
 
     /** What the page asked the host to do, for the gesture cases. */
-    private val steps = mutableListOf<Boolean>()
+    private val steps = CopyOnWriteArrayList<Boolean>()
     private var stepped = CountDownLatch(1)
 
     /** Every chapter the page has named as the one being read, in order. */
-    private val visibleChapters = mutableListOf<String>()
+    private val visibleChapters = CopyOnWriteArrayList<String>()
 
     private val settings = readerTestSettings
 
@@ -283,7 +292,7 @@ class NovelWebDocumentTest {
     @Test
     fun aBundledFontActuallyLoads() {
         val context = instrumentation.targetContext
-        val source = runBlocking { webFonts.url(context.appGraph.novelFontManager, "lora") }
+        val source = onMain { webFonts.url(context.appGraph.novelFontManager, "lora") }
         loadDocument(document(fontFamily = "lora", fontSource = source))
         assertEquals("the bundled face did not load", "true", awaitEval(LORA_LOADED, "true"))
     }
@@ -292,7 +301,7 @@ class NovelWebDocumentTest {
     @Test
     fun aFaceAnotherReaderHandedOutIsNotServed() {
         val context = instrumentation.targetContext
-        val url = runBlocking { NovelWebFonts().url(context.appGraph.novelFontManager, "lora") }!!
+        val url = onMain { NovelWebFonts().url(context.appGraph.novelFontManager, "lora") }!!
         assertNull("another reader's face was served", webFonts.response(context, url))
     }
 
@@ -300,7 +309,7 @@ class NovelWebDocumentTest {
     @Test
     fun theDocumentNamesItsFaceRatherThanCarryingIt() {
         val context = instrumentation.targetContext
-        val source = runBlocking { webFonts.url(context.appGraph.novelFontManager, "lora") }!!
+        val source = onMain { webFonts.url(context.appGraph.novelFontManager, "lora") }!!
         val html = document(fontFamily = "lora", fontSource = source)
         assertTrue("the face was inlined, ${html.length} characters", source in html && "base64" !in html)
     }
@@ -310,7 +319,7 @@ class NovelWebDocumentTest {
     fun aFontPickedWithThePageOpenLoadsItsFace() {
         val context = instrumentation.targetContext
         loadDocument()
-        val source = runBlocking { webFonts.url(context.appGraph.novelFontManager, "lora") }
+        val source = onMain { webFonts.url(context.appGraph.novelFontManager, "lora") }
         // What the viewport's settings push sends: the family as a variable, then its face.
         val variables = NovelWebDocument.variables(settings.copy(fontFamily = "lora"), 0)
         eval("document.documentElement.setAttribute('style', ${JSONObject.quote(variables)})")
