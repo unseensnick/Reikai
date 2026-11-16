@@ -62,6 +62,42 @@ class ListeningTest {
     }
 
     @Test
+    fun `enough time with too few words measures nothing`() {
+        val started = Listening().next(playing = true, at(0), nowMs = 0)
+
+        // 40 words in 20 seconds is a pace a voice reads at, but too few words to trust.
+        started.next(playing = true, at(40), nowMs = 20_000).msPerWord shouldBe null
+    }
+
+    @Test
+    fun `enough words in too little time measures nothing`() {
+        val started = Listening().next(playing = true, at(0), nowMs = 0)
+
+        // 80 words in 8 seconds is 100 ms a word, inside the bounds, over too short a stretch.
+        started.next(playing = true, at(80), nowMs = 8_000).msPerWord shouldBe null
+    }
+
+    @Test
+    fun `a step longer than any listening credits only the cap`() {
+        val started = Listening().next(playing = true, at(0), nowMs = 0)
+
+        started.next(playing = true, at(100), nowMs = 2 * 60 * 60 * 1000L).listened shouldBe (1L to 30 * 60 * 1000L)
+    }
+
+    @Test
+    fun `skipping ahead restarts the timing`() {
+        // 300 words at 400 ms a word, then six paragraphs of 50 words skipped in three seconds.
+        val skipped = (1..6).fold(
+            Listening()
+                .next(playing = true, at(0), nowMs = 0)
+                .next(playing = true, at(300), nowMs = 120_000),
+        ) { state, step -> state.next(playing = true, at(300L + step * 50), nowMs = 120_000L + step * 500) }
+
+        // Measured from the skip: 100 words in 40 seconds.
+        skipped.next(playing = true, at(700), nowMs = 163_000).msPerWord shouldBe 400.0
+    }
+
+    @Test
     fun `a pace no voice reads at is ignored`() {
         // Skipping ahead a few paragraphs: 400 words in 12 seconds is 30 ms a word.
         val started = Listening().next(playing = true, at(100), nowMs = 0)

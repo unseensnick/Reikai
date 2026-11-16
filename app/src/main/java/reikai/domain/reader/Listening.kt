@@ -28,7 +28,7 @@ data class Listening(
             ?.takeIf { it.second > 0 }
         if (!playing || progress == null) return Listening(listened = listened)
         val mark = ListeningMark(progress.chapterId, nowMs, progress.wordsSpoken)
-        val from = anchor?.takeIf { it.chapterId == mark.chapterId && it.words <= mark.words }
+        val from = anchor?.takeIf { it.chapterId == mark.chapterId && it.words <= mark.words && !skipped(mark) }
             // A new chapter keeps the voice's pace, since the voice has not changed.
             ?: return Listening(anchor = mark, last = mark, msPerWord = msPerWord, listened = listened)
         val words = mark.words - from.words
@@ -36,6 +36,12 @@ data class Listening(
         val measured = (elapsed.toDouble() / words)
             .takeIf { words >= MIN_WORDS && elapsed >= MIN_MS && it in WORD_BOUNDS }
         return Listening(anchor = from, last = mark, msPerWord = measured ?: msPerWord, listened = listened)
+    }
+
+    /** Whether [mark] came faster than any voice reads since the last one: a skip ahead, not speech. */
+    private fun skipped(mark: ListeningMark): Boolean {
+        val previous = last?.takeIf { it.chapterId == mark.chapterId } ?: return false
+        return (mark.words - previous.words) * PaceUnit.WORD.floorMs > mark.atMs - previous.atMs
     }
 }
 
