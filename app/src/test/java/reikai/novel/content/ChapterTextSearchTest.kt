@@ -5,6 +5,8 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import java.util.regex.PatternSyntaxException
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 class ChapterTextSearchTest {
 
@@ -99,5 +101,24 @@ class ChapterTextSearchTest {
         shouldThrow<CancellationException> {
             ChapterTextSearch.findMatches("a".repeat(100_000), Regex("b"), isActive = { false })
         }
+    }
+
+    @Test
+    fun `a scan cancelled while it is matching aborts`() {
+        val started = TimeSource.Monotonic.markNow()
+
+        shouldThrow<CancellationException> {
+            ChapterTextSearch.findMatches(
+                "g".repeat(40),
+                Regex("(.*g){12}h"),
+                isActive = { started.elapsedNow() < 200.milliseconds },
+            )
+        }
+    }
+
+    /** One matcher walks every match, and must still count and place them as a match-per-matcher walk did. */
+    @Test
+    fun `every match is placed where it falls`() {
+        ChapterTextSearch.findMatches("ab ab", Regex("b"))!!.snippets.map { it.matchStart } shouldBe listOf(1, 4)
     }
 }

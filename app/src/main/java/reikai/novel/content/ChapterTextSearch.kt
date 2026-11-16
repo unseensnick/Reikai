@@ -19,7 +19,7 @@ data class ChapterTextMatches(
     val snippets: List<ChapterSearchSnippet>,
 )
 
-/** A linear find over a chapter's visible text, for the search across a novel's downloaded chapters. */
+/** A find over a chapter's visible text, for the search across a novel's downloaded chapters. */
 object ChapterTextSearch {
 
     const val SNIPPET_CONTEXT = 60
@@ -42,12 +42,10 @@ object ChapterTextSearch {
         return UserRegexRunner.run(BUDGET, isActive) { wrap ->
             var count = 0
             val snippets = mutableListOf<ChapterSearchSnippet>()
-            for (match in regex.findAll(wrap(text))) {
-                if (match.range.isEmpty()) continue
+            regex.forEachMatch(wrap(text)) { start, end ->
+                if (start == end) return@forEachMatch
                 count++
-                if (snippets.size < MAX_SNIPPETS_PER_CHAPTER) {
-                    snippets += snippetFor(text, match.range.first, match.range.last + 1)
-                }
+                if (snippets.size < MAX_SNIPPETS_PER_CHAPTER) snippets += snippetFor(text, start, end)
             }
             ChapterTextMatches(count, snippets)
         }
