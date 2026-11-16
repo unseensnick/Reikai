@@ -24,12 +24,14 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
+import io.mockk.spyk
 import io.mockk.unmockkConstructor
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -148,6 +150,10 @@ class MangaReaderViewModelHarness private constructor(
 
     suspend fun storedManga(id: Long): Manga = mangas.getMangaById(id)
 
+    /** What the last model opened would hand back after a process death. */
+    var savedState: SavedStateHandle? = null
+        private set
+
     /** The chapters a mark read removed the download of, with "Remove after marked as read" on. */
     val deletedAfterRead: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -197,6 +203,8 @@ class MangaReaderViewModelHarness private constructor(
      *
      * @param queuedDownloads the chapters waiting in the download queue
      * @param onRequeue hears the chapters the reader puts back in the queue
+     * @param launchPage the page a launch asks to open at, as a page preview's does
+     * @param slowFlagWrites the entries whose reader flag write takes a moment, as a busy database's does
      */
     suspend fun <T> open(
         manga: Manga,
@@ -217,6 +225,8 @@ class MangaReaderViewModelHarness private constructor(
         onLoad: (chapterId: Long, fromSource: Boolean) -> Unit = { _, _ -> },
         queuedDownloads: Set<Long> = emptySet(),
         onRequeue: (List<Long>) -> Unit = {},
+        launchPage: Int? = null,
+        slowFlagWrites: Set<Long> = emptySet(),
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
     ): T {
         val resolved = group ?: single(manga)
@@ -275,8 +285,9 @@ class MangaReaderViewModelHarness private constructor(
             val model = ReaderViewModel(
                 appScope = testAppScope().also { appScope = it },
                 savedState = SavedStateHandle(
-                    mapOf("manga" to manga.id, "chapter" to chapterId, "source_scoped" to sourceScoped),
-                ),
+                    mapOf("manga" to manga.id, "chapter" to chapterId, "source_scoped" to sourceScoped) +
+                        listOfNotNull(launchPage?.let { "launch_page" to it }),
+                ).also { this@MangaReaderViewModelHarness.savedState = it },
                 context = mockk<Context>(relaxed = true),
                 sourceManager = sourceManager,
                 downloadManager = downloadManager,
@@ -301,7 +312,16 @@ class MangaReaderViewModelHarness private constructor(
                 copyMarks = copyMarks,
                 localVolumes = NoLocalVolumes,
                 updateChapter = UpdateChapter(chapters),
-                setMangaViewerFlags = SetMangaViewerFlags(mangas),
+                setMangaViewerFlags = spyk(SetMangaViewerFlags(mangas)) {
+                    coEvery { awaitSetReadingMode(match { it in slowFlagWrites }, any()) } coAnswers {
+                        delay(SLOW_WRITE_MS)
+                        callOriginal()
+                    }
+                    coEvery { awaitSetOrientation(match { it in slowFlagWrites }, any()) } coAnswers {
+                        delay(SLOW_WRITE_MS)
+                        callOriginal()
+                    }
+                },
                 getIncognitoState = mockk {
                     coEvery { await(any<SourceKey>()) } answers {
                         (firstArg<SourceKey?>() as? SourceKey.Manga)?.id in incognito
@@ -352,6 +372,8 @@ class MangaReaderViewModelHarness private constructor(
 
     override fun close() = driver.close()
 }
+
+private const val SLOW_WRITE_MS = 300L
 
 private const val NETWORK_STATE = "eu.kanade.tachiyomi.util.system.NetworkStateTrackerKt"
 

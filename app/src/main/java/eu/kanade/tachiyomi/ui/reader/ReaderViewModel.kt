@@ -1386,7 +1386,8 @@ class ReaderViewModel(
         val manga = manga ?: return
         // Only the latest pick matters, and letting an older one finish last would restore its choice
         readingModeJob?.cancel()
-        readingModeJob = viewModelScope.launchIO {
+        // RK: on the app scope, so closing the reader cannot stop the group-wide write part way, as novels do
+        readingModeJob = appScope.launchIO {
             viewerFlags.write { setMangaViewerFlags.awaitSetReadingMode(it, readingMode.flagValue.toLong()) } // RK
             val updatedManga = withSeriesViewerFlags(getManga.await(manga.id)) // RK
             val currChapters = state.value.viewerChapters
@@ -1427,7 +1428,8 @@ class ReaderViewModel(
         val manga = manga ?: return
         // Only the latest pick matters, and letting an older one finish last would restore its choice
         orientationJob?.cancel()
-        orientationJob = viewModelScope.launchIO {
+        // RK: on the app scope, as the reading mode's write is
+        orientationJob = appScope.launchIO {
             viewerFlags.write { setMangaViewerFlags.awaitSetOrientation(it, orientation.flagValue.toLong()) } // RK
             val updatedManga = withSeriesViewerFlags(getManga.await(manga.id)) // RK
             val currChapters = state.value.viewerChapters
