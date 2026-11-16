@@ -11,4 +11,8 @@ enum class TtsHighlightStyle(val titleRes: StringResource) {
     BACKGROUND(MR.strings.tts_highlight_background),
     UNDERLINE(MR.strings.tts_highlight_underline),
     OUTLINE(MR.strings.tts_highlight_outline),
+    ;
+
+    /** Whether the mark sets the spoken text's own colour: underline and outline leave it alone. */
+    val recolorsText: Boolean get() = this == BACKGROUND
 }

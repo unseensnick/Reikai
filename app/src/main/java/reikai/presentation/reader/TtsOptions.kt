@@ -23,6 +23,12 @@ data class TtsOptions(
     val engines: List<TtsEngineInfo> = emptyList(),
     val voices: List<TtsVoice> = emptyList(),
 ) {
+    /** Whether there is an engine to choose, which one installed leaves nothing to pick from. */
+    val offersEngineChoice: Boolean get() = engines.size > 1
+
+    /** Whether the voices span more than one base language, so a language filter narrows anything. */
+    val offersLanguageChoice: Boolean get() = voices.baseLanguages().size > 1
+
     /** The engines, the system's own first under [defaultLabel]: package name to label. */
     fun engineEntries(defaultLabel: String): Map<String, String> =
         mapOf("" to defaultLabel) + engines.associate { it.packageName to it.label }

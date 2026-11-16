@@ -597,8 +597,7 @@ internal fun ColumnScope.NovelReadAloudPage(preferences: NovelPreferences) {
         TtsHighlightColors.highlight,
         MR.strings.pref_tts_highlight_color,
     )
-    // Underline and outline leave the text's own colour alone.
-    if (style == TtsHighlightStyle.BACKGROUND) {
+    if (style.recolorsText) {
         TtsColorRow(
             preferences.readerTtsHighlightTextColor(),
             TtsHighlightColors.text,
@@ -610,7 +609,7 @@ internal fun ColumnScope.NovelReadAloudPage(preferences: NovelPreferences) {
 /** The engine, only offered when more than one is installed. A new engine stops playback. */
 @Composable
 private fun EngineRow(preferences: NovelPreferences, options: TtsOptions) {
-    if (options.engines.size <= 1) return
+    if (!options.offersEngineChoice) return
     val enginePref = preferences.readerTtsEngine()
     val engine by enginePref.collectAsState()
     var picking by remember { mutableStateOf(false) }
@@ -637,8 +636,8 @@ private fun EngineRow(preferences: NovelPreferences, options: TtsOptions) {
 private fun VoiceLanguagesRow(preferences: NovelPreferences, options: TtsOptions) {
     val languagesPref = preferences.readerTtsLanguages()
     val selected by languagesPref.collectAsState()
+    if (!options.offersLanguageChoice) return
     val languages = remember(options) { options.languageNames() }
-    if (languages.size <= 1) return
     var picking by remember { mutableStateOf(false) }
     PickerRow(
         labelRes = MR.strings.pref_tts_languages,

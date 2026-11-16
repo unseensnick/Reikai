@@ -69,4 +69,21 @@ class TtsOptionsTest {
     fun `a voice the engine no longer offers reads as its id`() {
         options.voiceLabel("gone", "Default") shouldBe "gone"
     }
+
+    /** The sheet and Settings both ask this, so one screen cannot offer the row the other hides. */
+    @Test
+    fun `one engine installed offers no engine choice`() {
+        TtsOptions(engines = listOf(TtsEngineInfo("com.example.speech", "Speech"))).offersEngineChoice shouldBe false
+    }
+
+    @Test
+    fun `voices in one language offer no language choice`() {
+        TtsOptions(voices = listOf(TtsVoice("a", "A", "en-US"), TtsVoice("b", "B", "en-GB")))
+            .offersLanguageChoice shouldBe false
+    }
+
+    @Test
+    fun `voices in two languages offer a language choice`() {
+        options.offersLanguageChoice shouldBe true
+    }
 }

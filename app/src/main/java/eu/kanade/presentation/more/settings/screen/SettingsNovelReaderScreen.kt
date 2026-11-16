@@ -127,7 +127,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         novelPreferences.setReaderTtsEngine(it)
                         false
                     },
-                ).takeIf { indexing || options.engines.size > 1 },
+                ).takeIf { indexing || options.offersEngineChoice },
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = novelPreferences.readerTtsLanguages(),
                     entries = languages,
@@ -135,7 +135,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitleProvider = { values, _ ->
                         options.languagesLabel(values).ifEmpty { stringResource(MR.strings.all) }
                     },
-                ).takeIf { indexing || languages.size > 1 },
+                ).takeIf { indexing || options.offersLanguageChoice },
                 Preference.PreferenceItem.ListPreference(
                     preference = voicePref,
                     entries = shownVoices,
@@ -187,12 +187,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     presets = TtsHighlightColors.highlight,
                     titleRes = MR.strings.pref_tts_highlight_color,
                 ).takeIf { highlight },
-                // Underline and outline leave the text's own colour alone.
                 colorRow(
                     preference = novelPreferences.readerTtsHighlightTextColor(),
                     presets = TtsHighlightColors.text,
                     titleRes = MR.strings.pref_novel_text_color,
-                ).takeIf { highlight && highlightStyle == TtsHighlightStyle.BACKGROUND },
+                ).takeIf { highlight && highlightStyle.recolorsText },
             ),
         )
     }
