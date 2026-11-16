@@ -43,6 +43,21 @@ class EntrySeedColorTest {
         EntryId.Manga(7L).seedColor(COVER, null) { BLUE } shouldBe BLUE
     }
 
+    /** The manga viewers build their pages before the cover is read, and an old cover's colour is wrong there. */
+    @Test
+    fun `a view built after a cover change gets no colour until the new cover is read`() = runTest {
+        EntryId.Manga(8L).seedColor(COVER, null) { RED }
+
+        EntryId.Manga(8L).keptSeedColor("other.jpg", null) shouldBe null
+    }
+
+    @Test
+    fun `a view built once the cover is read gets its colour`() = runTest {
+        EntryId.Manga(8L).seedColor(COVER, null) { RED }
+
+        EntryId.Manga(8L).keptSeedColor(COVER, null) shouldBe RED
+    }
+
     @Test
     fun `a colour already found is returned without loading the cover again`() = runTest {
         EntryId.Novel(7L).seedColor(COVER, null) { RED }

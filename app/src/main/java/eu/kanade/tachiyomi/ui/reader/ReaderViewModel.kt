@@ -81,6 +81,7 @@ import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import mihon.data.cache.ChapterCache
+import reikai.data.coil.keptSeedColor
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.LocalVolumeRepository
@@ -244,9 +245,10 @@ class ReaderViewModel(
     val chapterSettings: Manga?
         get() = manga?.let { mergedGroup.chapterSettingsOf(it) }
 
-    /** RK: the cover color the viewers and the loading spinner tint from; they gate on the pref themselves. */
+    /** RK: the cover color the viewers and the loading spinner tint from; they gate on the pref themselves.
+     *  The one the chrome's tint read for this cover, so a colour kept for an old cover is never used. */
     val coverSeedColor: Int?
-        get() = manga?.asMangaCover()?.vibrantCoverColor
+        get() = manga?.asMangaCover()?.let { EntryId.Manga(it.mangaId).keptSeedColor(it.url, it.lastModified) }
 
     /**
      * The chapter id of the currently loaded chapter. Used to restore from process kill.

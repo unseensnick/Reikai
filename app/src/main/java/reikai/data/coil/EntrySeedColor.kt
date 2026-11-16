@@ -23,9 +23,9 @@ import kotlin.time.Instant
  * the cover-theme setting's call, made by the screen, because the edit-info dialog tints from the cover either way.
  */
 suspend fun EntryId.seedColor(coverUrl: String?, coverLastModified: Instant?, extract: suspend () -> Int?): Int? {
+    keptSeedColor(coverUrl, coverLastModified)?.let { return it }
     val key = signedKey()
     val cover = coverCacheKey(null, coverUrl, coverLastModified)
-    if (seedCovers[key] == cover) MangaCover.vibrantCoverColorMap[key]?.let { return it }
     val color = extract()
     if (color == null) {
         MangaCover.vibrantCoverColorMap.remove(key)
@@ -35,6 +35,16 @@ suspend fun EntryId.seedColor(coverUrl: String?, coverLastModified: Instant?, ex
         seedCovers[key] = cover
     }
     return color
+}
+
+/**
+ * The colour [seedColor] kept for this very cover, or null until it has read this one, for a view built in a
+ * moment that cannot wait for the cover to be read: a colour kept for an earlier cover is never handed back.
+ */
+fun EntryId.keptSeedColor(coverUrl: String?, coverLastModified: Instant?): Int? {
+    val key = signedKey()
+    if (seedCovers[key] != coverCacheKey(null, coverUrl, coverLastModified)) return null
+    return MangaCover.vibrantCoverColorMap[key]
 }
 
 // Which cover each kept colour came from. Kept for the process only: a colour restored from disk, or found by
