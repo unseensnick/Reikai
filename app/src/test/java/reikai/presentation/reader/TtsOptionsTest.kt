@@ -36,7 +36,12 @@ class TtsOptionsTest {
 
     @Test
     fun `the picked languages read in the list's order, not the order they were picked in`() {
-        options.languagesLabel(linkedSetOf("fr", "en")) shouldBe "English, French"
+        options.languagesLabel(linkedSetOf("fr", "en"), "All") shouldBe "English, French"
+    }
+
+    @Test
+    fun `no picked language reads as all of them`() {
+        options.languagesLabel(emptySet(), "All") shouldBe "All"
     }
 
     @Test

@@ -42,9 +42,9 @@ data class TtsOptions(
         .sortedBy { it.second }
         .toMap()
 
-    /** The picked [languages] by name, in [languageNames] order; empty when none is picked. */
-    fun languagesLabel(languages: Set<String>): String =
-        languageNames().filterKeys { it in languages }.values.joinToString()
+    /** The picked [languages] by name, in [languageNames] order; [allLabel] when none is picked. */
+    fun languagesLabel(languages: Set<String>, allLabel: String): String =
+        languageNames().filterKeys { it in languages }.values.joinToString().ifEmpty { allLabel }
 
     /** The voices in [languages], the engine's own first under [defaultLabel]: voice id to name. */
     fun voiceEntries(languages: Set<String>, defaultLabel: String): Map<String, String> =

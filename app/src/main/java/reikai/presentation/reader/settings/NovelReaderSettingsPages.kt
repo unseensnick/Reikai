@@ -641,7 +641,7 @@ private fun VoiceLanguagesRow(preferences: NovelPreferences, options: TtsOptions
     var picking by remember { mutableStateOf(false) }
     PickerRow(
         labelRes = MR.strings.pref_tts_languages,
-        value = options.languagesLabel(selected).ifEmpty { stringResource(MR.strings.all) },
+        value = options.languagesLabel(selected, stringResource(MR.strings.all)),
         onClick = { picking = true },
     )
     if (picking) {

@@ -133,7 +133,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     entries = languages,
                     title = stringResource(MR.strings.pref_tts_languages),
                     subtitleProvider = { values, _ ->
-                        options.languagesLabel(values).ifEmpty { stringResource(MR.strings.all) }
+                        options.languagesLabel(values, stringResource(MR.strings.all))
                     },
                 ).takeIf { indexing || options.offersLanguageChoice },
                 Preference.PreferenceItem.ListPreference(
