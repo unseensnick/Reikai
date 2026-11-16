@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
 import reikai.data.coil.isNovelImageAddress
+import reikai.data.coil.novelImageCacheKey
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchUI
@@ -42,6 +43,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.io.File
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
 import coil3.size.Dimension as CoilDimension
@@ -109,6 +111,15 @@ class NovelImageGetter(
     // Main thread. A span edit made while a re-measure is suspended lands on the text its copy replaces,
     // so it runs once the batch it came with has set the text.
     private val spanEdits = mutableListOf<() -> Unit>()
+
+    // The parser's thread: the stored pictures sliced while it ran, which a render dropped before its text is
+    // shown has to close, since only a shown chapter's pictures are collected to be closed with it.
+    private val inlinePictures: MutableList<TiledPicture> = Collections.synchronizedList(mutableListOf())
+
+    /** Closes the stored pictures the parse sliced, for a render dropped before its text was shown. */
+    fun closeInlinePictures() {
+        synchronized(inlinePictures) { inlinePictures.forEach(TiledPicture::close) }
+    }
 
     /** Main thread: the line each picture sits in, so redrawing it costs one span search per picture. */
     private val lines = mutableMapOf<DrawableWrapper, PulseLine>()
@@ -263,7 +274,7 @@ class NovelImageGetter(
         // Read in slices like a fetched one, so a stored strip is as sharp offline as it is online.
         val replacement = sliced(TileReader.of(picture.bytes), drawn, box, wrapper) { options ->
             BitmapFactory.decodeByteArray(picture.bytes, 0, picture.bytes.size, options)
-        } ?: drawn
+        }?.also(inlinePictures::add) ?: drawn
         wrapper.innerDrawable = replacement
         wrapper.bounds = replacement.bounds
     }
@@ -293,7 +304,7 @@ class NovelImageGetter(
     private fun loadFromNetwork(imageUrl: String, wrapper: DrawableWrapper) {
         scope.launch {
             try {
-                val landed = fetch(imageUrl)?.let { prepare(imageUrl, it) }
+                val landed = fetchLanded(imageUrl)
                 try {
                     withUIContext { arrive(imageUrl, wrapper, landed) }
                 } catch (e: CancellationException) {
@@ -306,6 +317,20 @@ class NovelImageGetter(
         }
     }
 
+    /**
+     * The picture fetched and prepared, or null for nothing to draw. A cancel can drop prepare's result as its
+     * IO dispatch returns, so the reader it opened is kept out here to be closed.
+     */
+    private suspend fun fetchLanded(imageUrl: String, retry: Boolean = false): Landed? {
+        var opened: TileReader? = null
+        return try {
+            fetch(imageUrl, retry)?.let { prepare(imageUrl, it) { reader -> opened = reader } }
+        } catch (e: CancellationException) {
+            opened?.close()
+            throw e
+        }
+    }
+
     /** A fetched picture sized for its box, with the reader for its slices when it is worth reading in parts. */
     private class Landed(val picture: Drawable, val box: PictureBox?, val reader: TileReader?)
 
@@ -313,27 +338,30 @@ class NovelImageGetter(
      * Off the main thread, since both read the cached file: the picture's size at the source, and the
      * reader for its slices, opened only for a picture the loader had to shrink. Null for nothing to draw.
      */
-    private suspend fun prepare(imageUrl: String, drawable: Drawable): Landed? = withIOContext {
-        val bounds = sourceBoundsOf(imageUrl)
-        val box = bounds?.let { (width, height) -> pictureBox(width, height, contentWidth, density, maxPictureHeight) }
-        val picture = fitted(drawable, box) ?: return@withIOContext null
-        val slice = box != null && bounds != null && worthSlicing(bounds.first, picture.intrinsicWidth, box.width)
-        val reader = if (slice) readerFor(imageUrl) else null
-        val standIn = if (reader != null && box != null) {
-            smallStandIn(reader, box) { options ->
-                cachedFile(imageUrl)?.let { BitmapFactory.decodeFile(it.path, options) }
+    private suspend fun prepare(imageUrl: String, drawable: Drawable, onOpened: (TileReader) -> Unit): Landed? =
+        withIOContext {
+            val file = cachedFile(imageUrl)
+            val bounds = sourceBoundsOf(file)
+            val box = bounds?.let { (width, height) ->
+                pictureBox(width, height, contentWidth, density, maxPictureHeight)
             }
-        } else {
-            null
-        }
-        // The loader keeps its own copy of what it decoded, so letting ours go frees nothing until it drops it.
-        if (standIn != null) {
-            context.imageLoader.memoryCache?.let { cache ->
-                cache.keys.filter { it.key == imageUrl }.forEach(cache::remove)
+            val picture = fitted(drawable, box) ?: return@withIOContext null
+            val slice = box != null && bounds != null && worthSlicing(bounds.first, picture.intrinsicWidth, box.width)
+            val reader = if (slice) file?.let(TileReader::of)?.also(onOpened) else null
+            val standIn = if (reader != null && box != null) {
+                smallStandIn(reader, box) { options -> BitmapFactory.decodeFile(file?.path, options) }
+            } else {
+                null
             }
+            // The loader keeps its own copy of what it decoded, so letting ours go frees nothing until it drops it.
+            if (standIn != null) {
+                val key = novelImageCacheKey(imageUrl)
+                context.imageLoader.memoryCache?.let { cache ->
+                    cache.keys.filter { it.key == key }.forEach(cache::remove)
+                }
+            }
+            Landed(standIn ?: picture, box, reader)
         }
-        Landed(standIn ?: picture, box, reader)
-    }
 
     /**
      * What a sliced picture draws under the slices it has not got yet, in place of the copy the loader
@@ -388,12 +416,10 @@ class NovelImageGetter(
         return TiledPicture(reader, box, standIn, scope, onTileReady = { redraw(wrapper) })
     }
 
-    /** Slices read from the file the fetch cached, which outlives the fetch itself. */
-    private fun readerFor(imageUrl: String): TileReader? = cachedFile(imageUrl)?.let(TileReader::of)
-
-    /** The file the fetch cached the picture in, or null once the cache has dropped it. */
+    /** The file the fetch cached the picture in, which outlives the fetch itself, or null once the cache has
+     *  dropped it. Slices and the picture's size are read from it. */
     private fun cachedFile(imageUrl: String): File? = runCatching {
-        context.imageLoader.diskCache?.openSnapshot(imageUrl)?.use { it.data.toFile() }
+        context.imageLoader.diskCache?.openSnapshot(novelImageCacheKey(imageUrl))?.use { it.data.toFile() }
     }.getOrNull()?.takeIf { it.exists() }
 
     private fun queueSwap(wrapper: DrawableWrapper, replacement: Drawable) {
@@ -466,7 +492,7 @@ class NovelImageGetter(
             redraw(wrapper)
             scope.launch {
                 // Through the same path as a first load, so a tall strip loaded by Retry is sliced too.
-                val landed = fetch(imageUrl, retry = true)?.let { prepare(imageUrl, it) }
+                val landed = fetchLanded(imageUrl, retry = true)
                 box.retrying = false
                 if (landed == null) {
                     redraw(wrapper)
@@ -509,13 +535,10 @@ class NovelImageGetter(
      * decode at 4096px a side, so a strip taller than that decodes narrower than the page draws it. Null when
      * the cache cannot answer, leaving the decoded copy's own size to stand in.
      */
-    private fun sourceBoundsOf(imageUrl: String): Pair<Int, Int>? {
-        val snapshot = runCatching { context.imageLoader.diskCache?.openSnapshot(imageUrl) }.getOrNull() ?: return null
-        val bounds = snapshot.use {
-            BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-                BitmapFactory.decodeFile(it.data.toFile().path, this)
-            }
+    private fun sourceBoundsOf(file: File?): Pair<Int, Int>? {
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+            BitmapFactory.decodeFile(file?.path ?: return null, this)
         }
         return (bounds.outWidth to bounds.outHeight).takeIf { (width, height) -> width > 0 && height > 0 }
     }

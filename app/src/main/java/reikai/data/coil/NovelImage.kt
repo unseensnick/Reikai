@@ -20,9 +20,14 @@ import java.io.FileNotFoundException
 /** Coil model for a picture in a novel chapter, fetched with its own source's client and headers. */
 data class NovelImage(val url: String, val sourceId: String?)
 
-/** Keyed by address alone, so the picture is one cache entry whichever chapter or mode asks for it. */
+/**
+ * The key a chapter picture is cached under, in memory and on disk: its address alone, so the picture is one
+ * cache entry whichever chapter or mode asks for it. The text renderer reads the stored entry by it too.
+ */
+fun novelImageCacheKey(url: String): String = url
+
 class NovelImageKeyer : Keyer<NovelImage> {
-    override fun key(data: NovelImage, options: Options): String = data.url
+    override fun key(data: NovelImage, options: Options): String = novelImageCacheKey(data.url)
 }
 
 class NovelImageFetcher(
@@ -58,8 +63,8 @@ suspend fun fetchNovelImage(
     readCache: Boolean,
     writeCache: Boolean,
 ): SourceFetchResult {
-    val key = image.url
-    val isLocalPicture = LocalNovelSource.isPictureAddress(key)
+    val key = novelImageCacheKey(image.url)
+    val isLocalPicture = LocalNovelSource.isPictureAddress(image.url)
     // Before the cache, which keys by address alone: another source's chapter naming a book's picture gets nothing.
     if (isLocalPicture && !LocalNovelSource.isLocal(image.sourceId)) throw noLocalPicture()
     if (readCache) diskCache?.openSnapshot(key)?.let { return it.toResult(diskCache, key, null, DataSource.DISK) }
@@ -67,7 +72,7 @@ suspend fun fetchNovelImage(
 
     // Stored in the cache like a fetched one, since the text renderer reads its size and slices from that file.
     if (isLocalPicture) {
-        val picture = requests.localPicture(key, image.sourceId) ?: throw noLocalPicture()
+        val picture = requests.localPicture(image.url, image.sourceId) ?: throw noLocalPicture()
         return stored(cache, key, picture.mime, DataSource.DISK, Buffer().write(picture.bytes))
     }
     val response = requests.forSource(image.sourceId).newCall(image.url).awaitSuccess()

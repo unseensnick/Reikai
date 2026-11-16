@@ -75,8 +75,7 @@ internal fun worthSlicing(sourceWidth: Int, decodedWidthPx: Int, drawnWidthPx: I
  */
 internal fun inlineSampleSize(sourceWidth: Int, sourceHeight: Int, columnPx: Int, maxSidePx: Int): Int {
     if (sourceWidth <= 0 || sourceHeight <= 0) return 1
-    var sample = 1
-    if (columnPx > 0) while (sourceWidth / (sample * 2) >= columnPx) sample *= 2
+    var sample = tileSampleSize(sourceWidth, columnPx)
     if (maxSidePx > 0) while (sourceWidth / sample > maxSidePx || sourceHeight / sample > maxSidePx) sample *= 2
     return sample
 }

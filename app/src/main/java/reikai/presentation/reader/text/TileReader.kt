@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import java.io.Closeable
 import java.io.File
 
@@ -14,30 +16,34 @@ import java.io.File
  */
 internal class TileReader private constructor(private val decoder: BitmapRegionDecoder) : Closeable {
 
-    val sourceWidth: Int get() = decoder.width
-    val sourceHeight: Int get() = decoder.height
+    // Read once: the decoder's size getters take the lock a region decode holds, so reading them as the
+    // picture draws waited on the main thread for a whole slice, and they throw once it is recycled.
+    val sourceWidth: Int = decoder.width
+    val sourceHeight: Int = decoder.height
 
     /** The picture's [rows], or null when the source is gone: a cached file the cache has since dropped. */
     fun decode(rows: IntRange, sampleSize: Int): Bitmap? {
         if (rows.isEmpty()) return null
-        val region = Rect(0, rows.first, decoder.width, rows.last + 1)
+        val region = Rect(0, rows.first, sourceWidth, rows.last + 1)
         val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
         return runCatching { decoder.decodeRegion(region, options) }.getOrNull()
     }
 
+    /** Off the caller's thread, since recycling waits for a slice still decoding. */
     override fun close() {
-        runCatching { decoder.recycle() }
+        Dispatchers.IO.asExecutor().execute { runCatching { decoder.recycle() } }
     }
 
     companion object {
         // The decoder copies the stream in whole, so it can be closed at once.
+        @Suppress("DEPRECATION")
         fun of(file: File): TileReader? = open { file.inputStream().use { BitmapRegionDecoder.newInstance(it, false) } }
 
+        @Suppress("DEPRECATION")
         fun of(bytes: ByteArray): TileReader? = open {
             BitmapRegionDecoder.newInstance(bytes, 0, bytes.size, false)
         }
 
-        @Suppress("DEPRECATION")
         private fun open(decoder: () -> BitmapRegionDecoder?): TileReader? =
             runCatching { decoder()?.let(::TileReader) }.getOrNull()
     }

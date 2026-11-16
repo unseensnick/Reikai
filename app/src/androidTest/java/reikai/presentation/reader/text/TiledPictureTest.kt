@@ -102,6 +102,8 @@ class TiledPictureTest {
         instrumentation.runOnMainSync { picture.onVisible(topPx, bottomPx) }
         val deadline = System.currentTimeMillis() + TIMEOUT_MS
         while (held(picture).isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(SAMPLE_MS)
+        // An empty set passes every bound and every disjointness the cases check, so none arriving is a failure.
+        check(held(picture).isNotEmpty()) { "no slice arrived for $topPx to $bottomPx" }
         // Whatever else is wanted lands in the same pass, which one more sample covers.
         Thread.sleep(SAMPLE_MS * 4)
     }

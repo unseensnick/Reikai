@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
@@ -93,39 +94,40 @@ class NovelTextRenderer(
         val spacingPx = (paragraphSpacing * textSizePx).toInt()
         val indentPx = (paragraphIndent * textSizePx).toInt()
 
-        return scope.launch {
-            val imageGetter = NovelImageGetter(
-                context = context,
-                scope = pictureScope,
-                contentWidth = contentWidth,
-                maxPictureHeight = maxPictureHeight,
-                sourceId = sourceId,
-                textSizePx = textSizePx,
-                textColor = { block.chunkViews.firstOrNull()?.currentTextColor ?: Color.GRAY },
-                resolveView = block::chunkViewFor,
-                onImagesLanded = { views, swapIn, allLanded ->
-                    remeasureForImages(views, selectable, block, holdAcross, swapIn)
-                    // After the text is set: a re-measure sets a copy of it, which is where the pictures are.
-                    block.collectTiledPictures()
-                    // Only once all have, since a saved position is landed as soon as this clears, and the
-                    // chapter is still growing while any picture waits. A superseded render's images
-                    // finishing says nothing about this render's.
-                    if (allLanded && token == block.renderToken) block.imagesLoading = false
-                    // A layout is what re-checks the chapter, and none may follow: nothing arrived, or a
-                    // re-set text kept its height, which a TextView only redraws.
-                    block.container.requestLayout()
-                },
-            )
+        val imageGetter = NovelImageGetter(
+            context = context,
+            scope = pictureScope,
+            contentWidth = contentWidth,
+            maxPictureHeight = maxPictureHeight,
+            sourceId = sourceId,
+            textSizePx = textSizePx,
+            textColor = { block.chunkViews.firstOrNull()?.currentTextColor ?: Color.GRAY },
+            resolveView = block::chunkViewFor,
+            onImagesLanded = { views, swapIn, allLanded ->
+                remeasureForImages(views, selectable, block, holdAcross, swapIn)
+                // After the text is set: a re-measure sets a copy of it, which is where the pictures are.
+                block.collectTiledPictures()
+                // Only once all have, since a saved position is landed as soon as this clears, and the
+                // chapter is still growing while any picture waits. A superseded render's images
+                // finishing says nothing about this render's.
+                if (allLanded && token == block.renderToken) block.imagesLoading = false
+                // A layout is what re-checks the chapter, and none may follow: nothing arrived, or a
+                // re-set text kept its height, which a TextView only redraws.
+                block.container.requestLayout()
+            },
+        )
+        // A render dropped before its text is shown never has its stored pictures collected to close with it.
+        var shown = false
 
+        // On the render's own picture scope, so a newer render or the chapter leaving cancels the parse too.
+        return pictureScope.launch {
             val spannable = withContext(Dispatchers.Default) {
                 // The normalising walks and copies the whole chapter, which for a downloaded one with its
                 // images inlined is megabytes, so it belongs here rather than on the caller's thread.
-                val spanned = Html.fromHtml(
-                    normalizeHtmlForRendering(html, baseUrl),
-                    Html.FROM_HTML_MODE_LEGACY,
-                    imageGetter,
-                    NovelChapterTags,
-                )
+                val normalized = normalizeHtmlForRendering(html, baseUrl)
+                ensureActive()
+                val spanned = Html.fromHtml(normalized, Html.FROM_HTML_MODE_LEGACY, imageGetter, NovelChapterTags)
+                ensureActive()
                 SpannableStringBuilder(spanned)
                     .also { collapseBlankLines(it) }
                     .also { resizeSizedText(it) }
@@ -160,6 +162,7 @@ class NovelTextRenderer(
                 params?.let { p -> chunks.map { PrecomputedTextCompat.create(it, p) } }
             }
             if (token != block.renderToken || block.discarded) return@launch
+            shown = true
 
             block.clearSelections()
             // The views are styled by now, and a picture's span reads their spacing when it is laid out.
@@ -184,7 +187,7 @@ class NovelTextRenderer(
             // A chapter read offline has its pictures already, so its tall ones are collected here.
             block.collectTiledPictures()
             onTextSet()
-        }
+        }.also { render -> render.invokeOnCompletion { if (!shown) imageGetter.closeInlinePictures() } }
     }
 
     /**

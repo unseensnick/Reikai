@@ -49,7 +49,6 @@ class NovelBoundaryFailureView(context: Context, @ColorInt val textColor: Int) :
 
     fun bind(message: String?, onRetry: () -> Unit) {
         failure = Failure(message, onRetry)
-        retrying = false
     }
 
     @Composable
