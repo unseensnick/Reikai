@@ -267,6 +267,12 @@ class EpubWriterTest {
             listOf("#n", "#x")
     }
 
+    /** Both readers keep it, since a scheme's case does not matter to a web address. */
+    @Test
+    fun `a web link spelled in capitals stays a link`() = runTest {
+        firstChapter("<p><a href=\"HTTPS://example.com/x\">l</a></p>") shouldContain "href=\"HTTPS://example.com/x\""
+    }
+
     @Test
     fun `a target named by xml id gets the id its link names`() = runTest {
         firstChapter(linked) shouldContain "<p id=\"x\">X</p>"

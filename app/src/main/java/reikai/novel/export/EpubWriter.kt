@@ -7,6 +7,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Entities
+import reikai.novel.content.NovelChapterAddress
 import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.content.RenderTarget
 import reikai.novel.content.anchorTarget
@@ -116,7 +117,7 @@ class EpubWriter(private val includePictures: Boolean = true) {
         // Every target is settled before any link goes, since a target can itself be a link that goes.
         val dropped = body.select("a[href]").filter { link ->
             val href = link.attr("href")
-            if (href.startsWith("http")) return@filter false
+            if (NovelChapterAddress.isWebAddress(href)) return@filter false
             val fragment = href.takeIf { it.startsWith('#') }?.substring(1)
             val target = fragment?.let { anchorTarget(body, it) } ?: return@filter true
             if (!target.hasAttr("id")) {
