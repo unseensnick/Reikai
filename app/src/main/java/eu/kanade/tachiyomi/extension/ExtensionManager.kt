@@ -372,7 +372,7 @@ class ExtensionManager(
         withUIContext {
             untold.forEach {
                 context.toast(
-                    context.stringResource(MR.strings.repo_key_changed_toast, it.name, it.servedName),
+                    context.stringResource(MR.strings.repo_key_changed_toast, it.name),
                     Toast.LENGTH_LONG,
                 )
             }
