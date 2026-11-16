@@ -1,10 +1,15 @@
 package reikai.util
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import androidx.annotation.DrawableRes
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
+import eu.kanade.tachiyomi.R
 import io.kotest.matchers.shouldBe
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,6 +55,34 @@ class LauncherIconsTest {
         shadowOf(context as Application).nextStartedActivity.component shouldBe
             LauncherIcon.FLAME_RE_NIGHTLY.component(context)
     }
+
+    @Test
+    fun `a switch re-badges a notification already up with the new logo`() {
+        post(7, R.drawable.ic_reikai)
+
+        context.rebadgeNotifications(LauncherIcon.FLAME_RE_DEV)
+
+        iconOf(7) shouldBe R.drawable.ic_logo_flame_re
+    }
+
+    @Test
+    fun `a switch leaves a notification with its own icon alone`() {
+        post(8, android.R.drawable.stat_sys_download)
+
+        context.rebadgeNotifications(LauncherIcon.FLAME_RE_DEV)
+
+        iconOf(8) shouldBe android.R.drawable.stat_sys_download
+    }
+
+    private val notifications get() = context.getSystemService(NotificationManager::class.java)
+
+    private fun post(id: Int, @DrawableRes icon: Int) {
+        notifications.createNotificationChannel(NotificationChannel("test", "test", NotificationManager.IMPORTANCE_LOW))
+        notifications.notify(id, NotificationCompat.Builder(context, "test").setSmallIcon(icon).build())
+    }
+
+    @Suppress("DEPRECATION")
+    private fun iconOf(id: Int) = notifications.activeNotifications.single { it.id == id }.notification.icon
 
     @Test
     fun `every icon's alias is in the manifest`() {

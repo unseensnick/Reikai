@@ -1,6 +1,8 @@
 package reikai.util
 
 import android.app.ActivityManager
+import android.app.Notification
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -14,7 +16,6 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import mihon.app.di.appGraph
 import mihon.core.metro.AppCoroutineScope
 import tachiyomi.core.common.util.lang.launchIO
 
@@ -162,9 +163,10 @@ enum class LauncherIcon(
 
     enum class Scheme { STABLE, NIGHTLY, DEV, MIHON_LIGHT, MIHON_DARK }
 
+    // Class.getPackageName needs API 31, so the package comes off the class name.
     fun component(context: Context) = ComponentName(
         context.packageName,
-        "${MainActivity::class.java.packageName}.$alias",
+        "${MainActivity::class.java.name.substringBeforeLast('.')}.$alias",
     )
 }
 
@@ -175,23 +177,51 @@ class LauncherIconState(
     private val context: Context,
     @AppCoroutineScope private val scope: CoroutineScope,
 ) {
-    val shown: StateFlow<LauncherIcon?>
-        field = MutableStateFlow<LauncherIcon?>(null)
+    val shown: StateFlow<LauncherIcon?> get() = Shown
 
     init {
-        scope.launchIO { shown.value = context.launcherIcon() }
+        scope.launchIO { Shown.value = context.launcherIcon() }
     }
 
     // On the app scope: the old task closes partway through the switch, and the switch must still finish.
     fun pick(icon: LauncherIcon) {
-        shown.value = icon
-        scope.launchIO { context.setLauncherIcon(icon) }
+        Shown.value = icon
+        scope.launchIO {
+            context.setLauncherIcon(icon)
+            context.rebadgeNotifications(icon)
+        }
+    }
+
+    companion object {
+        // Process-wide so a notification reads it without the graph; only this class writes it.
+        private val Shown = MutableStateFlow<LauncherIcon?>(null)
+
+        internal val shownNow: LauncherIcon? get() = Shown.value
     }
 }
 
 /** A notification's small icon: the shown design's logo, or the original's until the launcher has been read. */
+@Suppress("UnusedReceiverParameter")
 val Context.notificationIcon: Int
-    @DrawableRes get() = (appGraph.launcherIconState.shown.value?.design ?: LauncherIcon.Design.CURRENT).logo
+    @DrawableRes get() = (LauncherIconState.shownNow?.design ?: LauncherIcon.Design.CURRENT).logo
+
+/**
+ * Re-posts the notifications up now that wear a design's logo with [icon]'s instead, since a notification keeps the
+ * icon it was posted with. Only the icon changes, and none of them sounds again.
+ */
+internal fun Context.rebadgeNotifications(icon: LauncherIcon) {
+    val logos = LauncherIcon.Design.entries.map { it.logo }.toSet()
+    val manager = getSystemService(NotificationManager::class.java)
+    // Notification.icon, not smallIcon: reading an Icon's resource needs API 28.
+    @Suppress("DEPRECATION")
+    manager.activeNotifications.filter { it.notification.icon in logos }.forEach {
+        val rebadged = Notification.Builder.recoverBuilder(this, it.notification)
+            .setSmallIcon(icon.design.logo)
+            .setOnlyAlertOnce(true)
+            .build()
+        manager.notify(it.tag, it.id, rebadged)
+    }
+}
 
 /** The icon the launcher shows now. Package manager calls are IPC, so call this off the main thread. */
 fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { isEnabled(it) }
