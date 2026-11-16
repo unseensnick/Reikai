@@ -1138,17 +1138,7 @@ class ReaderViewModel(
         // along on the sibling, since two sources of one series count differently. Read fresh, as the
         // novel finish does: the chapters loaded at open miss a copy unmarked or fetched since.
         val readChapter = readerChapter.chapter
-        val duplicateUnreadChapters = groupChapters()
-            .duplicatesOfRead(
-                readChapter,
-                groupCopyIds(setOf(readChapter.id)),
-                numberOf = { it.chapterNumber },
-                nameOf = { it.name },
-                idOf = { it.id },
-                originOf = { it.scanlator },
-                ownerOf = { it.mangaId },
-                markOf = markOf(),
-            )
+        val duplicateUnreadChapters = duplicatesOfReadInGroup(readChapter)
             // RK: a copy on a source in incognito is not written, as its own chapter would not be
             .filterNot { it.read || incognito.of(it.mangaId) }
         // RK --> kept as chapters until written, so the source's own tracker hears which entry each is in
@@ -1529,13 +1519,11 @@ class ReaderViewModel(
     // instances for the same row, and a chapter the navigation list skipped (read, with skip-read on)
     // is only in the sheet's. A dialog action therefore has to update every copy it finds, or the change
     // shows in one list and not the other, or silently does nothing for a read chapter.
-    private fun chapterCopies(chapterId: Long) = if (!chapterListsReady) {
+    // One pass over each list, since a select-all on a merged series asks for thousands of ids.
+    private fun chapterCopies(chapterIds: Set<Long>) = if (!chapterListsReady) {
         emptyList()
     } else {
-        listOfNotNull(
-            chapterList.find { it.chapter.id == chapterId },
-            fullChapterList.find { it.chapter.id == chapterId },
-        )
+        (chapterList.asSequence() + fullChapterList.asSequence()).filter { it.chapter.id in chapterIds }.toList()
     }
 
     // RK: every source's copy of a chapter within the merge group, so a read or bookmark from the chapter
@@ -1543,15 +1531,14 @@ class ReaderViewModel(
     // from. Reads the stored stitch, which is the one place that decides what "the same chapter" means:
     // matching on the number instead reached a chapter several along on a sibling source, and collapsed
     // every gallery source's chapter 1 into one. Falls back to the chapters alone when unmerged.
-    private fun groupCopyIds(chapterIds: Set<Long>): Set<Long> {
-        val stitch = mergedGroup?.takeIf { it.isMerged }?.stitch ?: return chapterIds
-        return expandToUnits(chapterIds, stitch).ifEmpty { chapterIds }
-    }
+    private fun groupCopyIds(
+        chapterIds: Set<Long>,
+    ): Set<Long> = expandToUnits(chapterIds, mergedGroup?.stitch.orEmpty())
 
     /** Set the bookmark of chapters picked in the chapter dialog. */
     fun toggleBookmark(chapterIds: List<Long>, bookmarked: Boolean) {
         val ids = groupCopyIds(chapterIds.toSet())
-        val copies = ids.flatMap { chapterCopies(it) }
+        val copies = chapterCopies(ids)
         if (copies.isEmpty()) return
         copies.forEach { copy -> copy.update { it.copy(bookmark = bookmarked) } }
         // Kept in step so the sheet and the app bar cannot disagree about the chapter being read.
@@ -1585,10 +1572,7 @@ class ReaderViewModel(
 
     // RK --> each sheet row's stored page count, read fresh because the chapters the reader holds carry the
     // count as it stood at open, so the sheet can say "Page 6/38" as the details list does.
-    suspend fun sheetPageCounts(): Map<Long, Int> =
-        (mergedGroup?.mangaById?.keys ?: listOfNotNull(manga?.id))
-            .flatMap { getChaptersByMangaId.await(it) }
-            .associate { it.id to it.pageCount }
+    suspend fun sheetPageCounts(): Map<Long, Int> = groupChapters().associate { it.id to it.pageCount }
     // RK <--
 
     // RK -->
@@ -1599,7 +1583,7 @@ class ReaderViewModel(
      *  the chapters loaded at open do not know what this session has marked since. */
     fun setChapterReadStatus(chapters: List<Chapter>, read: Boolean) {
         val ids = groupCopyIds(chapters.mapTo(HashSet()) { it.id })
-        ids.forEach { id -> chapterCopies(id).forEach { copy -> copy.update { it.copy(read = read) } } }
+        chapterCopies(ids).forEach { copy -> copy.update { it.copy(read = read) } }
         appScope.launch {
             val targets = groupChapters().filter { it.id in ids }.ifEmpty { chapters }
             val open = groupCopyIds(setOfNotNull(getCurrentChapter()?.chapter?.id))
@@ -1779,17 +1763,7 @@ class ReaderViewModel(
         val duplicates = if (!withDuplicates) {
             emptyList()
         } else {
-            groupChapters()
-                .duplicatesOfRead(
-                    chapter,
-                    groupCopyIds(setOf(chapter.id)),
-                    numberOf = { it.chapterNumber },
-                    nameOf = { it.name },
-                    idOf = { it.id },
-                    originOf = { it.scanlator },
-                    ownerOf = { it.mangaId },
-                    markOf = markOf(),
-                )
+            duplicatesOfReadInGroup(chapter)
                 // A private source's copy is not marked read, so it stays too
                 .filterNot { incognito.of(it.mangaId) }
                 // Finishing a chapter trims before its own copies are marked read, so they may not be yet
@@ -1799,6 +1773,19 @@ class ReaderViewModel(
             downloadManager.enqueueChaptersToDelete(owned, mangaForChapterId(ownerId))
         }
     }
+
+    // The copies a finish of [chapter] marks read and the trim deletes with it, one call so the two agree
+    private suspend fun duplicatesOfReadInGroup(chapter: Chapter): List<Chapter> =
+        groupChapters().duplicatesOfRead(
+            chapter,
+            groupCopyIds(setOf(chapter.id)),
+            numberOf = { it.chapterNumber },
+            nameOf = { it.name },
+            idOf = { it.id },
+            originOf = { it.scanlator },
+            ownerOf = { it.mangaId },
+            markOf = markOf(),
+        )
     // RK <--
 
     /**
