@@ -899,15 +899,20 @@
    * the throttle holds back is sent once the interval has passed, or a scroll stopping inside it left
    * the rail on a place the reader had already left. A chapter finishing, or a different chapter, is
    * never held: the last value sent belongs to the chapter before, so it cannot stand for this one.
+   * now sends past the throttle and drops whatever it held.
    */
-  function reportProgress(s) {
+  function reportProgress(s, now) {
     // The host drops a report sent before ready, and one remembered as sent is never sent again.
     if (!ready) return;
+    if (now) {
+      clearTimeout(heldReport);
+      heldReport = null;
+    }
     var sameChapter = s.id === lastReportedId;
     var finishing = s.progress >= 1 && lastReported !== 1;
     if (sameChapter && !finishing && s.progress === lastReported) return;
     var wait = REPORT_INTERVAL_MS - (Date.now() - lastReportedAt);
-    if (sameChapter && !finishing && wait > 0) {
+    if (!now && sameChapter && !finishing && wait > 0) {
       if (!heldReport) heldReport = setTimeout(function () { heldReport = null; onScroll(); }, wait);
       return;
     }
@@ -932,7 +937,11 @@
       return;
     }
     var s = state();
-    if (s.id !== null) bridge().onProgressSettled(DOCUMENT_TOKEN, s.id, s.progress);
+    if (s.id === null) return;
+    // The settled report is the scroll's last: a live one still held back is sent now, ahead of it, so
+    // neither the throttle nor the frame after can land one behind it and mark the place unsettled again.
+    reportProgress(s, true);
+    bridge().onProgressSettled(DOCUMENT_TOKEN, s.id, s.progress);
   }
 
   // endregion
