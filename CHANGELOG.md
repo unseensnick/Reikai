@@ -98,6 +98,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Swiping a novel chapter read or bookmarked while selecting now ends the selection, as on manga.**
 - **A novel page that fails to load in the page selector now says why, and picking it again retries it.**
 - **A partly read novel chapter's percent now follows the app's language.**
+- **Two quick chapter sort or filter picks no longer undo each other.**
 
 ### Merged series
 
@@ -182,6 +183,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
 - **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
 - **The manga reader's settings sheet now has Volume keys, Invert volume keys and the scroll amount.**
+- **Keyboards and page-turner remotes now turn novel pages and open the reader menu.**
 
 #### Changed
 
@@ -295,6 +297,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel reader's WebView mode no longer tracks the wrong chapter after a rail drag or a chapter step.**
 - **Top and bottom now offers only the tap zone inversions that change it.**
 - **TalkBack now names the novel reader's theme swatches and says which one is in use.**
+- **Rotating with a picture at the top of the screen, loaded or failed, now keeps your place in the novel reader's WebView mode.**
+- **A scroll in the novel reader's WebView mode now always saves the place it stopped at.**
+- **Reload from source now fetches a novel chapter's pictures again.**
+- **TalkBack now reads a novel picture that failed to load, and its Retry.**
 
 ### Statistics
 
