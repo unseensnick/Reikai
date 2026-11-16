@@ -114,7 +114,7 @@ class NovelDownloadManagerDrainTest {
     private val writtenNames = mutableListOf<String>()
     private var writeDispatcher: CoroutineDispatcher? = null
     private val saver = mockk<NovelChapterSaver> {
-        coEvery { prepare(any(), any()) } answers { secondArg() }
+        coEvery { prepare(any(), any(), any()) } answers { secondArg() }
         coEvery { write(any(), any(), any()) } coAnswers {
             writeDispatcher = currentCoroutineContext()[CoroutineDispatcher]
             written += secondArg<NovelChapter>().id
@@ -272,7 +272,7 @@ class NovelDownloadManagerDrainTest {
     @Test
     fun `a slow chapter's images hold up no other source's write`() = runTest(io) {
         val images = CompletableDeferred<Unit>()
-        coEvery { saver.prepare(source, any()) } coAnswers {
+        coEvery { saver.prepare(source, any(), any()) } coAnswers {
             images.await()
             secondArg()
         }

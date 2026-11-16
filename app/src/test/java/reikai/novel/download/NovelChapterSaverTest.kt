@@ -102,6 +102,14 @@ class NovelChapterSaverTest {
         provider.readChapter(novel, alone) shouldBe "<p>new</p>"
     }
 
+    /** The reader shows a .txt chapter as written, so a tag in its prose is text and names nothing to fetch. */
+    @Test
+    fun `a plain-text chapter is saved as it came, tag-like text included`() = runTest {
+        val text = "a & b <img src=\"x.png\">"
+
+        saver.prepare(mockk { every { id } returns "src" }, text, "/c/1.txt") shouldBe text
+    }
+
     private fun chapter(id: Long, url: String) = NovelChapter(
         id = id, novelId = 1L, url = url, name = "Chapter", read = false, bookmark = false,
         lastTextProgress = 0L, chapterNumber = 1.0, sourceOrder = 0L,

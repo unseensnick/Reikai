@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.util.system.NetworkState
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -29,6 +30,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -76,11 +78,13 @@ class NovelDownloadManagerFailureTest {
     private val uninstalledChapter = chapter.copy(id = 20L, novelId = 2L, url = "u20")
     private val unloaded = novel.copy(id = 3L, source = "broken")
     private val unloadedChapter = chapter.copy(id = 30L, novelId = 3L, url = "u30")
+    private val alsoUnloaded = unloadedChapter.copy(id = 31L, url = "u31")
     private val chapterRepo = mockk<NovelChapterRepository> {
         coEvery { getById(10L) } returns chapter
         coEvery { getById(11L) } returns sameName
         coEvery { getById(20L) } returns uninstalledChapter
         coEvery { getById(30L) } returns unloadedChapter
+        coEvery { getById(31L) } returns alsoUnloaded
         coEvery { getById(12L) } returns queuedLater
     }
     private val loadFailures = MutableStateFlow(
@@ -112,6 +116,12 @@ class NovelDownloadManagerFailureTest {
         coEvery { it.nameOf("broken") } returns "Broken"
     }
 
+    private val installer = mockk<LnPluginInstaller> {
+        coEvery { ensureLoaded() } just runs
+        coEvery { retryLoad(any()) } just runs
+        every { failures } returns loadFailures
+    }
+
     private val manager = NovelDownloadManager(
         scope = testAppScope(),
         context = context,
@@ -124,15 +134,12 @@ class NovelDownloadManagerFailureTest {
             coEvery { getById(3L) } returns unloaded
         },
         sourceManager = sourceManager,
-        installer = mockk {
-            coEvery { ensureLoaded() } just runs
-            every { failures } returns loadFailures
-        },
+        installer = installer,
         downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         sourcePreferences = ReikaiSourcePreferences(InMemoryPreferenceStore()),
         novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
         saver = mockk {
-            coEvery { prepare(any(), any()) } answers { secondArg() }
+            coEvery { prepare(any(), any(), any()) } answers { secondArg() }
             coEvery { write(any(), any(), any()) } returns NovelChapterSaver.SaveResult.NAME_TAKEN
         },
         securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
@@ -223,6 +230,16 @@ class NovelDownloadManagerFailureTest {
         manager.runQueue(onProgress = {}, onError = { _, _, error, _ -> reason = error })
 
         reason shouldBe "Malformed"
+    }
+
+    /** A run is asked for, as a reader or details Retry is, so it does not wait out the automatic load's pause. */
+    @Test
+    fun `a chapter whose installed plugin failed to load loads the plugin again first`() = runTest {
+        manager.downloadChapters(listOf(unloadedChapter, alsoUnloaded))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+
+        coVerify(exactly = 1) { installer.retryLoad("broken") }
     }
 
     /** The next run's plugin load retries it, so a Resume can still fetch it. */

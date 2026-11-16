@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSource
 
@@ -24,14 +25,19 @@ class NovelChapterSaver(
 ) {
 
     suspend fun save(novel: Novel, chapter: NovelChapter, source: NovelSource, html: String): SaveResult =
-        write(novel, chapter, prepare(source, html))
+        write(novel, chapter, prepare(source, html, chapter.url))
 
     /**
      * [html] with its images embedded so the saved file reads offline (see [inlineChapterImages]). Apart from
-     * [write] because it fetches every image, and the download lanes write one at a time.
+     * [write] because it fetches every image, and the download lanes write one at a time. A plain-text chapter,
+     * which the reader shows as written by its name ([NovelHtmlUtils.isPlainTextChapter]), is saved as it came.
      */
-    suspend fun prepare(source: NovelSource, html: String): String =
-        if (html.isBlank()) html else inlineChapterImages(html, source.site, imageRequests.forSource(source.id))
+    suspend fun prepare(source: NovelSource, html: String, chapterUrl: String): String =
+        if (html.isBlank() || NovelHtmlUtils.isPlainTextChapter(chapterUrl)) {
+            html
+        } else {
+            inlineChapterImages(html, source.site, imageRequests.forSource(source.id))
+        }
 
     /** Writes [selfContained], from [prepare], as [chapter]'s downloaded copy. */
     suspend fun write(novel: Novel, chapter: NovelChapter, selfContained: String): SaveResult {

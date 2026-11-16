@@ -54,6 +54,7 @@ import reikai.domain.source.SourceTitlesRepository
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.describing
 import reikai.novel.source.EmptyChapterException
+import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.inOrderOf
 import reikai.util.runCatchingCancellable
@@ -62,6 +63,7 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
@@ -143,6 +145,9 @@ class NovelDownloadManager(
 
     /** Which source each queued novel reads from, filled as [claimNext] meets them. Under [claimLock]. */
     private val novelSources = HashMap<Long, String>()
+
+    /** The plugins this run loaded again past the installer's wait, so each is tried once per run. */
+    private val retriedPlugins = ConcurrentHashMap.newKeySet<String>()
 
     /**
      * Loads the saved queue on launch, off the main thread, behind anything queued meanwhile, as Mihon's
@@ -450,6 +455,7 @@ class NovelDownloadManager(
                 }
             } finally {
                 novelSources.clear()
+                retriedPlugins.clear()
             }
         }
     }
@@ -488,6 +494,18 @@ class NovelDownloadManager(
         }
     }
 
+    // A run is one the user or an update asked for, so a plugin whose load failed is tried again past the wait the
+    // installer keeps for screens, as a reader or details Retry tries it.
+    private suspend fun retriedSource(sourceId: String): NovelSource? {
+        if (installer.failures.value.values.none { it.pluginId == sourceId } ||
+            !retriedPlugins.add(sourceId)
+        ) {
+            return null
+        }
+        runCatchingCancellable { installer.retryLoad(sourceId) }
+        return sourceManager.get(sourceId)
+    }
+
     // A novel gone from the database still needs a lane: its row fails there, and "" is no real source.
     private suspend fun sourceOf(novelId: Long): String =
         novelSources.getOrPut(novelId) { novelRepo.getById(novelId)?.source.orEmpty() }
@@ -501,7 +519,7 @@ class NovelDownloadManager(
     ) {
         val next = claimed.download
         val novel = novelRepo.getById(next.novelId)
-        val source = novel?.let { sourceManager.get(it.source) }
+        val source = novel?.let { sourceManager.get(it.source) ?: retriedSource(it.source) }
         // The least delay the source declares binds its retries as well as its pacing.
         val minimumMs = source?.minimumRequestDelayMs ?: 0L
         // A source an update or an earlier run reached moments ago waits out its delay before this chapter too.
@@ -519,7 +537,7 @@ class NovelDownloadManager(
         )
         // No retry or Resume can fetch from a source that is gone, so the row fails at once and leaves the
         // saved queue, as Mihon's DownloadStore.restore drops a manga row whose source is missing. An
-        // installed plugin that failed to load keeps its row, since the next run's ensureLoaded retries it.
+        // installed plugin that failed to load again keeps its row, since the next run retries it.
         if (novel != null && source == null) {
             val loadFailure = installer.failures.value.describing(novel.source, context)
             val reason = loadFailure
@@ -552,7 +570,7 @@ class NovelDownloadManager(
                 ok = runCatchingCancellable {
                     if (novel == null || source == null || chapter == null) return@runCatchingCancellable false
                     val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
-                    val selfContained = saver.prepare(source, html)
+                    val selfContained = saver.prepare(source, html, next.url)
                     saveLock.withLock {
                         // Cancelled, or its novel deleted or renamed, while the fetch ran: nothing to write
                         dropped = _queueState.value.none { it.chapterId == next.chapterId }
