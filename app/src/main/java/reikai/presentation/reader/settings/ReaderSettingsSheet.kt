@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
@@ -318,6 +319,34 @@ internal fun ColumnScope.ReaderRailRows(onLeft: Preference<Boolean>, height: Pre
         steps = ReaderRanges.railHeightSteps,
         label = stringResource(MR.strings.pref_vertical_navigator_height),
         onChange = height::set,
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+}
+
+/**
+ * Volume-key paging and its direction, the same rows for either reader, plus how far a press moves
+ * where the running viewer [scrolls]: a paged one turns a whole page, so there is no distance to choose.
+ */
+@Composable
+internal fun ColumnScope.VolumeKeyRows(
+    enabled: Preference<Boolean>,
+    inverted: Preference<Boolean>,
+    scrollFraction: Preference<Float>,
+    scrolls: Boolean,
+) {
+    val volumeKeys by enabled.collectAsState()
+    CheckboxItem(label = stringResource(MR.strings.pref_read_with_volume_keys), pref = enabled)
+    if (!volumeKeys) return
+    CheckboxItem(label = stringResource(MR.strings.pref_read_with_volume_keys_inverted), pref = inverted)
+    if (!scrolls) return
+    val percentPref = remember(scrollFraction) { scrollFraction.scaled(ReaderRanges.PERCENT) }
+    val percent by percentPref.collectAsState()
+    SliderItem(
+        value = percent,
+        valueRange = ReaderRanges.volumeKeyScrollPercent,
+        label = stringResource(MR.strings.pref_volume_keys_scroll_amount),
+        valueString = "$percent%",
+        onChange = percentPref::set,
         pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
     )
 }

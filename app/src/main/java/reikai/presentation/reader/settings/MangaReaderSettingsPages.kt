@@ -301,6 +301,13 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel, v
     }
 
     CheckboxItem(label = stringResource(MR.strings.pref_read_with_long_tap), pref = preferences.readWithLongTap)
+    VolumeKeyRows(
+        enabled = preferences.readWithVolumeKeys,
+        inverted = preferences.readWithVolumeKeysInverted,
+        scrollFraction = preferences.readWithVolumeKeysScrollAmount,
+        // Only the classic long strip reads the distance; the high quality one scrolls half a screen.
+        scrolls = viewer.running() == RunningViewer.Webtoon,
+    )
 
     val showNavigator by preferences.showNavigator.collectAsState()
     CheckboxItem(label = stringResource(MR.strings.pref_show_progress_navigator), pref = preferences.showNavigator)

@@ -11,6 +11,8 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
+import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -64,9 +66,8 @@ class MangaReaderSheetRowsTest {
         }
     }
 
-    private fun webGpu(vertical: Boolean = false, continuous: Boolean = false) = mockk<WebGpuViewer>(relaxed = true) {
+    private fun webGpu(continuous: Boolean = false) = mockk<WebGpuViewer>(relaxed = true) {
         every { isContinuous } returns continuous
-        every { isVertical } returns vertical
     }
 
     private fun openTab(title: String) = compose.onNodeWithContentDescription(title).performClick()
@@ -82,7 +83,7 @@ class MangaReaderSheetRowsTest {
     /** The high quality renderer applies them as its page table, so they show there as everywhere. */
     @Test
     fun `the WebGPU renderer offers grayscale`() {
-        show(webGpu(vertical = false))
+        show(webGpu())
         openTab("Filters")
 
         compose.onNodeWithText("Grayscale").assertExists()
@@ -90,16 +91,16 @@ class MangaReaderSheetRowsTest {
 
     @Test
     fun `the WebGPU renderer offers inverted colours`() {
-        show(webGpu(vertical = false))
+        show(webGpu())
         openTab("Filters")
 
         compose.onNodeWithText("Inverted").assertExists()
     }
 
-    /** Dual pages stay on in this mode, and with no row here nothing could turn them off. */
+    /** Dual pages stay on in a paged mode whichever its direction, and only this row turns them off. */
     @Test
-    fun `WebGPU paged vertical offers dual page view`() {
-        show(webGpu(vertical = true))
+    fun `WebGPU paged offers dual page view`() {
+        show(webGpu())
 
         compose.onNodeWithText("Dual page view").assertExists()
     }
@@ -223,5 +224,54 @@ class MangaReaderSheetRowsTest {
         preferences.dualPageView.set(ReaderPreferences.DualPageView.ALWAYS)
 
         compose.onNodeWithText("Crop borders").assertDoesNotExist()
+    }
+
+    /** The novel sheet offers them too, so a manga reader need not leave the reader for Settings. */
+    @Test
+    fun `the Controls tab offers the volume keys`() {
+        show(null)
+        openTab("Controls")
+
+        compose.onNodeWithText("Volume keys").assertExists()
+    }
+
+    @Test
+    fun `the classic long strip offers the volume key scroll amount`() {
+        preferences.readWithVolumeKeys.set(true)
+
+        show(mockk<WebtoonViewer>(relaxed = true))
+        openTab("Controls")
+
+        compose.onNodeWithText("Volume key scroll amount").assertExists()
+    }
+
+    /** A press turns a whole page there, so there is no distance to choose. */
+    @Test
+    fun `a paged viewer offers no volume key scroll amount`() {
+        preferences.readWithVolumeKeys.set(true)
+
+        show(null)
+        openTab("Controls")
+
+        compose.onNodeWithText("Volume key scroll amount").assertDoesNotExist()
+    }
+
+    private fun continuous(useGap: Boolean) = mockk<WebGpuViewerContinuous>(relaxed = true) {
+        every { isContinuous } returns true
+        every { this@mockk.useGap } returns useGap
+    }
+
+    @Test
+    fun `WebGPU continuous vertical offers the page gap`() {
+        show(continuous(useGap = true))
+
+        compose.onNodeWithText("Gap").assertExists()
+    }
+
+    @Test
+    fun `WebGPU long strip offers no page gap`() {
+        show(continuous(useGap = false))
+
+        compose.onNodeWithText("Gap").assertDoesNotExist()
     }
 }

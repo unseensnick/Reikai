@@ -399,30 +399,12 @@ internal fun ColumnScope.NovelControlsPage(pages: ReaderSettingsPages.Novel) {
             ReaderRailRows(onLeft = preferences.readerRailOnLeft(), height = preferences.readerRailHeight())
         }
     }
-    val volumeKeys by preferences.readerUseVolumeButtons().collectAsState()
-    CheckboxItem(
-        label = stringResource(MR.strings.pref_read_with_volume_keys),
-        pref = preferences.readerUseVolumeButtons(),
+    VolumeKeyRows(
+        enabled = preferences.readerUseVolumeButtons(),
+        inverted = preferences.readerVolumeButtonsInverted(),
+        scrollFraction = preferences.readerVolumeButtonsFraction(),
+        scrolls = !pageLayout.isPaged,
     )
-    if (volumeKeys) {
-        CheckboxItem(
-            label = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
-            pref = preferences.readerVolumeButtonsInverted(),
-        )
-    }
-    // A press turns a whole page when paged, so there is no distance to choose.
-    if (volumeKeys && !pageLayout.isPaged) {
-        val percentPref = preferences.readerVolumeButtonsFraction().scaled(ReaderRanges.PERCENT)
-        val percent by percentPref.collectAsState()
-        SliderItem(
-            value = percent,
-            valueRange = ReaderRanges.volumeKeyScrollPercent,
-            label = stringResource(MR.strings.pref_volume_keys_scroll_amount),
-            valueString = "$percent%",
-            onChange = percentPref::set,
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
 }
 
 /** The tap layout, its inversion where it has something to invert, and the bottom layout's zone height. */
