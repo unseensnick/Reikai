@@ -33,6 +33,7 @@ import reikai.novel.source.defaultFilterValues
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import com.dokar.quickjs.QuickJs as DokarQuickJs
 
 /**
@@ -601,7 +602,7 @@ class HeadlessJsIntegrationTest {
         assertEquals("refused:false", "${if ("not the plugin's site" in got) "refused" else got}:${asked.get()}")
     }
 
-    /** A site that sends the page on to another site has that page refused: it is never loaded, and nothing comes back. */
+    /** A site that sends the page on to another site has that page refused: it is never loaded, and the call fails. */
     @Test
     fun aPageRedirectedOffThePluginsSiteIsNeverLoaded() = runBlocking {
         val asked = AtomicBoolean(false)
@@ -616,8 +617,79 @@ class HeadlessJsIntegrationTest {
             other.use { renderThroughPlugin(s.url(""), s.url("chapter"), null, timeoutMs = 2_000) }
         }
 
-        assertEquals("false:false:false", "$got:${asked.get()}")
+        assertEquals("rejected:false", "${rejectedOr(got)}:${asked.get()}")
     }
+
+    /** With no selector to wait on, a site's error page is the site refusing, so the call fails as LNReader's does. */
+    @Test
+    fun anErrorPageFailsACallWithNoSelector() = runBlocking {
+        val site = LoopbackServer { _, _ -> status(403, "<html><body><p>denied</p></body></html>") }
+        val got = site.use { renderThroughPlugin(it.url(""), it.url("chapter"), null) }
+
+        assertEquals("fetchViaWebview: HTTP 403", got)
+    }
+
+    /** A visitor check can answer 403 and then fill the page itself, so with a selector the text decides. */
+    @Test
+    fun anErrorPageThatFillsItsTextReachesAPluginWaitingOnIt() = runBlocking {
+        val site = LoopbackServer { _, _ ->
+            status(
+                403,
+                "<html><body><div id='text'></div><script>setTimeout(function(){" +
+                    "document.getElementById('text').innerHTML='<p>filled</p>';},500);</script></body></html>",
+            )
+        }
+        val got = site.use { renderThroughPlugin(it.url(""), it.url("chapter"), "#text p") }
+
+        assertEquals("true:true", got)
+    }
+
+    /** A page the WebView cannot load at all fails the call rather than coming back as a page. */
+    @Test
+    fun aPageThatCannotLoadFailsTheCall() = runBlocking {
+        val closed = LoopbackServer { _, _ -> "" }
+        val site = closed.url("")
+        val page = closed.url("chapter")
+        closed.close()
+        val got = renderThroughPlugin(site, page, null, timeoutMs = 5_000)
+
+        assertEquals("rejected", rejectedOr(got))
+    }
+
+    /**
+     * With no selector, a page that never finishes loading runs out of time as an error, as LNReader's does. The
+     * blank page a WebView starts on is complete at once, so it must not pass for the page asked for.
+     */
+    @Test
+    fun aPageThatNeverFinishesLoadingTimesOut() = runBlocking {
+        val site = LoopbackServer { _, _ ->
+            Thread.sleep(10_000)
+            LoopbackServer.ok("<html><body><p>late</p></body></html>", "text/html")
+        }
+        val got = site.use { renderThroughPlugin(it.url(""), it.url("chapter"), null, timeoutMs = 1_000) }
+
+        assertEquals("fetchViaWebview: timed out waiting for page", got)
+    }
+
+    /** A plugin that names a user agent has the site see it. */
+    @Test
+    fun aPluginsUserAgentReachesTheSite() = runBlocking {
+        val seen = AtomicReference<String?>()
+        val site = LoopbackServer { _, headers ->
+            seen.compareAndSet(null, headers.firstOrNull { it.startsWith("User-Agent:", ignoreCase = true) })
+            LoopbackServer.ok("<html><body><div id='text'><p>filled</p></div></body></html>", "text/html")
+        }
+        site.use { renderThroughPlugin(it.url(""), it.url("chapter"), null, userAgent = "ReikaiTestAgent/1") }
+
+        assertEquals("User-Agent: ReikaiTestAgent/1", seen.get())
+    }
+
+    private fun status(code: Int, body: String) =
+        "HTTP/1.1 $code Error\r\nContent-Type: text/html\r\nCache-Control: no-store\r\n" +
+            "Content-Length: ${body.toByteArray().size}\r\nConnection: close\r\n\r\n$body"
+
+    /** "rejected" for the call's own failure message, otherwise the answer as it came. */
+    private fun rejectedOr(got: String) = if (got.startsWith("fetchViaWebview: ")) "rejected" else got
 
     /** Runs a plugin on [site] whose parseChapter renders [page]; answers "ok:hasFilledText", or the refusal message. */
     private suspend fun renderThroughPlugin(
@@ -625,6 +697,7 @@ class HeadlessJsIntegrationTest {
         page: String,
         selector: String?,
         timeoutMs: Int = 15_000,
+        userAgent: String? = null,
     ): String {
         val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
         val plugin = """
@@ -638,7 +711,8 @@ class HeadlessJsIntegrationTest {
                 try {
                   var r = await fetchViaWebview(path, { waitForSelector: ${selector?.let {
             "'$it'"
-        } ?: "undefined"}, timeoutMs: $timeoutMs });
+        } ?: "undefined"}, timeoutMs: $timeoutMs,
+                    userAgent: ${userAgent?.let { "'$it'" } ?: "undefined"} });
                   return r.ok + ':' + (r.html.indexOf('"text"><p>filled</p>') >= 0);
                 } catch (e) { return String(e && e.message || e); }
               },

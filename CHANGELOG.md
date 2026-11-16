@@ -337,7 +337,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Light-novel plugins that fall back to a hidden browser page now load chapters from sites that check visitors first.** Downloads read them the same way, with no screen open.
+- **Light-novel plugins that fall back to a hidden browser page now load chapters from sites that check visitors first.** Downloads read them the same way, and a site that refuses the page shows an error, not an empty chapter.
 - **A light-novel plugin's page now has Clear cookies in its ⋮ menu, as an extension's page does.**
 - **Adding a repo at a plain http:// address now warns that anyone on your network can change what it serves.**
 

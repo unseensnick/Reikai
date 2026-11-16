@@ -2,7 +2,9 @@ package reikai.novel.host
 
 import android.content.Context
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import eu.kanade.tachiyomi.network.interceptor.isSameOrigin
@@ -48,33 +50,59 @@ internal class PluginPageRenderer(private val appContext: Context) {
     }
 
     private suspend fun renderOnMain(url: HttpUrl, request: PageRequest): RenderedPage? {
-        var rendererGone = false
+        // Why the page failed, as the WebView reports it; each one rejects the plugin's call, as upstream.
+        var failure: String? = null
+        val waitsForText = request.waitForSelector != null
         val webView = WebView(appContext).apply {
             setDefaultSettings()
+            request.userAgent?.takeIf { it.isNotBlank() }?.let { settings.userAgentString = it }
             webViewClient = object : WebViewClient() {
                 // Subframes are let through: a verification widget loads its own frame from another site.
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                     request.isForMainFrame && !request.url.toString().isOn(url)
 
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame) failure = failure ?: "fetchViaWebview: ${error.description}"
+                }
+
+                // With a selector the text decides, as upstream: a visitor check can answer 403, then fill the page.
+                override fun onReceivedHttpError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    response: WebResourceResponse,
+                ) {
+                    if (request.isForMainFrame && response.statusCode >= 400 && !waitsForText) {
+                        failure = failure ?: "fetchViaWebview: HTTP ${response.statusCode}"
+                    }
+                }
+
                 override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-                    rendererGone = true
+                    failure = failure ?: "fetchViaWebview: the page stopped rendering"
                     return true
                 }
             }
         }
         return try {
             webView.loadUrl(url.toString())
-            withTimeoutOrNull(request.timeoutMs.coerceIn(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS)) {
-                while (!webView.isReady(request.waitForSelector)) {
-                    // Only destroy may be called on a WebView whose renderer is gone.
-                    if (rendererGone) return@withTimeoutOrNull null
+            val page = withTimeoutOrNull(request.timeoutMs.coerceIn(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS)) {
+                // Checked before each poll: only destroy may be called on a WebView whose renderer is gone.
+                while (true) {
+                    failure?.let { throw LnPluginException(it) }
+                    if (webView.isReady(request.waitForSelector)) break
                     delay(POLL_MS)
                 }
                 delay(request.settleMs.coerceIn(0L, MAX_SETTLE_MS))
-                // A redirect the guard stopped leaves no page of the site loaded, which must not read as ok.
+                failure?.let { throw LnPluginException(it) }
+                // A redirect the guard stopped leaves no page of the site loaded.
                 val at = webView.url
-                if (rendererGone || at?.isOn(url) != true) return@withTimeoutOrNull null
+                if (at?.isOn(url) != true) throw LnPluginException("fetchViaWebview: the page left ${url.host}")
                 RenderedPage(ok = true, url = at, html = webView.getHtml(), title = webView.title.orEmpty())
+            }
+            // A selector that never fills is the plugin's ok false; a page that never finished loading is an error.
+            page ?: if (!waitsForText) {
+                throw LnPluginException("fetchViaWebview: timed out waiting for page")
+            } else {
+                null
             }
         } finally {
             webView.destroy()
@@ -94,9 +122,10 @@ internal class PluginPageRenderer(private val appContext: Context) {
         val waitForSelector: String? = null,
         val timeoutMs: Long = 15_000L,
         val settleMs: Long = 300L,
+        val userAgent: String? = null,
     )
 
-    /** LNReader's reply: [ok] is false when the page never showed its text in time, and [html] is then empty. */
+    /** LNReader's reply: [ok] is false when the selector's text never showed in time, and [html] is then empty. */
     @Serializable
     data class RenderedPage(val ok: Boolean, val url: String, val html: String, val title: String)
 
@@ -109,8 +138,10 @@ internal class PluginPageRenderer(private val appContext: Context) {
         const val MAX_SETTLE_MS = 5_000L
         const val SELECTOR_SLOT = "__SELECTOR__"
 
+        // The blank page a WebView starts on is complete while the real one is still loading, so it never counts.
         // An invalid selector throws, which reads as not ready until the timeout, as upstream.
-        const val READY_SCRIPT = "(function(){if(document.readyState!=='complete')return false;" +
+        const val READY_SCRIPT = "(function(){if(location.href==='about:blank')return false;" +
+            "if(document.readyState!=='complete')return false;" +
             "var s=$SELECTOR_SLOT;if(!s)return true;var m=document.querySelectorAll(s);" +
             "for(var i=0;i<m.length;i++){if((m[i].textContent||'').trim())return true;}return false;})()"
     }
