@@ -301,6 +301,8 @@ class NovelReaderViewModel(
         // Dropped without republishing the window: the renderer is already showing its own progress
         // for this tap, and clearing the edge here would take that away and put it back.
         warmFailures.remove(edge.chapterId)
+        // A plugin that failed to load gets another try, as the sheet's Retry gives one.
+        textLoader.retryFailedPlugin()
         if (htmlCache.containsKey(edge.chapterId)) {
             viewModelScope.launchIO { rebuildWindow() }
         } else {
@@ -855,7 +857,10 @@ class NovelReaderViewModel(
         load()
     }
 
-    /** Jump to [chapterId] from the chapter list. A no-op on the chapter already open. */
+    /**
+     * Jump to [chapterId] from the chapter list. A no-op on the chapter already open. The engine retries
+     * a failed pick as a pick, so a plugin that failed to load gets another try here, as [retryLoad] gives.
+     */
     fun open(chapterId: Long) {
         if (chapterId == currentChapterId && chapter.value != null) return
         readAloud.onUserNavigated()
@@ -888,6 +893,7 @@ class NovelReaderViewModel(
         if (window.value.chapters.none { it.chapterId == chapterId }) return
         visibleReport = generation to chapterId
         if (landing.mayRead(chapterId)) requestCrossing()
+        textLoader.retryFailedPlugin()
     }
 
     /** The reader dragged the page or pressed a key that scrolls it, which the host sees first. The
