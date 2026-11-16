@@ -52,8 +52,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Tachiyomi">
 
+        <!-- RK: documentLaunchMode never, so a share sheet's NEW_DOCUMENT and MULTIPLE_TASK cannot open a
+             second copy of the app in a Recents card of its own; it joins the app's task instead -->
         <activity
             android:name=".ui.main.MainActivity"
+            android:documentLaunchMode="never"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/Theme.Tachiyomi.SplashScreen">
@@ -618,6 +621,7 @@
              and /reader/, MangaDex uses /title/, /manga/ and /chapter/. -->
         <activity
             android:name="exh.ui.intercept.InterceptActivity"
+            android:documentLaunchMode="never"
             android:exported="true"
             android:theme="@style/Theme.Tachiyomi">
             <intent-filter>

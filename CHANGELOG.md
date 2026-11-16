@@ -42,7 +42,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A local manga whose folder can't be fully read, such as on a removed SD card, no longer loses chapters and read progress when the library updates.** The update fails for that series instead, as it does for local novels.
 - **Setting a smaller cover on a local manga no longer leaves part of the old picture's file behind.**
-- **Opening a book, comic, backup or link in Reikai from another app no longer leaves an extra Reikai card in Recents.** It opens in Reikai itself.
+- **Opening or sharing a book, comic, backup or link into Reikai from another app no longer leaves an extra Reikai card in Recents.** It opens in Reikai itself.
 
 ### Library
 
