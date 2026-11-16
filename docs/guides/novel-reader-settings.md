@@ -27,7 +27,7 @@ Shown for the **Paged** reading modes. **Always** shows two pages side by side, 
 The space between the two pages, as a share of a page's width, from 0% to 20%. Shown while **Dual page view** is not **Never** and the reading mode is **Paged**.
 
 ### Select text by long press <Badge type="info" text="Off" />
-Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Chapter display**, it takes effect at once. Text cannot be selected while **Dual page view** shows two pages side by side.
+Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Chapter display**, it takes effect at once. Text cannot be selected while **Dual page view** shows two pages side by side, so the switch is hidden then: in the reader while two pages show, and here while **Dual page view** is **Always** and the reading mode is **Paged**.
 
 ### Continuous chapters <Badge type="info" text="On" />
 Scrolls straight on into the next chapter. Off makes each chapter its own page.

@@ -16,6 +16,7 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelCodeSnippetsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelFontsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.novel.NovelPageLayout
@@ -430,6 +431,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_novel_text_selectable),
                     subtitle = stringResource(MR.strings.pref_novel_text_selectable_summary)
                         .takeIf { renderingMode == NovelRenderingMode.NATIVE },
+                    // A spread selects no text, and with no screen to ask only Always is known to show one.
+                    visible = !(pageLayout.isPaged && dualPageView == DualPageView.ALWAYS),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSeamlessChapters(),

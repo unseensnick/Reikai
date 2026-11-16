@@ -3,6 +3,8 @@ package reikai.presentation.reader.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.presentation.more.settings.screen.SettingsNovelReaderScreen
@@ -27,8 +29,8 @@ import reikai.presentation.reader.ReaderTextSettings
 import reikai.presentation.reader.ReaderTextState
 import reikai.presentation.recents.EmittingPreferenceStore
 
-/** Space between pages shows only while the reader can show two pages: both Settings screens and the novel sheet. The
- *  manga sheet needs a live viewer, so its rule is pinned on sheetDualPageRowsShown in MangaReaderSettingsRowsTest. */
+/** Space between pages shows only while the reader can show two pages, and Select text only while it cannot: both
+ *  Settings screens and the novel sheet. The manga sheet's rows are pinned in MangaReaderSheetRowsTest. */
 @RunWith(RobolectricTestRunner::class)
 class SpreadGapRowsTest {
 
@@ -76,7 +78,11 @@ class SpreadGapRowsTest {
         }
     }
 
-    private fun novelSheetShowsRow(dualPageView: DualPageView): Boolean {
+    private fun novelSheetShowsRow(
+        dualPageView: DualPageView,
+        row: String = SPACE_BETWEEN_PAGES,
+        tab: String? = null,
+    ): Boolean {
         val preferences = novelPreferences(dualPageView)
         val filters = ReaderDisplayFilters(
             customBrightness = preferences.readerCustomBrightness(),
@@ -110,8 +116,8 @@ class SpreadGapRowsTest {
             }
         }
         compose.waitForIdle()
-        return compose.onAllNodes(hasText(SPACE_BETWEEN_PAGES))
-            .fetchSemanticsNodes().isNotEmpty()
+        tab?.let { compose.onNodeWithContentDescription(it).performClick() }
+        return compose.onAllNodes(hasText(row)).fetchSemanticsNodes().isNotEmpty()
     }
 
     @Test
@@ -149,6 +155,27 @@ class SpreadGapRowsTest {
         novelSheetShowsRow(DualPageView.NEVER) shouldBe false
     }
 
+    @Test
+    fun `the novel reader sheet hides text selection while two pages show`() {
+        novelSheetShowsRow(DualPageView.ALWAYS, SELECT_TEXT, tab = "Controls") shouldBe false
+    }
+
+    @Test
+    fun `the novel reader sheet offers text selection on a single page`() {
+        novelSheetShowsRow(DualPageView.NEVER, SELECT_TEXT, tab = "Controls") shouldBe true
+    }
+
+    @Test
+    fun `novel settings hide text selection while always showing two pages`() {
+        novelSettings(DualPageView.ALWAYS) shouldNotContain SELECT_TEXT
+    }
+
+    /** With no screen to ask, When wide may still show one page, where selection works. */
+    @Test
+    fun `novel settings offer text selection when two pages show only on a wide screen`() {
+        novelSettings(DualPageView.WIDE) shouldContain SELECT_TEXT
+    }
+
     private object FixedText : ReaderTextSettings {
         override val state = MutableStateFlow(
             ReaderTextState(
@@ -170,5 +197,6 @@ class SpreadGapRowsTest {
 
     private companion object {
         const val SPACE_BETWEEN_PAGES = "Space between pages"
+        const val SELECT_TEXT = "Select text by long press"
     }
 }

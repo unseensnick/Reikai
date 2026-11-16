@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -357,10 +358,21 @@ internal fun ColumnScope.NovelControlsPage(pages: ReaderSettingsPages.Novel) {
             pref = preferences.readerSwipeGestures(),
         )
     }
-    CheckboxItem(
-        label = stringResource(MR.strings.pref_novel_text_selectable),
-        pref = preferences.readerTextSelectable(),
+    // A spread selects no text (NovelViewportSettings.selectsText), so the switch would do nothing there.
+    val dualPageView by preferences.readerDualPageView().collectAsState()
+    val configuration = LocalConfiguration.current
+    val spread = sheetDualPageRowsShown(
+        pageLayout.isPaged,
+        dualPageView,
+        configuration.screenWidthDp,
+        configuration.screenHeightDp,
     )
+    if (!spread) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_novel_text_selectable),
+            pref = preferences.readerTextSelectable(),
+        )
+    }
 
     HeadingItem(MR.strings.pref_reader_navigation)
     val showNavigator by preferences.readerShowNavigator().collectAsState()
