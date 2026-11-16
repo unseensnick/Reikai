@@ -32,3 +32,16 @@ On a series' page, the top bar has three buttons: **Scroll to top** (an up arrow
 
 ## Can I move the Start/Resume button to the left?
 Yes. Drag the button sideways on a series' page and let go: it stays on the half of the screen you dropped it on, for every series. You can also pick **Left** or **Right** under **Resume button position** in <nav to="appearance">.
+
+## Can I change the app icon?
+Yes. **App icon** in <nav to="appearance"> offers 17 icons: the original flame and a new one, each with an **R** or a **れ**, in the stable, nightly and dev colors, plus a Mihon-style **れ** in those three colors and Mihon's own two. Picking one reopens the app with the new icon. Some launchers drop the old icon from the home screen when it changes, so add the new one back from the app drawer if it goes missing. With themed icons on, every color of a design looks the same, since a themed icon keeps only the design's shape.
+
+The More and About screens show the picked design's logo, and so do Reikai's notifications, including the ones already showing when you switch.
+
+## Why does a notification still show the original icon after I picked another?
+Android draws two notification icons itself, and a picked icon cannot change either of them:
+
+* The round icon in each notification card on Android 16 and One UI 8 is the icon built into the app, which for every build is the original flame with an **R**.
+* When several Reikai notifications are up at once, Android bundles them under a summary of its own. If they use different icons, Android gives that summary the built-in icon too, and that is the one the status bar shows, slightly larger than Reikai's own.
+
+This is how Android handles notifications, not a fault in Reikai. The icons Reikai draws itself do follow your pick.
