@@ -235,9 +235,10 @@ class NovelFontManager(
         if (local.exists() && local.length() > 0 && local.length() == source.length()) return local
         // Copied beside the copy and renamed into place once whole: the picker's preview and the renderer
         // can copy the same font at once, and a face read from a half-written file is a miss cached for good.
+        // A fixed prefix, since Android adds the number to it unshortened and a font's name can fill the limit.
         var partial: File? = null
         return runCatching {
-            val copy = File.createTempFile(fileName, ".part", mirrorDir).also { partial = it }
+            val copy = File.createTempFile("font", ".part", mirrorDir).also { partial = it }
             source.openInputStream().use { input -> copy.outputStream().use(input::copyTo) }
             Files.move(copy.toPath(), local.toPath(), REPLACE_EXISTING, ATOMIC_MOVE)
             local

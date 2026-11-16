@@ -2,6 +2,7 @@ package reikai.novel.font
 
 import android.content.Context
 import com.hippo.unifile.UniFile
+import eu.kanade.tachiyomi.util.storage.DiskUtil
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -59,6 +60,34 @@ class NovelFontManagerTest {
         copy.join()
 
         visibleMidCopy shouldBe false
+    }
+
+    /**
+     * A stored name may take the whole file-name limit, and Android names a temporary file by its prefix
+     * plus a number with no shortening, so a working name built on the font's own overflows the 255
+     * bytes a file system takes. The JVM shortens it instead, so the bound checked is the app's own.
+     */
+    @Test
+    fun `a font with the longest name the folder takes is copied under a name that fits`() = runTest {
+        val longName = "a".repeat(DiskUtil.MAX_FILE_NAME_BYTES - ".ttf".length) + ".ttf"
+        val halfway = CountDownLatch(1)
+        val finish = CountDownLatch(1)
+        val source = mockk<UniFile> {
+            every { length() } returns 8L
+            every { openInputStream() } returns StalledStream(halfway, finish)
+        }
+        val folder = mockk<UniFile> { every { findFile(longName) } returns source }
+        val context = mockk<Context> { every { filesDir } returns appFiles }
+        val storage = mockk<StorageManager> { every { getFontsDirectory() } returns folder }
+        val manager = NovelFontManager(context, storage, mockk(), mockk())
+
+        val copy = launch(Dispatchers.IO) { manager.localFile(longName) }
+        withContext(Dispatchers.IO) { halfway.await(5, TimeUnit.SECONDS) }
+        val workingNames = File(appFiles, "fonts").list().orEmpty().map { it.toByteArray().size }
+        finish.countDown()
+        copy.join()
+
+        workingNames.all { it <= DiskUtil.MAX_FILE_NAME_BYTES } shouldBe true
     }
 
     /** Eight bytes, stopping after four until told to go on. */
