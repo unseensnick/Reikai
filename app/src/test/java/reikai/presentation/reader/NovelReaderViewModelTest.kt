@@ -314,6 +314,28 @@ class NovelReaderViewModelTest {
         model.window.value.generation shouldBe 1
     }
 
+    /** A chapter is finished once a session, and finishing is what reaches the trackers, so unmarking frees it. */
+    @Test
+    fun `a chapter unmarked from the sheet is finished again when read to its end`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        harness.chapter(novel, 2.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
+        model.saveProgress(opened.id, ChapterProgress.Percent.END)
+        advanceUntilIdle()
+        model.setChapterRead(listOf(opened.id), read = false)
+        advanceUntilIdle()
+
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(50))
+        model.saveProgress(opened.id, ChapterProgress.Percent.END)
+        advanceUntilIdle()
+
+        harness.isRead(opened) shouldBe true
+    }
+
     /** Incognito keeps the position out of the database, so it reopens from the host's state, as manga's page does. */
     @Test
     fun `an incognito chapter reopens after a process kill where it was`() = readerTest { harness ->

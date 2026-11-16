@@ -74,6 +74,13 @@ class WidePagesTest {
     }
 
     @Test
+    fun `rotate to fit turns a wide page clockwise by default`() {
+        settings(split = true, rotate = true)
+            .widePageShape(2000, 1000, strip = false, leftToRight = true, second = false) shouldBe
+            WidePageShape.Rotated(90f)
+    }
+
+    @Test
     fun `a wide page with neither setting on is left whole`() {
         settings().widePageShape(2000, 1000, strip = false, leftToRight = true, second = false) shouldBe
             WidePageShape.Whole
@@ -86,6 +93,12 @@ class WidePagesTest {
             invert = true,
         ).widePageShape(2000, 1000, strip = true, leftToRight = true, second = false) shouldBe
             WidePageShape.Stacked(ImageUtil.Side.LEFT)
+    }
+
+    @Test
+    fun `a split wide page in the strip stacks its right half on top by default`() {
+        settings(split = true).widePageShape(2000, 1000, strip = true, leftToRight = true, second = false) shouldBe
+            WidePageShape.Stacked(ImageUtil.Side.RIGHT)
     }
 
     @Test

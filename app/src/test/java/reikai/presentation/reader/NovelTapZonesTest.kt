@@ -104,6 +104,12 @@ class NovelTapZonesTest {
         assertEquals(Action.MENU, zones(NovelTapLayout.CENTER_LARGE).actionAt(0.35f, 0.5f, rtl = false))
     }
 
+    /** The same tap as above, which only the large zone reaches. */
+    @Test
+    fun theCentreStopsShortOfTheLargeCentre() {
+        assertEquals(null, zones(NovelTapLayout.CENTER).actionAt(0.35f, 0.5f, rtl = false))
+    }
+
     @Test
     fun theBottomZoneIsAsTallAsItsSetting() {
         assertEquals(Action.MENU, zones(NovelTapLayout.BOTTOM, bottom = 30).actionAt(0.5f, 0.75f, rtl = false))

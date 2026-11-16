@@ -100,6 +100,13 @@ class WebGpuRetryRulesTest {
         previewAfterError(preview, shown = preview) shouldBe null
     }
 
+    @Test
+    fun `an error page over another image keeps the streaming preview`() {
+        val preview = Any()
+
+        previewAfterError(preview, shown = Any()) shouldBe preview
+    }
+
     private class RecordingLoader : PageLoader() {
         override var isLocal = false
         var streamAtRetry: DownloadStream? = null

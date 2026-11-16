@@ -59,6 +59,12 @@ class TtsOptionsTest {
         options.voiceLabel("fr-1", "Default") shouldBe "Amelie"
     }
 
+    /** The empty id is the engine's own voice, which both pickers show by default. */
+    @Test
+    fun `the engine's own voice reads as the default`() {
+        options.voiceLabel("", "Default") shouldBe "Default"
+    }
+
     @Test
     fun `a voice the engine no longer offers reads as its id`() {
         options.voiceLabel("gone", "Default") shouldBe "gone"

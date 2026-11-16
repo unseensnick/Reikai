@@ -49,4 +49,13 @@ class ModeSelectionTest {
 
         selection.isChecked(ReaderOrientation.FREE, inUse = ReaderOrientation.FREE) shouldBe false
     }
+
+    @Test
+    fun `the tapped tile is highlighted`() {
+        val selection = ModeSelection<ReaderOrientation>()
+
+        selection.tap(ReaderOrientation.PORTRAIT)
+
+        selection.isChecked(ReaderOrientation.PORTRAIT, inUse = ReaderOrientation.FREE) shouldBe true
+    }
 }

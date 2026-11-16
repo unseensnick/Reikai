@@ -7,7 +7,9 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.TextSize
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton.ViewChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -38,18 +40,22 @@ class ReaderBottomButtonsViewModelTest {
 
     private fun viewModel(scope: Scope) = ReaderBottomButtonsViewModel(scope, readerPreferences, novelPreferences)
 
-    private fun drawn(scope: Scope): List<ReaderBottomButton> = when (scope) {
-        Scope.Manga -> ReaderBottomButton.ordered(
-            readerPreferences.readerBottomButtons.get(),
-            readerPreferences.readerBottomButtonOrder.get(),
-            scope,
+    /** What that scope's reader draws, read off its own provider, which is what the editor has to reach. */
+    private suspend fun drawn(scope: Scope): List<ReaderBottomButton> = when (scope) {
+        Scope.Manga -> MangaReaderProvider(
+            viewModel = mockk(relaxed = true),
+            readerPreferences = readerPreferences,
+            downloadManager = mockk(relaxed = true),
+            titleWords = EnglishChapterTitleWords,
         )
-        else -> ReaderBottomButton.ordered(
-            novelPreferences.readerBottomButtons().get(),
-            novelPreferences.readerBottomButtonOrder().get(),
-            scope,
+        else -> NovelReaderProvider(
+            viewModel = mockk(relaxed = true),
+            novelPreferences = novelPreferences,
+            fontManager = mockk(),
+            imageRequests = mockk(),
+            titleWords = EnglishChapterTitleWords,
         )
-    }
+    }.bottomButtons.first()
 
     @ParameterizedTest
     @EnumSource(value = Scope::class, names = ["Manga", "Novel"])

@@ -82,6 +82,15 @@ class ReaderChapterReloadTest {
 
         coVerify(exactly = 0) { cache.removeImage(any()) }
     }
+
+    @Test
+    fun `a plain reload keeps the cached page list`() = runTest {
+        val chapter = loadedChapter()
+
+        chapter.unloadForReload(fromSource = false, cache)
+
+        coVerify(exactly = 0) { cache.removePageList(any()) }
+    }
 }
 
 /** Reads its chapter's pages on recycle, which is what upstream's HttpPageLoader caches from. */

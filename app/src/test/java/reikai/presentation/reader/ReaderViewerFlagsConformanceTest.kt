@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -20,6 +21,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.renderStoredStitch
+import reikai.domain.novel.NovelPageLayout
 
 /**
  * A merged series keeps one set of reader flags, its settings owner's, whichever source the reader opens
@@ -34,6 +36,10 @@ class ReaderViewerFlagsConformanceTest {
 
         /** Opens a chapter of the owner and turns the rotation: what each source stores. */
         suspend fun rotationStoredAfterChange(scope: TestScope): List<Long?>
+
+        /** The owner reads paged one way and the sibling another. Opens a chapter of the sibling and turns
+         *  the rotation: whether the reader still reads the way the owner does. */
+        suspend fun ownerReadingModeKeptAfterRotationThroughSibling(scope: TestScope): Boolean
     }
 
     @BeforeEach
@@ -52,6 +58,12 @@ class ReaderViewerFlagsConformanceTest {
     @MethodSource("probes")
     fun `a rotation changed in the reader is stored on every source`(probe: Probe) = runTest {
         probe.rotationStoredAfterChange(this) shouldBe listOf(CHANGED, CHANGED)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a rotation changed through a sibling keeps the owner's reading mode`(probe: Probe) = runTest {
+        probe.ownerReadingModeKeptAfterRotationThroughSibling(this) shouldBe true
     }
 
     companion object {
@@ -84,18 +96,35 @@ class ReaderViewerFlagsConformanceTest {
             listOf(OWNER_ID, SIBLING_ID).map { id -> settlesAt(CHANGED) { storedRotation(id) } }
         }
 
+        // The state re-read after the write is what the next viewer rebuild reads its mode from.
+        override suspend fun ownerReadingModeKeptAfterRotationThroughSibling(scope: TestScope): Boolean = open(
+            openedId = SIBLING_ID,
+            ownerMode = ReadingMode.WEBTOON.flagValue.toLong(),
+            siblingMode = ReadingMode.LEFT_TO_RIGHT.flagValue.toLong(),
+        ) { model ->
+            model.setMangaOrientationType(ReaderOrientation.REVERSE_PORTRAIT)
+            settlesAt(CHANGED) { (model.state.value.manga?.viewerFlags ?: 0L) and MASK }
+            ((model.state.value.manga?.viewerFlags ?: 0L) and READING_MODE_MASK) ==
+                ReadingMode.WEBTOON.flagValue.toLong()
+        }
+
         private lateinit var harness: MangaReaderViewModelHarness
 
         private suspend fun storedRotation(id: Long) = harness.storedManga(id).viewerFlags and MASK
 
         /** The owner and the sibling, one chapter each, grouped with the owner first; opens [openedId]'s. */
-        private suspend fun <T> open(openedId: Long, probe: suspend (ReaderViewModel) -> T): T =
+        private suspend fun <T> open(
+            openedId: Long,
+            ownerMode: Long = 0L,
+            siblingMode: Long = 0L,
+            probe: suspend (ReaderViewModel) -> T,
+        ): T =
             MangaReaderViewModelHarness.create().use { harness ->
                 this.harness = harness
                 harness.manga(OWNER_ID, source = 100L, title = "Owner")
                 harness.manga(SIBLING_ID, source = 200L, title = "Sibling")
-                harness.setViewerFlags(OWNER_ID, OWNER)
-                harness.setViewerFlags(SIBLING_ID, SIBLING)
+                harness.setViewerFlags(OWNER_ID, OWNER or ownerMode)
+                harness.setViewerFlags(SIBLING_ID, SIBLING or siblingMode)
                 val owner = harness.storedManga(OWNER_ID)
                 val sibling = harness.storedManga(SIBLING_ID)
                 val pooled = listOf(harness.chapter(11L, owner, 1.0), harness.chapter(21L, sibling, 2.0))
@@ -119,6 +148,7 @@ class ReaderViewerFlagsConformanceTest {
         private companion object {
             const val OWNER_ID = 1L
             const val SIBLING_ID = 2L
+            const val READING_MODE_MASK = ReadingMode.MASK.toLong()
         }
     }
 
@@ -144,11 +174,23 @@ class ReaderViewerFlagsConformanceTest {
                 listOf(owner, sibling).map { id -> settlesAt(CHANGED) { harness.viewerFlagsOf(id) and MASK } }
             }
 
-        /** The owner and the sibling, grouped with the owner first. */
-        private suspend fun group(harness: NovelReaderViewModelHarness): Pair<Long, Long> {
+        override suspend fun ownerReadingModeKeptAfterRotationThroughSibling(scope: TestScope): Boolean =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                val (_, sibling) = group(harness, ownerLayout = NovelPageLayout.flagOf(NovelPageLayout.PAGED_LTR))
+                val model = harness.open(sibling, harness.chapter(sibling, 2.0).id)
+                scope.advanceUntilIdle()
+
+                model.setOrientation(CHANGED.toInt())
+                scope.advanceUntilIdle()
+
+                model.effectivePageLayout.value == NovelPageLayout.PAGED_LTR
+            }
+
+        /** The owner and the sibling, grouped with the owner first; [ownerLayout] is the owner's reading mode. */
+        private suspend fun group(harness: NovelReaderViewModelHarness, ownerLayout: Long = 0L): Pair<Long, Long> {
             val owner = harness.novel(harness.source("alpha"))
             val sibling = harness.novel(harness.source("beta"))
-            harness.updateNovel(owner) { viewerFlags = OWNER }
+            harness.updateNovel(owner) { viewerFlags = OWNER or ownerLayout }
             harness.updateNovel(sibling) { viewerFlags = SIBLING }
             harness.merge(owner, sibling)
             return owner to sibling
