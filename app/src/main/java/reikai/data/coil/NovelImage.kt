@@ -59,13 +59,15 @@ suspend fun fetchNovelImage(
     writeCache: Boolean,
 ): SourceFetchResult {
     val key = image.url
+    val isLocalPicture = LocalNovelSource.isPictureAddress(key)
+    // Before the cache, which keys by address alone: another source's chapter naming a book's picture gets nothing.
+    if (isLocalPicture && !LocalNovelSource.isLocal(image.sourceId)) throw noLocalPicture()
     if (readCache) diskCache?.openSnapshot(key)?.let { return it.toResult(diskCache, key, null, DataSource.DISK) }
     val cache = diskCache?.takeIf { writeCache }
 
     // Stored in the cache like a fetched one, since the text renderer reads its size and slices from that file.
-    if (LocalNovelSource.isPictureAddress(key)) {
-        val picture = requests.localPicture(key, image.sourceId)
-            ?: throw FileNotFoundException("No such picture in the local novels folder")
+    if (isLocalPicture) {
+        val picture = requests.localPicture(key, image.sourceId) ?: throw noLocalPicture()
         return stored(cache, key, picture.mime, DataSource.DISK, Buffer().write(picture.bytes))
     }
     val response = requests.forSource(image.sourceId).newCall(image.url).awaitSuccess()
@@ -79,6 +81,8 @@ suspend fun fetchNovelImage(
  */
 fun isNovelImageAddress(address: String): Boolean =
     NovelChapterAddress.isWebAddress(address) || LocalNovelSource.isPictureAddress(address)
+
+private fun noLocalPicture() = FileNotFoundException("No such picture in the local novels folder")
 
 /** [source] written into [cache] under [key] and read back from there, or handed on as it is with no cache. */
 private fun stored(

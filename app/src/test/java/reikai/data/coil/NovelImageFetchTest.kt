@@ -1,0 +1,46 @@
+package reikai.data.coil
+
+import coil3.disk.DiskCache
+import io.kotest.assertions.throwables.shouldThrow
+import io.mockk.coEvery
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import okio.Path.Companion.toOkioPath
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import reikai.novel.local.LocalNovelPicture
+import reikai.novel.local.LocalNovelSource
+import reikai.novel.network.NovelImageRequests
+import java.io.File
+import java.io.FileNotFoundException
+
+/** A chapter picture fetched through Coil's real disk cache. */
+class NovelImageFetchTest {
+
+    @TempDir
+    lateinit var root: File
+
+    private val address = LocalNovelSource.pictureAddress("Saga", "Book.epub", "OEBPS/plate.png", 1)
+
+    /** Only the local source reads the user's books, whether the picture is cached or not. */
+    @Test
+    fun `a cached local book's picture is not served to another source's chapter`() = runTest {
+        val cache = DiskCache.Builder().directory(root.toOkioPath()).build()
+        val requests = mockk<NovelImageRequests> {
+            coEvery { localPicture(any(), any()) } returns null
+            coEvery { localPicture(address, LocalNovelSource.ID) } returns
+                LocalNovelPicture(byteArrayOf(1), "image/png")
+        }
+        fetchNovelImage(NovelImage(address, LocalNovelSource.ID), requests, cache, readCache = true, writeCache = true)
+            .source.close()
+
+        try {
+            shouldThrow<FileNotFoundException> {
+                fetchNovelImage(NovelImage(address, "lnreader.x"), requests, cache, readCache = true, writeCache = true)
+                    .source.close()
+            }
+        } finally {
+            cache.shutdown()
+        }
+    }
+}
