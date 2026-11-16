@@ -7,6 +7,11 @@
     <path
         android:fillColor="#2E3943"
         android:pathData="M0,0h1024v1024h-1024z" />
+  <group
+      android:pivotX="512"
+      android:pivotY="512"
+      android:scaleX="1.0769"
+      android:scaleY="1.0769">
     <path
         android:fillColor="#F2FAFF"
         android:pathData="M512,267a245,245 0,1 1,0 490a245,245 0,1 1,0 -490z" />
@@ -14,4 +19,5 @@
         android:strokeColor="#7EBBED"
         android:strokeWidth="46"
         android:pathData="M512,290a222,222 0,1 1,0 444a222,222 0,1 1,0 -444z" />
+  </group>
 </vector>
