@@ -458,12 +458,8 @@ class ReaderActivity : BaseActivity() {
                     // on by itself, so the viewer is put back on the page the reader was at
                     ReaderViewModel.Event.ReloadedChapter -> {
                         viewModel.state.value.viewerChapters?.let { chapters ->
-                            // Read first: a pager left on its old index selects a different page as it rebuilds
-                            val requested = chapters.currChapter.requestedPage
                             setChapters(chapters)
-                            val pages = chapters.currChapter.pages ?: return@let
-                            val page = pages[requested.coerceIn(0, pages.lastIndex)]
-                            (engine.viewport.value as? MangaViewport)?.viewer?.moveToPage(page)
+                            engine.viewport.value?.onChapterOpened()
                         }
                     }
                     // RK <--
@@ -1247,7 +1243,7 @@ class ReaderActivity : BaseActivity() {
         // safe only under the collector ordering noted where the two are registered. Chapter delivery
         // is unwrapped rather than on the neutral contract, because ViewerChapters is manga-shaped.
         loadingIndicator = null
-        (engine.viewport.value as? MangaViewport)?.viewer?.setChapters(viewerChapters)
+        (engine.viewport.value as? MangaViewport)?.setChapters(viewerChapters)
     }
 
     /**

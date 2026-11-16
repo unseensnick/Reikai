@@ -1,5 +1,7 @@
 package reikai.presentation.reader
 
+import android.content.res.Resources
+import android.util.DisplayMetrics
 import android.view.KeyEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -10,11 +12,16 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.RightAndLeftNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.flow.flowOf
 import org.junit.jupiter.api.Test
@@ -24,7 +31,8 @@ import tachiyomi.domain.chapter.model.Chapter
 
 /**
  * The adapter is all delegation, and a member that silently stops delegating breaks the reader in a
- * way only a device pass would catch, so each one is pinned here instead.
+ * way only a device pass would catch, so each one is pinned here instead, the auto-scroll kind each
+ * viewer gets among them.
  *
  * `isRtl` is the exception: it reads the concrete viewer classes, which cannot be built without an
  * Activity, so it is verified on device by the chapter navigator changing direction.
@@ -227,6 +235,20 @@ class MangaViewportTest {
         viewer.movedTo shouldBe activePages[2]
     }
 
+    /** The classic pager selects a page at its old index as it rebuilds, which overwrites requestedPage. */
+    @Test
+    fun `a picked chapter lands on its own page though the viewer selected another as it took the chapter`() {
+        val activePages = pages(30)
+        val active = chapterOf(activePages, requestedPage = 3)
+        val viewer = RecordingViewer(onSetChapters = { it.currChapter.requestedPage = 14 })
+        val viewport = viewport(viewer, active = active)
+
+        viewport.setChapters(ViewerChapters(active, null, null))
+        viewport.onChapterOpened()
+
+        viewer.movedTo shouldBe activePages[3]
+    }
+
     @Test
     fun `a picked chapter with no pages loaded moves nothing`() {
         val viewer = RecordingViewer()
@@ -254,6 +276,40 @@ class MangaViewportTest {
         (viewport(viewer).autoScroll as ViewportAutoScroll.Stepped).advance()
 
         verify { viewer["moveLeft"]() }
+    }
+
+    /** The high quality strip is a WebGpuViewer too, so the paged branch must not claim it first. */
+    @Test
+    fun `the high quality long strip auto-scrolls smoothly`() = withDisplay {
+        viewport(
+            mockk<WebGpuViewerContinuous>(relaxed = true),
+        ).autoScroll.shouldBeInstanceOf<ViewportAutoScroll.Continuous>()
+    }
+
+    @Test
+    fun `the classic long strip auto-scrolls smoothly`() = withDisplay {
+        viewport(mockk<WebtoonViewer>(relaxed = true)).autoScroll.shouldBeInstanceOf<ViewportAutoScroll.Continuous>()
+    }
+
+    @Test
+    fun `the classic pager auto-scrolls a page at a time`() = withDisplay {
+        viewport(mockk<PagerViewer>(relaxed = true)).autoScroll.shouldBeInstanceOf<ViewportAutoScroll.Stepped>()
+    }
+
+    @Test
+    fun `the high quality pager auto-scrolls a page at a time`() = withDisplay {
+        viewport(mockk<WebGpuViewer>(relaxed = true)).autoScroll.shouldBeInstanceOf<ViewportAutoScroll.Stepped>()
+    }
+
+    /** A strip's scroller reads the screen density, which a JVM test has no screen to give. */
+    private fun withDisplay(block: () -> Unit) {
+        mockkStatic(Resources::class)
+        try {
+            every { Resources.getSystem() } returns mockk { every { displayMetrics } returns mockk<DisplayMetrics>() }
+            block()
+        } finally {
+            unmockkStatic(Resources::class)
+        }
     }
 }
 
@@ -304,7 +360,7 @@ private fun chapterOf(pages: List<ReaderPage>, requestedPage: Int = 0): ReaderCh
     }
 }
 
-private class RecordingViewer : Viewer {
+private class RecordingViewer(private val onSetChapters: (ViewerChapters) -> Unit = {}) : Viewer {
     var destroyed = false
         private set
     var forward = 0
@@ -321,7 +377,7 @@ private class RecordingViewer : Viewer {
         destroyed = true
     }
 
-    override fun setChapters(chapters: ViewerChapters) = Unit
+    override fun setChapters(chapters: ViewerChapters) = onSetChapters(chapters)
 
     override fun moveToPage(page: ReaderPage) {
         movedTo = page

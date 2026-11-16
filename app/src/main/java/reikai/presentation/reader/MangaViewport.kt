@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.Action
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.Flow
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.pageIndex
 import tachiyomi.core.common.preference.Preference
-import kotlin.math.min
 
 /**
  * The manga adapter under [ReaderViewport], over whatever `ReadingMode.toViewer` built; the novel
@@ -58,14 +58,25 @@ class MangaViewport(
         activeChapter()?.pages?.firstOrNull()?.let(viewer::moveToPage)
     }
 
-    // A picked chapter resumes where it was left, which is what the arriving chapter's requestedPage
-    // says. The pager and the webtoon recycler read that field only on their own first layout, and the
-    // WebGPU viewer only when the reader did not scroll into the chapter, so the seek is issued
-    // from out here rather than by diverging the three viewers.
+    // The page the chapter last handed over asked for, read before the viewer has it: a pager left on its
+    // old index selects one of the new chapter's pages as it rebuilds, and that overwrites requestedPage.
+    private var delivered: Pair<ReaderChapter, Int>? = null
+
+    /** Hands [chapters] to the viewer, the one way the host delivers them. */
+    fun setChapters(chapters: ViewerChapters) {
+        delivered = chapters.currChapter to chapters.currChapter.requestedPage
+        viewer.setChapters(chapters)
+    }
+
+    // A picked or reloaded chapter resumes where it was left, which is what the arriving chapter's
+    // requestedPage says. The pager and the webtoon recycler read that field only on their own first
+    // layout, and the WebGPU viewer only when the reader did not scroll into the chapter, so the seek is
+    // issued from out here rather than by diverging the three viewers.
     override fun onChapterOpened() {
         val chapter = activeChapter() ?: return
         val pages = chapter.pages?.takeIf { it.isNotEmpty() } ?: return
-        viewer.moveToPage(pages[min(chapter.requestedPage, pages.lastIndex)])
+        val requested = delivered?.takeIf { it.first === chapter }?.second ?: chapter.requestedPage
+        viewer.moveToPage(pages[requested.coerceIn(0, pages.lastIndex)])
     }
 
     // The two viewer families spell right-to-left differently, and this is the one place that knows.
