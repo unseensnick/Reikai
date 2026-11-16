@@ -1,5 +1,6 @@
 package reikai.domain.reader
 
+import eu.kanade.domain.manga.model.downloadedFilter
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
@@ -16,18 +17,18 @@ import tachiyomi.domain.manga.model.applyFilter
 data class ChapterListFilters(val unread: TriState, val bookmarked: TriState, val downloaded: TriState) {
     val isActive: Boolean
         get() = unread != TriState.DISABLED || bookmarked != TriState.DISABLED || downloaded != TriState.DISABLED
+
+    /** Whether a chapter these filters show passes, each answer asked only while its filter is on. */
+    fun keeps(isRead: () -> Boolean, isBookmarked: () -> Boolean, isDownloaded: () -> Boolean): Boolean =
+        applyFilter(unread) { !isRead() } && applyFilter(bookmarked, isBookmarked) &&
+            applyFilter(downloaded, isDownloaded)
 }
 
-/** The manga's own filters, read raw as the reader always has: the global downloaded-only switch is
- *  applied to the reader's list separately. */
-fun Manga.readerChapterFilters() = ChapterListFilters(
+/** The manga's own filters, the global Downloaded only switch forcing the downloaded one on, as the novel's do. */
+fun Manga.readerChapterFilters(downloadedOnly: Boolean) = ChapterListFilters(
     unread = unreadFilter,
     bookmarked = bookmarkedFilter,
-    downloaded = when (downloadedFilterRaw) {
-        Manga.CHAPTER_SHOW_DOWNLOADED -> TriState.ENABLED_IS
-        Manga.CHAPTER_SHOW_NOT_DOWNLOADED -> TriState.ENABLED_NOT
-        else -> TriState.DISABLED
-    },
+    downloaded = downloadedFilter(downloadedOnly),
 )
 
 fun Novel.readerChapterFilters(prefs: NovelPreferences, downloadedOnly: Boolean) = novelChapterListFilters(
@@ -80,7 +81,5 @@ fun <T> GroupChapterFlags<T>.isForwardEligible(
 ): Boolean = when {
     skipRead && isRead(chapter) -> false
     !skipFiltered -> true
-    else -> applyFilter(filters.unread) { !isRead(chapter) } &&
-        applyFilter(filters.bookmarked) { isBookmarked(chapter) } &&
-        applyFilter(filters.downloaded) { isDownloaded(chapter) }
+    else -> filters.keeps({ isRead(chapter) }, { isBookmarked(chapter) }, { isDownloaded(chapter) })
 }

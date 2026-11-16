@@ -4,7 +4,6 @@ import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.reader.readerChapterFilters
 import tachiyomi.core.common.util.lang.compareToWithCollator
-import tachiyomi.domain.manga.model.applyFilter
 
 /**
  * Per-novel chapter sort / filter / display settings, packed into [Novel.chapterFlags]. Its own layout
@@ -130,9 +129,11 @@ fun List<NovelChapter>.sortedAndFiltered(
 ): List<NovelChapter> {
     val filters = novel.readerChapterFilters(prefs, downloadedOnly)
     val filtered = filter { ch ->
-        applyFilter(filters.unread) { !marks.isRead(ch.id, ch.read) } &&
-            applyFilter(filters.bookmarked) { marks.isBookmarked(ch.id, ch.bookmark) } &&
-            applyFilter(filters.downloaded) { ch.id in downloadedChapterIds }
+        filters.keeps(
+            isRead = { marks.isRead(ch.id, ch.read) },
+            isBookmarked = { marks.isBookmarked(ch.id, ch.bookmark) },
+            isDownloaded = { ch.id in downloadedChapterIds },
+        )
     }
     val sorted = filtered.sortedWith(readingOrderComparator(novel, prefs))
     return if (novel.effectiveSortDescending(prefs)) sorted.reversed() else sorted

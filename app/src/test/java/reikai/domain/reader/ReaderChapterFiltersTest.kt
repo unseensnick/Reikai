@@ -7,6 +7,7 @@ import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.model.NovelChapterFlags
 import tachiyomi.core.common.preference.TriState
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * The forward-eligibility rule every reader runs, over the group's answer. What the chapter-list
@@ -50,6 +51,32 @@ class ReaderChapterFiltersTest {
         val downloadedOnly = noFilters.copy(downloaded = TriState.ENABLED_IS)
 
         flags.isForwardEligible(Row(1L), skipRead = false, skipFiltered = true, filters = downloadedOnly) shouldBe true
+    }
+
+    /** The details lists, the resume target and the skip-filtered step all filter through [ChapterListFilters.keeps]. */
+    @Test
+    fun `the downloaded filter hides a chapter not on disk`() {
+        val downloadedOnly = noFilters.copy(downloaded = TriState.ENABLED_IS)
+
+        downloadedOnly.keeps(isRead = { false }, isBookmarked = { false }, isDownloaded = { false }) shouldBe false
+    }
+
+    @Test
+    fun `the not-downloaded filter hides a chapter on disk`() {
+        val notDownloaded = noFilters.copy(downloaded = TriState.ENABLED_NOT)
+
+        notDownloaded.keeps(isRead = { false }, isBookmarked = { false }, isDownloaded = { true }) shouldBe false
+    }
+
+    /** Whether a chapter is on disk costs a folder check, so a list with that filter off never asks. */
+    @Test
+    fun `a filter that is off is not asked`() {
+        noFilters.keeps(isRead = { false }, isBookmarked = { false }, isDownloaded = { error("asked") }) shouldBe true
+    }
+
+    @Test
+    fun `the Downloaded only switch forces a manga's downloaded filter on, as a novel's`() {
+        Manga.create().readerChapterFilters(downloadedOnly = true).downloaded shouldBe TriState.ENABLED_IS
     }
 
     @Test

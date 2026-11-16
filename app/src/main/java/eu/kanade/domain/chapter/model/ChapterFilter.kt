@@ -3,6 +3,7 @@ package eu.kanade.domain.chapter.model
 import eu.kanade.domain.manga.model.downloadedFilter
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.reader.readerChapterFilters
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.manga.model.Manga
@@ -21,14 +22,12 @@ fun List<Chapter>.applyFilters(
     downloadedOnly: Boolean,
     flags: GroupChapterFlags<Chapter>, // RK
 ): List<Chapter> {
-    val unreadFilter = manga.unreadFilter
-    val downloadedFilter = manga.downloadedFilter(downloadedOnly)
-    val bookmarkedFilter = manga.bookmarkedFilter
-
     // RK -->
-    return filter { chapter -> applyFilter(unreadFilter) { !flags.isRead(chapter) } }
-        .filter { chapter -> applyFilter(bookmarkedFilter) { flags.isBookmarked(chapter) } }
-        .filter { chapter -> applyFilter(downloadedFilter) { flags.isDownloaded(chapter) } }
+    // By the one filter rule the readers' skip-filtered step and the novel list read too
+    val filters = manga.readerChapterFilters(downloadedOnly)
+    return filter { chapter ->
+        filters.keeps({ flags.isRead(chapter) }, { flags.isBookmarked(chapter) }, { flags.isDownloaded(chapter) })
+    }
         // RK <--
         .sortedWith(getChapterSort(manga))
 }

@@ -403,7 +403,7 @@ class ReaderViewModel(
         val skipFiltered = readerPreferences.skipFiltered.get()
         if (!skipRead && !skipFiltered) return { true }
         val flags = groupFlags(chapters)
-        val filters = chapterSettings!!.readerChapterFilters()
+        val filters = chapterSettings!!.readerChapterFilters(basePreferences.downloadedOnly.get()) // RK
         return { flags.isForwardEligible(it, skipRead, skipFiltered, filters) }
     }
 

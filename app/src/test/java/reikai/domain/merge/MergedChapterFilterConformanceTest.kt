@@ -153,7 +153,9 @@ class MergedChapterFilterConformanceTest {
 
     private object MangaReader : Reader<Chapter>(
         name = "manga reader",
-        filtersOf = { Manga.create().copy(chapterFlags = mangaFlagOf(it)).readerChapterFilters() },
+        filtersOf = {
+            Manga.create().copy(chapterFlags = mangaFlagOf(it)).readerChapterFilters(downloadedOnly = false)
+        },
         chapter = ::mangaChapter,
         id = { it.id },
         read = { it.read },
