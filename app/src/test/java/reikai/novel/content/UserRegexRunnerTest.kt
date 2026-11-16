@@ -7,6 +7,7 @@ import org.junit.jupiter.api.assertTimeoutPreemptively
 import java.time.Duration
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 /**
  * The time budget that lets a user regex be left, since Android's engine matches natively and cannot be
@@ -25,6 +26,19 @@ class UserRegexRunnerTest {
     fun `a cancelled caller leaves a run at once`() {
         assertThrows<CancellationException> {
             UserRegexRunner.run(60_000.milliseconds, isActive = { false }) { Thread.sleep(60_000) }
+        }
+    }
+
+    @Test
+    fun `a caller cancelled while the run is under way leaves it`() {
+        val started = TimeSource.Monotonic.markNow()
+
+        assertThrows<CancellationException> {
+            assertTimeoutPreemptively(Duration.ofSeconds(5)) {
+                UserRegexRunner.run(60_000.milliseconds, isActive = { started.elapsedNow() < 200.milliseconds }) {
+                    Thread.sleep(60_000)
+                }
+            }
         }
     }
 

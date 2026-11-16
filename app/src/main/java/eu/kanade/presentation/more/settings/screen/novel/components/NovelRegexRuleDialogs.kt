@@ -12,11 +12,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import eu.kanade.presentation.more.settings.screen.novel.NovelRegexPreview
 import reikai.novel.content.NovelRegexReplacement
 import reikai.novel.content.NovelRegexReplacements
 import tachiyomi.i18n.MR
@@ -27,15 +29,16 @@ import java.util.UUID
 
 /**
  * Adds a rule when [rule] is null and edits it otherwise. Everything typed here is previewed through
- * the reader's own kernel, which [onPreview] runs, so the sample result cannot disagree with what a
- * chapter gets.
+ * the reader's own kernel: [onPreview] asks for it and [preview] is the answer, so the sample result
+ * cannot disagree with what a chapter gets.
  */
 @Composable
 fun NovelRegexRuleEditDialog(
     rule: NovelRegexReplacement?,
+    preview: NovelRegexPreview?,
     onDismissRequest: () -> Unit,
     onSave: (NovelRegexReplacement) -> Unit,
-    onPreview: (NovelRegexReplacement, String) -> Result<String>,
+    onPreview: (NovelRegexReplacement, String) -> Unit,
 ) {
     var title by remember { mutableStateOf(rule?.title.orEmpty()) }
     var pattern by remember { mutableStateOf(rule?.pattern.orEmpty()) }
@@ -57,12 +60,14 @@ fun NovelRegexRuleEditDialog(
         caseSensitive = caseSensitive,
         id = rule?.id ?: newId,
     )
-    // Re-run on every edit rather than behind a button, so a pattern that stops compiling says so
-    // while it is being typed and the Save button below can refuse it on the same signal.
-    val preview = remember(pattern, replacement, isRegex, matchWholeWord, caseSensitive, sample) {
-        if (pattern.isBlank()) null else onPreview(edited, sample)
-    }
-    val error = preview?.exceptionOrNull()
+    // Asked on every edit rather than behind a button, so a pattern that stops compiling says so while it
+    // is being typed and the Save button below can refuse it on the same signal. The title has no part in
+    // what the rule does, so naming it asks nothing again.
+    val asked = edited.copy(title = "")
+    LaunchedEffect(asked, sample) { if (asked.pattern.isNotBlank()) onPreview(asked, sample) }
+    // An answer to an earlier edit is not this one's, so Save waits for the current answer.
+    val result = preview?.takeIf { pattern.isNotBlank() && it.rule == asked && it.sample == sample }?.result
+    val error = result?.exceptionOrNull()
     val replacementError = error as? NovelRegexReplacements.InvalidReplacementException
     val patternError = error.takeIf { replacementError == null }
     val checkboxRow = Modifier.padding(top = MaterialTheme.padding.small)
@@ -73,7 +78,7 @@ fun NovelRegexRuleEditDialog(
             TextButton(
                 // Blank rather than empty: the pipeline skips a rule whose pattern is only whitespace,
                 // so accepting one here would save a rule the reader silently never applies.
-                enabled = title.isNotBlank() && pattern.isNotBlank() && error == null,
+                enabled = title.isNotBlank() && pattern.isNotBlank() && result?.isSuccess == true,
                 onClick = {
                     onSave(edited)
                     onDismissRequest()
@@ -165,7 +170,7 @@ fun NovelRegexRuleEditDialog(
                     maxLines = 4,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                preview?.getOrNull()?.takeIf { sample.isNotEmpty() }?.let {
+                result?.getOrNull()?.takeIf { sample.isNotEmpty() }?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,

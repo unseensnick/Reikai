@@ -6,6 +6,8 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 /**
  * The compile kernel both the reading pipeline and the rule editor's preview run through, so a rule
@@ -96,13 +98,57 @@ class NovelRegexReplacementsTest {
         run(rule("(?<w>a)", replacement), "b") shouldBe "b"
     }
 
-    /** A nested quantifier can run for hours, so a load that gave up must be able to leave the match. */
+    /** The generic catch around each rule would otherwise swallow a cancelled load as a failed rule. */
     @Test
-    fun `a cancelled load leaves a rule mid-match`() {
+    fun `a cancelled load throws out of the rules rather than being skipped as a failed rule`() {
         val rules = """[{"title":"t","pattern":"b","replacement":"","isRegex":true}]"""
 
         assertThrows<CancellationException> {
             NovelRegexReplacements.apply("a".repeat(100_000), rules, isActive = { false })
         }
+    }
+
+    /** A nested quantifier can run for hours, so a load that gave up must be able to leave the match. */
+    @Test
+    fun `a load cancelled while a rule is matching leaves the match`() {
+        val rules = """[{"title":"t","pattern":"(.*c){12}d","replacement":"","isRegex":true}]"""
+        val started = TimeSource.Monotonic.markNow()
+
+        assertThrows<CancellationException> {
+            NovelRegexReplacements.apply("c".repeat(40), rules, isActive = { started.elapsedNow() < 200.milliseconds })
+        }
+    }
+
+    @Test
+    fun `a disabled rule is not applied`() {
+        val rules = """[{"title":"t","pattern":"cat","replacement":"dog","isRegex":false,"enabled":false}]"""
+
+        NovelRegexReplacements.apply("cat", rules) shouldBe "cat"
+    }
+
+    @Test
+    fun `a rule that will not compile is skipped and the rest still run`() {
+        val rules = """[{"title":"t","pattern":"[unclosed","replacement":"x"},""" +
+            """{"title":"u","pattern":"cat","replacement":"dog","isRegex":false}]"""
+
+        NovelRegexReplacements.apply("cat", rules) shouldBe "dog"
+    }
+
+    @Test
+    fun `each rule runs on what the one before it produced`() {
+        val rules = """[{"title":"t","pattern":"a","replacement":"b","isRegex":false},""" +
+            """{"title":"u","pattern":"b","replacement":"c","isRegex":false}]"""
+
+        NovelRegexReplacements.apply("a", rules) shouldBe "c"
+    }
+
+    /** Its thread may still be matching, so running the pattern again would start another. */
+    @Test
+    fun `a pattern that ran past its budget is not run again`() {
+        val run = NovelRegexReplacements.BudgetedRun(50.milliseconds)
+        val slow = NovelRegexReplacements.compile(rule("(.*e){12}f"))
+        run.applyOrNull(slow, "e".repeat(40), isActive = { true })
+
+        run.applyOrNull(slow, "", isActive = { true }) shouldBe null
     }
 }

@@ -1,6 +1,8 @@
 package eu.kanade.presentation.more.settings.screen.novel
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.more.settings.screen.novel.components.NovelRegexRuleEditDialog
 import eu.kanade.presentation.more.settings.screen.novel.components.NovelToggleList
@@ -32,11 +34,13 @@ class NovelRegexRulesScreen : Screen() {
                 )
             },
             editDialog = { rule ->
+                val preview by viewModel.preview.collectAsState()
                 NovelRegexRuleEditDialog(
                     rule = rule,
+                    preview = preview,
                     onDismissRequest = viewModel::dismissDialog,
                     onSave = viewModel::save,
-                    onPreview = viewModel::preview,
+                    onPreview = viewModel::askPreview,
                 )
             },
         )
