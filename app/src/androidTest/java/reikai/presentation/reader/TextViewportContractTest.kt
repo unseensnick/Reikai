@@ -1171,6 +1171,18 @@ class TextViewportContractTest(private val renderer: Renderer) {
         return line
     }
 
+    /** The settled report is the immediate save; without it a scroll's end waits for the debounced one. */
+    @Test
+    fun aScrollTheReaderEndsSendsASettledReport() {
+        open(chapter(FIRST, long("first")))
+        awaitScrollStill()
+        reports.clear()
+        drag(view.width / 2f, view.width / 2f, fromY = view.height * 0.8f, toY = view.height * 0.2f)
+        awaitScrollStill()
+        Thread.sleep(QUIET_MS)
+        assertTrue("reports: ${reports.toList()}", reports.lastOrNull { it.chapterId == FIRST }?.settled == true)
+    }
+
     /** A report from the chapter's top, sent before the landing, would be saved over the position. */
     @Test
     fun aChapterOpenedPartWayNeverReportsItsTop() {
