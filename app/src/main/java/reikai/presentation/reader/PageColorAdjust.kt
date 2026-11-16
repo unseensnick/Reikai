@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import ca.mpreg.webgpuviewer.filter.Lut3d
 import reikai.domain.reader.CONTRAST_DEFAULT_PERCENT
+import kotlin.math.roundToInt
 
 /**
  * The reader's grayscale, inverted colours and contrast as one colour matrix, which every viewer applies to
@@ -37,6 +38,18 @@ data class PageColorAdjust(
     fun apply(r: Float, g: Float, b: Float): Triple<Float, Float, Float> {
         fun row(i: Int) = (matrix[i] * r + matrix[i + 1] * g + matrix[i + 2] * b + matrix[i + 3]).coerceIn(0f, 1f)
         return Triple(row(0), row(4), row(8))
+    }
+
+    /** [argb] through [apply], alpha kept: for a colour painted beside a page the filter already reaches. */
+    fun applyTo(argb: Int): Int {
+        if (isIdentity) return argb
+        val (r, g, b) = apply(
+            (argb shr 16 and 0xFF) / 255f,
+            (argb shr 8 and 0xFF) / 255f,
+            (argb and 0xFF) / 255f,
+        )
+        fun channel(value: Float) = (value * 255f).roundToInt()
+        return (argb and ALPHA_MASK) or (channel(r) shl 16) or (channel(g) shl 8) or channel(b)
     }
 
     /** For the normal viewers and a novel's renderer; null when the page is left alone. */
@@ -81,6 +94,8 @@ data class PageColorAdjust(
 
         /** Enough steps that a contrast's clamp at black and white shows no banding between them. */
         private const val LUT_SIZE = 33
+
+        private const val ALPHA_MASK = 0xFF shl 24
 
         private val IDENTITY = floatArrayOf(1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f)
 

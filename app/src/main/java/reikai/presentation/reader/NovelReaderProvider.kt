@@ -127,9 +127,14 @@ class NovelReaderProvider(
         novelDetailsIntent(context, route.source, route.url).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
 
-    override fun pageBackground(context: Context): Flow<Int> = viewModel.settings.map {
-        readerBackgroundColorInt(it.resolvedForSystemTheme(context.isNightMode()).backgroundColor)
-    }
+    // The colour filter goes over the whole renderer, so the colour painted around it and behind the readout
+    // takes it too, or a filtered page would sit in an unfiltered band. Manga's filter reaches only its images.
+    override fun pageBackground(context: Context): Flow<Int> = combine(
+        viewModel.settings.map {
+            readerBackgroundColorInt(it.resolvedForSystemTheme(context.isNightMode()).backgroundColor)
+        },
+        displayFilters.pageColorAdjust(),
+    ) { color, adjust -> adjust.applyTo(color) }
 
     /** The page on screen and the chapter's page count, as the paged viewport last reported them. */
     private val shownPage = MutableStateFlow<ChapterProgress.Pages?>(null)

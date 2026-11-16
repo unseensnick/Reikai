@@ -97,4 +97,14 @@ class PageColorAdjustTest {
     fun `contrast alone keeps the page in colour`() {
         PageColorAdjust(contrastPercent = 120).of(0.9f, 0.1f, 0.3f).distinct().size shouldBe 3
     }
+
+    @Test
+    fun `a page colour goes through the same rule, keeping its alpha`() {
+        PageColorAdjust(inverted = true).applyTo(0x80FFFFFF.toInt()) shouldBe 0x80000000.toInt()
+    }
+
+    @Test
+    fun `a page colour is left alone with nothing set`() {
+        PageColorAdjust().applyTo(0xFF336699.toInt()) shouldBe 0xFF336699.toInt()
+    }
 }

@@ -138,6 +138,7 @@ import reikai.presentation.reader.brightness
 import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.reader.isSameLaunch
 import reikai.presentation.reader.navigation.actionAt
+import reikai.presentation.reader.pageColorAdjust
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
 import reikai.presentation.reader.setAsCoverMessage
@@ -1402,12 +1403,7 @@ class ReaderActivity : BaseActivity() {
                 .onEach(::setCustomBrightnessValue)
                 .launchIn(lifecycleScope)
 
-            combine(
-                engine.provider.displayFilters.grayscale.changes(),
-                engine.provider.displayFilters.invertedColors.changes(),
-                engine.provider.displayFilters.contrastPercent.changes(),
-                ::PageColorAdjust,
-            )
+            engine.provider.displayFilters.pageColorAdjust()
                 .onEach(::setLayerPaint)
                 .launchIn(lifecycleScope)
 

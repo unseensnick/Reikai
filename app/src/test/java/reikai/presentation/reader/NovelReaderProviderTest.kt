@@ -40,6 +40,21 @@ class NovelReaderProviderTest {
         NovelReaderViewModelHarness.create(testScheduler).use { block(it) }
     }
 
+    /** The filter is applied to the whole renderer, so the colour the host paints around it must take it too. */
+    @Test
+    fun `the page colour the host paints takes the session's colour filter`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+        val context = mockk<android.content.Context>(relaxed = true)
+        val plain = provider.pageBackground(context).first()
+
+        harness.novelPreferences.readerInvertedColors().set(true)
+
+        provider.pageBackground(context).first() shouldBe PageColorAdjust(inverted = true).applyTo(plain)
+    }
+
     /** Speech outlives the Activity, so a renderer left attached would be asked about a destroyed page. */
     @Test
     fun `a detached viewport is no longer asked where the reader is`() = readerTest { harness ->

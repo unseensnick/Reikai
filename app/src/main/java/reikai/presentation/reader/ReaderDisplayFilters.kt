@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.sample
@@ -36,3 +37,7 @@ class ReaderDisplayFilters(
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 fun ReaderDisplayFilters.brightness(): Flow<Int> = customBrightness.changes()
     .flatMapLatest { enabled -> if (enabled) customBrightnessValue.changes().sample(0.1.seconds) else flowOf(0) }
+
+/** Grayscale, inverted colours and contrast as the one rule the page takes them by. */
+fun ReaderDisplayFilters.pageColorAdjust(): Flow<PageColorAdjust> =
+    combine(grayscale.changes(), invertedColors.changes(), contrastPercent.changes(), ::PageColorAdjust)
