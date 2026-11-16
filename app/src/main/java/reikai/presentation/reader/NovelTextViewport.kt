@@ -51,6 +51,7 @@ import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph
 import reikai.presentation.reader.text.DrawableWrapper
+import reikai.presentation.reader.text.FailedPictureAccessibility
 import reikai.presentation.reader.text.ImageFailureDrawable
 import reikai.presentation.reader.text.ImageLoadingDrawable
 import reikai.presentation.reader.text.LinkOnlyMovementMethod
@@ -2045,6 +2046,7 @@ class NovelTextViewport(
             // cancels the click a tap on a link queued and lets every other tap through to here.
             if (!textSelectable) setOnClickListener { onTap(touchDownX, touchDownY) }
             setOnTouchListener(dragEndsPress)
+            accessibilityDelegate = FailedPictureAccessibility
             // Off on both branches: the click is dispatched by the movement method below, so leaving
             // it on would let the framework fire its own unchecked intent for the same tap.
             linksClickable = false

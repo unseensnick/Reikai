@@ -17,9 +17,9 @@ import androidx.core.graphics.ColorUtils
 internal class ImageFailureDrawable(
     width: Int,
     private val em: Float,
-    private val heading: String,
+    val heading: String,
     /** Null for a picture that cannot be asked for again, an inline one or an unsupported address. */
-    private val retryLabel: String?,
+    val retryLabel: String?,
     private val textColor: () -> Int,
 ) : Drawable() {
 
