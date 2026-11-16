@@ -11,14 +11,17 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.ownersOf
+import reikai.domain.source.isInstalled
 import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.local.LocalNovelSource
+import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
 /**
  * [onDisk] is what a pass reads, [total] every chapter in the scope, for the share it covers, and [missing]
- * the rest of the scope, which a download would bring onto the device.
+ * the copies a download of the rest fetches: an installed source's where the shown one's is gone, none where no
+ * installed source has the chapter.
  */
 data class NovelDownloadedChapters(
     val onDisk: List<NovelChapter>,
@@ -37,21 +40,25 @@ class NovelDownloadedTexts(
     private val downloadCache: NovelDownloadCache,
     private val downloadManager: () -> NovelDownloadManager,
     private val localNovels: LocalNovelSource,
+    private val sourceManager: NovelSourceManager,
 ) {
     suspend fun chaptersOf(novelId: Long, sourceScoped: Boolean): NovelDownloadedChapters {
-        // Only rows on disk are read, and which installed copy opens matters only to a row with none.
-        val rows = getNextNovelChapter.readingRows(novelId, sourceScoped, isInstalled = { true }) { chapters, owners ->
-            downloadCache.downloadedChapterIds(chapters, owners)
-        }.rows
-        val isHidden = getNextNovelChapter.hiddenAmong(rows)
-        val shown = rows.filterNot(isHidden).sortedWith(getNextNovelChapter.readingOrder(novelId))
+        // Which sources are installed decides only the copies [NovelDownloadedChapters.missing] downloads.
+        val reading = getNextNovelChapter.readingRows(
+            novelId,
+            sourceScoped,
+            isInstalled = { sourceManager.isInstalled(it.source) },
+        ) { chapters, owners -> downloadCache.downloadedChapterIds(chapters, owners) }
+        val isHidden = getNextNovelChapter.hiddenAmong(reading.rows)
+        val shown = reading.rows.filterNot(isHidden).sortedWith(getNextNovelChapter.readingOrder(novelId))
         val onDisk = downloadCache.downloadedChapterIds(shown, novelRepository.ownersOf(shown))
+        val notOnDisk = shown.filterNot { it.id in onDisk }
         return NovelDownloadedChapters(
             shown.filter {
                 it.id in onDisk
             },
             shown.size,
-            shown.filterNot { it.id in onDisk },
+            reading.downloadTargets.of(notOnDisk, reading.pooled + notOnDisk) { it.id },
         )
     }
 

@@ -76,6 +76,7 @@ object NovelDownloadedTextsFixture {
                 }
             },
             mockk { coEvery { parseChapter(any()) } answers { books.getValue(firstArg()) } },
+            mockk(relaxed = true),
         )
     }
 }

@@ -75,6 +75,7 @@ import reikai.domain.source.SourceKey
 import reikai.domain.track.ownChapterNumbers
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.install.LnPluginInstaller
@@ -468,6 +469,8 @@ class NovelReaderViewModelHarness private constructor(
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences, onMerged = {}) {}
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
+        val mergedChapterProvider =
+            NovelMergedChapterProvider(mergeManager, ReconcileMergedChapters(units, setOf(stitcher)))
         return NovelDetailsViewModel(
             appScope = appScope,
             sourceId = sourceId,
@@ -492,10 +495,7 @@ class NovelReaderViewModelHarness private constructor(
                 every { themeCoverBased } returns store.getBoolean("theme_cover_based", false)
             },
             mergeManager = mergeManager,
-            mergedChapterProvider = NovelMergedChapterProvider(
-                mergeManager,
-                ReconcileMergedChapters(units, setOf(stitcher)),
-            ),
+            mergedChapterProvider = mergedChapterProvider,
             reikaiLibraryPreferences = reikaiLibraryPreferences,
             libraryPreferences = LibraryPreferences(store),
             syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, NoChapterTombstones),
@@ -517,7 +517,21 @@ class NovelReaderViewModelHarness private constructor(
             combineLocalVolumes = mockk(relaxed = true),
             trackPorts = mockk(relaxed = true),
             autoBindTrackers = mockk(relaxed = true),
-            downloadedTexts = mockk(relaxed = true),
+            downloadedTexts = NovelDownloadedTexts(
+                GetNextNovelChapter(
+                    detailsChapters,
+                    novelRepo,
+                    novelPreferences,
+                    mergeManager,
+                    mergedChapterProvider,
+                    NovelChapterSettings(novelRepo),
+                ),
+                novelRepo,
+                downloadCache,
+                { downloadManager },
+                mockk(),
+                sourceManager,
+            ),
             sourceContacts = sourceContacts,
         ).also { model ->
             track(model)
