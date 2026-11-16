@@ -29,6 +29,8 @@ import reikai.presentation.reader.settings.MangaSheetProbe
 import reikai.presentation.reader.settings.NovelSheetProbe
 import reikai.presentation.reader.settings.ReaderSettingsSheet
 import reikai.presentation.recents.RecentsToolbar
+import reikai.presentation.settings.appearance.IconTile
+import reikai.util.LauncherIcon
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.presentation.core.components.material.TabText
 
@@ -86,6 +88,18 @@ class ScreenshotTest {
     @Test
     fun `library tabs`() {
         showLibraryTabs()
+        capture()
+    }
+
+    // The Mihon style's disc is in its background layer, so a tile that crops only the foreground shrinks it.
+    @Test
+    fun `app icon tiles`() {
+        show {
+            Row {
+                listOf(LauncherIcon.FLAME_R_STABLE, LauncherIcon.MIHON_RE_STABLE, LauncherIcon.MIHON_RE_OUTLINE)
+                    .forEach { IconTile(it, isShown = it == LauncherIcon.MIHON_RE_STABLE) {} }
+            }
+        }
         capture()
     }
 

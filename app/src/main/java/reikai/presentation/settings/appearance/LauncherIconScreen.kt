@@ -116,7 +116,7 @@ class LauncherIconScreen : Screen() {
 }
 
 @Composable
-private fun IconTile(icon: LauncherIcon, isShown: Boolean, onClick: () -> Unit) {
+internal fun IconTile(icon: LauncherIcon, isShown: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = Modifier
@@ -136,8 +136,13 @@ private fun IconTile(icon: LauncherIcon, isShown: Boolean, onClick: () -> Unit) 
                 .padding(4.dp)
                 .clip(shape),
         ) {
-            Image(painterResource(icon.background), contentDescription = null, Modifier.fillMaxSize())
-            // A launcher shows the middle 72 of the layers' 108 dp, so the preview is scaled to that view.
+            // A launcher shows the middle 72 of the layers' 108 dp, so both layers are scaled to that view; the
+            // Mihon style's disc is in its background.
+            Image(
+                painterResource(icon.background),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().scale(1.5f),
+            )
             Image(
                 painterResource(icon.foreground),
                 contentDescription = null,
