@@ -341,9 +341,6 @@ class ReaderEngine(
     }
 
     override fun onCleared() {
-        // The host flushes on pause, but a renderer still settling reports after that, and its hold would
-        // end with the session's scope. The write itself runs on the app scope.
-        provider.flushPosition()
         // The paragraph being spoken when the reader closes has had no step to credit it yet.
         listening.value.next(playing = false, progress = null, nowMs = clock.elapsedNow().inWholeMilliseconds)
             .listened?.let(::recordListened)

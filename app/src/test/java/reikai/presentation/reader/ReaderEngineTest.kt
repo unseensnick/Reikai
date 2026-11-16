@@ -232,17 +232,6 @@ class ReaderEngineTest {
         paceRepository.listened.value.map { it.first } shouldBe listOf(9L)
     }
 
-    /** A renderer still settling reports after the pause flush, and the session's scope ending drops a hold. */
-    @Test
-    fun `closing the reader writes the position held back`() {
-        val provider = FakeReaderProvider()
-        val engine = engine(provider)
-
-        ViewModelStore().apply { put("engine", engine) }.clear()
-
-        provider.flushed shouldBe true
-    }
-
     /** Ids overlap across the two types, so the override is found by the entry's typed id. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("editedEntries")
@@ -1234,12 +1223,7 @@ private class FakeReaderProvider(
 
     override fun onReaderMoved() = Unit
 
-    /** Whether the position held back was written, which the host asks for on pause and the engine on close. */
-    var flushed = false
-
-    override fun flushPosition() {
-        flushed = true
-    }
+    override fun flushPosition() = Unit
 
     override fun detailsIntent(context: Context): Intent? = null
 
