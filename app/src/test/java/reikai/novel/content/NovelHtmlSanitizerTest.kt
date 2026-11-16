@@ -10,6 +10,7 @@ import io.mockk.unmockkStatic
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 
 /**
@@ -181,9 +182,16 @@ class NovelHtmlSanitizerTest {
         web("<script>alert(1)</script>", keepEmbeddedJs = true) shouldContain "alert(1)"
     }
 
-    @Test
-    fun `blocking media removes an image`() {
-        web("""<p>a</p><img src="x.png">""", blockMedia = true) shouldNotContain "img"
+    @ParameterizedTest
+    @EnumSource(RenderTarget::class)
+    fun `blocking media removes an image`(target: RenderTarget) {
+        NovelHtmlUtils.sanitizeForRender(
+            content = """<p>a</p><img src="x.png">""",
+            target = target,
+            keepEmbeddedCss = true,
+            keepEmbeddedJs = false,
+            blockMedia = true,
+        ) shouldNotContain "img"
     }
 
     @Test

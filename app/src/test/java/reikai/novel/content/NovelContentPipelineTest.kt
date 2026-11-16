@@ -79,6 +79,38 @@ class NovelContentPipelineTest {
     }
 
     @Test
+    fun `hide chapter title removes the chapter's heading`() = runTest {
+        val seeded = preferencesWith(InMemoryPreference("ln_reader_hide_chapter_title", true, false))
+
+        val processed = NovelContentPipeline.process("<h1>Chapter 1</h1><p>Body.</p>", config("/book/ch1.html", seeded))
+
+        processed.text shouldNotContain "<h1>"
+    }
+
+    @Test
+    fun `remove extra spacing collapses a source's stacked breaks`() = runTest {
+        val seeded = preferencesWith(InMemoryPreference("ln_reader_remove_extra_spacing", true, false))
+
+        val processed = NovelContentPipeline.process("<p>One<br><br><br><br>Two</p>", config("/book/ch1.html", seeded))
+
+        processed.text shouldContain "One<br><br>Two"
+    }
+
+    /** Spacing runs first, so a rule sees the markup the reader shows rather than the source's padding. */
+    @Test
+    fun `a find-and-replace rule sees the chapter after extra spacing is removed`() = runTest {
+        val rule = """[{"title":"t","pattern":"One<br><br>Two","replacement":"joined","isRegex":false}]"""
+        val seeded = preferencesWith(
+            InMemoryPreference("ln_reader_remove_extra_spacing", true, false),
+            InMemoryPreference("ln_reader_regex_replacements", rule, "[]"),
+        )
+
+        val processed = NovelContentPipeline.process("<p>One<br><br><br><br>Two</p>", config("/book/ch1.html", seeded))
+
+        processed.text shouldContain "joined"
+    }
+
+    @Test
     fun `auto-split breaks a wall of text into paragraphs`() = runTest {
         val seeded = preferencesWith(
             InMemoryPreference("ln_reader_auto_split_text", true, false),

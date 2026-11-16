@@ -20,4 +20,16 @@ class NovelImageSourcesTest {
 
         NovelImageSources.srcsetCandidate(img, targetWidth = 500) shouldBe "https://cdn.example/w_800,h_1/b.jpg"
     }
+
+    /** The reader cannot decode AVIF or SVG, so a picture offering one first must fall through to the next. */
+    @Test
+    fun `a picture skips a source in a format the reader cannot decode`() {
+        val doc = Jsoup.parseBodyFragment(
+            """<picture><source type="image/avif" srcset="a.avif"><source type="image/webp" srcset="a.webp"></picture>""",
+        )
+
+        NovelImageSources.unwrapPictures(doc)
+
+        doc.selectFirst("img")!!.attr("srcset") shouldBe "a.webp"
+    }
 }

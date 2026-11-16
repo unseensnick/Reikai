@@ -171,7 +171,7 @@ class NovelTextSplitterTest {
      */
     @Test
     fun `a line break in the html source does not end a sentence`() {
-        val wrapped = List(25) { "Word" }.joinToString(" ") + " " + List(5) { "word" }.joinToString(" ") + "."
+        val wrapped = List(25) { "Word" }.joinToString(" ") + "\u2029" + List(5) { "word" }.joinToString(" ") + "."
         val html = "<p>$wrapped ${sentences(count = 1, wordsEach = 5)}</p>"
 
         NovelTextSplitter.splitText(html, wordCount = 20, isHtml = true) shouldBe
