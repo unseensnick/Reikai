@@ -43,6 +43,12 @@ class SettingsNovelReaderScreenTest {
         readingRows(NovelPageLayout.SCROLL) shouldNotContain DUAL_PAGE_VIEW
     }
 
+    /** Beside the manga reader's own row, in the same place on its screen. */
+    @Test
+    fun `reading offers show reading mode`() {
+        readingRows(NovelPageLayout.SCROLL) shouldContain "Show reading mode"
+    }
+
     /** A novel kept on WebView under a native default reads these too, and the sheet has no row for them. */
     @Test
     fun `the WebView-only rows show under a native default`() {

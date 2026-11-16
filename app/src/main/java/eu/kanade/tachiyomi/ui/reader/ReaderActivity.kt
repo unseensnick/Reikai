@@ -59,6 +59,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.android.material.transition.platform.MaterialContainerTransform
+import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.reader.DisplayRefreshHost
@@ -1224,12 +1225,18 @@ class ReaderActivity : BaseActivity() {
 
     private fun showReadingModeToast(mode: Int) {
         try {
-            readingModeToast?.cancel()
-            readingModeToast = toast(ReadingMode.fromPreference(mode).stringRes)
+            showReadingModeToast(ReadingMode.fromPreference(mode).stringRes) // RK
         } catch (_: ArrayIndexOutOfBoundsException) {
             logcat(LogPriority.ERROR) { "Unknown reading mode: $mode" }
         }
     }
+
+    // RK --> the one reading-mode notice, which a novel session shows by its own mode's name.
+    internal fun showReadingModeToast(name: StringResource) {
+        readingModeToast?.cancel()
+        readingModeToast = toast(name)
+    }
+    // RK <--
 
     /**
      * Called from the presenter whenever a new [viewerChapters] have been set. It delegates the

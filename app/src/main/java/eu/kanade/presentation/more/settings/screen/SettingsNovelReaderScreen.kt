@@ -467,6 +467,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     valueText = { "$it%" },
                 ).takeIf { seamless },
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerShowReadingMode(),
+                    title = stringResource(MR.strings.pref_show_reading_mode),
+                    subtitle = stringResource(MR.strings.pref_show_reading_mode_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerShowTapZonesOnStart(),
                     title = stringResource(MR.strings.pref_show_navigation_mode),
                     subtitle = stringResource(MR.strings.pref_show_navigation_mode_summary),

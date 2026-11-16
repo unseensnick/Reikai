@@ -38,6 +38,9 @@ Shows the marker between two chapters every time, not only where chapters are mi
 ### Load the next chapter after reading <Badge type="info" text="95%" />
 How far into a chapter you have to read before the next one appears below it. A chapter shorter than the screen adds the next one straight away. Only shown while **Continuous chapters** is on.
 
+### Show reading mode <Badge type="info" text="On" />
+Briefly show the current reading mode when the reader is opened. Separate from the manga reader's switch.
+
 ### Show tap zones overlay <Badge type="info" text="Off" />
 Briefly shows the tap zones when the reader opens. The overlay always shows when you change the layout you are reading with; this only adds it on opening. Hidden while both the **Paged** and the **Scrolling** tap zones are **Disabled**.
 

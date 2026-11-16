@@ -384,6 +384,9 @@ class NovelPreferences(
         preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)
     }
 
+    /** Name the reading mode when a novel opens, as manga's `showReadingMode` does; a setting of its own. */
+    fun readerShowReadingMode() = preferenceStore.getBoolean("ln_reader_show_reading_mode", true)
+
     /** Show the tap zones when a novel opens, the twin of the manga reader's `showNavigationOverlayOnStart`,
      *  pinned by `ReaderNavigationOverlayState.setNavigation`, which both readers hand it to. */
     fun readerShowTapZonesOnStart() = preferenceStore.getBoolean("ln_reader_show_navigation_overlay_on_start", false)

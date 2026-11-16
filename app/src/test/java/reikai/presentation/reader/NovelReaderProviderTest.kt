@@ -172,6 +172,29 @@ class NovelReaderProviderTest {
         emissions.last().layout shouldBe NovelTapLayout.RIGHT_AND_LEFT
     }
 
+    /** As a manga with its own reading mode names it on open. */
+    @Test
+    fun `a novel opens naming its own reading mode`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelPageLayout.flagOf(NovelPageLayout.PAGED_RTL) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+
+        provider.readingModeNotice() shouldBe NovelPageLayout.PAGED_RTL.titleRes
+    }
+
+    @Test
+    fun `a novel opens without naming its reading mode when Show reading mode is off`() = readerTest { harness ->
+        harness.novelPreferences.readerShowReadingMode().set(false)
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+
+        provider.readingModeNotice() shouldBe null
+    }
+
     /** Kept paged while every other novel scrolls, as the For this series row sets it. */
     @Test
     fun `a novel kept paged opens with the pager's tap layout over a scrolling default`() = readerTest { harness ->

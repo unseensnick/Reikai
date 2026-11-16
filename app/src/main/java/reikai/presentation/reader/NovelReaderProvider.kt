@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.lifecycleScope
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -421,6 +422,7 @@ class NovelReaderProvider(
         viewportRebuilds.onEach { host.recreate() }.launchIn(host.lifecycleScope)
         val viewport = createViewport(host)
         host.showViewport(viewport)
+        readingModeNotice()?.let(host::showReadingModeToast)
         // Asked for rather than cast: which text renderer is running is the provider's choice.
         // A novel viewport that does not answer would render an empty reader in silence, so say so.
         when (viewport) {
@@ -444,6 +446,11 @@ class NovelReaderProvider(
             .onEach { host.navigationOverlayState.setNavigation(it.navigation, showOnStart) }
             .launchIn(host.lifecycleScope)
     }
+
+    /** The reading mode the viewport is built in, named on each build as manga's `updateViewer` names its
+     *  own; null while Show reading mode is off. */
+    internal fun readingModeNotice(): StringResource? =
+        viewportSettings().pageLayout.titleRes.takeIf { novelPreferences.readerShowReadingMode().get() }
 
     // Speech outlives the Activity, so the renderer it marks is let go of before it is destroyed.
     override fun detach(viewport: ReaderViewport) {
