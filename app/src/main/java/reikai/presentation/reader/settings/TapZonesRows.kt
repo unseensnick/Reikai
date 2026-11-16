@@ -10,6 +10,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import reikai.domain.novel.NovelTapLayout
 import reikai.presentation.reader.NovelTapZones
+import reikai.presentation.reader.navigation.MangaTapLayouts
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsChipRow
@@ -19,8 +20,8 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * Either reader's tap layout, its inversion where it has something to invert, and the Bottom layout's zone height.
- * [layout] is the novel layout the [selected] one is, null for one the novel reader lacks; [offersInvert] and
- * [invertModes] come from the reader's own rule for [selected].
+ * [layout] is the novel layout the [selected] one is, null for one the novel reader lacks, and decides which
+ * inversions are offered.
  */
 @Composable
 internal fun ColumnScope.TapZonesRows(
@@ -28,8 +29,6 @@ internal fun ColumnScope.TapZonesRows(
     selected: Int,
     onSelect: (Int) -> Unit,
     layout: NovelTapLayout?,
-    offersInvert: Boolean,
-    invertModes: List<TappingInvertMode>,
     invert: TappingInvertMode,
     onInvert: (TappingInvertMode) -> Unit,
     bottomZoneHeight: Preference<Int>,
@@ -43,9 +42,9 @@ internal fun ColumnScope.TapZonesRows(
             )
         }
     }
-    if (offersInvert) {
+    if (MangaTapLayouts.offersInvert(layout)) {
         SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            invertModes.forEach {
+            MangaTapLayouts.invertModes(layout).forEach {
                 FilterChip(
                     selected = it == invert,
                     onClick = { onInvert(it) },

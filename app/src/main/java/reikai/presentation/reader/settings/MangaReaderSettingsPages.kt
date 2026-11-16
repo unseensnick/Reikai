@@ -134,18 +134,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
         is RunningViewer.WebGpu -> {
             HeadingItem(MR.strings.pref_category_high_quality_renderer)
             val webGpu = running.viewer
-            if (!webGpu.isContinuous) {
-                val dualPageView by preferences.dualPageView.collectAsState()
-                SettingsChipRow(MR.strings.pref_dual_page_view) {
-                    ReaderPreferences.DualPageView.entries.map {
-                        FilterChip(
-                            selected = it == dualPageView,
-                            onClick = { preferences.dualPageView.set(it) },
-                            label = { Text(stringResource(it.titleRes)) },
-                        )
-                    }
-                }
-            }
+            if (!webGpu.isContinuous) DualPageViewRows(preferences.dualPageView, preferences.spreadGap)
             if (webGpu.isContinuous) {
                 val numberFormat = remember { NumberFormat.getPercentInstance() }
                 val continuousMinWidth by preferences.continuousMinWidth.collectAsState()
@@ -181,9 +170,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                     rotate = preferences.dualPageRotateToFitWebtoon,
                     rotateInvert = preferences.dualPageRotateToFitInvertWebtoon,
                 )
-            } else if (isWebGpuDualPage(webGpu, preferences)) {
-                SpreadGapSlider(preferences.spreadGap)
-            } else {
+            } else if (!isWebGpuDualPage(webGpu, preferences)) {
                 ImageScaleTypeRow(preferences)
                 ZoomStartRow(preferences)
                 CheckboxItem(label = stringResource(MR.strings.pref_crop_borders), pref = preferences.cropBorders)
@@ -420,8 +407,6 @@ private fun ColumnScope.MangaTapZones(preferences: ReaderPreferences, pager: Boo
         selected = selected,
         onSelect = { preferences.setTapLayout(pager, it) },
         layout = MangaTapLayouts.layout(selected),
-        offersInvert = MangaTapLayouts.offersInvert(selected),
-        invertModes = MangaTapLayouts.invertModes(selected),
         invert = invert,
         onInvert = invertPref::set,
         bottomZoneHeight = preferences.tapBottomZoneHeight,

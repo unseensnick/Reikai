@@ -46,10 +46,16 @@ object MangaTapLayouts {
     fun layout(index: Int): NovelTapLayout? = if (index == DISABLED) NovelTapLayout.DISABLED else added(index)
 
     /** The inversions that change the layout at [index]. */
-    fun invertModes(index: Int): List<TappingInvertMode> = layout(index)?.invertModes ?: TappingInvertMode.entries
+    fun invertModes(index: Int): List<TappingInvertMode> = invertModes(layout(index))
+
+    /** The inversions that change [layout], every one for a layout the novel reader lacks (null). */
+    fun invertModes(layout: NovelTapLayout?): List<TappingInvertMode> = layout?.invertModes ?: TappingInvertMode.entries
 
     /** Whether the layout at [index] offers an inversion choice, by the novel reader's rule. */
-    fun offersInvert(index: Int): Boolean = layout(index)?.offersInvert ?: true
+    fun offersInvert(index: Int): Boolean = offersInvert(layout(index))
+
+    /** Whether [layout] offers an inversion choice, which one the novel reader lacks (null) always does. */
+    fun offersInvert(layout: NovelTapLayout?): Boolean = layout?.offersInvert ?: true
 }
 
 /**

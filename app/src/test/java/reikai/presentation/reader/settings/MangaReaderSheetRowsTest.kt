@@ -226,6 +226,22 @@ class MangaReaderSheetRowsTest {
         compose.onNodeWithText("Crop borders").assertDoesNotExist()
     }
 
+    @Test
+    fun `WebGPU dual page offers the space between pages`() {
+        preferences.dualPageView.set(ReaderPreferences.DualPageView.ALWAYS)
+
+        show(webGpu())
+
+        compose.onNodeWithText("Space between pages").assertExists()
+    }
+
+    @Test
+    fun `WebGPU single page offers no space between pages`() {
+        show(webGpu())
+
+        compose.onNodeWithText("Space between pages").assertDoesNotExist()
+    }
+
     /** The novel sheet offers them too, so a manga reader need not leave the reader for Settings. */
     @Test
     fun `the Controls tab offers the volume keys`() {

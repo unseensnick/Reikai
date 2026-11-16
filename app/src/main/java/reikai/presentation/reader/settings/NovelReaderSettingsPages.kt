@@ -35,13 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
@@ -143,29 +141,7 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     HeadingItem(MR.strings.pref_category_text)
     val pageLayout by pages.textSettings.effectivePageLayout.collectAsState()
     // Where manga's sheet has it, beside the paged reading it applies to.
-    if (pageLayout.isPaged) {
-        val dualPageViewPref = preferences.readerDualPageView()
-        val dualPageView by dualPageViewPref.collectAsState()
-        SettingsChipRow(MR.strings.pref_dual_page_view) {
-            ReaderPreferences.DualPageView.entries.forEach {
-                FilterChip(
-                    selected = dualPageView == it,
-                    onClick = { dualPageViewPref.set(it) },
-                    label = { Text(stringResource(it.titleRes)) },
-                )
-            }
-        }
-        val configuration = LocalConfiguration.current
-        if (sheetDualPageRowsShown(
-                pageLayout.isPaged,
-                dualPageView,
-                configuration.screenWidthDp,
-                configuration.screenHeightDp,
-            )
-        ) {
-            SpreadGapSlider(preferences.readerSpreadGap())
-        }
-    }
+    if (pageLayout.isPaged) DualPageViewRows(preferences.readerDualPageView(), preferences.readerSpreadGap())
     FontRow(preferences.readerFontFamily(), pages.installedFonts)
     val fontSize by preferences.readerFontSize().collectAsState()
     StepperItem(
@@ -419,8 +395,6 @@ private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences, paged: 
         selected = layout.ordinal,
         onSelect = { preferences.setReaderTapLayout(paged, NovelTapLayout.entries[it]) },
         layout = layout,
-        offersInvert = layout.offersInvert,
-        invertModes = layout.invertModes,
         invert = invert,
         onInvert = invertPref::set,
         bottomZoneHeight = preferences.readerTapBottomZoneHeight(),

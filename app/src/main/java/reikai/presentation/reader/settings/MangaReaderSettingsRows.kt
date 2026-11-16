@@ -1,18 +1,23 @@
 package reikai.presentation.reader.settings
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import reikai.presentation.reader.showsTwoPages
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSliderItem
+import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -101,6 +106,31 @@ internal fun SpreadGapSlider(preference: PreferenceData<Int>) {
             dragged = null
         },
     )
+}
+
+/**
+ * Dual page view in a paged reader's sheet, for manga and novels alike, over each type's own setting, with
+ * the space between pages beneath it while this screen shows two.
+ */
+@Composable
+internal fun ColumnScope.DualPageViewRows(
+    dualPageView: PreferenceData<ReaderPreferences.DualPageView>,
+    spreadGap: PreferenceData<Int>,
+) {
+    val selected by dualPageView.collectAsState()
+    SettingsChipRow(MR.strings.pref_dual_page_view) {
+        ReaderPreferences.DualPageView.entries.forEach {
+            FilterChip(
+                selected = it == selected,
+                onClick = { dualPageView.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
+    val configuration = LocalConfiguration.current
+    if (selected.showsTwoPages(configuration.screenWidthDp, configuration.screenHeightDp)) {
+        SpreadGapSlider(spreadGap)
+    }
 }
 
 /** Dual page view's row in Settings > Manga reader and Settings > Novel reader, over each type's own setting. */
