@@ -184,6 +184,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
 - **The manga reader's settings sheet now has Volume keys, Invert volume keys and the scroll amount.**
 - **Keyboards and page-turner remotes now turn novel pages and open the reader menu.**
+- **Novels can add the Reading mode button to the reader's bottom bar, as manga can.**
+- **The novel reader can show a novel's reading mode as it opens, from Settings -> Novel reader -> Show reading mode.**
 
 #### Changed
 
@@ -200,6 +202,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Time with the reader's menu open no longer counts as reading time in Statistics.** Read aloud playing still counts.
 
 - **Long chapter titles in the reader's top bar scroll by faster (from Tsundoku).** Upstream: tsundoku-otaku/tsundoku#472.
+- **Every scrolling reader now hides its menu on a drag or fling past Sensitivity for hiding menu on scroll, and never for its own scrolls.**
 
 #### Fixed
 
