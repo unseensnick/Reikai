@@ -325,6 +325,34 @@ class CloudflareInterceptorTest {
         served.get() shouldBe 3
     }
 
+    @Test
+    fun `a host a sibling leaves to the server while the request is being routed is answered by the server`() {
+        val served = AtomicInteger()
+        setServer(
+            mockk {
+                every { handles(any()) } returns true
+                // The sibling's solve marks the host between the request's first look and its next.
+                every { shouldSkipWebView(any()) } returnsMany listOf(false, true)
+                every { resolve(any(), any()) } answers {
+                    served.incrementAndGet()
+                    ok(firstArg())
+                }
+            },
+        )
+        CloudflareInterceptor::class.java.getDeclaredField("webViewFetcher").apply { isAccessible = true }
+            .set(
+                interceptor,
+                mockk<WebViewFetcher> {
+                    every { serves(any()) } returns false
+                    every { fetch(any(), any()) } answers { WebViewFetcher.Outcome.Served(ok(secondArg())) }
+                },
+            )
+
+        runBounded { interceptor.intercept(chain("https://site.example/page", ::challenge)) }
+
+        served.get() shouldBe 1
+    }
+
     // A jar holding a clearance per host, so one site's solve leaves another's challenged.
     private fun clearancesPerHost(): ConcurrentHashMap<String, String> {
         val clearances = ConcurrentHashMap<String, String>()

@@ -170,7 +170,11 @@ class CloudflareInterceptor(
     // [fetchRequest] is the challenged request as it reached the challenged host: the application interceptors'
     // headers, less what OkHttp drops on a redirect to another host (Authorization).
     private fun knowsRoute(request: Request, fetchRequest: Request): Boolean = serverAnswers(request) ||
-        (!flareSolverr.handles(request) && webViewFetcher.serves(fetchRequest))
+        webViewAnswers(request, fetchRequest)
+
+    // The WebView fetch's route, for a host the server is not in use for.
+    private fun webViewAnswers(request: Request, fetchRequest: Request): Boolean =
+        !flareSolverr.handles(request) && webViewFetcher.serves(fetchRequest)
 
     /**
      * The answer from a route that already serves this host, which needs no solve and so no write lock;
@@ -187,7 +191,9 @@ class CloudflareInterceptor(
                     response.close()
                     flareSolverr.resolve(request, chain.cookieJar)
                 }
-                knowsRoute(request, fetchRequest) -> {
+                // Not knowsRoute: a sibling's solve can leave the host to the server after the check
+                // above, which would send a request the server carries into the WebView.
+                webViewAnswers(request, fetchRequest) -> {
                     clearClearance(request.url, challengeUrl)
                     val since = solveCount.get()
                     when (val outcome = webViewFetcher.fetch(chain, fetchRequest)) {
