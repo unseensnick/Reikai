@@ -1,11 +1,18 @@
 package reikai.novel.install
 
+import android.content.Context
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
 import kotlinx.serialization.SerializationException
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.source.model.SourceNotInstalledException
+import tachiyomi.i18n.MR
 import java.io.IOException
 import java.net.UnknownHostException
 
@@ -61,5 +68,25 @@ class LnPluginLoadFailureTest {
     @Test
     fun `a plugin that never loaded is named from its file`() {
         LnPluginLoadFailure.of(url, IllegalStateException(), metadata = null, seen = null).name shouldBe "novelbin"
+    }
+
+    @Test
+    fun `an installed plugin that failed to load is unreachable for its load's reason`() {
+        mockkStatic(LOCALIZE) {
+            every { any<Context>().stringResource(MR.strings.ext_malformed_message) } returns "Malformed"
+            val failures = mapOf(url to LnPluginLoadFailure.of(url, SerializationException("x"), metadata, null))
+
+            failures.unreachable("novelbin", mockk()).message shouldBe "Malformed"
+        }
+    }
+
+    @Test
+    fun `a plugin that is not installed is unreachable as not installed`() {
+        emptyMap<String, LnPluginLoadFailure>().unreachable("novelbin", mockk())
+            .shouldBeInstanceOf<SourceNotInstalledException>()
+    }
+
+    private companion object {
+        const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
     }
 }

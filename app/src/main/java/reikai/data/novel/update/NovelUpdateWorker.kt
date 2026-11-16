@@ -62,6 +62,7 @@ import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
 import reikai.domain.novel.updateerror.UpsertNovelUpdateError
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.unreachable
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
@@ -202,7 +203,9 @@ class NovelUpdateWorker(
                 recordError = { upsertNovelUpdateError.await(novel.id, it) },
                 failureMessage = { with(context) { it.updateFailureMessage() } },
             ) {
-                val newChapters = checkNovel(novel, sourceManager.getOrThrow(novel.source), fetchWindow)
+                val source = sourceManager.get(novel.source)
+                    ?: throw installer.failures.value.unreachable(novel.source, context)
+                val newChapters = checkNovel(novel, source, fetchWindow)
                 if (newChapters.isNotEmpty()) {
                     // Queued after the run rather than here, so a merge group's sources cannot each
                     // fetch the same chapter.
