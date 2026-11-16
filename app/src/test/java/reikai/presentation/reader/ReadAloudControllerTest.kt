@@ -816,6 +816,19 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `a paragraph step while the next chapter opens does not open it again`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        act { engine.finishLast() }
+
+        act { controller.nextParagraph() }
+
+        navigation.opened shouldBe listOf(2L)
+    }
+
+    @Test
     fun `play after a pause while the next chapter opens starts it once the renderer lands`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
         navigation.after[1L] = 2L

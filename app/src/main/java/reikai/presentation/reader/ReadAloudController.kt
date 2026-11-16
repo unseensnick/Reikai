@@ -254,6 +254,9 @@ class ReadAloudController(
      * a step back starts the paragraph again.
      */
     private fun step(delta: Int) {
+        // While the next chapter opens, the position is still the last chapter's end, so a step would finish
+        // that chapter and open the next one again; the landing starts the new chapter, as play() leaves it.
+        if (pendingChapter != null) return
         val at = position ?: return readFromHere()
         val target = sentenceIndex + delta
         command {
