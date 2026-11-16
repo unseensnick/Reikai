@@ -22,6 +22,9 @@ fun localChapterUnit(url: String): Pair<String, String> =
 fun localChapterUrl(series: String, volume: String, file: String): String =
     if (volume == VolumeOwner.LOOSE) "$series/$file" else LocalVolumeChapter(series, volume, file).url
 
+/** Whether [url] is a volume's Extras chapter, the volume folder itself, whose file part is empty. */
+fun isLocalVolumeExtras(url: String): Boolean = localVolumeChapter(url)?.file?.isEmpty() == true
+
 /** The chapter file [url] names, empty for a volume's Extras chapter. */
 fun localChapterFile(url: String): String = localVolumeChapter(url)?.file ?: url.substringAfter('/')
 

@@ -39,6 +39,7 @@ import reikai.domain.local.localGroupUnit
 import reikai.domain.local.localVolumeKey
 import reikai.source.local.LOCAL_SYSTEM_FOLDERS
 import reikai.source.local.isLocalSeriesName
+import reikai.source.local.isLocalVolumeExtras
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localChapterUnit
 import reikai.source.local.localChapterUrl
@@ -461,13 +462,13 @@ class LocalSource(
         }
             .entries.sortedBy { folders.indexOf(localGroupUnit(series, it.key).first) }
             .inUserOrder({ it.key }, saved)
-            .flatMap { (_, chapters) -> chapters.sortedByDescending { it.url.endsWith('/') } }.asReversed()
+            .flatMap { (_, chapters) -> chapters.sortedByDescending { isLocalVolumeExtras(it.url) } }.asReversed()
     }
 
     // An Extras chapter has no number of its own, so it takes one just below its volume's first, which keeps it
     // at the head of its volume under a sort by chapter number too.
     private fun List<SChapter>.numberingExtras(): List<SChapter> = onEach { extras ->
-        if (!extras.url.endsWith('/')) return@onEach
+        if (!isLocalVolumeExtras(extras.url)) return@onEach
         val first = filter { it.url.startsWith(extras.url) && it !== extras && it.chapter_number >= 0f }
             .minOfOrNull { it.chapter_number } ?: return@onEach
         extras.chapter_number = first - 0.01f

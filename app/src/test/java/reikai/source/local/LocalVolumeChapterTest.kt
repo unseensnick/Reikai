@@ -16,6 +16,16 @@ class LocalVolumeChapterTest {
     }
 
     @Test
+    fun `a volume folder's own address is its Extras chapter`() {
+        isLocalVolumeExtras(localChapterUrl("Saga", "Vol 01", "")) shouldBe true
+    }
+
+    @Test
+    fun `a chapter file in a volume is not its Extras chapter`() {
+        isLocalVolumeExtras("Saga/Vol 01/Ch 1.cbz") shouldBe false
+    }
+
+    @Test
     fun `a chapter in the series folder is not in a volume`() {
         localVolumeChapter("Saga/Ch 1.cbz") shouldBe null
     }
