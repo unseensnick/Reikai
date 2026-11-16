@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.data.coil.NovelImage
+import reikai.presentation.components.launchOutliving
 
 /** Saving a chapter's picture: under a name of its own, and finished when the viewer closes mid-save. */
 class ReaderPictureDialogTest {

@@ -8,6 +8,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -29,6 +30,7 @@ import reikai.domain.novel.model.Novel
 import reikai.novel.local.LocalNovelSource
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.util.mockIoDispatcher
+import reikai.util.testAppScope
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
@@ -110,7 +112,7 @@ private fun TestScope.editable(model: EntryCoverViewModel<*>): Boolean {
     return model.isCoverEditable.value
 }
 
-class MangaCoverEditProbe : CoverEditProbe {
+class MangaCoverEditProbe(private val appScope: CoroutineScope = testAppScope()) : CoverEditProbe {
     override val id = EntryId.Manga(1L)
 
     override fun toString() = "manga"
@@ -132,11 +134,12 @@ class MangaCoverEditProbe : CoverEditProbe {
             coverManager = mockk(relaxed = true),
             clearCustomCover = mockk(relaxed = true),
             imageSaver = mockk(relaxed = true),
+            appScope = appScope,
         )
     }
 }
 
-class NovelCoverEditProbe : CoverEditProbe {
+class NovelCoverEditProbe(private val appScope: CoroutineScope = testAppScope()) : CoverEditProbe {
     override val id = EntryId.Novel(1L)
 
     val localSource = mockk<LocalNovelSource> { coEvery { writeCover(any(), any()) } returns "content://cover" }
@@ -164,6 +167,7 @@ class NovelCoverEditProbe : CoverEditProbe {
             clearCustomCover = mockk(relaxed = true),
             localNovelSource = localSource,
             imageSaver = mockk(relaxed = true),
+            appScope = appScope,
         )
     }
 }

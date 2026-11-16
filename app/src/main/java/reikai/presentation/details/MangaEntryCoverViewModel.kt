@@ -8,8 +8,10 @@ import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.util.editCover
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
@@ -35,7 +37,8 @@ class MangaEntryCoverViewModel(
     private val coverManager: LocalCoverManager,
     private val clearCustomCover: ClearCustomCover,
     imageSaver: ImageSaver,
-) : EntryCoverViewModel<Manga>(imageSaver) {
+    @AppCoroutineScope appScope: CoroutineScope,
+) : EntryCoverViewModel<Manga>(imageSaver, appScope) {
 
     @AssistedFactory
     fun interface Factory {

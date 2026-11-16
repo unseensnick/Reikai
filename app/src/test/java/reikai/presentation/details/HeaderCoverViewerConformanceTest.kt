@@ -21,6 +21,7 @@ import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.presentation.novel.details.NovelCoverViewModel
+import reikai.util.testAppScope
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
@@ -99,6 +100,7 @@ class MangaHeaderCoverProbe : HeaderCoverProbe {
             coverManager = mockk(relaxed = true),
             clearCustomCover = mockk(relaxed = true),
             imageSaver = mockk(relaxed = true),
+            appScope = testAppScope(),
         )
         return HeaderCovers(shownManga(anchor, sibling, anchorInfo, siblingInfo).thumbnailUrl, viewer)
     }
@@ -126,6 +128,7 @@ class NovelHeaderCoverProbe : HeaderCoverProbe {
             clearCustomCover = mockk(relaxed = true),
             localNovelSource = mockk(),
             imageSaver = mockk(relaxed = true),
+            appScope = testAppScope(),
         )
         return HeaderCovers(shownNovel(anchor, sibling, anchorInfo, siblingInfo).thumbnailUrl, viewer)
     }

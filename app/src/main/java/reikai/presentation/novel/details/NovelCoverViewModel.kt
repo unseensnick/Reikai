@@ -5,10 +5,12 @@ import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.ImageSaver
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
@@ -39,7 +41,8 @@ class NovelCoverViewModel(
     private val clearCustomCover: ClearCustomCover,
     private val localNovelSource: LocalNovelSource,
     imageSaver: ImageSaver,
-) : EntryCoverViewModel<Novel>(imageSaver) {
+    @AppCoroutineScope appScope: CoroutineScope,
+) : EntryCoverViewModel<Novel>(imageSaver, appScope) {
 
     @AssistedFactory
     fun interface Factory {

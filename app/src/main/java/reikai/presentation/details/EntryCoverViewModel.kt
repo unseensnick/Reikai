@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.util.system.toShareIntent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import reikai.presentation.components.savePicture
+import reikai.presentation.components.savePictureOutliving
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -35,6 +36,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 abstract class EntryCoverViewModel<T : Any>(
     private val imageSaver: ImageSaver,
+    private val appScope: CoroutineScope,
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : ViewModel() {
 
@@ -79,39 +81,23 @@ abstract class EntryCoverViewModel<T : Any>(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), false)
 
     /** Saves [cover], the model the dialog draws: [coverModel] or a merged series' fallback over it. */
-    fun saveCover(context: Context, cover: Any) {
-        viewModelScope.launch {
-            try {
-                saveCoverInternal(context, cover, temp = false)
-                snackbarHostState.showSnackbar(context.stringResource(MR.strings.cover_saved), withDismissAction = true)
-            } catch (e: Throwable) {
-                logcat(LogPriority.ERROR, e)
-                snackbarHostState.showSnackbar(
-                    context.stringResource(MR.strings.error_saving_cover),
-                    withDismissAction = true,
-                )
-            }
+    fun saveCover(context: Context, cover: Any) = saveCover(context, cover, forSharing = false) { uri ->
+        val message = if (uri == null) MR.strings.error_saving_cover else MR.strings.cover_saved
+        snackbarHostState.showSnackbar(context.stringResource(message), withDismissAction = true)
+    }
+
+    fun shareCover(context: Context, cover: Any) = saveCover(context, cover, forSharing = true) { uri ->
+        if (uri != null) {
+            withUIContext { context.startActivity(uri.toShareIntent(context)) }
+        } else {
+            val message = context.stringResource(MR.strings.error_sharing_cover)
+            snackbarHostState.showSnackbar(message, withDismissAction = true)
         }
     }
 
-    fun shareCover(context: Context, cover: Any) {
-        viewModelScope.launch {
-            try {
-                val uri = saveCoverInternal(context, cover, temp = true) ?: return@launch
-                withUIContext { context.startActivity(uri.toShareIntent(context)) }
-            } catch (e: Throwable) {
-                logcat(LogPriority.ERROR, e)
-                snackbarHostState.showSnackbar(
-                    context.stringResource(MR.strings.error_sharing_cover),
-                    withDismissAction = true,
-                )
-            }
-        }
-    }
-
-    private suspend fun saveCoverInternal(context: Context, cover: Any, temp: Boolean): Uri? {
-        val entry = entry.value ?: return null
-        return savePicture(context, imageSaver, cover, coverName(entry), forSharing = temp)
+    private fun saveCover(context: Context, cover: Any, forSharing: Boolean, then: suspend (Uri?) -> Unit) {
+        val name = entry.value?.let(::coverName) ?: return
+        viewModelScope.savePictureOutliving(appScope, context, imageSaver, cover, name, forSharing, then)
     }
 
     fun editCover(context: Context, data: Uri) {
