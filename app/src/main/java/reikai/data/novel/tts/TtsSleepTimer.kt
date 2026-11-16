@@ -20,7 +20,7 @@ sealed interface SleepTimer {
 
 /**
  * The read-aloud sleep timer's decisions; [NovelTtsService] runs the countdown and pauses when told. The
- * countdown keeps running while paused, so an end that passes then only clears the timer.
+ * countdown keeps running while paused.
  */
 class TtsSleepTimer(private val clock: () -> Long) {
 
@@ -53,12 +53,15 @@ class TtsSleepTimer(private val clock: () -> Long) {
         return (left % MINUTE_MS).takeIf { it > 0 } ?: MINUTE_MS
     }
 
-    /** Clears a countdown that has reached its end. True only while reading plays, when the caller pauses. */
+    /**
+     * Clears a countdown that has reached its end, and says the caller pauses. That holds while paused too: a
+     * pause a call caused would otherwise resume when the call ends, with no timer left to stop it.
+     */
     fun expire(): Boolean {
         val at = timer.value as? SleepTimer.At ?: return false
         if (clock() < at.endsAt) return false
         clear()
-        return last == TtsPlayback.Playing
+        return true
     }
 
     /** True once, at the chapter end the timer was set to stop at. */
