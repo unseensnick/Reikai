@@ -243,7 +243,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
     }
 
     @Composable
-    internal fun getPagedGroup( // RK: internal for SettingsMangaReaderPagedGroupTest
+    internal fun getPagedGroup( // internal for SettingsMangaReaderPagedGroupTest
         readerPreferences: ReaderPreferences,
         rows: MangaReaderSettingsRows, // RK
     ): Preference.PreferenceGroup {

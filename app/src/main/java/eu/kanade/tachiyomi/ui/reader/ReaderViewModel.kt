@@ -986,6 +986,7 @@ class ReaderViewModel(
         if (getCurrentChapter()?.pageLoader !is DownloadPageLoader) return
         val nextChapter = state.value.viewerChapters?.nextChapter?.chapter ?: return
 
+        // RK: launchIO, the kept coroutine helper upstream inlines.
         viewModelScope.launchIO {
             // RK --> download-ahead follows the next chapter's OWN source across a merge boundary.
             val nextChapterManga = mangaForChapterId(nextChapter.mangaId)
@@ -993,7 +994,7 @@ class ReaderViewModel(
             // RK <--
             if (!isNextChapterDownloaded) return@launchIO
 
-            // RK: on a merged series the chapters ahead belong to whichever sources carry them, so the
+            // RK --> on a merged series the chapters ahead belong to whichever sources carry them, so the
             // target is the group's own cross-source list rather than the next chapter's source alone.
             // The group's list, not the reader's: that one is narrowed by the display filters, and in
             // downloaded-only mode it holds nothing left to fetch.
@@ -1018,6 +1019,7 @@ class ReaderViewModel(
                     count = downloadAheadAmount,
                     isRead = groupFlags(opened, pooled = readNow ?: opened)::isRead,
                 )
+                // RK <--
             } else {
                 // RK --> ordered by the group's shared chapter settings, the settings owner's, as the reader pages, not
                 // the member's own sort GetNextChapters reads. From the next chapter on, as upstream slices.
