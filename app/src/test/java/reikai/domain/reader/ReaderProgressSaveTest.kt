@@ -1,6 +1,10 @@
 package reikai.domain.reader
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -63,6 +67,20 @@ class ReaderProgressSaveTest {
 
         save.report(1L, 4)
         save.flush()
+
+        written shouldBe listOf(1L to 4)
+    }
+
+    /** Read aloud reports after the host's flush on pause, and the reader can close inside the delay. */
+    @Test
+    fun `the reader closing writes the held position`() = runTest {
+        val written = mutableListOf<Pair<Long, Int>>()
+        val readerScope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val save = ReaderProgressSave<Long, Int>(readerScope) { id, page -> written += id to page }
+
+        save.report(1L, 4)
+        readerScope.cancel()
+        runCurrent()
 
         written shouldBe listOf(1L to 4)
     }

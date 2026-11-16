@@ -547,7 +547,11 @@ class NovelReaderViewModelHarness private constructor(
         diskProbeGate?.open()
         pluginLoadGate.complete(Unit)
         viewModels.clear()
-        withContext(NonCancellable) { (modelJobs + appScope.coroutineContext.job.children).joinAll() }
+        withContext(NonCancellable) {
+            modelJobs.joinAll()
+            // After the models, since a model's last held position is written onto the app scope as it ends
+            appScope.coroutineContext.job.children.toList().joinAll()
+        }
         driver.close()
         unmockkStatic(SystemClock::class)
     }

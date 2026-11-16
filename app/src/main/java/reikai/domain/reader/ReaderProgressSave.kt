@@ -1,8 +1,11 @@
 package reikai.domain.reader
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
@@ -10,7 +13,8 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * The reader's position, held back until the reader settles on it so a burst of page turns or scroll
  * reports writes once. A report for another chapter writes the held one first, since the step would
- * otherwise drop it. The host flushes on pause, and [scope] ending drops what is still held.
+ * otherwise drop it. The host flushes on pause, and [scope] ending writes what is still held, since a
+ * position can be reported after the pause (read aloud plays on in the background).
  */
 class ReaderProgressSave<K : Any, V>(
     private val scope: CoroutineScope,
@@ -31,8 +35,14 @@ class ReaderProgressSave<K : Any, V>(
         if (now) {
             flush()
         } else {
-            delayed = scope.launch {
-                delay(PROGRESS_SAVE_DELAY)
+            // Undispatched, so it is waiting before a close can cancel it and the finally always runs.
+            delayed = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                try {
+                    delay(PROGRESS_SAVE_DELAY)
+                } catch (e: CancellationException) {
+                    // A later report, a flush or a discard ended the wait; only the reader closing writes.
+                    if (scope.isActive) throw e
+                }
                 flush()
             }
         }
