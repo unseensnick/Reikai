@@ -378,6 +378,15 @@ class NovelWebDocumentTest {
         assertEquals(listOf("2", null), listOf(markers, progressByChapter["7"]))
     }
 
+    /** A picture's object replacement in the text counts for neither read aloud nor the top line, as natively. */
+    @Test
+    fun readAloudFindsAParagraphHoldingAnObjectReplacement() {
+        loadDocument(document(chapterHtml = "<p>See \uFFFC figure here</p>" + "<p>lorem ipsum</p>".repeat(20)))
+        settleFrames()
+
+        assertEquals("0", eval("String(window.rkReader.readAloud.firstVisible().paragraph)"))
+    }
+
     /**
      * Nor can it pose as a seam (whose card the fit reads, so a bare one threw before the boundaries were
      * rebuilt) or as the end or failure marker the host replaces, which would take the chapter's text with it.

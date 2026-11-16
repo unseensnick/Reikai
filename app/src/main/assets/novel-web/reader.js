@@ -29,6 +29,23 @@
   // Text in a chapter that is not the chapter's words: ruby readings, code, and a failed picture's box.
   // Read aloud and the top line both skip it, so a line is counted as the native renderer counts it.
   var UNCOUNTED_SELECTOR = 'rt, rp, script, style, .rk-failure';
+  // A character neither the top line nor read aloud counts: a space, or the object replacement a picture
+  // leaves. ReadAloudText.isCounted, the native renderer's one rule for both.
+  var UNCOUNTED_CHARS = /[\s\uFFFC]/g;
+
+  function countedLength(text) {
+    return text.replace(UNCOUNTED_CHARS, '').length;
+  }
+
+  /* The text nodes in root whose characters count, in document order. */
+  function countedTextWalker(root) {
+    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        var parent = node.parentElement;
+        return parent && parent.closest(UNCOUNTED_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      },
+    });
+  }
   // A chapter swipe's shortest travel, CHAPTER_SWIPE_MIN_DP in ChapterSwipe.kt. The document is
   // initial-scale=1, so a CSS pixel here is the dp the native renderer measures it in.
   var SWIPE_MIN_PX = __SWIPE_MIN_PX__;
@@ -424,7 +441,6 @@
    * whichever renderer rebuilds it. Sent when it changes, -1 while no chapter text is at the top.
    */
   var topLine = (function () {
-    var UNCOUNTED = /[\s\uFFFC]/g;
     // Per chapter id, a Map of each counted text node to the characters before it, dropped on any DOM change.
     var cache = {};
     var sent = null;
@@ -432,24 +448,15 @@
     // stopped on. A chapter joining below lands it again, unless the reader has moved off that line.
     var shortSeek = null;
 
-    function count(text) {
-      return text.replace(UNCOUNTED, '').length;
-    }
-
     function countsOf(chapter) {
       var id = chapter.getAttribute(CHAPTER_ID_ATTR);
       if (!cache[id]) {
         var before = new Map();
         var total = 0;
-        var walker = document.createTreeWalker(chapter, NodeFilter.SHOW_TEXT, {
-          acceptNode: function (node) {
-            var parent = node.parentElement;
-            return parent && parent.closest(UNCOUNTED_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
-          },
-        });
+        var walker = countedTextWalker(chapter);
         while (walker.nextNode()) {
           before.set(walker.currentNode, total);
-          total += count(walker.currentNode.nodeValue);
+          total += countedLength(walker.currentNode.nodeValue);
         }
         cache[id] = before;
       }
@@ -465,7 +472,7 @@
       if (line && line.node.nodeType === Node.TEXT_NODE) {
         var holder = line.node.parentElement && line.node.parentElement.closest(CHAPTER_SELECTOR);
         var counted = holder && holder.getAttribute(CHAPTER_ID_ATTR) === id ? countsOf(holder).get(line.node) : undefined;
-        if (counted !== undefined) return counted + count(line.node.nodeValue.slice(0, line.offset));
+        if (counted !== undefined) return counted + countedLength(line.node.nodeValue.slice(0, line.offset));
       }
       var caret = document.caretRangeFromPoint(0, Math.min(readingTop() + 1, viewportHeight() - 1));
       var node = caret && caret.startContainer;
@@ -473,7 +480,7 @@
       var chapter = node.parentElement && node.parentElement.closest(CHAPTER_SELECTOR);
       if (!chapter || chapter.getAttribute(CHAPTER_ID_ATTR) !== id) return -1;
       var before = countsOf(chapter).get(node);
-      return before === undefined ? -1 : before + count(node.nodeValue.slice(0, caret.startOffset));
+      return before === undefined ? -1 : before + countedLength(node.nodeValue.slice(0, caret.startOffset));
     }
 
     return {
@@ -490,10 +497,10 @@
         shortSeek = null;
         var found = null;
         countsOf(chapter).forEach(function (before, node) {
-          if (found || line >= before + count(node.nodeValue)) return;
+          if (found || line >= before + countedLength(node.nodeValue)) return;
           var left = line - before;
           for (var i = 0; i < node.nodeValue.length; i++) {
-            if (count(node.nodeValue[i]) === 0) continue;
+            if (countedLength(node.nodeValue[i]) === 0) continue;
             if (left === 0) {
               found = { node: node, offset: i };
               return;
@@ -1230,7 +1237,6 @@
    */
   var readAloud = (function () {
     var OBJECT_REPLACEMENT = String.fromCharCode(0xFFFC);
-    var SPACE = /\s/;
     var MARKS = ['rk-tts-background', 'rk-tts-underline'];
     // Per chapter id, dropped whenever the chapters' DOM changes, since a Range over a replaced text
     // node collapses: bionic emphasis, an insert and a chapter's own script all replace some.
@@ -1268,17 +1274,12 @@
       }
       var texts = shown.split('\n').map(normalise).filter(function (line) { return line.length > 0; });
       var chars = [], nodes = [], offsets = [];
-      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-        acceptNode: function (node) {
-          var parent = node.parentElement;
-          return parent && parent.closest(UNCOUNTED_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
-        },
-      });
+      var walker = countedTextWalker(el);
       while (walker.nextNode()) {
         var node = walker.currentNode;
         var value = node.nodeValue;
         for (var i = 0; i < value.length; i++) {
-          if (SPACE.test(value[i])) continue;
+          if (countedLength(value[i]) === 0) continue;
           chars.push(value[i]);
           nodes.push(node);
           offsets.push(i);
