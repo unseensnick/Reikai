@@ -1000,10 +1000,10 @@ class NovelWebDocumentTest {
     fun footnoteMarkersStaySmallerThanTheText() {
         loadDocument()
         eval(
-            "window.rkReader.appendChapter('99', '<p id=\"rk-body\">text<sup id=\"rk-note\">1</sup></p>', null, $SEAM)",
+            "window.rkReader.appendChapter('99', '<p id=\"note-body\">text<sup id=\"note-mark\">1</sup></p>', null, $SEAM)",
         )
-        val body = eval("parseFloat(getComputedStyle(document.getElementById('rk-body')).fontSize)").toDouble()
-        val note = eval("parseFloat(getComputedStyle(document.getElementById('rk-note')).fontSize)").toDouble()
+        val body = eval("parseFloat(getComputedStyle(document.getElementById('note-body')).fontSize)").toDouble()
+        val note = eval("parseFloat(getComputedStyle(document.getElementById('note-mark')).fontSize)").toDouble()
         assertTrue("a footnote marker renders at $note px beside $body px text", note < body)
     }
 
