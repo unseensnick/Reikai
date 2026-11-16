@@ -3,6 +3,7 @@ package reikai.data
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -19,5 +20,16 @@ class HeldRowsTest {
         launch { query.complete(listOf("mark")) }
 
         read.await() shouldBe listOf("mark")
+    }
+
+    /** A backup taken just after a write read the copy held before it, so its marks went missing. */
+    @Test
+    fun `a read that can wait sees a write the held copy has not caught up with`() = runTest {
+        val table = MutableStateFlow(listOf("old"))
+        val held = HeldRows(table, backgroundScope, emptyList())
+        held.loaded()
+        table.value = listOf("new")
+
+        held.loaded() shouldBe listOf("new")
     }
 }
