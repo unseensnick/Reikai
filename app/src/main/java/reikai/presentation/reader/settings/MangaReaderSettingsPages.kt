@@ -100,7 +100,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
     when (val running = viewer.running()) {
         RunningViewer.Pager -> {
             HeadingItem(MR.strings.pager_viewer)
-            ImageScaleTypeRow(preferences, ReaderPreferences.ImageScaleType)
+            ImageScaleTypeRow(preferences)
             ZoomStartRow(preferences)
             CheckboxItem(label = stringResource(MR.strings.pref_crop_borders), pref = preferences.cropBorders)
             CheckboxItem(label = stringResource(MR.strings.pref_landscape_zoom), pref = preferences.landscapeZoom)
@@ -184,7 +184,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
             } else if (isWebGpuDualPage(webGpu, preferences)) {
                 SpreadGapSlider(preferences.spreadGap)
             } else {
-                ImageScaleTypeRow(preferences, ReaderPreferences.ImageScaleTypeWebGpuViewer)
+                ImageScaleTypeRow(preferences)
                 ZoomStartRow(preferences)
                 CheckboxItem(label = stringResource(MR.strings.pref_crop_borders), pref = preferences.cropBorders)
                 val cropBorders by preferences.cropBorders.collectAsState()
@@ -331,16 +331,13 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel, v
 }
 
 @Composable
-private fun ColumnScope.ImageScaleTypeRow(
-    preferences: ReaderPreferences,
-    offered: List<StringResource>,
-) {
+private fun ColumnScope.ImageScaleTypeRow(preferences: ReaderPreferences) {
     val imageScaleType by preferences.imageScaleType.collectAsState()
     SettingsChipRow(MR.strings.pref_image_scale_type) {
-        scaleTypeValues(offered).forEach { (value, label) ->
+        ReaderPreferences.ImageScaleType.mapIndexed { index, label ->
             FilterChip(
-                selected = imageScaleType == value,
-                onClick = { preferences.imageScaleType.set(value) },
+                selected = imageScaleType == index + 1,
+                onClick = { preferences.imageScaleType.set(index + 1) },
                 label = { Text(stringResource(label)) },
             )
         }

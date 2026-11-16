@@ -493,14 +493,8 @@ class ReaderPreferences(
             MR.strings.scale_type_smart_fit,
         )
 
-        val ImageScaleTypeWebGpuViewer = listOf(
-            MR.strings.scale_type_fit_screen,
-            MR.strings.scale_type_stretch, // RK: fitHomeScale sets it
-            MR.strings.scale_type_fit_width,
-            MR.strings.scale_type_fit_height,
-            MR.strings.scale_type_original_size,
-            MR.strings.scale_type_smart_fit, // RK: fitHomeScale sets it
-        )
+        // RK: ImageScaleTypeWebGpuViewer removed; fitHomeScale honours every scale type, so the sheet's
+        // ImageScaleTypeRow (MangaReaderSettingsPages.kt) offers ImageScaleType to every viewer.
 
         val ZoomStart = listOf(
             MR.strings.zoom_start_automatic,

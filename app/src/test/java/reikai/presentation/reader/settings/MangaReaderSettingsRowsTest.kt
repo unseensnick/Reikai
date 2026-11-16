@@ -1,11 +1,8 @@
 package reikai.presentation.reader.settings
 
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
-import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-import tachiyomi.i18n.MR
 
 /** Settings > Reader offers no row the running renderer ignores. */
 class MangaReaderSettingsRowsTest {
@@ -78,20 +75,5 @@ class MangaReaderSettingsRowsTest {
     @Test
     fun `crop instead of zoom hides while the renderer always shows two pages`() {
         rows(true, DualPageView.ALWAYS).cropInsteadOfZoom(cropBorders = true) shouldBe false
-    }
-
-    @Test
-    fun `the renderer offers smart fit`() {
-        ReaderPreferences.ImageScaleTypeWebGpuViewer shouldContain MR.strings.scale_type_smart_fit
-    }
-
-    @Test
-    fun `the renderer offers stretch`() {
-        ReaderPreferences.ImageScaleTypeWebGpuViewer shouldContain MR.strings.scale_type_stretch
-    }
-
-    @Test
-    fun `a scale type keeps its stored value whichever list offers it`() {
-        scaleTypeValues(ReaderPreferences.ImageScaleTypeWebGpuViewer).keys shouldBe setOf(1, 2, 3, 4, 5, 6)
     }
 }

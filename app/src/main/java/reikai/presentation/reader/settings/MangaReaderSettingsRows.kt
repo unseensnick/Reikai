@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import reikai.presentation.reader.showsTwoPages
@@ -48,10 +47,6 @@ internal class MangaReaderSettingsRows(
 internal val dualPageTransitionAnimations = ReaderPreferences.TransitionAnimation.entries -
     ReaderPreferences.TransitionAnimation.FLIP_LEFT -
     ReaderPreferences.TransitionAnimation.FLIP_RIGHT
-
-/** [offered] scale types keyed by the stored value, which counts from 1 through the full list. */
-internal fun scaleTypeValues(offered: List<StringResource>): Map<Int, StringResource> =
-    offered.associateBy { ReaderPreferences.ImageScaleType.indexOf(it) + 1 }
 
 /**
  * Whether Settings offers the rows only a spread reads: a reader that [canSpread] (manga's high quality renderer,
