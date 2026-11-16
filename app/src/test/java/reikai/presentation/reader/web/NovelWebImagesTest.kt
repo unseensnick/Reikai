@@ -120,4 +120,13 @@ class NovelWebImagesTest {
         Jsoup.parseBodyFragment(images.rewrite(html, base, "p")).selectFirst("div")!!
             .textNodes().first().wholeText shouldBe "a\n\n  b"
     }
+
+    /** reader.js marks a Retry by these two tokens, so they must match the address the rewrite builds. */
+    @Test
+    fun `the page's route and retry key mark a rewritten picture as a retry`() {
+        val src = img("""<img src="/a.jpg">""").attr("src")
+        val retry = src.takeIf { it.startsWith(NovelWebImages.PAGE_ROUTE) } + "&${NovelWebImages.RETRY}=1"
+
+        images.isRetry(retry) shouldBe true
+    }
 }

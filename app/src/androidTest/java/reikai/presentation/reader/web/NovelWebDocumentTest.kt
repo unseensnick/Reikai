@@ -658,6 +658,24 @@ class NovelWebDocumentTest {
         )
     }
 
+    /** Inside a picture the browser asks for a source's candidate, so Retry marks those as well as the img. */
+    @Test
+    fun aRetryInsideAPictureMarksItsSources() {
+        val route = NovelWebImages.PAGE_ROUTE
+        loadDocument(
+            document(chapterHtml = "<picture><source srcset=\"${route}u=a 1x\"><img src=\"${route}u=b\"></picture>"),
+        )
+        awaitEval("String(!!document.querySelector('.rk-image-failure .rk-failure-retry'))", "true")
+        tap("document.querySelector('.rk-failure-retry')")
+        assertEquals(
+            "true",
+            awaitEval(
+                "String(document.querySelector('picture source').getAttribute('srcset').indexOf('&retry=') > 0)",
+                "true",
+            ),
+        )
+    }
+
     /** Retry turns into progress while the retry runs, where it used to only dim. */
     @Test
     fun tappingRetryShowsProgressInItsPlace() {

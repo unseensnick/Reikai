@@ -1899,19 +1899,14 @@
   }, true);
 
   /*
-   * A chapter picture that fails is shown as the manga reader shows a failed page: a box saying so, with
-   * Retry when its address can be asked again, which an inline one cannot. The text renderer draws the
-   * same (NovelImageGetter). The box is a failure, so a tap on it is not the reader's (installGestures).
-   * The picture stays in the chapter, hidden, since a link may name it and its attributes are the chapter's.
-   */
-  /*
    * A Retry's picture carries a mark on the app's own address for it (NovelWebImages.isRetry), so the app
    * fetches it afresh rather than serving the bytes that just failed from its cache. A site's address is left.
    */
-  var IMAGE_ROUTE = 'https://appassets.androidplatform.net/rk-image?';
+  var IMAGE_ROUTE = __IMAGE_ROUTE__;
+  var RETRY_PARAM = __RETRY_PARAM__;
   var retries = 0;
   function retried(url) {
-    return url.indexOf(IMAGE_ROUTE) === 0 ? url + '&retry=' + (++retries) : url;
+    return url.indexOf(IMAGE_ROUTE) === 0 ? url + '&' + RETRY_PARAM + '=' + (++retries) : url;
   }
   function markRetry(img) {
     var src = img.getAttribute('src');
@@ -1924,6 +1919,12 @@
     }
   }
 
+  /*
+   * A chapter picture that fails is shown as the manga reader shows a failed page: a box saying so, with
+   * Retry when its address can be asked again, which an inline one cannot. The text renderer draws the
+   * same (NovelImageGetter). The box is a failure, so a tap on it is not the reader's (installGestures).
+   * The picture stays in the chapter, hidden, since a link may name it and its attributes are the chapter's.
+   */
   document.addEventListener('error', function (e) {
     var img = e.target;
     if (img.tagName !== 'IMG' || !img.closest(CHAPTER_SELECTOR)) return;
@@ -1938,6 +1939,8 @@
         if (!click.isTrusted) return;
         var fresh = img.cloneNode(false);
         markRetry(fresh);
+        // Inside a picture the browser asks for a source's candidate over the img's own.
+        if (img.parentNode.tagName === 'PICTURE') img.parentNode.querySelectorAll('source').forEach(markRetry);
         fresh.style.display = '';
         box.parentNode.removeChild(box);
         img.parentNode.replaceChild(fresh, img);

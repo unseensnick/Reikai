@@ -69,7 +69,10 @@ class NovelWebImages {
         private const val PATH = "rk-image"
 
         // reader.js adds it on Retry; the cache may hold the bytes that failed, so a retry reads past it.
-        private const val RETRY = "retry"
+        internal const val RETRY = "retry"
+
+        /** What every [rewrite] address starts with, which reader.js receives to tell a picture of ours. */
+        internal val PAGE_ROUTE: String = appAddress(PATH).build().toString() + "?"
 
         /** An address on [HOST] at [path], which the reader's `shouldInterceptRequest` answers. */
         internal fun appAddress(path: String): HttpUrl.Builder =

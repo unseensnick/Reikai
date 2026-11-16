@@ -78,6 +78,8 @@ object NovelWebDocument {
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
                 "__INITIAL_LINE__" to (initialLine?.coerceAtLeast(0) ?: -1).toString(),
                 "__IMAGE_WAIT_MS__" to CHAPTER_IMAGE_WAIT_MS.toString(),
+                "__IMAGE_ROUTE__" to NovelWebSnippets.jsLiteral(NovelWebImages.PAGE_ROUTE),
+                "__RETRY_PARAM__" to NovelWebSnippets.jsLiteral(NovelWebImages.RETRY),
                 "__DOCUMENT_TOKEN__" to NovelWebSnippets.jsLiteral(documentToken),
                 // The seam names both chapters under these, the way TransitionText does. Resolved
                 // here because the page has no resources of its own.
