@@ -660,7 +660,8 @@ class ReaderViewModel(
                     }
                     val copies = CopyToOpen(mergeScope, pooled, group.stitch, { it.id }, onDisk, downloadTargets)
                     copiesToOpen = copies
-                    chapterId = copies.idOf(chapterId)
+                    // A launch page indexes the chapter it names, which another source pages differently
+                    if (launchPageIndex == null) chapterId = copies.idOf(chapterId)
                 }
                 loader = MergedChapterLoader(
                     context,
