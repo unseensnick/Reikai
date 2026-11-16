@@ -7,12 +7,14 @@ import app.cash.quickjs.QuickJs
 import com.dokar.quickjs.binding.function
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.interceptor.LoopbackServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import mihon.app.di.appGraph
@@ -30,6 +32,7 @@ import reikai.novel.source.buildOptions
 import reikai.novel.source.defaultFilterValues
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.concurrent.atomic.AtomicBoolean
 import com.dokar.quickjs.QuickJs as DokarQuickJs
 
 /**
@@ -556,6 +559,93 @@ class HeadlessJsIntegrationTest {
         host.setSetting("setting-construction-test", "url", JsonPrimitive("https://new.example"))
 
         assertEquals("https://new.example", host.parseChapter("setting-construction-test", "/c"))
+    }
+
+    /**
+     * LNReader's fetchViaWebview hands a plugin the page once the page's own script has written the text,
+     * which a site checking the visitor first needs. The site here writes it well after the default settle time.
+     */
+    @Test
+    fun aPageItsOwnScriptFillsReachesThePluginFilled() = runBlocking {
+        val site = LoopbackServer { _, _ ->
+            LoopbackServer.ok(
+                "<html><body><div id='text'></div><script>setTimeout(function(){" +
+                    "document.getElementById('text').innerHTML='<p>filled</p>';},1500);</script></body></html>",
+                "text/html",
+            )
+        }
+        val got = site.use { renderThroughPlugin(it.url(""), it.url("chapter"), "#text p") }
+
+        assertEquals("true:true", got)
+    }
+
+    /** The page waits on a selector that never fills: the plugin is told so, with no page. */
+    @Test
+    fun aPageThatNeverShowsItsTextIsNotOk() = runBlocking {
+        val site = LoopbackServer { _, _ -> LoopbackServer.ok("<html><body></body></html>", "text/html") }
+        val got = site.use { renderThroughPlugin(it.url(""), it.url("chapter"), "#text p", timeoutMs = 1_000) }
+
+        assertEquals("false:false", got)
+    }
+
+    /** Plugin code is untrusted, so a page off the site the plugin declared is refused before any WebView opens. */
+    @Test
+    fun aPageOffThePluginsSiteIsRefused() = runBlocking {
+        val asked = AtomicBoolean(false)
+        val other = LoopbackServer { _, _ ->
+            asked.set(true)
+            LoopbackServer.ok("<p>x</p>", "text/html")
+        }
+        val got = other.use { renderThroughPlugin("https://example.org", it.url("chapter"), null) }
+
+        assertEquals("refused:false", "${if ("not the plugin's site" in got) "refused" else got}:${asked.get()}")
+    }
+
+    /** A site that sends the page on to another site has that page refused: it is never loaded, and nothing comes back. */
+    @Test
+    fun aPageRedirectedOffThePluginsSiteIsNeverLoaded() = runBlocking {
+        val asked = AtomicBoolean(false)
+        val other = LoopbackServer { _, _ ->
+            asked.set(true)
+            LoopbackServer.ok("<p>elsewhere</p>", "text/html")
+        }
+        val site = LoopbackServer { _, _ ->
+            "HTTP/1.1 302 Found\r\nLocation: ${other.url("there")}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        }
+        val got = site.use { s ->
+            other.use { renderThroughPlugin(s.url(""), s.url("chapter"), null, timeoutMs = 2_000) }
+        }
+
+        assertEquals("false:false:false", "$got:${asked.get()}")
+    }
+
+    /** Runs a plugin on [site] whose parseChapter renders [page]; answers "ok:hasFilledText", or the refusal message. */
+    private suspend fun renderThroughPlugin(
+        site: String,
+        page: String,
+        selector: String?,
+        timeoutMs: Int = 15_000,
+    ): String {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            var fetchViaWebview = require('@libs/fetch').fetchViaWebview;
+            module.exports.default = {
+              id: 'render-test', name: 'T', site: ${LnPluginHost.JSON.encodeToString(
+            String.serializer(),
+            site,
+        )}, version: '1.0.0',
+              parseChapter: async function (path) {
+                try {
+                  var r = await fetchViaWebview(path, { waitForSelector: ${selector?.let {
+            "'$it'"
+        } ?: "undefined"}, timeoutMs: $timeoutMs });
+                  return r.ok + ':' + (r.html.indexOf('"text"><p>filled</p>') >= 0);
+                } catch (e) { return String(e && e.message || e); }
+              },
+            };
+        """.trimIndent()
+        host.load(plugin)
+        return host.parseChapter("render-test", page)
     }
 
     /** Plugin code runs in the runtime's global scope, so the id-taking storage bridge must not be on it. */

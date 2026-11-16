@@ -8,6 +8,8 @@
 //   __lnGetStorage(key)                -- sync, returns string|null (runtime only, see below)
 //   __lnSetStorage(key, val)           -- sync, val null deletes (runtime only, see below)
 //   __lnFetch(url, optsJson)           -- async, returns a JSON FetchResponse string
+//   __lnFetchViaWebview(url, optsJson) -- async, returns LNReader's {ok, url, html, title} as JSON;
+//                                         Kotlin refuses an address off the plugin's own site
 //
 // Plugin source is downloaded by Kotlin (LnPluginLoader) and passed into __lnLoadPlugin. All HTTP
 // routes through Kotlin OkHttp (so the CloudflareInterceptor / Flaresolverr keep applying); native
@@ -758,6 +760,12 @@
     return await res.text();
   }
 
+  // LNReader's fetchViaWebview (lnreader/lnreader PR 2128): the page as a browser shows it once its own
+  // script has run, for a site that checks the visitor before its text exists.
+  async function fetchViaWebview(url, options) {
+    return JSON.parse(await __lnFetchViaWebview(String(url), JSON.stringify(options || {})));
+  }
+
   // Some plugins (ixdzs8, rainofsnow) call the global fetch() directly instead of @libs/fetch. Route
   // it through the same Kotlin OkHttp bridge, NOT native fetch (which would bypass the Cloudflare /
   // Flaresolverr interceptors), matching the "fetch is never exposed natively" rule above.
@@ -937,6 +945,7 @@
         fetchApi: fetchApi,
         fetchText: fetchText,
         fetchProto: fetchProto,
+        fetchViaWebview: fetchViaWebview,
       },
       "@libs/isAbsoluteUrl": { isUrlAbsolute: isUrlAbsolute },
       "@libs/filterInputs": { FilterTypes: FilterTypes },

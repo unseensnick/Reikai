@@ -39,6 +39,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.novel.network.deviceWebViewUserAgent
 import reikai.novel.source.FetchFailures
 import reikai.novel.source.SETTING_KEY_PREFIX
@@ -80,6 +82,8 @@ class LnPluginHost(
     private val bridge = LnHostBridge(preferenceStore, networkHelper.client) {
         deviceWebViewUserAgent(appContext)
     }
+
+    private val pageRenderer = PluginPageRenderer(appContext)
 
     /**
      * One QuickJS engine plus its confinement thread. QuickJS is not thread-safe: all native calls
@@ -206,6 +210,16 @@ class LnPluginHost(
             delay(((args.getOrNull(0) as? Number)?.toLong() ?: 0L).coerceIn(0L, MAX_TIMER_DELAY_MS))
             null
         }
+        // The plugin's declared site, read once its script has loaded; until then every page is refused.
+        var site: HttpUrl? = null
+        q.asyncFunction("__lnFetchViaWebview") { args ->
+            val url = pluginPageUrl(args[0] as String, site)
+            val request = JSON.decodeFromString(
+                PluginPageRenderer.PageRequest.serializer(),
+                args.getOrNull(1) as? String ?: "{}",
+            )
+            JSON.encodeToString(PluginPageRenderer.RenderedPage.serializer(), pageRenderer.render(url, request))
+        }
         // protobuf.js (and other UMD bundles) attach to a global they find via `typeof self/window`,
         // which QuickJS lacks; seed them before the vendors load so `globalThis.protobuf` resolves.
         // Wrapped in an IIFE so the completion value is undefined, not globalThis (dokar can't
@@ -213,9 +227,12 @@ class LnPluginHost(
         q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
         scripts.forEach { q.evaluate<Any?>(it) }
         source?.let { script ->
-            // void: the returned info object was already decoded when the script was inspected; marshalling
-            // it back through dokar here would be wasted work (and objects don't cross the bridge).
-            q.evaluate<Any?>("void globalThis.__lnLoadPlugin(${jsStr(script)})")
+            // Only the site comes back: the info object was already decoded when the script was inspected,
+            // and objects don't cross the bridge.
+            site = q.evaluate<String?>(
+                "(function(){var s=globalThis.__lnLoadPlugin(${jsStr(script)}).site;" +
+                    "return typeof s==='string'?s:null;})()",
+            )?.toHttpUrlOrNull()
         }
     }
 

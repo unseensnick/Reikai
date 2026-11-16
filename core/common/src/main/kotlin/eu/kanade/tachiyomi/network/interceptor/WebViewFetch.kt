@@ -40,7 +40,7 @@ internal fun webViewFetchOrigin(url: HttpUrl): String = with(url) {
 }
 
 // Compared by part, not by origin string: an IPv6 host with a port can print as another host without one.
-internal fun isSameOrigin(a: HttpUrl, b: HttpUrl): Boolean =
+fun isSameOrigin(a: HttpUrl, b: HttpUrl): Boolean =
     a.scheme == b.scheme && a.host == b.host && a.port == b.port
 
 /**
