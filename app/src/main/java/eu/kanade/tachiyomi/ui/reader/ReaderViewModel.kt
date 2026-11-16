@@ -935,12 +935,16 @@ class ReaderViewModel(
         // RK <--
 
         // Save last page read and mark as read if needed. The database calls are main-safe.
-        // RK: finishing the chapter is saved at once, any other page once the reader settles on it
-        progressSave.report(
-            selectedChapter.chapter.id,
-            page,
-            now = pageProgress(selectedChapter, page).isChapterComplete,
-        )
+        // RK: finishing the chapter is saved at once, any other page once the reader settles on it. A
+        // page that failed is never saved, so it must not displace the good page held before it, as
+        // upstream returns before it cancels the pending save.
+        if (page.status !is Page.State.Error) {
+            progressSave.report(
+                selectedChapter.chapter.id,
+                page,
+                now = pageProgress(selectedChapter, page).isChapterComplete,
+            )
+        }
 
         // RK: compared with a switch still loading too, not only the active chapter, see ChapterSwitches.
         chapterSwitches.requestFromPage(selectedChapter.chapter.id, getCurrentChapter()?.chapter?.id)?.let {

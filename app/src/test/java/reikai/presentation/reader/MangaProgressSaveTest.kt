@@ -1,0 +1,43 @@
+package reikai.presentation.reader
+
+import eu.kanade.tachiyomi.source.model.Page
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import java.io.IOException
+
+/** What the manga reader stores for a page turn it held back, once the hold is written. */
+class MangaProgressSaveTest {
+
+    @BeforeEach
+    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+
+    @AfterEach
+    fun tearDown() = Dispatchers.resetMain()
+
+    @Test
+    fun `a page that failed to load does not displace the good page held before it`() = runTest {
+        MangaReaderViewModelHarness.create().use { harness ->
+            val manga = harness.manga(1L, source = 100L, title = "Series")
+            harness.chapter(10L, manga, 1.0)
+            harness.open(manga, chapterId = 10L) { model, state ->
+                val pages = loadedPages(state.viewerChapters!!.currChapter, 10)
+                model.onPageSelected(pages[5])
+                pages[6].status = Page.State.Error(IOException("no connection"))
+                model.onPageSelected(pages[6])
+                model.flushProgress()
+                // The write runs on the app scope, off the virtual clock.
+                withContext(Dispatchers.Default) { delay(500) }
+                harness.stored(10L).lastPageRead
+            } shouldBe 5L
+        }
+    }
+}
