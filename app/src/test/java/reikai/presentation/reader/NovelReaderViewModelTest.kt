@@ -356,6 +356,90 @@ class NovelReaderViewModelTest {
         restored.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(60)
     }
 
+    /** The host's state is a snapshot taken when the reader stopped, so speech playing on behind it moves only the database. */
+    @Test
+    fun `a recorded chapter reopens after a process kill where the database has it`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val savedState = SavedStateHandle()
+        val model = harness.open(novel, opened.id, savedState = savedState)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
+        advanceUntilIdle()
+        val snapshot = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) })
+        model.saveSpokenPosition(opened.id, 0.7)
+        advanceUntilIdle()
+
+        val restored = harness.open(novel, opened.id, savedState = snapshot)
+        advanceUntilIdle()
+
+        restored.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(70)
+    }
+
+    @Test
+    fun `an incognito chapter reopens after a process kill at the spoken paragraph`() = readerTest { harness ->
+        harness.incognito.set(true)
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val savedState = SavedStateHandle()
+        val model = harness.open(novel, opened.id, savedState = savedState)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
+        model.saveSpokenPosition(opened.id, 0.7)
+        advanceUntilIdle()
+
+        val restored = harness.open(novel, opened.id, savedState = savedState)
+        advanceUntilIdle()
+
+        restored.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(70)
+    }
+
+    @Test
+    fun `an incognito chapter spoken to its end reopens after a process kill at the end`() = readerTest { harness ->
+        harness.incognito.set(true)
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        harness.chapter(novel, 2.0)
+        val savedState = SavedStateHandle()
+        val model = harness.open(novel, opened.id, savedState = savedState)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
+        model.finishSpokenChapter(opened.id)
+        advanceUntilIdle()
+
+        val restored = harness.open(novel, opened.id, savedState = savedState)
+        advanceUntilIdle()
+
+        restored.chapter.value?.progress shouldBe ChapterProgress.Percent.END
+    }
+
+    @Test
+    fun `an incognito renderer rebuilt on the screen's place reopens at the spoken paragraph`() =
+        readerTest { harness ->
+            harness.incognito.set(true)
+            harness.novelPreferences.readerTtsKeepInView().set(false)
+            val novel = harness.novel(harness.source("src"))
+            val chapter = harness.chapter(novel, 1.0)
+            val savedState = SavedStateHandle()
+            val model = harness.open(novel, chapter.id, savedState = savedState)
+            advanceUntilIdle()
+            model.rendererLanded(model.window.value.generation)
+            model.saveProgress(chapter.id, ChapterProgress.Percent.ofWhole(20))
+            model.saveSpokenPosition(chapter.id, 0.4)
+            advanceUntilIdle()
+            model.rendererLanded(model.window.value.generation)
+            model.saveProgress(chapter.id, ChapterProgress.Percent.ofWhole(20))
+            advanceUntilIdle()
+
+            val restored = harness.open(novel, chapter.id, savedState = savedState)
+            advanceUntilIdle()
+
+            restored.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(40)
+        }
+
     /** Mark read on skip is off by default, so the step on to the next chapter marks nothing. */
     @Test
     fun `a chapter spoken to its end is finished`() = readerTest { harness ->

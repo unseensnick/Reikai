@@ -606,7 +606,6 @@ class NovelReaderViewModel(
         if (id == currentChapterId) {
             val before = progress.value.wholePercent
             progress.value = clamped
-            keepPosition(id, clamped)
             // Reaching the threshold is what lets the next chapter join below, so the window follows at once.
             val threshold = novelPreferences.readerAutoLoadNextAt().get()
             if (before < threshold && clamped.wholePercent >= threshold) viewModelScope.launchIO { rebuildWindow() }
@@ -631,16 +630,21 @@ class NovelReaderViewModel(
     fun flushProgress() = progressSave.flush()
 
     /** The chapter being read's position, kept for a process kill as manga keeps its page: in incognito the
-     *  database holds none to reopen at. */
+     *  database holds none to reopen at. Kept as it is written, so it is never a place the save skipped. */
     private fun keepPosition(chapterId: Long, at: ChapterProgress.Percent) {
-        savedState[SAVED_POSITION] = longArrayOf(chapterId, at.hundredths)
+        if (chapterId == currentChapterId) savedState[SAVED_POSITION] = longArrayOf(chapterId, at.hundredths)
     }
 
     /** The newest position this session has for [chapterId] that the database may not hold yet: one held
-     *  back, one waiting to be written, or the one kept across a process kill. */
-    private fun unstoredPosition(chapterId: Long): Long? = progressSave.heldFor(chapterId)?.hundredths
-        ?: unwritten[chapterId]?.hundredths
-        ?: savedState.get<LongArray>(SAVED_POSITION)?.takeIf { it[0] == chapterId }?.get(1)
+     *  back, one waiting to be written, or, in incognito, the one kept across a process kill. Outside it the
+     *  database wins, since the kept state is a snapshot from when the reader stopped and read aloud
+     *  can write on behind it. */
+    private suspend fun unstoredPosition(chapterId: Long, ownerId: Long): Long? =
+        progressSave.heldFor(chapterId)?.hundredths
+            ?: unwritten[chapterId]?.hundredths
+            ?: savedState.get<LongArray>(SAVED_POSITION)
+                ?.takeIf { it[0] == chapterId && incognito.of(ownerId) }
+                ?.get(1)
 
     /** The chapter on screen, which a merged session moves across sources. Every bar verb acts on this
      *  one, so it advances only once a chapter has actually rendered. Saved on the way, so a process
@@ -1106,7 +1110,7 @@ class NovelReaderViewModel(
             baseUrl = baseUrl,
             progress = NovelResume.progress(
                 read,
-                unstoredPosition(id) ?: lastTextProgress,
+                unstoredPosition(id, novelId) ?: lastTextProgress,
                 novelPreferences.readerPreserveReadingPosition().get(),
             ),
             chapterNumber = chapterNumber,
@@ -1130,6 +1134,7 @@ class NovelReaderViewModel(
      */
     private fun persistProgress(id: Long, clamped: ChapterProgress.Percent) {
         unwritten[id] = clamped
+        keepPosition(id, clamped)
         progressWrites.launch { withContext(io) { writeUnwritten(id, clamped) } }
     }
 
@@ -1137,6 +1142,7 @@ class NovelReaderViewModel(
      *  launch into a scope that has ended never starts. */
     private suspend fun writeProgress(id: Long, clamped: ChapterProgress.Percent) {
         unwritten[id] = clamped
+        keepPosition(id, clamped)
         writeUnwritten(id, clamped)
     }
 
