@@ -598,6 +598,7 @@ class ReaderViewModel(
                     // page on screen. Opening one at its start is loadAdjacent's, a pick or a step.
                 }
                 chapterId = currentChapter.chapter.id
+                chapterPageIndex = currentChapter.requestedPage // RK: saved beside its own chapter
             }
             .launchIn(viewModelScope)
 
@@ -942,7 +943,9 @@ class ReaderViewModel(
             it.copy(position = ReaderPosition(selectedChapter.chapter.id, pageProgress(selectedChapter, page)))
         }
         selectedChapter.requestedPage = page.index
-        chapterPageIndex = page.index
+        // The restore and reload index belongs to the active chapter, which a neighbour's page is not
+        // while its switch loads or after it failed. A switch that lands stamps its own, below.
+        if (selectedChapter.chapter.id == getCurrentChapter()?.chapter?.id) chapterPageIndex = page.index
         // RK <--
 
         // Save last page read and mark as read if needed. The database calls are main-safe.
