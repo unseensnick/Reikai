@@ -171,13 +171,16 @@ class ReaderEngineTest {
         engine.timeLeft.value shouldBe null
     }
 
+    /** The length is kept off the test's scheduler, so the pace it learns next is what says it has run. */
     @Test
     fun `a chapter read in incognito keeps no length`() = runTest(scheduler) {
         val provider = FakeReaderProvider()
-        engine(provider)
+        provider.showTimeLeft.value = true
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(0, 30))
+        val engine = engine(provider)
 
         provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000, recorded = false)
-        advanceUntilIdle()
+        engine.timeLeft.first { it != null }
 
         paceRepository.lengths.value shouldBe emptyList()
     }
@@ -207,9 +210,6 @@ class ReaderEngineTest {
             paceRepository.listened.value.map { it.first } shouldBe kept
         }
 
-    /** Ids overlap across the two types, so the override is found by the entry's typed id. */
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("editedEntries")
     /** The paragraph being spoken has had no step to credit it, so closing the reader is its last chance. */
     @Test
     fun `closing the reader keeps the read-aloud time of the paragraph being spoken`() = runTest(scheduler) {
@@ -243,6 +243,9 @@ class ReaderEngineTest {
         provider.flushed shouldBe true
     }
 
+    /** Ids overlap across the two types, so the override is found by the entry's typed id. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("editedEntries")
     fun `the bar names the entry by its Edit info title`(entry: EntryId, custom: EntryCustomInfo) {
         val provider = FakeReaderProvider()
         provider.chrome.value = ReaderChromeState(entryTitle = "Source title", entry = entry)
