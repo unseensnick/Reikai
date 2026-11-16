@@ -42,6 +42,15 @@ class DuplicateChaptersTest {
         listOf(a1, b1, a2, b2).dedup(a1).map { it.number } shouldBe listOf(1.0, 2.0)
     }
 
+    /** Their titles share nothing, so only the two scanlators make them copies. */
+    @Test
+    fun `two scanlators' differently titled uploads of a number are one chapter`() {
+        val alpha = Ch(id = 6, number = 5.0, origin = "alpha", name = "Ch. 5 - The Fight")
+        val beta = Ch(id = 7, number = 5.0, origin = "beta", name = "Chapter 5: Battle")
+
+        listOf(alpha, beta).dedup(alpha).map { it.id } shouldBe listOf(6L)
+    }
+
     @Test
     fun `a copy marked Never skip is kept beside the copy the reader keeps`() {
         listOf(a1, b1.copy(mark = CopyMark.NeverSkip), a2).dedup(a1).map { it.id } shouldBe listOf(1L, 2L, 3L)

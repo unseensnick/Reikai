@@ -16,6 +16,7 @@ class DuplicatesOfReadTest {
         val owner: Long = 1L,
         val name: String = "Chapter $number",
         val mark: CopyMark? = null,
+        val origin: String? = null,
     )
 
     private fun List<Ch>.duplicatesOf(read: Ch, stitchCopies: Set<Long> = emptySet()) = duplicatesOfRead(
@@ -24,7 +25,7 @@ class DuplicatesOfReadTest {
         numberOf = { it.number },
         nameOf = { it.name },
         idOf = { it.id },
-        originOf = { null },
+        originOf = { it.origin },
         ownerOf = { it.owner },
         markOf = { it.mark },
     ).map { it.id }
@@ -48,6 +49,15 @@ class DuplicatesOfReadTest {
     @Test
     fun `another scanlator's copy in the same entry is marked with it`() {
         listOf(alphaFive, betaFive, six).duplicatesOf(alphaFive) shouldBe listOf(2L)
+    }
+
+    /** Their titles share nothing, so only the two scanlators make them copies. */
+    @Test
+    fun `another scanlator's differently titled copy is marked with it`() {
+        val alpha = Ch(id = 11, number = 5.0, name = "Ch. 5 - The Fight", origin = "alpha")
+        val beta = Ch(id = 12, number = 5.0, name = "Chapter 5: Battle", origin = "beta")
+
+        listOf(alpha, beta).duplicatesOf(alpha) shouldBe listOf(12L)
     }
 
     @Test
