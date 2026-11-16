@@ -331,6 +331,17 @@ class NovelWebDocumentTest {
         )
     }
 
+    /** The page cannot pan sideways, so a chapter's own pre line wider than it would be cut off unseen. */
+    @Test
+    fun aChaptersPreWrapsWithinThePage() {
+        loadDocument(document(chapterHtml = "<pre>${"status ".repeat(200)}</pre><p>lorem ipsum</p>"))
+        settleFrames()
+        val overflows = eval(
+            "String(document.querySelector('.rk-chapter pre').scrollWidth > document.documentElement.clientWidth)",
+        ).trim('"')
+        assertEquals("the pre runs off the side of the page", "false", overflows)
+    }
+
     /**
      * A chapter shorter than the screen has no scroll room, so it holds at 0 as the native renderer
      * does and says it fits, which is what lets the model read it when the reader steps on. It used

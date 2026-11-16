@@ -133,6 +133,16 @@ html.rk-readings-hidden .rk-failure {
 }
 
 /*
+ * A chapter's own pre (a status window, a chat log), and the xmp and plaintext the sanitiser turns into
+ * one: kept to its line breaks but wrapped, since the page cannot pan sideways, and its spaces collapse
+ * as the native renderer, which turns its line breaks into <br>, collapses them.
+ */
+.rk-chapter pre {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/*
  * The marker between two chapters, the webtoon viewer's boundary. Its padding is the host's, which
  * the text renderer's seam view takes too (NovelChapterSeamView). The rest is what Mihon's
  * TransitionText draws, which the text renderer calls rather than restating, so these follow that
