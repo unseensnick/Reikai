@@ -12,6 +12,7 @@ import coil3.size.Size
 import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
+import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -25,15 +26,23 @@ import tachiyomi.core.common.util.system.logcat
 import java.io.ByteArrayInputStream
 
 /**
- * Saves the picture coil loads for [model] as [name]: to Pictures, or with [forSharing] to the cache a share
- * reads from. Null when nothing loads. What [PictureViewerDialog]'s Save and Share run, for a cover and a
- * chapter's picture alike.
+ * The folder under Pictures a reader saves a page or a chapter's picture of [seriesTitle] into: the series'
+ * own when [perSeries] (Save pages into separate folders) is on, else none. Both readers read this.
+ */
+fun savedPictureFolder(seriesTitle: String?, perSeries: Boolean): String =
+    if (perSeries && seriesTitle != null) DiskUtil.buildValidFilename(seriesTitle) else ""
+
+/**
+ * Saves the picture coil loads for [model] as [name]: to [folder] under Pictures, or with [forSharing] to the
+ * cache a share reads from. Null when nothing loads. What [PictureViewerDialog]'s Save and Share run, for a
+ * cover and a chapter's picture alike.
  */
 suspend fun savePicture(
     context: Context,
     imageSaver: ImageSaver,
     model: Any,
     name: String,
+    folder: String,
     forSharing: Boolean,
 ): Uri? {
     val bytes = pictureBytes(context, model) ?: return null
@@ -42,7 +51,7 @@ suspend fun savePicture(
             Image.Page(
                 inputStream = { ByteArrayInputStream(bytes) },
                 name = name,
-                location = if (forSharing) Location.Cache else Location.Pictures.create(),
+                location = if (forSharing) Location.Cache else Location.Pictures.create(folder),
             ),
         )
     }
@@ -80,13 +89,14 @@ fun CoroutineScope.savePictureOutliving(
     imageSaver: ImageSaver,
     model: Any,
     name: String,
+    folder: String,
     forSharing: Boolean,
     then: suspend (Uri?) -> Unit,
 ): Job = launchOutliving(
     appScope,
     write = {
         try {
-            savePicture(context, imageSaver, model, name, forSharing)
+            savePicture(context, imageSaver, model, name, folder, forSharing)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             logcat(LogPriority.ERROR, e)

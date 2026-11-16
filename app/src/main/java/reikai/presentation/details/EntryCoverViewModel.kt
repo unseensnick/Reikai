@@ -97,7 +97,7 @@ abstract class EntryCoverViewModel<T : Any>(
 
     private fun saveCover(context: Context, cover: Any, forSharing: Boolean, then: suspend (Uri?) -> Unit) {
         val name = entry.value?.let(::coverName) ?: return
-        viewModelScope.savePictureOutliving(appScope, context, imageSaver, cover, name, forSharing, then)
+        viewModelScope.savePictureOutliving(appScope, context, imageSaver, cover, name, folder = "", forSharing, then)
     }
 
     fun editCover(context: Context, data: Uri) {

@@ -128,6 +128,7 @@ import reikai.domain.track.TrackedChapterNumber
 import reikai.domain.track.source.ChapterWrite // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.components.mergeSourceLabels
+import reikai.presentation.components.savedPictureFolder
 import reikai.presentation.details.ChapterVolume
 import reikai.presentation.details.mangaChapterVolume
 import reikai.presentation.reader.ChapterSwitches
@@ -1637,13 +1638,8 @@ class ReaderViewModel(
         val filename = generateFilename(manga, page)
 
         // Pictures directory.
-        val relativePath = if (readerPreferences.folderPerManga.get()) {
-            DiskUtil.buildValidFilename(
-                manga.title,
-            )
-        } else {
-            ""
-        }
+        // RK: one rule with a novel chapter's picture
+        val relativePath = savedPictureFolder(manga.title, readerPreferences.folderPerManga.get())
 
         // The save and its notification outlive the reader, the result event doesn't
         viewModelScope.launch {

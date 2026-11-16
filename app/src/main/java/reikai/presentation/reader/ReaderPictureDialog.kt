@@ -41,7 +41,15 @@ fun ReaderPictureDialog(picture: ReaderDialog.Picture, onDismissRequest: () -> U
     val scope = rememberCoroutineScope()
     var confirmingCover by remember { mutableStateOf(false) }
     fun save(forSharing: Boolean, copy: Boolean = false) =
-        scope.savePictureOutliving(appScope, context, imageSaver, picture.model, picture.name, forSharing) { uri ->
+        scope.savePictureOutliving(
+            appScope,
+            context,
+            imageSaver,
+            picture.model,
+            picture.name,
+            picture.folder,
+            forSharing,
+        ) { uri ->
             when {
                 uri == null -> snackbarHostState.showSnackbar(context.stringResource(MR.strings.error_saving_picture))
                 copy -> context.copyPictureToClipboard(uri)

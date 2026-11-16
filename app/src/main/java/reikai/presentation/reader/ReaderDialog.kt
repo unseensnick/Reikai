@@ -42,8 +42,9 @@ sealed interface ReaderDialog {
     data class PageActions(val actions: ReaderPageActions) : ReaderDialog
 
     /** A picture in a novel chapter, full screen: [model] is what coil loads, [name] what Save calls it,
-     *  [cover] the verb making it the cover of the novel it was opened in. */
-    data class Picture(val model: Any, val name: String, val cover: ReaderPictureCover) : ReaderDialog
+     *  [folder] where under Pictures it goes, [cover] the verb making it the cover of the novel it was opened in. */
+    data class Picture(val model: Any, val name: String, val folder: String, val cover: ReaderPictureCover) :
+        ReaderDialog
 
     /** Both carry the typography capability for the same reason: a type that builds none cannot
      *  raise them, so the buttons are absent rather than opening a picker over nothing. */

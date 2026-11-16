@@ -20,6 +20,7 @@ import eu.kanade.presentation.util.loadFailureMessage
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -127,6 +128,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.components.percentProgressLabel
+import reikai.presentation.components.savedPictureFolder
 import reikai.presentation.details.novelChapterVolume
 import reikai.presentation.reader.text.InFlightLoads
 import reikai.presentation.reader.text.NovelChapterFinish
@@ -189,6 +191,7 @@ class NovelReaderViewModel(
     private val getNextNovelChapter: GetNextNovelChapter,
     private val setNovelCustomCover: SetNovelCustomCover,
     private val pictureCache: NovelChapterPictureCache,
+    private val readerPreferences: ReaderPreferences,
     // Dispatchers.IO in the app, which is what launchIO would have used. Passed in so a JVM test can
     // run the whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher,
@@ -1339,6 +1342,9 @@ class NovelReaderViewModel(
 
     private fun heldIds(): Set<Long> =
         window.value.chapters.mapTo(hashSetOf(currentChapterId)) { it.chapterId }
+
+    /** Where under Pictures a chapter's picture saves, by the setting a manga page saves by. */
+    fun pictureFolder(): String = savedPictureFolder(entryTitle.value, readerPreferences.folderPerManga.get())
 
     /**
      * Makes a chapter's picture, [picture]'s bytes, the novel's cover, with a manga page's answers: a novel

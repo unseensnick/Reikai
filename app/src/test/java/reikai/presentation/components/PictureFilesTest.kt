@@ -29,7 +29,7 @@ class PictureFilesTest {
         val saved = slot<Image>()
         val imageSaver = mockk<ImageSaver> { every { save(capture(saved)) } returns Uri.EMPTY }
 
-        savePicture(context, imageSaver, picture, "Clear", forSharing = false)
+        savePicture(context, imageSaver, picture, "Clear", folder = "", forSharing = false)
 
         saved.captured.data().use { it.readNBytes(2).toList() } shouldBe listOf(0x89.toByte(), 'P'.code.toByte())
     }

@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import androidx.lifecycle.SavedStateHandle
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.util.storage.DiskUtil
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.coVerify
@@ -788,6 +789,18 @@ class NovelReaderViewModelTest {
 
         (result to harness.customCovers[novel]?.toList()) shouldBe (SetAsCoverResult.Success to listOf<Byte>(1, 2, 3))
     }
+
+    /** Save pages into separate folders is the manga reader's setting, read by both readers. */
+    @Test
+    fun `a chapter's picture saves into the novel's own folder when pages save into separate folders`() =
+        readerTest { harness ->
+            harness.readerPreferences.folderPerManga.set(true)
+            val novel = harness.novel(harness.source("src"), title = "A Novel: Part 1")
+            val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+            advanceUntilIdle()
+
+            model.pictureFolder() shouldBe DiskUtil.buildValidFilename("A Novel: Part 1")
+        }
 
     /** As a manga page's: the cover would go with the entry, so the reader is asked to add it first. */
     @Test

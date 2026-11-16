@@ -11,6 +11,7 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.network.interceptor.CloudflareBypassIOException
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -138,6 +139,7 @@ class NovelReaderViewModelHarness private constructor(
 
     private val store = EmittingPreferenceStore()
     val novelPreferences = NovelPreferences(store)
+    val readerPreferences = ReaderPreferences(store)
     val libraryPreferences = LibraryPreferences(store)
     val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
 
@@ -408,6 +410,7 @@ class NovelReaderViewModelHarness private constructor(
             sourceManager = sourceManager,
             installer = installer,
             novelPreferences = novelPreferences,
+            readerPreferences = readerPreferences,
             downloadManagerProvider = { downloadManager },
             upsertNovelHistory = UpsertNovelHistory(history),
             readingLog = NoReadingLog,

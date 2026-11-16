@@ -32,7 +32,7 @@ class CoverSaveConformanceTest {
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         mockkStatic(PICTURE_FILES, LOCALIZE)
-        coEvery { savePicture(any(), any(), any(), any(), any()) } returns null
+        coEvery { savePicture(any(), any(), any(), any(), any(), any()) } returns null
         every { any<Context>().stringResource(MR.strings.error_saving_cover) } returns "error"
         every { any<Context>().stringResource(MR.strings.cover_saved) } returns "saved"
     }

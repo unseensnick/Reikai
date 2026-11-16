@@ -383,4 +383,4 @@ Shows the following options on long tap while the reader is open.
 - Save
 
 ### Save pages into separate folders <Badge type="info" text="Off" />
-Saves each page you save from the reader into its own folder named after the series, inside Pictures/Reikai, instead of putting every page directly in Pictures/Reikai.
+Saves each page you save from the reader into its own folder named after the series, inside Pictures/Reikai, instead of putting every page directly in Pictures/Reikai. A picture saved from a novel chapter follows this setting too, going into a folder named after the novel.
