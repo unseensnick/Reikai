@@ -88,4 +88,36 @@ class NovelWebImagesTest {
             "https://appassets.androidplatform.net/assets/a.jpg?u=https%3A%2F%2Fsite.example%2Fa.jpg&s=p",
         ) shouldBe null
     }
+
+    /** The source half of the key: a picture routed for one source is not served with another's headers. */
+    @Test
+    fun `a routed picture asked for under another source is refused`() {
+        val src = img("""<img src="/a.jpg">""").attr("src")
+
+        images.imageFor(src.replace("s=p", "s=q")) shouldBe null
+    }
+
+    // A lazy picture beyond the fold is never fetched, so the page's image wait would run out its cap.
+    @Test
+    fun `a lazy picture is loaded at once`() {
+        img("""<img loading="lazy" src="/a.jpg">""").hasAttr("loading") shouldBe false
+    }
+
+    @Test
+    fun `a picture element's source candidates are routed too`() {
+        val srcset = Jsoup.parseBodyFragment(
+            images.rewrite("""<picture><source srcset="/a.webp 1x"><img src="/b.jpg"></picture>""", base, "p"),
+        ).selectFirst("source")!!.attr("srcset")
+
+        images.imageFor(NovelImageSources.parseSrcset(srcset).single().first) shouldBe
+            NovelImage("https://site.example/a.webp", "p")
+    }
+
+    @Test
+    fun `the rewrite keeps a chapter's own whitespace`() {
+        val html = "<div style=\"white-space:pre-wrap\">a\n\n  b<img src=\"/x.png\"></div>"
+
+        Jsoup.parseBodyFragment(images.rewrite(html, base, "p")).selectFirst("div")!!
+            .textNodes().first().wholeText shouldBe "a\n\n  b"
+    }
 }

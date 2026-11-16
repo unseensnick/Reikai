@@ -27,6 +27,9 @@ class NovelWebImages {
         val document = Jsoup.parseBodyFragment(html)
         // Pretty-printing reflows preformatted text, the trap the download inliner avoids the same way.
         document.outputSettings().prettyPrint(false)
+        // The page waits on every picture before it seeks or reports a page ready, and a lazy one past the
+        // fold is never fetched, so the wait would always run out its cap. The text renderer loads all too.
+        document.select("img[loading]").removeAttr("loading")
         document.select("img[src]").forEach { img ->
             routed(NovelChapterAddress.absolute(baseUrl, img.attr("src")), sourceId)?.let { img.attr("src", it) }
         }
