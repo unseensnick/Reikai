@@ -3,11 +3,14 @@ package reikai.presentation.reader.text
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.drawable.ColorDrawable
+import android.text.SpanWatcher
+import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.CharacterStyle
 import android.text.style.ClickableSpan
 import android.text.style.ImageSpan
+import android.text.style.UpdateAppearance
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
@@ -231,47 +234,8 @@ class NovelImageFailureTest {
      */
     @Test
     fun tappingRetryRedrawsTheBoxDimmed() {
-        val failing = PngServer(pngOf(10, 10), failFirst = 1).also { server = it }
         val invalidations = AtomicInteger()
-        lateinit var block: ChapterTextBlock
-        lateinit var renderer: NovelTextRenderer
-        scenario = ActivityScenario.launch(WebViewHostActivity::class.java).apply {
-            onActivity { activity ->
-                block = ChapterTextBlock(activity) {
-                    object : TextView(activity) {
-                        override fun invalidate() {
-                            invalidations.incrementAndGet()
-                            super.invalidate()
-                        }
-                    }.apply {
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                        )
-                    }
-                }
-                renderer = NovelTextRenderer(activity, scope) { _, _ -> }
-                activity.setContentView(block.container)
-            }
-        }
-        onMain {
-            renderer.render(
-                block = block,
-                html = "<img src=\"${failing.url("retry", delayMs = RETRY_DELAY_MS)}\"><p>lorem ipsum</p>",
-                fontSize = 18,
-                paragraphSpacing = 0f,
-                paragraphIndent = 0f,
-                selectable = false,
-                bionic = false,
-                contentWidth = 600,
-                maxPictureHeight = null,
-                baseUrl = null,
-                sourceId = null,
-                holdAcross = { it() },
-                onTextSet = {},
-            ).join()
-        }
-        awaitWhile { block.imagesLoading }
+        val block = renderAFailedPicture(selectable = false, invalidations)
 
         var box: ImageFailureDrawable? = null
         var redrawn = false
@@ -287,6 +251,83 @@ class NovelImageFailureTest {
 
         assertTrue("the box did not dim", box?.retrying == true)
         assertTrue("nothing redrew the dimmed box", redrawn)
+    }
+
+    /** A selectable view's editor replays its drawn text on a plain invalidate, so the box's line is re-marked. */
+    @Test
+    fun tappingRetryOnSelectableTextReMarksTheBoxsLine() {
+        val block = renderAFailedPicture(selectable = true, AtomicInteger())
+
+        val marked = AtomicInteger()
+        instrumentation.runOnMainSync {
+            val view = block.chunkViews.first()
+            val text = view.text as Spannable
+            val retry = text.getSpans(0, text.length, ClickableSpan::class.java).single()
+            text.setSpan(RedrawWatcher(marked), 0, text.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+            retry.onClick(view)
+        }
+
+        assertTrue("the dimmed box's line was not marked to redraw", marked.get() > 0)
+    }
+
+    /** Counts a redraw mark set or re-set over the text, which is what makes a selectable view redraw it. */
+    private class RedrawWatcher(private val marked: AtomicInteger) : SpanWatcher {
+        private fun count(what: Any) {
+            if (what is UpdateAppearance && what !is ClickableSpan && what !is ImageSpan) marked.incrementAndGet()
+        }
+
+        override fun onSpanAdded(text: Spannable, what: Any, start: Int, end: Int) = count(what)
+
+        override fun onSpanRemoved(text: Spannable, what: Any, start: Int, end: Int) = Unit
+
+        override fun onSpanChanged(text: Spannable, what: Any, ostart: Int, oend: Int, nstart: Int, nend: Int) =
+            count(what)
+    }
+
+    /** A chapter whose one picture failed and offers Retry, a Retry slow to answer, in [selectable] views. */
+    private fun renderAFailedPicture(selectable: Boolean, invalidations: AtomicInteger): ChapterTextBlock {
+        val failing = PngServer(pngOf(10, 10), failFirst = 1).also { server = it }
+        lateinit var block: ChapterTextBlock
+        lateinit var renderer: NovelTextRenderer
+        scenario = ActivityScenario.launch(WebViewHostActivity::class.java).apply {
+            onActivity { activity ->
+                block = ChapterTextBlock(activity) {
+                    object : TextView(activity) {
+                        override fun invalidate() {
+                            invalidations.incrementAndGet()
+                            super.invalidate()
+                        }
+                    }.apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                        )
+                        setTextIsSelectable(selectable)
+                    }
+                }
+                renderer = NovelTextRenderer(activity, scope) { _, _ -> }
+                activity.setContentView(block.container)
+            }
+        }
+        onMain {
+            renderer.render(
+                block = block,
+                html = "<img src=\"${failing.url("retry", delayMs = RETRY_DELAY_MS)}\"><p>lorem ipsum</p>",
+                fontSize = 18,
+                paragraphSpacing = 0f,
+                paragraphIndent = 0f,
+                selectable = selectable,
+                bionic = false,
+                contentWidth = 600,
+                maxPictureHeight = null,
+                baseUrl = null,
+                sourceId = null,
+                holdAcross = { it() },
+                onTextSet = {},
+            ).join()
+        }
+        awaitWhile { block.imagesLoading }
+        return block
     }
 
     private fun failureBoxOf(view: TextView): ImageFailureDrawable? {

@@ -153,13 +153,19 @@ class NovelTextViewportWindowTest {
     @Test
     fun aSeamHiddenAboveTheTextKeepsTheLineTheReaderWasOn() {
         open(LONG, long("current"))
-        prepend(PREVIOUS, long("previous"))
+        // The chapter numbered just before, since a seam over a gap stays whatever the setting says, and a
+        // seam left in place would read as no drift and pass.
+        prepend(SHORT, long("previous"))
         scrollToTop("current 60.")
         instrumentation.runOnMainSync {
             viewport.applySettings(readerTestSettings.copy(alwaysShowChapterTransition = false))
         }
         settle()
-        assertEquals(0, shownAt("current 60.")?.top)
+        var seamShown = true
+        instrumentation.runOnMainSync {
+            seamShown = descendants(viewport.view).any { it is NovelChapterSeamView && it.isVisible }
+        }
+        assertEquals(0 to false, shownAt("current 60.")?.top to seamShown)
     }
 
     /** A colour change measures nothing, so the chapter keeps the layout it was precomputed with. */

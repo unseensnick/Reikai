@@ -96,9 +96,9 @@ class NovelSeamTest {
     @Test
     @DisplayName("the end marker shows with always-show-transition off")
     fun endMarkerShownWithTheSettingOff() {
-        val end = NovelSeam.end(chapter(10.0, isLast = true))
+        val end = checkNotNull(NovelSeam.end(chapter(10.0, isLast = true))) { "a last chapter has no end marker" }
 
-        end?.drawn(alwaysShowTransition = false) shouldBe end
+        end.drawn(alwaysShowTransition = false) shouldBe end
     }
 
     @Test

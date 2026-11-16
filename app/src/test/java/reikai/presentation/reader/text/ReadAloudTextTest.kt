@@ -50,6 +50,14 @@ class ReadAloudTextTest {
         shownCharOffset("ab", 2) shouldBe null
     }
 
+    /** A paragraph captured before a redraw names offsets in text that has since moved under it. */
+    @Test
+    fun `a paragraph whose chunk text has changed names nothing`() {
+        val redrawn = "  Other  text.\tSecond one.\n"
+
+        paragraph.chunkRange(redrawn, 0 until "First one.".length) shouldBe null
+    }
+
     @Test
     fun `a range past the paragraph names nothing`() {
         paragraph.chunkRange(chunk, 0 until paragraph.text.length + 1) shouldBe null

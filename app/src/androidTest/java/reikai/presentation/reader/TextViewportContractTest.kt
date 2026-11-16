@@ -1431,6 +1431,31 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(before, after)
     }
 
+    /**
+     * The chapter before this one failing once the reader has scrolled in puts its box above the text: inside
+     * the chapter's item natively, before the chapters on the page, where scroll anchoring is off. Either way
+     * the line being read stays put.
+     */
+    @Test
+    fun aFailureAppearingAboveTheTextKeepsTheLineTheReaderWasOn() {
+        open(chapter(SECOND, long("second")))
+        scrollBy(REBUILT_SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val before = topLines.lastOrNull { it.first == SECOND }?.second
+        instrumentation.runOnMainSync {
+            viewport.window.setBoundaryFailures(
+                NovelReaderViewModel.BoundaryFailure("offline", failedAtElapsedMs = 1L, chapterId = FIRST),
+                null,
+            )
+        }
+        awaitScrollStill()
+        scrollBy(SCROLL_DP)
+        scrollBy(-SCROLL_DP)
+        Thread.sleep(QUIET_MS)
+        val after = topLines.lastOrNull { it.first == SECOND }?.second
+        assertEquals("[$renderer] the failure box pushed the line", true to before, (before != null) to after)
+    }
+
     /** Further in, where a landing measured against the placeholders would fall further short. */
     @Test
     fun anIllustratedChapterOpenedNearItsEndLandsAtItsSavedPosition() {
