@@ -459,6 +459,15 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(1, menuToggles.get())
     }
 
+    /** An anchor with no address is only a jump target, not a link, so a tap on its text is the reader's. */
+    @Test
+    fun aTapOnAnAnchorWithNoAddressTogglesTheMenu() {
+        open(chapter(FIRST, "<a name=\"top\">${long("first")}</a>"))
+        tap(view.width / 2f, view.height / 2f)
+        awaitWhile { menuToggles.get() == 0 }
+        assertEquals(1, menuToggles.get())
+    }
+
     /** A tap read in pixels rather than fractions of the screen lands in no zone, which opens the menu, so
      *  only a tap on a zone that moves the column shows both renderers scale it. */
     @Test

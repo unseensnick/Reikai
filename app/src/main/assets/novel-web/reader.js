@@ -1130,7 +1130,7 @@
       if (moved || elapsed > LONG_PRESS_MS) return;
       // A tap on a link, or anywhere on the failure box, is that control's, not the reader's. The
       // whole box rather than just its Retry, as the native renderer draws the same line.
-      if (e.target && e.target.closest && e.target.closest('a, button, .rk-failure')) return;
+      if (e.target && e.target.closest && e.target.closest('a[href], button, .rk-failure')) return;
       var picture = PICTURE_OPENS_ON_TAP ? pictureAt(e.target) : null;
       if (picture) {
         openPicture(picture);
