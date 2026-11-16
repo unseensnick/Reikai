@@ -26,6 +26,11 @@
 
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
+
+  function chapterById(id) {
+    return document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
+  }
+
   // Text in a chapter that is not the chapter's words: ruby readings, code, and a failed picture's box.
   // Read aloud and the top line both skip it, so a line is counted as the native renderer counts it.
   var UNCOUNTED_SELECTOR = 'rt, rp, script, style, .rk-failure';
@@ -568,10 +573,6 @@
     // Where measure() reads a text node's line height from, per element, which costs a style lookup each.
     var lineHeights = null;
 
-    function chapterEl(id) {
-      return document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
-    }
-
     function margins() {
       var el = document.querySelector(CHAPTER_SELECTOR);
       if (!el) return { top: 0, bottom: 0 };
@@ -662,7 +663,7 @@
     }
 
     function measure(id) {
-      var el = chapterEl(id);
+      var el = chapterById(id);
       if (!el) return null;
       fitSeams();
       var item = itemOf(el);
@@ -760,7 +761,7 @@
     /* keepLine: a page put back after the column moved, which leaves the reader's line as it was. seam: a seam's
        page, which reports no place. second: a spread's second page, its top below this one's and its height. */
     function show(id, top, height, fraction, keepLine, seam, second) {
-      var el = chapterEl(id);
+      var el = chapterById(id);
       if (!el) return;
       var m = margins();
       var before = scrollTop();
@@ -1255,10 +1256,6 @@
       };
     }
 
-    function chapterElement(id) {
-      return document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
-    }
-
     function normalise(line) {
       return line.split(OBJECT_REPLACEMENT).join('').replace(/\s+/g, ' ').trim();
     }
@@ -1321,7 +1318,7 @@
 
     function entry(id) {
       if (!cache[id]) {
-        var el = chapterElement(id);
+        var el = chapterById(id);
         if (!el) return null;
         cache[id] = build(el);
       }
@@ -1548,7 +1545,7 @@
      * reader still, as it does for a chapter arriving above.
      */
     setSeam: function (id, seam) {
-      var el = document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
+      var el = chapterById(id);
       if (!el) return;
       var above = el.previousElementSibling;
       if (above && above.classList.contains('rk-seam')) above.parentNode.removeChild(above);
@@ -1606,7 +1603,7 @@
       }
     },
     evictChapter: function (id) {
-      var el = document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
+      var el = chapterById(id);
       if (!el) return;
       // The seam belonging to a chapter is the one above it, except for the first chapter, whose
       // seam is below because a seam introduces what follows it. Taking the wrong side strands one.
@@ -1771,7 +1768,7 @@
      by the place-holding, at scroll offset zero as anywhere else. */
   function insertChapter(id, html, baseUrl, atStart, seam) {
     var container = document.getElementById('rk-chapters');
-    if (!container || document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]')) {
+    if (!container || chapterById(id)) {
       return;
     }
     var chapter = buildChapter(id, html, baseUrl);
