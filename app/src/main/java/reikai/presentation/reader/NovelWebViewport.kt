@@ -445,14 +445,15 @@ class NovelWebViewport(
         reportedEnds.clear()
         endWaitingOnPictures = null
         // A new document has no engine until it says so, and whatever the old one had queued belongs
-        // to a window that is being replaced.
+        // to a window that is being replaced. The gate first, as in destroy: a caller dropPendingCalls
+        // resumes can ask again at once, and an open gate would send that to the outgoing page.
+        val token = gate.open()
         dropPendingCalls()
         held.clear()
         held += chapter
         shownPrevious = null
         shownNext = null
         shownEnd = null
-        val token = gate.open()
         // A new page has run none of them.
         snippetsRan.clear()
         sourceStylesheets.clear()

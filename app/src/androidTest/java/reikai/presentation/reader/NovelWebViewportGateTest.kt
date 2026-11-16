@@ -5,6 +5,7 @@ import android.webkit.WebView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,6 +16,7 @@ import kotlinx.coroutines.withTimeout
 import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -124,6 +126,25 @@ class NovelWebViewportGateTest {
             scope.launch { viewport.append(chapter(4L)) }
         }
         assertEquals("3,4", awaitChapters("3,4"))
+    }
+
+    /**
+     * A load answers the outgoing page's unanswered calls, and a caller it resumes can ask again at once:
+     * that second call belongs to the next document, never the page being replaced.
+     */
+    @Test
+    fun aCallerTheNextLoadReleasesAsksTheNextDocument() {
+        openAndAwaitReady(1L)
+        evalOnPage("window.rkReader.readAloud.firstVisible = function () { return { id: '1', paragraph: 42 }; }")
+        val asked = CompletableDeferred<ReadAloudPosition?>()
+        instrumentation.runOnMainSync {
+            scope.launch {
+                viewport.readAloud.paragraphs(1L)
+                asked.complete(viewport.readAloud.firstVisibleParagraph())
+            }
+            scope.launch { viewport.load(chapter(3L), readerTestSettings) }
+        }
+        assertNotEquals(42, bounded { asked.await() }?.paragraph)
     }
 
     @Test
