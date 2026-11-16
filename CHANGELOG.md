@@ -32,8 +32,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **⋮ -> Organize files moves a local series' volumes into its folder and names them after its title and volumes.** A preview lists every new name first, and an unticked Also organize files offers it after grouping, renaming or editing, where the storage can move files.
 - **Open folder on a local series opens the folder its files are in.**
 - **A local chapter whose file goes missing keeps its read progress until the file comes back, through renames, moves and backups.** Deleting a volume in the app drops it on purpose.
-- **A local series whose folder was renamed outside the app can be linked to its new folder from its details page.** The folders holding its files are offered; nothing is picked for you.
-- **A combined local series whose volume folder was renamed or removed outside the app keeps refreshing, and its details page names the missing volume.** Tap it to link the folder it moved to, choose another folder, or remove it from the series; nothing is decided for you.
+- **A local series or volume whose folder was renamed outside the app can be linked to its new folder from the series' details page.** A combined series keeps refreshing and names the missing volume; nothing is picked for you.
 - **Local manga can show the files loose beside their volume folders as one volume, each as a volume of its own, or in no volume, from ⋮ -> Reorder volumes -> Loose files.** Backups keep the choice.
 - **A local series flags volumes that share a name, and ⋮ -> Delete volumes removes the copies you don't want.** Keep all names the later ones "Vol. 3 (2)" instead.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
@@ -117,15 +116,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Manga downloads can now wait between chapters, globally or per source, for sites that block fast downloading.** Off by default, so nothing changes until you set one.
+- **Manga downloads can now wait between chapters, globally or per source, from Settings -> Downloads -> Download speed.** Off by default; the per-source list has a search, a type filter and a reset.
 
 - **Settings -> Downloads -> Recheck downloads folder sets how often the app notices chapters added or removed outside it, from hourly to daily or only on Reindex downloads (ported from Komikku).** Covers manga and novels; hourly stays the default.
 
 #### Changed
 
 - **Novel downloads now run several sources at once, up to the same limit as manga, so one slow site holds up only itself.**
-
-- **Settings -> Downloads gathers its speed settings in one Download speed group at the end, with sliders for each delay.** The per-source list adds a search, a type filter and a reset back to the default.
 
 - **The novel download notification offers Pause and Show entry, as manga's does, without a Cancel that cleared the whole queue.**
 
@@ -165,7 +162,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Added
 
 - **Long-press a chapter in the reader's chapter list to select chapters and mark, bookmark, download or delete them, or mark everything before one as read.** The same bar as on the series screen.
-- **A novel can keep its own reading mode and chapter display, from the reader settings' For this series.** Default follows the setting for every other novel.
+- **A novel can keep its own reading mode and chapter display, set from the reader settings sheet's For this series.** Settings -> Novel reader sets them for every other novel.
 - **Long-press a picture in a novel chapter to open it full screen, where you can zoom, rotate, share or save it.** In scrolling mode a tap opens it.
 - **Paged novels keep each picture whole on one page, shrinking a tall one to fit while it stays readable.** A very tall picture keeps its width and continues across pages.
 - **Paged novels can show two pages side by side, from Dual page view on the reader settings' Reading tab.** Never, Always or When wide, as in the manga reader.
@@ -173,12 +170,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** While a novel is read aloud, it counts down at the voice's speed instead.
 - **Either reader's Appearance settings can draw the progress and time left under the page up to 2.5× larger, on a strip that hides what is behind them.**
 - **A mouse wheel now turns pages in paged novels.**
-- **The WebGPU manga reader can crop a page's borders instead of zooming into them, and lets you tune a shader's own settings (from Mihon).** Upstream: mihonapp/mihon#4226.
-- **The WebGPU manga reader can turn tiles off and use your own upscaler and downscaler shaders (from Mihon).** Upstream: mihonapp/mihon#4242.
+- **The WebGPU manga reader can crop borders instead of zooming, tune shader settings, turn tiles off and take your own scaling shaders (from Mihon).** Upstream: mihonapp/mihon#4226, mihonapp/mihon#4242.
 - **Both readers' Filters settings now have Contrast, from 50% to 200%, for crisper pages on e-ink and other black-and-white screens.**
-- **Grayscale and inverted colors now work with the manga reader's high quality renderer.**
-- **Split wide pages and Rotate wide pages to fit now work with the manga reader's high quality renderer, paged and long strip.** A page they change shows once it has downloaded.
-- **Smart fit and Stretch now work as scale types with the manga reader's high quality renderer.**
+- **The manga reader's high quality renderer now supports Grayscale, inverted colors, Split and Rotate wide pages, Smart fit and Stretch.** A page that Split or Rotate changes shows once it has downloaded.
 - **Settings -> Manga reader now shows the high quality renderer's own options while it is on, and hides the ones it ignores.** Dual page view, Transition animation, Display cutout mode, Crop instead of zoom and Disable double tap gestures were only in the reader menu.
 - **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
 - **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
@@ -189,7 +183,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
-- **Reading mode and Chapter display in the novel reader's settings sheet now set them for that novel only.** The setting for every novel is in Settings -> Novel reader.
 - **Paged novels now count a chapter's pages from its first page of text, and the transition between chapters keeps you on your page, as in manga.** Opening a chapter lands on its text rather than on the transition.
 - **Failed pages and chapter transitions now look the same in every manga reading mode (from Mihon).**
 
@@ -197,7 +190,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Flash duration under E-Ink in both readers' settings now goes down to 20 ms, in 20 ms steps, for e-readers that refresh quickly.** The 100 ms default is unchanged.
 
-- **The chapter cache now clears itself: pages after a day, novel text after a week (from Mihon).**
+- **The chapter cache now clears itself: pages after a day (from Mihon), novel text after a week.**
 
 - **Time with the reader's menu open no longer counts as reading time in Statistics.** Read aloud playing still counts.
 
@@ -206,7 +199,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
-- **When a chapter fails to load behind a site's challenge, Open in WebView now opens the page that was challenged, so solving it lets Retry work.** Before, it opened the chapter's page, which often had no challenge to solve.
+- **Open in WebView now opens the page a Cloudflare check blocked, such as a failed chapter or a later listing page, so solving it lets Retry work.**
 - **Marking the chapter you're reading as read from the reader's chapter list no longer deletes its download when Settings -> Downloads -> After manually marked as read is on.**
 - **Leaving the reader while a page is still scrolling now keeps the place it stopped at, in manga and novels.**
 - **Turning onto a manga page that fails to load no longer loses your place.**
@@ -268,7 +261,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A chapter that fails to load while offline now says there is no Internet connection, for manga and novels.**
 - **The novel reader no longer saves progress on every scroll frame near a chapter's end.**
 - **Retry on a novel picture that failed in WebView mode now loads it again from the site.**
-- **The reader's chapter list no longer deletes the download of the chapter you are reading from its row's download button or a swipe.**
 - **Picking a chapter from the list in the paged manga reader now opens it where you left it.**
 - **Download ahead no longer downloads merged manga chapters you marked read while reading.**
 - **Skipping ahead with After reading automatically delete on now keeps the next chapter's queued download.**
@@ -360,7 +352,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A light-novel plugin novel split into pages now opens when one of its site's requests fails along the way.**
 - **Light-novel plugins that exchange binary data with their site load novels and chapters again.**
 - **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
-- **A light-novel plugin's settings now take effect when you save them, without restarting the app.**
+- **A light-novel plugin's settings, saved or restored, now take effect on its next request without restarting the app.**
 - **Saving a light-novel plugin's settings no longer locks in its defaults, so a plugin update can change them.**
 - **While a light-novel plugin repo is down, Extensions keeps listing the plugin updates the Browse badge counts.** It uses what the repo last listed since the app opened.
 - **One broken item no longer fails a whole light-novel plugin listing or chapter list.** A nameless chapter is named by its place, as in LNReader.
@@ -378,8 +370,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A source's sign-in is no longer sent to another site when a request is redirected there and meets a Cloudflare check.**
 - **A FlareSolverr reply with an unusable User-Agent no longer crashes the app on that site's later requests.**
 - **Requests to a site that sends you on to a Cloudflare-protected one no longer solve its check again one after another.**
-- **Open in WebView now opens the page Cloudflare blocked, such as a later page of a listing or the page a form sent you on to, not the site's front page.**
-- **Passing a Cloudflare check on a novel plugin's site from Extensions or the plugin's page now unblocks the plugin too.**
+- **Passing a novel site's Cloudflare check in WebView, Extensions or the plugin's page now unblocks its plugin or source.**
 - **Madara novel sources behind a strict Cloudflare check now list their chapters through FlareSolverr.**
 - **FlareSolverr keeps its session again after being unreachable when the app first used it.** It had stayed slower until the app restarted.
 - **A novel plugin's own cookies now reach FlareSolverr along with the ones the site set.**
@@ -387,7 +378,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Light-novel plugins now send the device's browser identity again after it fails to load once, instead of a generic one until the app restarts.**
 - **On older WebView versions, Solve interactive Cloudflare challenges now ticks a box Cloudflare shows again within seconds of the last tick.**
 - **A novel site's sign-in captured in the browser just after the app was restored is no longer lost.**
-- **A novel source that sets its own browser identity is now unblocked by passing its Cloudflare check in WebView.**
 - **Clear cookies in WebView and on an extension's page no longer leaves some sites' Cloudflare pass behind.** Those sites store it in a way the old removal missed.
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
@@ -434,16 +424,14 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Restoring App settings no longer forgets the names of novel sources you have uninstalled.** The device's own records are kept and the backup only adds ones it lacks.
 - **A Mihon backup's categories no longer restore with their own sorts wrong because of an old display setting.** Mihon kept each category's grid or list choice where Reikai now marks a category's own sort.
 - **A restore that runs out of memory now shows an error instead of stopping without a word.**
-- **Picking a damaged backup file now says it is invalid instead of showing a raw error.**
-- **A crafted backup or LNReader file that unpacks to gigabytes is refused instead of closing the app.**
+- **A damaged backup file, even one of only zeros, now says it is invalid instead of showing a raw error or restoring nothing.**
+- **A crafted backup file that unpacks to gigabytes is refused instead of closing the app.**
 - **A backup now records extensions that are installed but not trusted or hidden, so a restore can name them.**
 - **A backup made with Extension stores on and App settings off now carries your light-novel plugins and their repos.** They follow the same option as the extension apps.
 - **The missing-sources list before a restore names a novel source this device has seen, instead of showing its id.**
 - **Backups with Source settings now carry the settings of enhanced sources too.** Before, those sources' settings were left out of every backup.
 - **A restore now skips a damaged series in the backup and restores the rest, listing it in the error log.** Before, it stopped partway with no error log or completion notice.
-- **A backup file of zeros, as a damaged copy can be, now shows the invalid-backup message instead of restoring nothing.**
 - **A paged novel restored over a copy that was never opened now gets its full page list right away.** Before, the page picker showed only the pages its chapters came from until the next refresh.
-- **A light-novel plugin you were using picks up its restored settings and sign-in on its next request.** Before, it kept the old ones until it sat unused for a minute or the app restarted.
 - **Restoring App settings no longer reorders this device's download queue.**
 - **A novel's edited author, artist, description, genres or status in a backup from Reikai 0.1 or 0.2 now survives the next refresh after a restore.**
 - **Restoring a backup now fills in a manga chapter's page count when the rest of that chapter already matches the device.** Before, it showed the page you reached without the total until the chapter was opened again.
