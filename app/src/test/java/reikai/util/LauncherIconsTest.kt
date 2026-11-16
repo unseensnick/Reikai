@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import java.io.File
+import kotlin.math.abs
 
 /**
  * The launcher entries behind the app icon switcher, against the merged manifest of the variant under test (debug).
@@ -90,7 +91,8 @@ class LauncherIconsTest {
         val insets = File("src/main/res/drawable").listFiles { f -> f.name.startsWith("ic_launcher_mono") }!!
             .map { Regex("""android:inset="([0-9.]+)%"""").find(it.readText())!!.groupValues[1].toFloat() / 100 }
 
-        insets.distinct() shouldBe listOf(LauncherIcon.THEMED_INSET)
+        // The XML writes the inset to four decimals of a percent, so equal means within that.
+        insets.map { abs(it - LauncherIcon.THEMED_INSET) < 1e-6f }.distinct() shouldBe listOf(true)
     }
 
     @Test

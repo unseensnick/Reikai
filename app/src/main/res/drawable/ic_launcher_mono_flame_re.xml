@@ -2,4 +2,4 @@
 <!-- Themed-icon layer: the design's logo in the adaptive icon's safe zone. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/ic_logo_flame_re"
-    android:inset="19.7375%" />
+    android:inset="20.8889%" />

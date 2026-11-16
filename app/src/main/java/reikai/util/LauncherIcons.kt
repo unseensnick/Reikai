@@ -206,7 +206,7 @@ enum class LauncherIcon(
 
     companion object {
         /** The ic_launcher_mono* layers' inset of the logo, per side (LauncherIconsTest reads it off the XML). */
-        const val THEMED_INSET = 0.197375f
+        const val THEMED_INSET = 0.208889f
     }
 
     // Class.getPackageName needs API 31, so the package comes off the class name.
