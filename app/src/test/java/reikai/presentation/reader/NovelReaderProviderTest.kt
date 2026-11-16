@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -54,6 +55,44 @@ class NovelReaderProviderTest {
         advanceUntilIdle()
 
         viewport.asked shouldBe false
+    }
+
+    /** A tachiyomi-format extension builds the address with code of its own, as a manga source does. */
+    @Test
+    fun `the open chapter's web address is built off the main thread`() = readerTest { harness ->
+        val source = harness.source("src")
+        var builtOn: Thread? = null
+        source.resolve = {
+            builtOn = Thread.currentThread()
+            "https://src.example/1"
+        }
+        val novel = harness.novel(source)
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+
+        provider.webUrl.first { it != null }
+
+        (builtOn === Thread.currentThread()) shouldBe false
+    }
+
+    @Test
+    fun `a failed chapter's web address is built off the main thread`() = readerTest { harness ->
+        val source = harness.source("src")
+        var builtOn: Thread? = null
+        source.resolve = {
+            builtOn = Thread.currentThread()
+            "https://src.example/1"
+        }
+        val novel = harness.novel(source)
+        val chapter = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, chapter.id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+
+        provider.chapterWebUrl(chapter.id)
+
+        (builtOn === Thread.currentThread()) shouldBe false
     }
 
     /** The viewport is built once this opens; built from the default, it was rebuilt with the chapter. */

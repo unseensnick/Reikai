@@ -46,6 +46,7 @@ import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.details.novelDetailsIntent
 import reikai.presentation.reader.text.NovelWindowDiff
 import reikai.util.snapshotOnChange
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 
 /**
@@ -119,7 +120,8 @@ class NovelReaderProvider(
             WebViewActivity.newNovelChapterIntent(context, url, title, novelId, chapterId, sourceId)
         } ?: WebViewActivity.newIntent(context, url, title = title)
 
-    override suspend fun chapterWebUrl(chapterId: Long): String? = viewModel.webUrlOf(chapterId)
+    // The source builds the URL, and a tachiyomi-format extension may override that, as on manga.
+    override suspend fun chapterWebUrl(chapterId: Long): String? = withIOContext { viewModel.webUrlOf(chapterId) }
 
     override fun detailsIntent(context: Context): Intent? = viewModel.detailsRoute.value?.let { route ->
         novelDetailsIntent(context, route.source, route.url).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -184,7 +186,10 @@ class NovelReaderProvider(
 
     override fun toggleBookmark() = viewModel.toggleBookmark()
 
-    override val webUrl: Flow<String?> = viewModel.chapter.map { chapter -> chapter?.let { viewModel.webUrlFor(it) } }
+    override val webUrl: Flow<String?> = viewModel.chapter
+        .map { chapter -> chapter?.let { viewModel.webUrlFor(it) } }
+        // Off the main thread for the reason chapterWebUrl gives.
+        .flowOn(Dispatchers.IO)
 
     override fun saveHistory() = viewModel.saveHistory()
 
