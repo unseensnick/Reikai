@@ -25,6 +25,7 @@ import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.unmockkConstructor
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
@@ -155,6 +157,28 @@ class MangaReaderViewModelHarness private constructor(
     /** The chapters of [mangaId] the reader recorded in History. */
     suspend fun historyOf(mangaId: Long): List<Long> = history.getHistoryByMangaId(mangaId).map { it.chapterId }
 
+    /** The open model's app scope, which the writes that outlive it are launched on. */
+    private var appScope: CoroutineScope? = null
+
+    /** The writes the open model has running on its app scope now. */
+    fun appWrites(): Set<Job> = checkNotNull(appScope).coroutineContext.job.children.toSet()
+
+    /**
+     * Runs [step] and waits out what it launched on [model]'s own scope, then the writes those handed the app
+     * scope. Both run on real IO threads, which virtual time does not reach.
+     */
+    suspend fun settle(model: ReaderViewModel, step: suspend () -> Unit) {
+        val modelJob = model.viewModelScope.coroutineContext.job
+        val running = modelJob.children.toSet() + appWrites()
+        step()
+        withContext(Dispatchers.Default) {
+            withTimeout(10_000) {
+                (modelJob.children.toSet() - running).joinAll()
+                (appWrites() - running).joinAll()
+            }
+        }
+    }
+
     /** A group of [manga] alone, as the provider resolves an unmerged series. */
     suspend fun single(manga: Manga): MergedChapterProvider.Group = MergedChapterProvider.Group(
         mangaById = mapOf(manga.id to manga),
@@ -211,6 +235,9 @@ class MangaReaderViewModelHarness private constructor(
                 every { getDownloadedChapterIds(any(), any()) } answers {
                     val title = secondArg<Manga>().title
                     firstArg<List<Chapter>>().filter { isOnDisk(it.url, title) }.mapTo(HashSet()) { it.id }
+                coEvery { isChapterDownloadedOnDisk(any(), any(), any(), any(), any()) } answers {
+                    isOnDisk(arg(2), arg(3))
+                }
                 }
                 coEvery { downloadChapters(any(), any(), any()) } answers { onDownload(secondArg()) }
                 coEvery { deleteChapters(any(), any(), any()) } answers { onDelete(firstArg()) }
@@ -231,7 +258,7 @@ class MangaReaderViewModelHarness private constructor(
             )
             val downloadPreferences = DownloadPreferences(prefs)
             val model = ReaderViewModel(
-                appScope = testAppScope(),
+                appScope = testAppScope().also { appScope = it },
                 savedState = SavedStateHandle(
                     mapOf("manga" to manga.id, "chapter" to chapterId, "source_scoped" to sourceScoped),
                 ),

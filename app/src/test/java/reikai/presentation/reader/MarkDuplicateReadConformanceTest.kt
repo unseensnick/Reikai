@@ -1,19 +1,14 @@
 package reikai.presentation.reader
 
-import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.job
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -90,12 +85,12 @@ class MarkDuplicateReadConformanceTest {
                 harness.chapter(30L, manga, 3.0, scanlator = "x")
                 val prefs = mapOf("mark_read_on_skip" to true, "skip_dupe" to true)
                 harness.open(manga, chapterId = 10L, preferences = prefs) { model, _ ->
-                    model.nextAndSettle()
+                    harness.nextAndSettle(model)
                     when (change) {
                         Change.UNMARKED -> harness.setRead(21L, read = false)
                         Change.ADDED -> harness.chapter(21L, manga, 2.0, scanlator = "y")
                     }
-                    model.nextAndSettle()
+                    harness.nextAndSettle(model)
                     harness.stored(21L).read
                 }
             }
@@ -129,20 +124,13 @@ class MarkDuplicateReadConformanceTest {
                     preferences = mapOf("mark_read_on_skip" to true),
                     incognito = setOf(private.source),
                 ) { model, _ ->
-                    model.nextAndSettle()
+                    harness.nextAndSettle(model)
                     harness.stored(11L).read
                 }
             }
 
-        /** The mark is written on the IO dispatcher, which virtual time does not reach, so it is waited out. */
-        private suspend fun ReaderViewModel.nextAndSettle() {
-            val scopeJob = viewModelScope.coroutineContext.job
-            val running = scopeJob.children.toSet()
-            loadNextChapter()
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) { (scopeJob.children.toSet() - running).joinAll() }
-            }
-        }
+        private suspend fun MangaReaderViewModelHarness.nextAndSettle(model: ReaderViewModel) =
+            settle(model) { model.loadNextChapter() }
     }
 
     class NovelProbe : Probe {

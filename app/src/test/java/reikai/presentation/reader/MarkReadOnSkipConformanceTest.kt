@@ -1,18 +1,13 @@
 package reikai.presentation.reader
 
-import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.job
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -95,14 +90,7 @@ class MarkReadOnSkipConformanceTest {
                     failing = if (step.loads) emptySet() else setOf(target),
                     incognito = if (step.incognito) setOf(manga.source) else emptySet(),
                 ) { model, _ ->
-                    // The mark is written on the IO dispatcher, which virtual time does not reach, so
-                    // what the step launched is waited out before the read.
-                    val scopeJob = model.viewModelScope.coroutineContext.job
-                    val running = scopeJob.children.toSet()
-                    if (step.forward) model.loadNextChapter() else model.loadPreviousChapter()
-                    withContext(Dispatchers.Default) {
-                        withTimeout(10_000) { (scopeJob.children.toSet() - running).joinAll() }
-                    }
+                    harness.settle(model) { if (step.forward) model.loadNextChapter() else model.loadPreviousChapter() }
                     harness.stored(left).read
                 }
             }
