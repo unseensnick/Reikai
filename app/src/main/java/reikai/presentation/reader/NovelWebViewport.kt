@@ -615,7 +615,7 @@ class NovelWebViewport(
     private fun onPageTap(x: Float, y: Float) {
         // A spread's zones are across both pages, where the page only knows the half it was touched on.
         val (zoneX, zoneY) = spreadHost?.tapPoint() ?: (x to y)
-        when (documentSettings?.tapZones?.actionAt(zoneX, zoneY, pageLayout.isRtl) ?: ViewerNavigation.Action.MENU) {
+        when (NovelTapZones.tapAction(documentSettings?.tapZones, zoneX, zoneY, pageLayout.isRtl)) {
             ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
             ViewerNavigation.Action.BACKWARD -> if (paged) {
                 turnPage(

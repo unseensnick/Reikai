@@ -40,6 +40,13 @@ data class NovelTapZones(
         (if (rtl) reversed else navigation).actionAt(Offset(x, y))
 
     companion object {
+        /**
+         * What a renderer does with a tap: the menu before the session's [zones] arrive, otherwise
+         * [actionAt], whose null (outside a zone-only layout's zone) leaves the tap to the page.
+         */
+        fun tapAction(zones: NovelTapZones?, x: Float, y: Float, rtl: Boolean): ViewerNavigation.Action? =
+            if (zones == null) ViewerNavigation.Action.MENU else zones.actionAt(x, y, rtl)
+
         /** How much of the screen a tap that reads on or back moves, in both renderers. */
         const val SCROLL_FRACTION = 0.75f
 

@@ -127,4 +127,16 @@ class NovelTapZonesTest {
             zones(NovelTapLayout.BOTTOM, TappingInvertMode.VERTICAL).actionAt(0.5f, 0.05f, rtl = false),
         )
     }
+
+    /** Before a session's zones arrive, a renderer still answers a tap, by opening the menu. */
+    @Test
+    fun noZonesYetOpensTheMenu() {
+        assertEquals(Action.MENU, NovelTapZones.tapAction(null, 0.5f, 0.2f, rtl = false))
+    }
+
+    /** A zone-only layout's miss stays the page's in both renderers, not turned into a menu toggle. */
+    @Test
+    fun aTapOutsideAZoneOnlyLayoutStaysThePages() {
+        assertEquals(null, NovelTapZones.tapAction(zones(NovelTapLayout.CENTER), 0.5f, 0.2f, rtl = false))
+    }
 }
