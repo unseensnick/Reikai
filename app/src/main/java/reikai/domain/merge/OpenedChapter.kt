@@ -5,8 +5,8 @@ package reikai.domain.merge
  * often a sibling source's copy resumed from History. It takes the place of the copy [stitch] shows for
  * the same merged chapter, so its neighbours are that chapter's own: two sources count differently, so
  * a number is no guide. One the stitch places nowhere goes by its number, in the direction [byNumber]
- * says the list runs. Source order is restamped, since the reader sorts on it and the opened row still
- * carries its own source's.
+ * says the list runs, and the list is restamped. An empty [stitch] (unmerged, or source scope) is one
+ * source's list on its own order, so the chapter is added as it is, as upstream does. merged-series.md.
  */
 fun <T> withOpenedChapter(
     unified: List<T>,
@@ -17,6 +17,7 @@ fun <T> withOpenedChapter(
     restamp: (T, Long) -> T,
 ): List<T> {
     if (opened == null || unified.any { id(it) == id(opened) }) return unified
+    if (stitch.isEmpty()) return unified + opened
     val unitOf = stitch.associate { it.chapterId to it.unit }
     val openedUnit = unitOf[id(opened)]
     val sameChapter = if (openedUnit == null) -1 else unified.indexOfFirst { unitOf[id(it)] == openedUnit }

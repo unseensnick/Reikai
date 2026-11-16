@@ -502,7 +502,8 @@ class ReaderViewModel(
         val chapters = withOpenedChapter(
             unified = merged,
             opened = merged.find { it.id == chapterId } ?: getUnfilteredChapterList().find { it.id == chapterId },
-            stitch = mergedGroup?.stitch.orEmpty(),
+            // As the scope sees it: source scope reads one source's own rows, on that source's order.
+            stitch = mergeScope.copiesIn(mergedGroup?.stitch.orEmpty()),
             id = { it.id },
             // A merged manga list runs newest-first, as its sources' own lists do.
             byNumber = compareByDescending { it.chapterNumber },

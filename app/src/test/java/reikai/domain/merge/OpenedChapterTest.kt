@@ -47,6 +47,9 @@ class OpenedChapterTest {
     private val stitch = trunk.mapIndexed { index, chapter -> ChapterUnit(chapter.id, index, 0) } +
         listOf(ChapterUnit(105L, 4, 1), ChapterUnit(106L, 5, 1), ChapterUnit(107L, 6, 1))
 
+    /** A merged list's stitch, each of [ids] its own merged chapter in that order. */
+    private fun stitchOf(ids: List<Long>) = ids.mapIndexed { index, id -> ChapterUnit(id, index, 0) }
+
     @Test
     fun `a sibling's copy opened from history takes its merged chapter's place`() {
         novelSession(trunk, siblingSix, stitch).map { it.id } shouldBe listOf(1L, 2L, 3L, 4L, 5L, 106L, 7L, 8L, 9L, 10L)
@@ -55,9 +58,9 @@ class OpenedChapterTest {
     @Test
     fun `a chapter the stitch places nowhere goes by its number in an oldest-first list`() {
         val unified = (1L..3L).map { novelChapter(it, novelId = 1L, number = it.toDouble(), order = it - 1) }
-        val opened = novelChapter(9L, 1L, 2.5, 40L)
+        val opened = novelChapter(9L, 2L, 2.5, 40L)
 
-        novelSession(unified, opened, emptyList()).map { it.id } shouldBe listOf(1L, 2L, 9L, 3L)
+        novelSession(unified, opened, stitchOf(unified.map { it.id })).map { it.id } shouldBe listOf(1L, 2L, 9L, 3L)
     }
 
     @Test
@@ -71,11 +74,32 @@ class OpenedChapterTest {
         withOpenedChapter(
             unified = unified,
             opened = opened,
-            stitch = emptyList(),
+            stitch = stitchOf(unified.map { it.id }),
             id = { it.id },
             byNumber = compareByDescending { it.chapterNumber },
             restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
         ).sortedBy { it.sourceOrder }.map { it.id } shouldBe listOf(1L, 9L, 2L, 3L)
+    }
+
+    /**
+     * An unmerged list comes back in the order its rows were stored (by address), not by number, and
+     * carries its source's own order, which the chapter put back shares.
+     */
+    @Test
+    fun `a chapter put back in an unmerged list keeps every chapter's own source order`() {
+        val byAddress = listOf(1L, 10L, 11L, 12L, 2L, 3L).map { number ->
+            Chapter.create().copy(id = number, chapterNumber = number.toDouble(), sourceOrder = 100 - number)
+        }
+        val excluded = Chapter.create().copy(id = 5L, chapterNumber = 5.0, sourceOrder = 95L)
+
+        withOpenedChapter(
+            unified = byAddress,
+            opened = excluded,
+            stitch = emptyList(),
+            id = { it.id },
+            byNumber = compareByDescending { it.chapterNumber },
+            restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
+        ).sortedByDescending { it.sourceOrder }.map { it.id } shouldBe listOf(1L, 2L, 3L, 5L, 10L, 11L, 12L)
     }
 
     @Test
