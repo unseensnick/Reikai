@@ -351,8 +351,9 @@ class NovelReaderProvider(
             onReaderTurned = viewModel::readerMoved,
             onPageTurned = host::pageTurned,
             onPageShown = { page, count -> shownPage.value = ChapterProgress.Pages(page, count) },
-            onPictureOpened = { model ->
-                val name = chapterPictureName(viewModel.entryTitle.value, viewModel.chapter.value?.title, model)
+            onPictureOpened = { model, chapterTitle ->
+                val chapter = chapterTitle ?: viewModel.chapter.value?.title
+                val name = chapterPictureName(viewModel.entryTitle.value, chapter, model)
                 host.engine.openDialog(ReaderDialog.Picture(model, name))
             },
         )

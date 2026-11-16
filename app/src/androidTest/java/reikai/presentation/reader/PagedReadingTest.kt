@@ -108,7 +108,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         onReaderTurned = { events += "turn" },
         onPageTurned = { turned.incrementAndGet() },
         onPageShown = { page, count -> shownPage.set(page to count) },
-        onPictureOpened = { opened += it },
+        onPictureOpened = { model, _ -> opened += model },
     )
 
     /** Whether the viewport built last shows two pages side by side, which a [rebuild] keeps. */

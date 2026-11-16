@@ -163,7 +163,7 @@ class NovelWebDocumentTest {
         fun onPagedPicturesLanded(documentToken: String, chapterId: String) = Unit
 
         @JavascriptInterface
-        fun onPictureOpened(documentToken: String, src: String) = Unit
+        fun onPictureOpened(documentToken: String, src: String, chapterId: String) = Unit
     }
 
     /** How many settled positions, and how many boundary retries, the page sent the host. */

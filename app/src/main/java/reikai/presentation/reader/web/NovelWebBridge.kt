@@ -30,8 +30,8 @@ class NovelWebBridge(
     private val onPagedMoved: () -> Unit,
     /** Paged reading: the pictures of the chapter on screen have landed, so its page is ready to read. */
     private val onPagedPicturesLanded: (chapterId: Long) -> Unit,
-    /** The reader asked to see the picture at [src] full screen (NovelPictureGesture). */
-    private val onPictureOpened: (src: String) -> Unit,
+    /** The reader asked to see the picture at [src], in chapter [chapterId], full screen (NovelPictureGesture). */
+    private val onPictureOpened: (src: String, chapterId: Long?) -> Unit,
     /** The one call that is not gated: it is what tells the host which token is the page's. */
     private val onReady: (documentToken: String) -> Unit,
 ) {
@@ -88,7 +88,8 @@ class NovelWebBridge(
     }
 
     @JavascriptInterface
-    fun onPictureOpened(documentToken: String, src: String) = fromReader(documentToken) { onPictureOpened.invoke(src) }
+    fun onPictureOpened(documentToken: String, src: String, chapterId: String) =
+        fromReader(documentToken) { onPictureOpened.invoke(src, chapterId.toLongOrNull()) }
 
     @JavascriptInterface
     fun onReady(documentToken: String) = onReady.invoke(documentToken)

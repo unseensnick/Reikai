@@ -37,7 +37,7 @@ class NovelWebBridgeTest {
         onChapterEndSeen = { calls += "end $it" },
         onPagedMoved = { calls += "paged" },
         onPagedPicturesLanded = { calls += "pictures $it" },
-        onPictureOpened = { calls += "picture $it" },
+        onPictureOpened = { src, chapterId -> calls += "picture $src $chapterId" },
         onReady = {},
     )
 
@@ -58,7 +58,11 @@ class NovelWebBridgeTest {
         TAP({ onTap("token", 0.25, 0.75) }, "tap 0.25 0.75"),
         STEP_CHAPTER({ onStepChapter("token", true) }, "step true"),
         RETRY_BOUNDARY({ onRetryBoundary("token", false) }, "retry false"),
-        PICTURE_OPENED({ onPictureOpened("token", "data:image/png;base64,AA") }, "picture data:image/png;base64,AA"),
+
+        // With the chapter the picture is in, which names the saved file when the window spans chapters.
+        PICTURE_OPENED({
+            onPictureOpened("token", "data:image/png;base64,AA", "7")
+        }, "picture data:image/png;base64,AA 7"),
     }
 
     @ParameterizedTest

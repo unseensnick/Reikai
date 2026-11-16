@@ -309,13 +309,13 @@ class NovelTextViewport(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
-                val picture = pictureAt(e.x, e.y) ?: return
+                val (model, chapterTitle) = pictureAt(e.x, e.y) ?: return
                 pictureOpened = true
                 takenTouch = true
                 recycler.findChildViewUnder(e.x, e.y)?.cancelLongPress()
                 // The Editor's own long press can land first and select the picture's character.
                 if (textSelectable) recycler.findFocus()?.clearFocus()
-                callbacks.onPictureOpened(picture)
+                callbacks.onPictureOpened(model, chapterTitle)
             }
         },
     )
@@ -1303,8 +1303,8 @@ class NovelTextViewport(
      */
     private fun onTap(x: Float, y: Float) {
         if (NovelPictureGesture.opensOnTap(paged)) {
-            pictureAt(x, y)?.let {
-                callbacks.onPictureOpened(it)
+            pictureAt(x, y)?.let { (model, chapterTitle) ->
+                callbacks.onPictureOpened(model, chapterTitle)
                 return
             }
         }
@@ -1376,12 +1376,16 @@ class NovelTextViewport(
         }
         .firstOrNull { it.bounds.contains(x.toInt(), y.toInt()) }
 
-    /** What coil loads for the loaded block picture drawn under [x], [y], null for anything else there. */
-    private fun pictureAt(x: Float, y: Float): Any? {
+    /**
+     * What coil loads for the loaded block picture drawn under [x], [y], with the title of the chapter it is
+     * in, which names a saved copy; null for anything else there.
+     */
+    private fun pictureAt(x: Float, y: Float): Pair<Any, String>? {
         val (slot, picture) = pictureSpanAt(x, y) ?: return null
         val drawn = picture.drawnPicture()
         if (drawn == null || drawn is ImageLoadingDrawable || drawn is ImageFailureDrawable) return null
-        return NovelPictureGesture.modelOf(picture.source, slot.chapter.sourceId)
+        val model = NovelPictureGesture.modelOf(picture.source, slot.chapter.sourceId) ?: return null
+        return model to slot.chapter.title
     }
 
     /** The chapter picture under [x], [y], hit where it is drawn, with the chapter it is in. */

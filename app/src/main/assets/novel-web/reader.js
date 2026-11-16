@@ -1061,7 +1061,9 @@
   }
 
   function openPicture(img) {
-    bridge().onPictureOpened(DOCUMENT_TOKEN, img.currentSrc || img.getAttribute('src') || '');
+    var chapter = img.closest(CHAPTER_SELECTOR);
+    bridge().onPictureOpened(DOCUMENT_TOKEN, img.currentSrc || img.getAttribute('src') || '',
+      (chapter && chapter.getAttribute(CHAPTER_ID_ATTR)) || '');
   }
 
   function installGestures() {
