@@ -1233,8 +1233,9 @@
     var raf = null, rate = 0, last = 0, carry = 0;
     // The distance is carried between frames and spent in whole device pixels, as FrameScroller does:
     // the page rounds each step to one, so a slow speed on a fast screen otherwise never moves, and on
-    // a 60Hz one runs well over its speed. What actually moved is taken off, and a step that moves
-    // nothing (the chapter's end) drops the carry.
+    // a 60Hz one runs well over its speed. What actually moved is taken off, since the page may round a
+    // step FrameScroller would spend whole, and a step that moves nothing (the chapter's end) drops the carry.
+    var FRAMES_PER_SECOND = __FRAMES_PER_SECOND__;
     function step(now) {
       if (last) {
         carry += rate * (now - last) / 1000;
@@ -1252,7 +1253,7 @@
     }
     return {
       start: function (perFrame) {
-        rate = perFrame * 60;
+        rate = perFrame * FRAMES_PER_SECOND;
         if (!raf) { last = 0; carry = 0; raf = requestAnimationFrame(step); }
       },
       stop: function () {

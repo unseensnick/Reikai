@@ -35,7 +35,8 @@ class FrameScroller(private val density: Float, private val scrollBy: (Int) -> B
         }
     }
 
-    private companion object {
+    internal companion object {
+        /** The speed unit's frame rate, which the WebView page is handed too (NovelWebDocument). */
         const val FRAMES_PER_SECOND = 60f
     }
 }

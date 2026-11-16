@@ -8,6 +8,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.theme.appColorScheme
 import org.json.JSONObject
 import reikai.presentation.components.toHexRgb
+import reikai.presentation.reader.FrameScroller
 import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.NovelTextScale
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
@@ -76,6 +77,7 @@ object NovelWebDocument {
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
                 "__INITIAL_LINE__" to (initialLine?.coerceAtLeast(0) ?: -1).toString(),
                 "__IMAGE_WAIT_MS__" to CHAPTER_IMAGE_WAIT_MS.toString(),
+                "__FRAMES_PER_SECOND__" to FrameScroller.FRAMES_PER_SECOND.toString(),
                 "__IMAGE_ROUTE__" to NovelWebSnippets.jsLiteral(NovelWebImages.PAGE_ROUTE),
                 "__RETRY_PARAM__" to NovelWebSnippets.jsLiteral(NovelWebImages.RETRY),
                 "__DOCUMENT_TOKEN__" to NovelWebSnippets.jsLiteral(documentToken),
