@@ -23,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
+import java.util.Collections
 
 /**
  * What a chapter that would not load leaves the reader with, pinned once over both providers: whether
@@ -67,6 +68,12 @@ class ReaderLoadFailureConformanceTest {
             probe.retryOfFailedSourceReloadReadsTheSource(this) shouldBe true
         }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `retrying a failed first open opens the chapter`(probe: ReaderLoadFailureProbe) = runTest {
+        probe.retryOfFailedFirstOpenOpens(this) shouldBe true
+    }
+
     companion object {
         const val BLOCKED = "https://api.site.example/chapter/5"
 
@@ -86,6 +93,9 @@ interface ReaderLoadFailureProbe {
 
     /** A reload from the source that failed, then retried: whether the retry read the source. */
     suspend fun retryOfFailedSourceReloadReadsTheSource(scope: TestScope): Boolean
+
+    /** A first open that failed, then retried once the source answers: whether the chapter is on screen. */
+    suspend fun retryOfFailedFirstOpenOpens(scope: TestScope): Boolean
 }
 
 /** Manga's failure is upstream's model state, so the provider is driven over a stubbed model. */
@@ -118,19 +128,49 @@ class MangaLoadFailureProbe : ReaderLoadFailureProbe {
         return (provider(state).loadState.first() as ReaderLoadState.Failed).blockedUrl
     }
 
-    override suspend fun retryOfFailedSourceReloadReadsTheSource(scope: TestScope): Boolean {
-        val asked = mutableListOf<Boolean>()
-        val viewModel = mockk<ReaderViewModel>(relaxed = true) {
-            every { reloadChapter(any()) } answers { asked += firstArg<Boolean>() }
+    // Over a real model, so the failure has to record that it was a reload from the source.
+    override suspend fun retryOfFailedSourceReloadReadsTheSource(scope: TestScope): Boolean =
+        MangaReaderViewModelHarness.create().use { harness ->
+            val manga = harness.manga(1L, source = 100L, title = "Series")
+            harness.chapter(10L, manga, 1.0)
+            val failing = Collections.synchronizedSet(mutableSetOf<Long>())
+            val fromSource = Collections.synchronizedList(mutableListOf<Boolean>())
+            harness.open(manga, 10L, failing = failing, onLoad = { _, source -> fromSource += source }) { model, _ ->
+                val provider = realProvider(model)
+                failing += 10L
+                provider.reloadChapter(fromSource = true)
+                settled(model) { it.adjacentLoadFailure != null }
+                failing.clear()
+                fromSource.clear()
+
+                provider.retryLoad()
+                settled(model) { !it.isLoadingAdjacentChapter && fromSource.isNotEmpty() }
+
+                fromSource.toList() == listOf(true)
+            }
         }
-        val state = ReaderViewModel.State(
-            adjacentLoadFailure = ReaderViewModel.AdjacentLoadFailure(5L, null, true, 1L),
-        )
 
-        provider(state, viewModel).retryLoad()
+    override suspend fun retryOfFailedFirstOpenOpens(scope: TestScope): Boolean =
+        MangaReaderViewModelHarness.create().use { harness ->
+            val manga = harness.manga(1L, source = 100L, title = "Series")
+            harness.chapter(10L, manga, 1.0)
+            val failing = Collections.synchronizedSet(mutableSetOf(10L))
+            harness.open(manga, 10L, failing = failing, allowInitError = true) { model, _ ->
+                failing.clear()
 
-        return asked == listOf(true)
-    }
+                realProvider(model).retryLoad()
+
+                // A retry that never opens times the wait out, which fails the case.
+                settled(model) { it.viewerChapters != null }.viewerChapters != null
+            }
+        }
+
+    private fun realProvider(model: ReaderViewModel) = MangaReaderProvider(
+        viewModel = model,
+        readerPreferences = ReaderPreferences(InMemoryPreferenceStore()),
+        downloadManager = mockk(relaxed = true),
+        titleWords = EnglishChapterTitleWords,
+    )
 }
 
 /** Novel's failure is the model's own, so a real one is driven over the harness. */
@@ -192,5 +232,20 @@ class NovelLoadFailureProbe : ReaderLoadFailureProbe {
             scope.advanceUntilIdle()
 
             provider.viewModel.chapter.value?.html.orEmpty().contains("From the source")
+        }
+
+    override suspend fun retryOfFailedFirstOpenOpens(scope: TestScope): Boolean =
+        NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+            val source = harness.source("src")
+            val novel = harness.novel(source)
+            val chapter = harness.chapter(novel, 1.0).also { source.failing += it.url }
+            val provider = provider(harness, harness.open(novel, chapter.id))
+            scope.advanceUntilIdle()
+            source.failing.clear()
+
+            provider.retryLoad()
+            scope.advanceUntilIdle()
+
+            provider.viewModel.chapter.value?.chapterId == chapter.id
         }
 }

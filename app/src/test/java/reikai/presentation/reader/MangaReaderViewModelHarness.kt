@@ -188,11 +188,11 @@ class MangaReaderViewModelHarness private constructor(
 
     /**
      * Opens [chapterId] of [manga], waits for the first chapter to land, then asks [probe]. [preferences]
-     * seeds the store the reader, download and library settings read, by key. The page loader throws for
-     * a chapter in [failing], as a dropped connection does, and the sources in [incognito] are private. A
-     * source in [missingSources] resolves to a stub, as an uninstalled extension's does. The device is on
-     * Wi-Fi only when [wifi] is set, so by default the next chapter's eager preload is held. A first open
-     * that fails throws its error, unless [allowInitError] hands the failed state to [probe] instead.
+     * seeds the store the reader, download and library settings read, by key. The page loader, which [onLoad]
+     * watches, throws for a chapter in [failing], as a dropped connection does, and the sources in [incognito]
+     * are private. A source in [missingSources] resolves to a stub, as an uninstalled extension's does. The
+     * device is on Wi-Fi only when [wifi] is set, so by default the next chapter's eager preload is held. A
+     * first open that fails throws its error, unless [allowInitError] hands the failed state to [probe] instead.
      */
     suspend fun <T> open(
         manga: Manga,
@@ -210,6 +210,7 @@ class MangaReaderViewModelHarness private constructor(
         onDownload: (List<Chapter>) -> Unit = {},
         onDelete: (List<Chapter>) -> Unit = {},
         onEnqueueDelete: (List<Chapter>) -> Unit = {},
+        onLoad: (chapterId: Long, fromSource: Boolean) -> Unit = { _, _ -> },
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
     ): T {
         val resolved = group ?: single(manga)
@@ -219,6 +220,7 @@ class MangaReaderViewModelHarness private constructor(
         mockkStatic(NETWORK_STATE)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, isWifi = wifi)
         coEvery { anyConstructed<ChapterLoader>().loadChapter(any(), any()) } answers {
+            onLoad(firstArg<ReaderChapter>().chapter.id, secondArg())
             if (firstArg<ReaderChapter>().chapter.id in failing) throw IOException("no connection")
         }
         val store = ViewModelStore()
@@ -232,12 +234,12 @@ class MangaReaderViewModelHarness private constructor(
                 every { isChapterDownloaded(any(), any(), any(), any(), any()) } answers {
                     isOnDisk(arg(2), arg(3))
                 }
-                every { getDownloadedChapterIds(any(), any()) } answers {
-                    val title = secondArg<Manga>().title
-                    firstArg<List<Chapter>>().filter { isOnDisk(it.url, title) }.mapTo(HashSet()) { it.id }
                 coEvery { isChapterDownloadedOnDisk(any(), any(), any(), any(), any()) } answers {
                     isOnDisk(arg(2), arg(3))
                 }
+                every { getDownloadedChapterIds(any(), any()) } answers {
+                    val title = secondArg<Manga>().title
+                    firstArg<List<Chapter>>().filter { isOnDisk(it.url, title) }.mapTo(HashSet()) { it.id }
                 }
                 coEvery { downloadChapters(any(), any(), any()) } answers { onDownload(secondArg()) }
                 coEvery { deleteChapters(any(), any(), any()) } answers { onDelete(firstArg()) }
