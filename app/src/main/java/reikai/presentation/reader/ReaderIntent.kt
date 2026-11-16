@@ -42,14 +42,18 @@ internal fun entryIdOf(typeName: String?, rawId: Long): EntryId? {
 }
 
 /**
- * Whether a launch reaching the open reader asks for what it already shows: the same entry, and either
- * no chapter or the one on screen. The chapter it opened with is not the test, since the reader moves
- * on from it, and a relaunch naming it again (a notification, a history row) is then a real request.
+ * Whether a launch reaching the open reader asks for what it already shows: the same entry in the same
+ * scope, and either no chapter or the one on screen. The chapter it opened with is not the test, since
+ * the reader moves on from it, and a relaunch naming it again (a notification, a history row) is then a
+ * real request. The scope is read once per session, so a launch asking for another one needs a new session.
  */
 internal fun isSameLaunch(
     requestedEntry: EntryId,
     requestedChapter: Long,
+    requestedSourceScoped: Boolean,
     openEntry: EntryId?,
     openChapter: Long,
-): Boolean =
-    requestedEntry == openEntry && (requestedChapter == NO_ID || requestedChapter == openChapter)
+    openSourceScoped: Boolean,
+): Boolean = requestedEntry == openEntry &&
+    requestedSourceScoped == openSourceScoped &&
+    (requestedChapter == NO_ID || requestedChapter == openChapter)

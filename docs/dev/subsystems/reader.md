@@ -14,7 +14,7 @@ Above it sits `ReaderEngine`, a Reikai-owned `ViewModel` built through `ReaderEn
 
 `ReaderProvider` is one content type's answers, with no manga type in any signature. `MangaReaderProvider` adapts the live `ReaderViewModel`, which stays Mihon's and minimally patched. `NovelReaderProvider` adapts the Reikai-owned `NovelReaderViewModel`. A capability one type cannot support is a null slot the host hides: `textSettings`, `bionicReading` and `readAloud` are null for manga. `attach(host)` wires a session into a freshly created host (the novel provider installs its viewport and read aloud; the manga provider does nothing, since Mihon's `updateViewer` and `setChapters` still do that), and `detach(viewport)` runs before the engine destroys a viewport.
 
-The launch names its entry as a type tag plus a raw id (`putEntryId`, `readEntryId` in `ReaderIntent.kt`), since the two id spaces overlap and an Intent extra cannot carry the sealed `EntryId`; the manga path also writes upstream's `"manga"` extra for `ReaderViewModel`'s saved state. `ReaderActivity.newIntent` and `newNovelIntent` are the two entry points, and `onNewIntent` restarts the reader on a different entry or chapter (`isSameLaunch` decides).
+The launch names its entry as a type tag plus a raw id (`putEntryId`, `readEntryId` in `ReaderIntent.kt`), since the two id spaces overlap and an Intent extra cannot carry the sealed `EntryId`; the manga path also writes upstream's `"manga"` extra for `ReaderViewModel`'s saved state. `ReaderActivity.newIntent` and `newNovelIntent` are the two entry points, and `onNewIntent` restarts the reader on a different entry, chapter or merge scope (`isSameLaunch` decides), since a session reads its scope once.
 
 ### The viewer contract
 

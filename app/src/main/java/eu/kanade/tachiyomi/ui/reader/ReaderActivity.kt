@@ -825,7 +825,15 @@ class ReaderActivity : BaseActivity() {
         // A restart already under way: singleTask can deliver it here again while this one is dying.
         if (isFinishing) return
         val requestedChapter = intent.getLongExtra("chapter", NO_ID)
-        if (isSameLaunch(requested, requestedChapter, this.intent.entryId(), engine.currentChapterId.value)) return
+        val sameLaunch = isSameLaunch(
+            requested,
+            requestedChapter,
+            intent.getBooleanExtra("source_scoped", false),
+            this.intent.entryId(),
+            engine.currentChapterId.value,
+            this.intent.getBooleanExtra("source_scoped", false),
+        )
+        if (sameLaunch) return
         setIntent(intent)
         finish()
         startActivity(intent)

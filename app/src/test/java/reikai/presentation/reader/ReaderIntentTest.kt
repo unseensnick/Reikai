@@ -12,34 +12,50 @@ import reikai.domain.library.ContentType
  */
 class ReaderIntentTest {
 
+    /** A launch in the scope the open session has, unless a case says otherwise. */
+    private fun launch(
+        requestedEntry: EntryId,
+        requestedChapter: Long,
+        openEntry: EntryId,
+        openChapter: Long,
+        requestedSourceScoped: Boolean = false,
+    ) = isSameLaunch(requestedEntry, requestedChapter, requestedSourceScoped, openEntry, openChapter, false)
+
+    /** A new-chapter notification asks for the source's own chapters, which a group-scoped session never shows. */
+    @Test
+    fun `a launch asking for another scope on the chapter on screen is a new launch`() {
+        launch(
+            EntryId.Manga(1L),
+            requestedChapter = 5L,
+            openEntry = EntryId.Manga(1L),
+            openChapter = 5L,
+            requestedSourceScoped = true,
+        ) shouldBe false
+    }
+
     /** A chapter notification or a history row naming the chapter already on screen changes nothing. */
     @Test
     fun `a launch naming the chapter on screen is the same launch`() {
-        isSameLaunch(EntryId.Manga(1L), requestedChapter = 5L, openEntry = EntryId.Manga(1L), openChapter = 5L) shouldBe
+        launch(EntryId.Manga(1L), requestedChapter = 5L, openEntry = EntryId.Manga(1L), openChapter = 5L) shouldBe
             true
     }
 
     /** The reader moved on from the chapter it opened with, so asking for that one again is a real request. */
     @Test
     fun `a launch naming the opening chapter after the reader moved on is a new launch`() {
-        isSameLaunch(EntryId.Manga(1L), requestedChapter = 5L, openEntry = EntryId.Manga(1L), openChapter = 6L) shouldBe
+        launch(EntryId.Manga(1L), requestedChapter = 5L, openEntry = EntryId.Manga(1L), openChapter = 6L) shouldBe
             false
     }
 
     @Test
     fun `a launch naming no chapter for the open entry is the same launch`() {
-        isSameLaunch(
-            EntryId.Novel(1L),
-            requestedChapter = NO_ID,
-            openEntry = EntryId.Novel(1L),
-            openChapter = 6L,
-        ) shouldBe
+        launch(EntryId.Novel(1L), requestedChapter = NO_ID, openEntry = EntryId.Novel(1L), openChapter = 6L) shouldBe
             true
     }
 
     @Test
     fun `a launch for another entry is a new launch`() {
-        isSameLaunch(EntryId.Novel(2L), requestedChapter = 5L, openEntry = EntryId.Novel(1L), openChapter = 5L) shouldBe
+        launch(EntryId.Novel(2L), requestedChapter = 5L, openEntry = EntryId.Novel(1L), openChapter = 5L) shouldBe
             false
     }
 
