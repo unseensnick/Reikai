@@ -10,10 +10,12 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.font.FontError
 import reikai.novel.font.GoogleFont
@@ -50,6 +52,7 @@ sealed interface NovelFontDialog {
 class NovelFontsViewModel(
     private val fontManager: NovelFontManager,
     private val novelPreferences: NovelPreferences,
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     val state: StateFlow<NovelFontsState>
@@ -96,7 +99,8 @@ class NovelFontsViewModel(
 
     fun delete(font: NovelFont) {
         dismissDialog()
-        viewModelScope.launch {
+        // On the app scope, as the add below is, so leaving the screen cannot cut the write off.
+        appScope.launch {
             // A font that was in use leaves the reader on the default face, which is what an absent
             // file would produce anyway; clearing the preference says so rather than leaving it
             // pointing at nothing.
@@ -111,7 +115,7 @@ class NovelFontsViewModel(
     /** Selecting what just arrived, because adding a font is only ever a step towards reading in it. */
     private fun add(work: suspend () -> Result<NovelFont>) {
         state.update { it.copy(busy = true, error = null) }
-        viewModelScope.launch {
+        appScope.launch {
             val result = work()
             result.getOrNull()?.let { select(it.fileName) }
             state.update { it.copy(busy = false, error = result.exceptionOrNull()?.messageRes()) }

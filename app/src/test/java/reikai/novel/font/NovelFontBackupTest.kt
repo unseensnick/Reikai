@@ -101,6 +101,40 @@ class NovelFontBackupTest {
         manager(after).restore("x.html", FONT) to after.list()!!.toList() shouldBe (false to emptyList<String>())
     }
 
+    /** The reader reads a value without .ttf or .otf as a bundled font, so a shortened name must keep it. */
+    @Test
+    fun `a font whose name is too long for a file restores shortened with its extension`() = runTest {
+        val after = tmp.newFolder("after")
+        val name = "a".repeat(260) + ".ttf"
+        preferences.readerFontFamily().set(name)
+
+        manager(after).restore(name, FONT)
+
+        val stored = "a".repeat(236) + ".ttf"
+        after.list()!!.toList() to preferences.readerFontFamily().get() shouldBe (listOf(stored) to stored)
+    }
+
+    @Test
+    fun `restoring a font under a cleaned name leaves a setting that named another font`() = runTest {
+        val after = tmp.newFolder("after")
+        preferences.readerFontFamily().set("Other.ttf")
+
+        manager(after).restore("Lit/erata.ttf", FONT)
+
+        preferences.readerFontFamily().get() shouldBe "Other.ttf"
+    }
+
+    @Test
+    fun `a font already there at the same size is left as it is`() = runTest {
+        val after = tmp.newFolder("after")
+        val there = ByteArray(FONT.size) { 7 }
+        File(after, "Literata.ttf").writeBytes(there)
+
+        manager(after).restore("Literata.ttf", FONT)
+
+        File(after, "Literata.ttf").readBytes().toList() shouldBe there.toList()
+    }
+
     private companion object {
         // A TrueType header followed by a body; the manager checks the header only.
         val FONT = byteArrayOf(0, 1, 0, 0) + ByteArray(64) { it.toByte() }

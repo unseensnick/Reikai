@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -62,6 +63,35 @@ class NovelFontManagerOnSafTest {
         manager.import(pickedFont(SFNT + ByteArray(4)))
 
         (File(fonts, "Lora.ttf").length() to fonts.list()!!.toList()) shouldBe (8L to listOf("Lora.ttf"))
+    }
+
+    /** A failed query lists a picked folder as empty rather than unreachable, and the copies are the fallback. */
+    @Test
+    fun `listing fonts while the folder's query fails keeps the copies the reader falls back to`() = runTest {
+        val mirrored = File(context.filesDir, "fonts/Lora.ttf").apply {
+            parentFile!!.mkdirs()
+            writeBytes(SFNT + ByteArray(40))
+        }
+        FakeSafProvider.faultedFolder = fonts
+        FakeSafProvider.childListingFaults += ChildListingFault.Throw
+
+        manager.installed()
+
+        mirrored.exists() shouldBe true
+    }
+
+    /** The WebView mode reads the file afresh for each page, so the native one must not keep the old face. */
+    @Test
+    fun `a font replaced behind the reader is drawn in its new face once warmed`() = runTest {
+        val face = context.assets.open("fonts/lora.ttf").use { it.readBytes() }
+        File(fonts, "Lora.ttf").writeBytes(face)
+        manager.warm("Lora.ttf")
+        val before = manager.typeface("Lora.ttf")
+
+        File(fonts, "Lora.ttf").writeBytes(face + ByteArray(64))
+        manager.warm("Lora.ttf")
+
+        manager.typeface("Lora.ttf") shouldNotBeSameInstanceAs before
     }
 
     private companion object {

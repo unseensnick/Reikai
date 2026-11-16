@@ -27,6 +27,9 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -71,9 +74,9 @@ class NovelFontManager(
             .sortedBy { it.displayName.lowercase() }
         // A font removed with a file manager leaves its copy behind, and nothing else would ever go
         // looking for it. Swept here because this is the one place that knows the full list, and only
-        // when the folder answered: an unreachable one lists nothing, and the copies are then what
-        // mirror() falls back to.
-        if (files != null) {
+        // when the folder answered with fonts: a picked folder whose provider failed its query lists as
+        // empty, not unreachable, and the copies are then what mirror() falls back to.
+        if (!files.isNullOrEmpty()) {
             val kept = fonts.mapTo(HashSet()) { it.fileName }
             mirrorDir.listFiles()?.forEach { if (it.name !in kept) it.delete() }
         }
@@ -167,7 +170,7 @@ class NovelFontManager(
         // The extension check already rules out "." and "..".
         val names = listOfNotNull(
             fileName.takeIf { '/' !in it && '\\' !in it },
-            DiskUtil.buildValidFilename(fileName),
+            validFileName(fileName),
         ).distinct()
         val stored = names.firstOrNull { dir.findFile(it)?.length() == bytes.size.toLong() }
             ?: names.firstNotNullOfOrNull { store(dir, it, bytes).getOrNull()?.fileName }
@@ -191,20 +194,28 @@ class NovelFontManager(
      * the copy on whatever thread is drawing, which for a first render is the main one.
      */
     fun typeface(fileName: String): Typeface? =
-        typefaces.computeIfAbsent(fileName) { CachedFace(resolveTypeface(it)) }.typeface
+        typefaces.computeIfAbsent(fileName) { faceOf(it, mirror(it)) }.typeface
 
-    /** Resolves [family] off the caller's thread when it is a user's file, so the render that needs it
-     *  finds it cached. */
+    /**
+     * Resolves [family] off the caller's thread when it is a user's file, so the render that needs it finds
+     * it cached. Checked against the file every time, as the WebView mode's font address is, so a font
+     * replaced behind the reader is drawn in its new face by both renderers.
+     */
     suspend fun warm(family: String) {
-        if (readerFontSource(family) !is ReaderFontSource.UserFile || typefaces.containsKey(family)) return
-        withIOContext { typeface(family) }
+        if (readerFontSource(family) !is ReaderFontSource.UserFile) return
+        withIOContext {
+            val mirror = mirror(family)
+            if (typefaces[family]?.stamp != mirror?.stamp()) typefaces[family] = faceOf(family, mirror)
+        }
     }
 
-    private fun resolveTypeface(fileName: String): Typeface? {
-        val mirror = mirror(fileName) ?: return null
-        return runCatching { Typeface.createFromFile(mirror) }
-            .onFailure { logcat(LogPriority.WARN, it) { "Unreadable reader font: $fileName" } }
-            .getOrNull()
+    private fun faceOf(fileName: String, mirror: File?): CachedFace {
+        val face = mirror?.let { file ->
+            runCatching { Typeface.createFromFile(file) }
+                .onFailure { logcat(LogPriority.WARN, it) { "Unreadable reader font: $fileName" } }
+                .getOrNull()
+        }
+        return CachedFace(face, mirror?.stamp())
     }
 
     /** The readable copy, for a caller that needs the file itself. Touches the disk, so off the main
@@ -222,11 +233,19 @@ class NovelFontManager(
         // Size rather than timestamp, which a SAF provider need not report: replacing the file behind
         // the reader with a different face otherwise kept drawing the old one forever.
         if (local.exists() && local.length() > 0 && local.length() == source.length()) return local
+        // Copied beside the copy and renamed into place once whole: the picker's preview and the renderer
+        // can copy the same font at once, and a face read from a half-written file is a miss cached for good.
+        var partial: File? = null
         return runCatching {
-            source.openInputStream().use { input -> local.outputStream().use(input::copyTo) }
+            val copy = File.createTempFile(fileName, ".part", mirrorDir).also { partial = it }
+            source.openInputStream().use { input -> copy.outputStream().use(input::copyTo) }
+            Files.move(copy.toPath(), local.toPath(), REPLACE_EXISTING, ATOMIC_MOVE)
             local
         }
-            .onFailure { logcat(LogPriority.WARN, it) { "Could not copy reader font: $fileName" } }
+            .onFailure {
+                partial?.delete()
+                logcat(LogPriority.WARN, it) { "Could not copy reader font: $fileName" }
+            }
             .getOrNull()
     }
 
@@ -237,7 +256,14 @@ class NovelFontManager(
      */
     private fun write(fileName: String, bytes: ByteArray): Result<NovelFont> {
         val dir = storageManager.getFontsDirectory() ?: return Result.failure(FontError.NoStorage)
-        return store(dir, DiskUtil.buildValidFilename(fileName), bytes)
+        return store(dir, validFileName(fileName), bytes)
+    }
+
+    /** [fileName] made a valid file name with its extension kept, which shortening a long name would cut off. */
+    private fun validFileName(fileName: String): String {
+        val extension = fileName.substringAfterLast('.')
+        val stemBytes = DiskUtil.MAX_FILE_NAME_BYTES - extension.length - 1
+        return DiskUtil.buildValidFilename(fileName.substringBeforeLast('.'), maxBytes = stemBytes) + ".$extension"
     }
 
     private fun store(dir: UniFile, name: String, bytes: ByteArray): Result<NovelFont> =
@@ -275,6 +301,9 @@ sealed class FontError : Exception() {
     data object NoStorage : FontError()
 }
 
-/** A resolved face, or the fact that there is none. Wrapped so a miss can live in a map that refuses
- *  null values and so it is not looked up again on every view a chapter builds. */
-private class CachedFace(val typeface: Typeface?)
+/** A resolved face, or the fact that there is none, with the [stamp] of the copy it was read from. Wrapped
+ *  so a miss can live in a map that refuses null values and so it is not looked up again on every view a
+ *  chapter builds. */
+private class CachedFace(val typeface: Typeface?, val stamp: Pair<Long, Long>?)
+
+private fun File.stamp() = length() to lastModified()
