@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
@@ -295,6 +297,20 @@ class NovelReaderViewModelTest {
         runCurrent()
 
         harness.progressOf(opened) shouldBe 9_800L
+    }
+
+    /** Reading the novel's own renderer is no change to it, so the opening chapter is not rendered twice. */
+    @Test
+    fun `a novel kept on its own renderer opens its first chapter once`() = readerTest { harness ->
+        // Immediate, as the device's main thread is, so the model's collectors start before its first read.
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelRenderingMode.flagOf(NovelRenderingMode.WEBVIEW) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+
+        advanceUntilIdle()
+
+        model.window.value.generation shouldBe 1
     }
 
     /** Mark read on skip is off by default, so the step on to the next chapter marks nothing. */

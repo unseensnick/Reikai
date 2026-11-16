@@ -710,6 +710,15 @@ class NovelReaderViewModel(
      *  rather than latched, since a chapter can measure short before its images land. */
     private val fitsOnScreen: MutableSet<Long> = Collections.synchronizedSet(mutableSetOf())
 
+    /**
+     * Raised whenever [htmlCache] is cleared for a chapter-text setting or the renderer, so text a load or a
+     * warm was already processing for the old ones is dropped rather than cached or shown. The pipeline's
+     * output depends on the renderer: the native one keeps event handlers its text view never runs, and the
+     * WebView would run them.
+     */
+    @Volatile
+    private var textGeneration = 0
+
     fun reportFitsOnScreen(chapterId: Long, fits: Boolean) {
         // A measurement of the page an open replaced says nothing about the window that replaced it.
         if (!reportsCount()) return
@@ -830,10 +839,18 @@ class NovelReaderViewModel(
             .launchIn(viewModelScope)
         // The cache holds pipeline output, so a chapter-text setting reaches the open chapter and the
         // prefetched next one only by dropping both and running it again.
-        // The novel's own mode reprocesses the text as a changed setting does.
-        merge(textLoader.settingsChanged, renderingMode.drop(1).map { })
+        // The novel's own mode reprocesses the text as a changed setting does, once it has been read: the
+        // read itself is no change, since the first load waits for it.
+        val modeChanges = flow {
+            viewerFlagsLoaded.await()
+            emitAll(renderingMode.drop(1))
+        }
+        merge(textLoader.settingsChanged, modeChanges.map { })
             .onEach {
-                htmlCache.clear()
+                synchronized(htmlCache) {
+                    textGeneration++
+                    htmlCache.clear()
+                }
                 // Re-aimed at what is on screen: a seamless crossing moves the reader into a chapter
                 // without opening it, so the load would otherwise reopen the one the session started
                 // on. Not done in cross(), which would also redirect a retry. A step still loading keeps
@@ -998,14 +1015,19 @@ class NovelReaderViewModel(
                 warmsInFlight.awaitIdle(row.id)
                 val fromSource = sourceReloadId == row.id
                 val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row, fromSource).also {
-                    htmlCache[row.id] = it
+                    cacheIfCurrent(row.id, it, generation)
                     if (fromSource) sourceReloadId = null
                 }
                 val bookmarked = isBookmarkedInGroup(row.id)
                 lane.withLock {
+                // The text is processed for the renderer the novel keeps, read at open, so the first chapter
+                // is processed once, for the renderer that will draw it.
+                viewerFlagsLoaded.await()
+                val generation = textGeneration
                     // A later open overtook this one while it loaded, and committing it now would put
-                    // the reader back on the chapter they had moved on from.
-                    if (requested != pendingChapterId) return@launchIO
+                    // the reader back on the chapter they had moved on from. A text change since has
+                    // its own load running, for the text this one processed by the old settings.
+                    if (requested != pendingChapterId || generation != textGeneration) return@launchIO
                     commitOpen(row, html, baseUrl, bookmarked)
                     markReadOnLanding?.let { markReadOnSkip(it) }
                 }
@@ -1500,7 +1522,12 @@ class NovelReaderViewModel(
         viewModelScope.launchIO {
             try {
                 val row = chapterRepo.getById(id) ?: error("Chapter not found: $id")
-                htmlCache[id] = loadChapterHtml(row)
+                // Processed again when a change replaced the settings meanwhile, from the text cache rather
+                // than the source, since the reload that change ran skips a warm already running.
+                do {
+                    val generation = textGeneration
+                    val cached = cacheIfCurrent(id, loadChapterHtml(row), generation)
+                } while (!cached)
                 warmFailures.remove(id)
                 rebuildWindow()
             } catch (e: Throwable) {
@@ -1535,6 +1562,12 @@ class NovelReaderViewModel(
      * state and leave everything as it was if this throws.
      */
     private suspend fun buildWindow(current: LoadedChapter, around: Neighbours, generation: Int): Window {
+    /** Caches [text] for [chapterId] if no change has replaced the settings it was processed by, [generation]'s. */
+    private fun cacheIfCurrent(chapterId: Long, text: Pair<String, String?>, generation: Int): Boolean =
+        synchronized(htmlCache) {
+            (generation == textGeneration).also { current -> if (current) htmlCache[chapterId] = text }
+        }
+
         if (!windowedReading()) return Window(generation, current.chapterId, listOf(current))
         val published = window.value.takeIf { it.generation == generation }?.chapters.orEmpty()
         val forward = NovelWindowReach.joinable(
