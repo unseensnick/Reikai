@@ -17,6 +17,17 @@ class HtmlAnchorsTest {
         decodePercentKeepingPlus("%zz") shouldBe null
     }
 
+    /** The WebView page decodes with decodeURIComponent, which refuses this, so both readers name nothing by it. */
+    @Test
+    fun `an escape that is not UTF-8 decodes to nothing`() {
+        decodePercentKeepingPlus("%FF") shouldBe null
+    }
+
+    @Test
+    fun `a multi-byte escape decodes beside text already decoded`() {
+        decodePercentKeepingPlus("%E2%98%95 é") shouldBe "☕ é"
+    }
+
     @Test
     fun `an element named only by xml id is found`() {
         val doc = Jsoup.parse("""<body><p>a</p><p xml:id="x">b</p></body>""", "", Parser.xmlParser())
