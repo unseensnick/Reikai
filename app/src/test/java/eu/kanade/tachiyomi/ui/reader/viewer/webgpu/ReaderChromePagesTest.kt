@@ -44,7 +44,9 @@ import kotlin.math.abs
 private const val WINDOW_WIDTH = 2256
 private const val WINDOW_HEIGHT = 2504
 private const val ANCHOR_SOURCE = 1L
-private const val CHAPTER_SOURCE = 2L
+
+// Unlike any chapter id here, so a chapter id passed as the source cannot pass for it.
+private const val CHAPTER_SOURCE = 99L
 
 /**
  * The chrome pages themselves, built and drawn as the viewer builds them. A plain composable cannot
@@ -75,14 +77,15 @@ class ReaderChromePagesTest {
         }
     }
 
-    private inline fun <reified T : WebGpuViewer> viewer(): T = mockk(relaxed = true) {
+    /** A viewer not yet laid out reports no size of its own, as one a page is built for before layout. */
+    private inline fun <reified T : WebGpuViewer> viewer(laidOut: Boolean = true): T = mockk(relaxed = true) {
         val host = this@ReaderChromePagesTest.model
         val metrics = DisplayMetrics().apply {
             widthPixels = WINDOW_WIDTH
             heightPixels = WINDOW_HEIGHT
         }
-        every { viewerState.width } returns WINDOW_WIDTH
-        every { viewerState.height } returns WINDOW_HEIGHT
+        every { viewerState.width } returns if (laidOut) WINDOW_WIDTH else 0
+        every { viewerState.height } returns if (laidOut) WINDOW_HEIGHT else 0
         every { activity } returns mockk<ReaderActivity>(relaxed = true) {
             every { viewModel } returns host
             every { resources.displayMetrics } returns metrics
@@ -112,6 +115,13 @@ class ReaderChromePagesTest {
     @Test
     fun `a strip's loading page is captured below its slot`() {
         val page = ProgressPage(viewer<WebGpuViewerContinuous>())
+
+        page.size shouldBe ComposePageSize.Of(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2)
+    }
+
+    @Test
+    fun `a strip page built before layout is captured from the screen's size`() {
+        val page = ProgressPage(viewer<WebGpuViewerContinuous>(laidOut = false))
 
         page.size shouldBe ComposePageSize.Of(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2)
     }

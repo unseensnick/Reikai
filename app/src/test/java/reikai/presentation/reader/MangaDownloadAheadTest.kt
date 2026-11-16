@@ -65,7 +65,7 @@ class MangaDownloadAheadTest {
                     delay(300)
                 }
                 queued.toSet()
-            // The next chapter, already on disk, counts as one of the three, as upstream's slice does.
+                // The next chapter, already on disk, counts as one of the three, as upstream's slice does.
             } shouldBe setOf(12L, 16L, 17L)
         }
     }

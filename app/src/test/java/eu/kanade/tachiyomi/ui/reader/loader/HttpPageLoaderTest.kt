@@ -23,6 +23,7 @@ import okhttp3.Response
 import org.junit.jupiter.api.Test
 import reikai.util.testAppScope
 import tachiyomi.domain.chapter.model.Chapter
+import java.io.File
 import java.util.Collections
 
 class HttpPageLoaderTest {
@@ -44,6 +45,8 @@ class HttpPageLoaderTest {
             status = Page.State.Ready
         }
         val loader = loader(chapter, canLoadAhead = true)
+        // The image that failed to decode is the one in the cache, so a retry must not read it back.
+        coEvery { chapterCache.getImageFile(any()) } returns mockk<File>(relaxed = true)
         coEvery { source.getImage(page) } returns mockk<Response>(relaxed = true)
 
         try {

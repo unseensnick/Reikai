@@ -54,6 +54,18 @@ class ReaderPageIndicatorTest {
         height("max") / height("default") shouldBeGreaterThan 2f
     }
 
+    /** A chapter whose pages have not loaded counts none, and "1 / 0" is worse than nothing. */
+    @Test
+    fun `a chapter with no pages yet draws no line`() {
+        compose.setContent {
+            ComposeTestHost {
+                ReaderPageIndicator(ChapterProgress.Pages(lastPageRead = 0, pageCount = 0), Modifier.testTag("line"))
+            }
+        }
+
+        compose.onNodeWithTag("line").assertDoesNotExist()
+    }
+
     @Test
     fun `a backed line spans the screen`() {
         compose.setContent {
