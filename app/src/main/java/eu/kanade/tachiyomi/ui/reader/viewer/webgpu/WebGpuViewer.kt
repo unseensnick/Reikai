@@ -197,7 +197,7 @@ open class WebGpuViewer(
     private val pairAspectTolerance = 0.1f
 
     private sealed class PageKey {
-        data class Reader(val chapterId: Long?, val index: Int, val secondHalf: Boolean = false) : PageKey() // RK
+        data class Reader(val chapterId: Long?, val index: Int, val secondHalf: Boolean) : PageKey() // RK
         data class Transition(val prevId: Long?, val nextId: Long?) : PageKey()
     }
 

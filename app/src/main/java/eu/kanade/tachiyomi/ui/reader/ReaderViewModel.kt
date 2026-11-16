@@ -407,12 +407,14 @@ class ReaderViewModel(
         return { flags.isForwardEligible(it, skipRead, skipFiltered, filters) }
     }
 
-    // RK: per-source "is this chapter downloaded" check for the transition card. Resolves the
-    // chapter's OWN merged source, and uses the in-memory download cache (skipCache = false) instead
-    // of a storage-access probe, so the card binds once with the right value: no main-thread stutter
-    // and no late layout reflow (an icon popping in) when crossing into another merged source.
-    fun isChapterDownloaded(readerChapter: ReaderChapter?): Boolean {
-        val chapter = readerChapter?.chapter ?: return false
+    // RK: per-source "is this chapter downloaded" check for the transition card and download-ahead.
+    // Resolves the chapter's OWN merged source, and reads the in-memory download cache rather than
+    // probing storage, so the card binds once with the right value: no main-thread stutter and no late
+    // layout reflow (an icon popping in) when crossing into another merged source.
+    fun isChapterDownloaded(readerChapter: ReaderChapter?): Boolean =
+        readerChapter?.chapter?.let(::isOwnCopyDownloaded) ?: false
+
+    private fun isOwnCopyDownloaded(chapter: Chapter): Boolean {
         val mangaForChapter = mangaForChapterId(chapter.mangaId)
         if (mangaForChapter.isLocal()) return true
         return downloadManager.isChapterDownloaded(
@@ -986,13 +988,7 @@ class ReaderViewModel(
         viewModelScope.launchIO {
             // RK --> download-ahead follows the next chapter's OWN source across a merge boundary.
             val nextChapterManga = mangaForChapterId(nextChapter.mangaId)
-            val isNextChapterDownloaded = downloadManager.isChapterDownloaded(
-                nextChapter.name,
-                nextChapter.scanlator,
-                nextChapter.url,
-                nextChapterManga.title,
-                nextChapterManga.source,
-            )
+            val isNextChapterDownloaded = isOwnCopyDownloaded(nextChapter)
             // RK <--
             if (!isNextChapterDownloaded) return@launchIO
 
@@ -1410,11 +1406,12 @@ class ReaderViewModel(
     /**
      * Returns the orientation type used by this manga or the default one.
      */
-    fun getMangaOrientation(resolveDefault: Boolean = true): Int {
+    // RK: upstream's resolveDefault = false caller was its orientation picker, which ReaderOrientationDialog replaced
+    fun getMangaOrientation(): Int {
         val default = readerPreferences.defaultOrientationType.get()
         val orientation = ReaderOrientation.fromPreference(manga?.readerOrientation?.toInt())
         return when {
-            resolveDefault && orientation == ReaderOrientation.DEFAULT -> default
+            orientation == ReaderOrientation.DEFAULT -> default
             else -> manga?.readerOrientation?.toInt() ?: default
         }
     }
