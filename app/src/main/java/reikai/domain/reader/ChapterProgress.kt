@@ -39,12 +39,14 @@ sealed interface ChapterProgress {
             /** A whole percent, the unit a reader's thresholds are set in. */
             fun ofWhole(percent: Int): Percent = Percent(percent * HUNDREDTHS_PER_PERCENT)
 
+            /** [hundredths] held within a chapter, for one stored, restored or reported from outside this type. */
+            fun clamped(hundredths: Long): Percent = Percent(hundredths.coerceIn(0L, FULL))
+
             /**
              * What both novel renderers report for a scroll [fraction]: rounded down, so a reopen never lands
              * past the line it was saved at. The slack absorbs a fraction echoed back through a double.
              */
-            fun of(fraction: Double): Percent =
-                Percent(floor(fraction * FULL + ECHO_SLACK).toLong().coerceIn(0L, FULL))
+            fun of(fraction: Double): Percent = clamped(floor(fraction * FULL + ECHO_SLACK).toLong())
 
             private const val ECHO_SLACK = 1e-6
         }

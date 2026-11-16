@@ -42,7 +42,7 @@ class BackupNovelChapter(
             read = this@BackupNovelChapter.read,
             bookmark = this@BackupNovelChapter.bookmark,
             // From outside the app, so held within a chapter, as BackupChapter holds a page within an Int.
-            lastTextProgress = this@BackupNovelChapter.lastTextProgress.coerceIn(0L, ChapterProgress.Percent.FULL),
+            lastTextProgress = ChapterProgress.Percent.clamped(this@BackupNovelChapter.lastTextProgress).hundredths,
             chapterNumber = this@BackupNovelChapter.chapterNumber,
             sourceOrder = this@BackupNovelChapter.sourceOrder,
             dateFetch = Instant.fromEpochMilliseconds(this@BackupNovelChapter.dateFetch),

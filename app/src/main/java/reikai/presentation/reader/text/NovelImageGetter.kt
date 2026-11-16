@@ -543,7 +543,8 @@ class NovelImageGetter(
         return (bounds.outWidth to bounds.outHeight).takeIf { (width, height) -> width > 0 && height > 0 }
     }
 
-    private companion object {
+    internal companion object {
+        /** reader.css's loading box, a CSS pixel being a dp, held there by NovelWebTwinValuesTest. */
         const val PLACEHOLDER_HEIGHT_DP = 200
         const val PLACEHOLDER_CORNER_DP = 4
         const val PULSE_FRAME_MS = 32L

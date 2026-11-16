@@ -596,7 +596,7 @@ class NovelReaderViewModel(
         // A report for a chapter the window no longer holds is a straggler from a crossing, and
         // writing it would move a position the reader has already left behind.
         if (window.value.chapters.none { it.chapterId == id }) return
-        val clamped = ChapterProgress.Percent(reported.hundredths.coerceIn(0L, ChapterProgress.Percent.FULL))
+        val clamped = ChapterProgress.Percent.clamped(reported.hundredths)
         val wasLanding = !landing.settled
         // In whole percents, so a landing still settling by a fraction of one is not the reader moving.
         if (!landing.counts(id, clamped.wholePercent.toInt())) return

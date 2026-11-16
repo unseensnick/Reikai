@@ -102,8 +102,9 @@ internal class ReadAloudBoxDecoration(private val spoken: () -> Box?) : Recycler
         canvas.drawRoundRect(outline, radius, radius, boxPaint)
     }
 
-    private companion object {
-        /** `reader.js`'s `OUTLINE_PAD_PX` and `reader.css`'s `.rk-tts-outline`, a CSS pixel being a dp. */
+    internal companion object {
+        /** `reader.js`'s `OUTLINE_PAD_PX` and `reader.css`'s `.rk-tts-outline`, a CSS pixel being a dp, held there
+         *  by NovelWebTwinValuesTest. */
         const val OUTLINE_PAD_DP = 4f
         const val OUTLINE_STROKE_DP = 2f
         const val OUTLINE_RADIUS_DP = 6f

@@ -96,10 +96,5 @@ fun ChapterProgress.seekTo(fraction: Float): ChapterProgress = when (this) {
         copy(lastPageRead = (fraction * lastIndex).roundToInt().coerceIn(0, lastIndex))
     }
     is ChapterProgress.Percent ->
-        copy(
-            hundredths = (fraction * ChapterProgress.Percent.FULL).roundToLong().coerceIn(
-                0L,
-                ChapterProgress.Percent.FULL,
-            ),
-        )
+        ChapterProgress.Percent.clamped((fraction * ChapterProgress.Percent.FULL).roundToLong())
 }

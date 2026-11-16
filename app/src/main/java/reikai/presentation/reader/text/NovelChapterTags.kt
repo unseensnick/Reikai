@@ -161,8 +161,8 @@ internal class RuleSpan : LineBackgroundSpan {
         paint.style = style
     }
 
-    private companion object {
-        /** `opacity: 0.3` in reader.css. */
+    internal companion object {
+        /** `opacity: 0.3` in reader.css, held there by NovelWebTwinValuesTest. */
         const val RULE_ALPHA = 77
     }
 }

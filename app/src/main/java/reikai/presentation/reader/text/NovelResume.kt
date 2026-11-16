@@ -9,7 +9,7 @@ object NovelResume {
     /** [lastTextProgress] is the stored 0..10000, hundredths of a percent, which both renderers resume at. */
     fun progress(read: Boolean, lastTextProgress: Long, preserveOnRead: Boolean): ChapterProgress.Percent =
         if (ReaderResume.keepsPosition(read, preserveOnRead)) {
-            ChapterProgress.Percent(lastTextProgress.coerceIn(0L, ChapterProgress.Percent.FULL))
+            ChapterProgress.Percent.clamped(lastTextProgress)
         } else {
             ChapterProgress.Percent(0)
         }
