@@ -820,6 +820,18 @@ class NovelWebDocumentTest {
         )
     }
 
+    /** The native renderer reports every position, so a move under half a percent is reported here too. */
+    @Test
+    fun aSmallMoveIsReported() {
+        loadDocument()
+        eval("window.scrollTo({ top: 3000, behavior: 'instant' })")
+        settleFrames()
+        val before = lastProgress
+        eval("window.scrollBy({ top: -10, behavior: 'instant' })")
+        settleFrames()
+        assertTrue("a 10px move left the report at $before", lastProgress < before)
+    }
+
     /**
      * A rail seek lands in the chapter the host named. When the page last named another one, whose report
      * may still be on its way to the host, it says so, so the host does not end on the chapter it left.

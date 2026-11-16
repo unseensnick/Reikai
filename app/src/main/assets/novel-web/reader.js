@@ -892,7 +892,7 @@
     if (!ready) return;
     var sameChapter = s.id === lastReportedId;
     var finishing = s.progress >= 1 && lastReported !== 1;
-    if (sameChapter && !finishing && Math.abs(s.progress - lastReported) <= 0.005) return;
+    if (sameChapter && !finishing && s.progress === lastReported) return;
     var wait = REPORT_INTERVAL_MS - (Date.now() - lastReportedAt);
     if (sameChapter && !finishing && wait > 0) {
       if (!heldReport) heldReport = setTimeout(function () { heldReport = null; onScroll(); }, wait);
