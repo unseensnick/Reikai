@@ -69,6 +69,15 @@ sealed class AndroidPreference<T>(
         return changes().stateIn(scope, SharingStarted.Eagerly, get())
     }
 
+    // RK --> one preference per store and key, so a composable's remember(pref) holds when a typed
+    // preferences class builds a new one per call (NovelPreferences), instead of restarting its collector
+    override fun equals(other: Any?): Boolean =
+        other is AndroidPreference<*> && other.javaClass == javaClass && other.preferences === preferences &&
+            other.key == key
+
+    override fun hashCode(): Int = 31 * System.identityHashCode(preferences) + key.hashCode()
+    // RK <--
+
     class StringPrimitive(
         preferences: SharedPreferences,
         keyFlow: Flow<String?>,
