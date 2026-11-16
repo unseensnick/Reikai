@@ -3,6 +3,9 @@ package reikai.presentation.reader
 import android.graphics.Paint
 import android.view.View
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -49,6 +52,24 @@ class ViewportHostTest {
         compose.waitForIdle()
 
         view.handedPaint?.colorFilter shouldNotBe null
+    }
+
+    /** A layer renders the scrolling page offscreen every frame, so a page with no filter has none. */
+    @Test
+    fun `a filter turned off takes the view's layer away`() {
+        val view = View(ApplicationProvider.getApplicationContext())
+        var filter by mutableStateOf<ColorFilter?>(ColorFilter.colorMatrix(ColorMatrix()))
+
+        compose.setContent {
+            CompositionLocalProvider(LocalPageColorFilter provides filter) {
+                ViewportHost(view)
+            }
+        }
+        compose.waitForIdle()
+        filter = null
+        compose.waitForIdle()
+
+        view.layerType shouldBe View.LAYER_TYPE_NONE
     }
 
     /** The platform keeps a layer's paint to itself, so the one handed over is recorded here. */
