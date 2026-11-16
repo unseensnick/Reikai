@@ -42,5 +42,8 @@ internal suspend fun listingOrFailedFetch(call: suspend () -> NovelItemsPage): N
 internal suspend fun novelOrFailedFetch(call: suspend () -> SourceNovel): SourceNovel =
     orFailedFetch({ it.chapters.isNullOrEmpty() && it.totalPages <= 1 }, call)
 
+internal suspend fun pageOrFailedFetch(call: suspend () -> SourceNovel?): SourceNovel? =
+    orFailedFetch({ it?.chapters.isNullOrEmpty() }, call)
+
 internal suspend fun chapterOrFailedFetch(call: suspend () -> String): String =
     orFailedFetch({ it.isBlank() }, call)

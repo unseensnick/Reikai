@@ -139,6 +139,12 @@ class NovelSourceConformanceTest {
         shouldThrow<HttpException> { failing(kind).parseChapter("c1") }.code shouldBe 521
     }
 
+    // Only a plugin has pages of chapters.
+    @Test
+    fun `a page whose request failed reports the failure, not an empty chapter list`() = runTest {
+        shouldThrow<HttpException> { failing(Kind.PLUGIN).parsePage("novel", "2") }.code shouldBe 521
+    }
+
     // Unsupported for an app catalogue: its awaitSuccess fails the call on any failed request, as manga's does.
     @ParameterizedTest
     @EnumSource(Kind::class, names = ["PLUGIN", "IREADER"])
@@ -364,6 +370,7 @@ class NovelSourceConformanceTest {
                     coEvery { searchNovels("p", any(), any()) } coAnswers { failed { emptyList() } }
                     coEvery { parseNovel("p", any()) } coAnswers { failed { SourceNovel(path = "novel") } }
                     coEvery { parseChapter("p", any()) } coAnswers { failed { "" } }
+                    coEvery { parsePage("p", any(), any()) } coAnswers { failed { SourceNovel(path = "novel") } }
                 },
                 LnPluginInfo(id = "p", name = "P", lang = "English"),
             )
