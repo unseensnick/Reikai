@@ -48,6 +48,15 @@ class ChapterIncognitoTest {
         asked shouldBe listOf(sources.private)
     }
 
+    /** A novel whose row cannot be read has no source to ask, so the global setting answers for it. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sources")
+    fun `an owner with no source falls back to the global answer`(sources: Sources) = runTest {
+        val incognito = ChapterIncognito(sourceOf = { sources.ownerSource[it] }, isIncognito = { it == null })
+
+        incognito.of(99L) shouldBe true
+    }
+
     companion object {
         @JvmStatic
         fun sources() = listOf(

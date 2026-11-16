@@ -42,6 +42,12 @@ class ChapterNeighboursTest {
         chapters.neighbourChapters(0, departed = "e", eligible) shouldBe (null to "b")
     }
 
+    /** A switch the reader made back into the chapter it was already in, as a reload's page turn does. */
+    @Test
+    fun `scrolling within the same chapter takes the neighbours a step would reach`() {
+        chapters.neighbourChapters(2, departed = "c", eligible) shouldBe ("b" to "e")
+    }
+
     @Test
     fun `a step or a pick takes the neighbours a step would reach`() {
         chapters.neighbourChapters(2, departed = null, eligible) shouldBe ("b" to "e")

@@ -72,6 +72,15 @@ class ReadSessionClockTest {
         clock.take(now = at(8_000L)) shouldBe 1_000L
     }
 
+    /** The reader was left with its menu still open, so none of that time was reading. */
+    @Test
+    fun `a session started while held and never released counts nothing`() {
+        val clock = ReadSessionClock().apply { hold(held = true, now = at(1_000L)) }
+        clock.resume(now = at(2_000L))
+
+        clock.take(now = at(8_000L)) shouldBe 0L
+    }
+
     @Test
     fun `releasing a hold with no session starts none`() {
         val clock = ReadSessionClock().apply { hold(held = true, now = at(1_000L)) }
