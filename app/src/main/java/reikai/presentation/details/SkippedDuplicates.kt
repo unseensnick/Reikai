@@ -10,7 +10,7 @@ import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.LastAnswer
-import reikai.domain.chapter.duplicateCopyCounts
+import reikai.domain.chapter.duplicateCopies
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
@@ -18,9 +18,9 @@ import tachiyomi.core.common.util.lang.launchIO
 /** The user's marks of one content type, by owner, then chapter url. */
 typealias CopyMarks = Map<Long, Map<String, CopyMark>>
 
-/** What the details list marks while it shows duplicates: each copy's set size, and the user's own marks. */
+/** What the details list marks while it shows duplicates: each copy's set, and the user's own marks. */
 @Immutable
-data class DuplicateMarks(val copies: Map<Long, Int>, val marks: Map<Long, CopyMark>)
+data class DuplicateMarks(val copies: Map<Long, List<Long>>, val marks: Map<Long, CopyMark>)
 
 /** A chapter as a copy mark is keyed: its owner and url. */
 data class MarkableChapter(val ownerId: Long, val url: String)
@@ -94,7 +94,7 @@ internal fun <T> List<T>.duplicateMarks(
 ): DuplicateMarks {
     val markOf = { chapter: T -> marks[ownerOf(chapter)]?.get(urlOf(chapter)) }
     return DuplicateMarks(
-        copies = duplicateCopyCounts(numberOf, nameOf, originOf, ownerOf, idOf, markOf),
+        copies = duplicateCopies(numberOf, nameOf, originOf, ownerOf, idOf, markOf),
         marks = mapNotNull { chapter -> markOf(chapter)?.let { idOf(chapter) to it } }.toMap(),
     )
 }

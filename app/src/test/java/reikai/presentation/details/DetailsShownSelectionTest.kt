@@ -83,7 +83,7 @@ class DetailsShownSelectionTest {
                 detailsChapter(3L, "Another", 2.0),
                 detailsChapter(4L, "And another", 3.0),
             ),
-            duplicates = DuplicateMarks(copies = COPIES.associateWith { 2 }, marks = emptyMap()),
+            duplicates = DuplicateMarks(copies = COPIES.associateWith { COPIES }, marks = emptyMap()),
         )
     }
 }

@@ -57,11 +57,11 @@ class ChapterCopiesTest {
     }
 
     @Test
-    fun `each copy reports the size of its set, and a chapter with none is absent`() {
+    fun `each copy reports its set, and a chapter with none is absent`() {
         val chapters = listOf(Ch(1, "Chapter 1", "A", 1.0), Ch(2, "Chapter 1", "B", 1.0), Ch(3, "Chapter 2", "A", 2.0))
 
-        chapters.duplicateCopyCounts({ it.number }, { it.name }, { it.origin }, { 1L }, { it.id }, { null }) shouldBe
-            mapOf(1L to 2, 2L to 2)
+        chapters.duplicateCopies({ it.number }, { it.name }, { it.origin }, { 1L }, { it.id }, { null }) shouldBe
+            mapOf(1L to listOf(1L, 2L), 2L to listOf(1L, 2L))
     }
 
     companion object {

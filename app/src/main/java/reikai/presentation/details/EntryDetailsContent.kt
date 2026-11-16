@@ -474,11 +474,11 @@ private enum class VolumeDialog { AddVolumes, SplitOut, RenameFiles }
 
 // Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
 // chapter stays too, so a Never skip can be found and cleared.
-private fun EntryDetailsScreenState.Loaded.withOnlyCopies() = copy(
+internal fun EntryDetailsScreenState.Loaded.withOnlyCopies() = copy(
     chapters = chapters.copy(
         items = chapters.items.filterIsInstance<EntryChapterListItem.Chapter>()
             .filter { chapters.duplicates?.run { it.id in copies || it.id in marks } == true }
-            .groupBy { it.chapterNumber }.values.flatten(),
+            .groupBy { chapters.duplicates?.copies?.get(it.id)?.first() ?: it.id }.values.flatten(),
     ),
 )
 
@@ -1037,6 +1037,8 @@ private fun duplicateSubtitle(subtitle: String?, chapterId: Long, duplicates: Du
         is CopyMark.Group -> stringResource(MR.strings.chapter_marked_copy)
         null -> null
     }
-    val copies = duplicates?.copies?.get(chapterId)?.let { stringResource(MR.strings.chapter_duplicate_copies, it) }
+    val copies = duplicates?.copies?.get(chapterId)?.let {
+        stringResource(MR.strings.chapter_duplicate_copies, it.size)
+    }
     return listOfNotNull(subtitle, copies, mark).joinToString(" • ").ifEmpty { null }
 }
