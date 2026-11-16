@@ -19,9 +19,6 @@ data class ReaderPosition(
 /** The whole percent at which a continuous chapter counts as read, unless the reader sets its own. */
 const val CONTINUOUS_COMPLETE_PERCENT = 97
 
-/** Hundredths of a percent in a whole one. */
-private const val HUNDREDTHS_FULL = 10000L
-
 /** Detents on a continuous chapter's rail, the count the novel reader has always drawn. */
 private const val CONTINUOUS_DETENTS = 33
 
@@ -46,7 +43,7 @@ val ChapterProgress.fraction: Float
         is ChapterProgress.Pages ->
             if (pageCount <= 1) 0f else (lastPageRead.toFloat() / (pageCount - 1)).coerceIn(0f, 1f)
         is ChapterProgress.Percent ->
-            (hundredths.toFloat() / HUNDREDTHS_FULL).coerceIn(0f, 1f)
+            (hundredths.toFloat() / ChapterProgress.Percent.FULL).coerceIn(0f, 1f)
     }
 
 /**
@@ -99,5 +96,10 @@ fun ChapterProgress.seekTo(fraction: Float): ChapterProgress = when (this) {
         copy(lastPageRead = (fraction * lastIndex).roundToInt().coerceIn(0, lastIndex))
     }
     is ChapterProgress.Percent ->
-        copy(hundredths = (fraction * HUNDREDTHS_FULL).roundToLong().coerceIn(0L, HUNDREDTHS_FULL))
+        copy(
+            hundredths = (fraction * ChapterProgress.Percent.FULL).roundToLong().coerceIn(
+                0L,
+                ChapterProgress.Percent.FULL,
+            ),
+        )
 }

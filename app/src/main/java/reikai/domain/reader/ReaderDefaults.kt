@@ -11,3 +11,12 @@ const val VOLUME_KEY_SCROLL_DEFAULT_FRACTION = 0.75f
 
 /** The page contrast a reader opens with, in percent: 100 leaves the page as it is. */
 const val CONTRAST_DEFAULT_PERCENT = 100
+
+/** Seconds between auto-scroll's page turns, in both readers' own setting. */
+const val AUTO_SCROLL_INTERVAL_DEFAULT_SECONDS = 5
+
+/** Auto-scroll's speed on a strip or a scrolled novel, in the one unit both readers' ranges share. */
+const val AUTO_SCROLL_SPEED_DEFAULT = 1.0f
+
+/** Pages between e-ink flashes, in both readers' own setting. */
+const val FLASH_PAGE_INTERVAL_DEFAULT = 1

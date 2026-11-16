@@ -14,10 +14,13 @@ import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.domain.reader.AUTO_SCROLL_INTERVAL_DEFAULT_SECONDS
+import reikai.domain.reader.AUTO_SCROLL_SPEED_DEFAULT
 import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.CONTRAST_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.FLASH_PAGE_INTERVAL_DEFAULT
 import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.domain.source.NovelIconHints
@@ -220,7 +223,7 @@ class NovelPreferences(
     fun readerFlashDurationMillis() =
         preferenceStore.getInt("ln_reader_flash_duration", ReaderPreferences.MILLI_CONVERSION)
 
-    fun readerFlashPageInterval() = preferenceStore.getInt("ln_reader_flash_interval", 1)
+    fun readerFlashPageInterval() = preferenceStore.getInt("ln_reader_flash_interval", FLASH_PAGE_INTERVAL_DEFAULT)
 
     fun readerFlashColor() = preferenceStore.getEnum("ln_reader_flash_mode", ReaderPreferences.FlashColor.BLACK)
 
@@ -431,10 +434,13 @@ class NovelPreferences(
     }
 
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
-    fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
+    fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", AUTO_SCROLL_SPEED_DEFAULT)
 
     /** Seconds per page while auto-scroll turns pages, in paged reading. */
-    fun readerAutoScrollInterval() = preferenceStore.getInt("ln_reader_auto_scroll_interval", 5)
+    fun readerAutoScrollInterval() = preferenceStore.getInt(
+        "ln_reader_auto_scroll_interval",
+        AUTO_SCROLL_INTERVAL_DEFAULT_SECONDS,
+    )
 
     /** Scroll the chapter with the hardware volume keys (down = forward), twin of the manga reader's
      *  `readWithVolumeKeys`, pinned by `volumeKeysActive`, which both readers answer it through. Intercepted at

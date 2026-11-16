@@ -8,9 +8,12 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShader
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShaders
+import reikai.domain.reader.AUTO_SCROLL_INTERVAL_DEFAULT_SECONDS
+import reikai.domain.reader.AUTO_SCROLL_SPEED_DEFAULT
 import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTRAST_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.FLASH_PAGE_INTERVAL_DEFAULT
 import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.util.floored
@@ -40,7 +43,10 @@ class ReaderPreferences(
 
     val flashDurationMillis: Preference<Int> = preferenceStore.getInt("pref_reader_flash_duration", MILLI_CONVERSION)
 
-    val flashPageInterval: Preference<Int> = preferenceStore.getInt("pref_reader_flash_interval", 1)
+    val flashPageInterval: Preference<Int> = preferenceStore.getInt(
+        "pref_reader_flash_interval",
+        FLASH_PAGE_INTERVAL_DEFAULT,
+    ) // RK
 
     val flashColor: Preference<FlashColor> = preferenceStore.getEnum("pref_reader_flash_mode", FlashColor.BLACK)
 
@@ -157,10 +163,16 @@ class ReaderPreferences(
     val autoScrollOnOpen: Preference<Boolean> = preferenceStore.getBoolean("reader_auto_scroll_on_open", false)
 
     /** Seconds a page shows before a paged reader turns it. */
-    val autoScrollInterval: Preference<Int> = preferenceStore.getInt("reader_auto_scroll_interval", 5)
+    val autoScrollInterval: Preference<Int> = preferenceStore.getInt(
+        "reader_auto_scroll_interval",
+        AUTO_SCROLL_INTERVAL_DEFAULT_SECONDS,
+    )
 
     /** A long strip's speed, in the novel reader's unit: CSS pixels a frame at 60Hz. */
-    val autoScrollSpeed: Preference<Float> = preferenceStore.getFloat("reader_auto_scroll_speed", 1.0f)
+    val autoScrollSpeed: Preference<Float> = preferenceStore.getFloat(
+        "reader_auto_scroll_speed",
+        AUTO_SCROLL_SPEED_DEFAULT,
+    )
 
     /** Its own key rather than the novel reader's, since each reader keeps its own settings. */
     val chapterTitleFormat: Preference<ChapterTitleFormat> =
