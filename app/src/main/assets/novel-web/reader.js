@@ -443,7 +443,7 @@
   /*
    * The line at the top of the screen, as the characters of its chapter before it that read-aloud keeps,
    * less spaces: the native renderer's shownCharPrefix, so a rebuilt page lands on the line the reader had
-   * whichever renderer rebuilds it. Sent when it changes, -1 while no chapter text is at the top.
+   * whichever renderer rebuilds it. Sent when it changes, -1 while no chapter is at the top.
    */
   var topLine = (function () {
     // Per chapter id, a Map of each counted text node to the characters before it, dropped on any DOM change.
@@ -481,11 +481,24 @@
       }
       var caret = document.caretRangeFromPoint(0, Math.min(readingTop() + 1, viewportHeight() - 1));
       var node = caret && caret.startContainer;
-      if (!node || node.nodeType !== Node.TEXT_NODE) return -1;
-      var chapter = node.parentElement && node.parentElement.closest(CHAPTER_SELECTOR);
+      if (!node) return -1;
+      var text = node.nodeType === Node.TEXT_NODE;
+      var element = text ? node.parentElement : node;
+      var chapter = element && element.closest(CHAPTER_SELECTOR);
       if (!chapter || chapter.getAttribute(CHAPTER_ID_ATTR) !== id) return -1;
-      var before = countsOf(chapter).get(node);
-      return before === undefined ? -1 : before + countedLength(node.nodeValue.slice(0, caret.startOffset));
+      var counts = countsOf(chapter);
+      if (text) {
+        var before = counts.get(node);
+        return before === undefined ? -1 : before + countedLength(node.nodeValue.slice(0, caret.startOffset));
+      }
+      // A picture at the top: the line where the text resumes below it, as the native renderer counts the
+      // line of the chunk that holds the picture rather than reporting none and landing a rebuild by percent.
+      var walker = document.createTreeWalker(chapter, NodeFilter.SHOW_TEXT);
+      walker.currentNode = node.childNodes[caret.startOffset] || node;
+      while (walker.nextNode()) {
+        if (counts.has(walker.currentNode)) return counts.get(walker.currentNode);
+      }
+      return -1;
     }
 
     return {

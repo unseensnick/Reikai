@@ -151,9 +151,10 @@ class NovelWebDocumentTest {
             if (documentToken == DOCUMENT_TOKEN) endsSeen += chapterId
         }
 
-        /** Unrecorded, but missing it threw in the page's frame before the end and fit checks ran. */
         @JavascriptInterface
-        fun onTopLine(documentToken: String, chapterId: String, line: Int) = Unit
+        fun onTopLine(documentToken: String, chapterId: String, line: Int) {
+            if (documentToken == DOCUMENT_TOKEN) topLines[chapterId] = line
+        }
 
         @JavascriptInterface
         fun onPagedMoved(documentToken: String) = Unit
@@ -198,6 +199,9 @@ class NovelWebDocumentTest {
     /** What the page asked the host to do, for the gesture cases. */
     private val steps = CopyOnWriteArrayList<Boolean>()
     private var stepped = CountDownLatch(1)
+
+    /** The last top line the page sent per chapter, -1 for none. */
+    private val topLines = ConcurrentHashMap<String, Int>()
 
     /** Every chapter the page has named as the one being read, in order. */
     private val visibleChapters = CopyOnWriteArrayList<String>()
@@ -910,6 +914,20 @@ class NovelWebDocumentTest {
         // mechanism: the chapter would measure the same before and after.
         assertTrue("the image drew ${picture}px tall, so nothing about the chapter's height moved", picture > 500)
         assertEquals("the restore landed $landed through the chapter", 0.5, landed, 0.02)
+    }
+
+    /**
+     * A picture at the top still names a line, where the text resumes below it, as the native renderer
+     * names the line of the chunk holding it. Reporting none landed a rotation by percent instead.
+     */
+    @Test
+    fun aPictureAtTheTopNamesTheLineBelowIt() {
+        val chapter = "<p>lead</p><img src=\"https://rk.test/$TALL_IMAGE\">" + "<p>lorem ipsum</p>".repeat(60)
+        loadDocument(document(chapterHtml = chapter))
+        awaitEval("String(document.querySelector('.rk-chapter img').complete)", "true")
+        eval("window.scrollTo({ top: document.querySelector('.rk-chapter img').offsetTop + 100, behavior: 'instant' })")
+        settleFrames()
+        assertEquals(4, topLines[CHAPTER_ID.toString()])
     }
 
     /** The chapter the page opened on runs its scripts as it loads; one arriving by scrolling has to too. */

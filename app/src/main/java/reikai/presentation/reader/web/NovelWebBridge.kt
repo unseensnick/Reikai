@@ -51,7 +51,7 @@ class NovelWebBridge(
         chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onProgressSettled(it, fraction) } }
     }
 
-    /** [line] is -1 while no chapter text is at the top, since a JS null does not cross as an `Int`. */
+    /** [line] is -1 while no chapter is at the top, since a JS null does not cross as an `Int`. */
     @JavascriptInterface
     fun onTopLine(documentToken: String, chapterId: String, line: Int) {
         chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onTopLine(it, line.takeIf { it >= 0 }) } }
