@@ -72,6 +72,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Details and the reader take their tint from a series' new cover once its cover changes.**
 
 - **A merged series with a local copy counts that copy's chapters as downloaded in the library badge and Downloaded filter.**
+- **Library updates no longer skip a paged novel's page that failed once, or count a newly added novel's back chapters as new.**
+- **A paged light-novel plugin's later pages now report a site that is down instead of showing an empty page.**
+- **Update errors for a light-novel plugin that failed to load now give the real reason instead of not installed.**
 
 ### Details
 
@@ -93,6 +96,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
 - **A novel whose plugin failed to load now says why when you open it or one of its chapters, with Retry on its details page, instead of not installed.**
 - **Swiping a novel chapter read or bookmarked while selecting now ends the selection, as on manga.**
+- **A novel page that fails to load in the page selector now says why, and picking it again retries it.**
+- **A partly read novel chapter's percent now follows the app's language.**
 
 ### Merged series
 
@@ -176,6 +181,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Settings -> Manga reader now shows the high quality renderer's own options while it is on, and hides the ones it ignores.** Dual page view, Transition animation, Display cutout mode, Crop instead of zoom and Disable double tap gestures were only in the reader menu.
 - **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
 - **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
+- **The manga reader's settings sheet now has Volume keys, Invert volume keys and the scroll amount.**
 
 #### Changed
 
@@ -197,6 +203,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **When a chapter fails to load behind a site's challenge, Open in WebView now opens the page that was challenged, so solving it lets Retry work.** Before, it opened the chapter's page, which often had no challenge to solve.
 - **Marking the chapter you're reading as read from the reader's chapter list no longer deletes its download when Settings -> Downloads -> After manually marked as read is on.**
+- **Leaving the reader while a page is still scrolling now keeps the place it stopped at, in manga and novels.**
+- **Turning onto a manga page that fails to load no longer loses your place.**
+- **Reading time for a manga chapter you leave with Next, Previous or the chapter list now counts toward that chapter, and the chapter goes into History.**
 - **Reopening a chapter in the high quality renderer's long strip now returns to the page you left, also after a touch.** The saved page used to move a page or more on each reopen.
 - **Min width in the high quality renderer's long strip now starts at 10%, so a touch no longer snaps the strip wider.** Lower values used to snap back to 10% on the first touch.
 - **Remove blank lines between paragraphs now also clears the gaps around styled paragraphs (from LNReader).** Sources that give their paragraphs a class or style kept their padding.
@@ -255,6 +264,37 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel reader no longer saves progress on every scroll frame near a chapter's end.**
 - **Retry on a novel picture that failed in WebView mode now loads it again from the site.**
 - **The reader's chapter list no longer deletes the download of the chapter you are reading from its row's download button or a swipe.**
+- **Picking a chapter from the list in the paged manga reader now opens it where you left it.**
+- **Download ahead no longer downloads merged manga chapters you marked read while reading.**
+- **Skipping ahead with After reading automatically delete on now keeps the next chapter's queued download.**
+- **A manga chapter marked read as a duplicate now stays read when you open it.**
+- **Next and Previous now stay in order after reopening a chapter from an excluded scanlator.**
+- **A page preview in a merged manga now opens the page you tapped.**
+- **Reloading a manga chapter after a failed switch now keeps the page you were on.**
+- **A novel read in incognito now reopens where you were after Android closes Reikai in the background.**
+- **Turning chapters in a novel from an extension app no longer stutters.**
+- **Skipping a paragraph in read aloud while the next chapter opens no longer loads that chapter twice.**
+- **A read-aloud sleep timer that runs out during a phone call now stays stopped when the call ends.**
+- **Tapping a new-chapter notification for a merged series that is already open now shows that source's chapters.**
+- **Switching a novel to WebView mode no longer runs the scripts of a chapter fetched just before the switch.**
+- **Typing a novel find-and-replace rule no longer freezes the editor.**
+- **Remove blank lines between paragraphs and the other novel text cleanups now work on more sources' chapters.**
+- **Bionic reading no longer stalls on a novel chapter with long runs of digits.**
+- **Your novel reader font is no longer lost when the fonts folder briefly fails to list.**
+- **Tapping during a text size change in a paged novel in Native text mode no longer jumps to the chapter's start.**
+- **Tapping a novel picture that failed to load no longer turns the page in Native text mode.**
+- **Scrolling past a tall novel picture in Native text mode no longer stutters.**
+- **Line breaks inside an IReader source's text pages now show in both novel reading modes.**
+- **Tapping outside the Center, Large center or Bottom tap zone no longer opens the novel reader's menu in WebView mode.**
+- **Tapping text inside a link with no address now turns the page in the novel reader's WebView mode.**
+- **Novel chapters whose pictures load lazily no longer pause for three seconds on opening in WebView mode.**
+- **Read aloud now marks and follows every paragraph in WebView mode, including ones that hold a picture.**
+- **Bionic reading in WebView mode now bolds the same letters as Native text mode when a word contains emphasis.**
+- **Preformatted blocks in novel chapters now wrap in WebView mode instead of being cut off.**
+- **Novel progress in WebView mode is now saved at your exact position.**
+- **The novel reader's WebView mode no longer tracks the wrong chapter after a rail drag or a chapter step.**
+- **Top and bottom now offers only the tap zone inversions that change it.**
+- **TalkBack now names the novel reader's theme swatches and says which one is in use.**
 
 ### Statistics
 
