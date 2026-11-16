@@ -1524,8 +1524,11 @@
         // against the line the seek left.
         place.sync();
         // The reader is now in this chapter by construction, so the next frame must not report the
-        // one above and hand the rest of a rail drag a target the reader has already left.
-        lastChapterSeen = String(chapterId);
+        // one above and hand the rest of a rail drag a target the reader has already left. Said when it
+        // changes: the host may hold a report of another chapter still on its way, which would be last.
+        var id = String(chapterId);
+        if (id !== lastChapterSeen) bridge().onVisibleChapter(DOCUMENT_TOKEN, id);
+        lastChapterSeen = id;
         return;
       }
     },

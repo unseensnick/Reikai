@@ -821,6 +821,23 @@ class NovelWebDocumentTest {
     }
 
     /**
+     * A rail seek lands in the chapter the host named. When the page last named another one, whose report
+     * may still be on its way to the host, it says so, so the host does not end on the chapter it left.
+     */
+    @Test
+    fun aSeekIntoAnotherChapterNamesIt() {
+        loadDocument()
+        eval("window.rkReader.appendChapter('99', '${"<p>next</p>".repeat(200)}', null, $SEAM)")
+        settleFrames()
+        eval("window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })")
+        settleFrames()
+        visibleChapters.clear()
+        eval("window.rkReader.seekWithin('$CHAPTER_ID', 0.5)")
+        settleFrames()
+        assertEquals(listOf(CHAPTER_ID.toString()), visibleChapters.toList())
+    }
+
+    /**
      * A chapter's percent has one meaning. It is saved while the next chapter sits below it, and
      * restored when the chapter is opened alone, so the two must be the same position. The native
      * renderer's own rule is asked, not restated, so a change to it cannot leave this page behind.
