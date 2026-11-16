@@ -15,7 +15,10 @@ class NovelTapLayoutTest {
         NovelTapLayout.entries.associateWith { it.invertModes } shouldBe NovelTapLayout.entries.associateWith {
             when (it) {
                 NovelTapLayout.CENTER, NovelTapLayout.CENTER_LARGE -> listOf(TappingInvertMode.NONE)
-                NovelTapLayout.BOTTOM -> listOf(TappingInvertMode.NONE, TappingInvertMode.VERTICAL)
+                NovelTapLayout.THIRDS, NovelTapLayout.BOTTOM -> listOf(
+                    TappingInvertMode.NONE,
+                    TappingInvertMode.VERTICAL,
+                )
                 else -> TappingInvertMode.entries
             }
         }
@@ -29,6 +32,12 @@ class NovelTapLayoutTest {
     @Test
     fun `the bottom layout's nearest to both is vertical`() {
         NovelTapLayout.BOTTOM.nearestInvert(TappingInvertMode.BOTH) shouldBe TappingInvertMode.VERTICAL
+    }
+
+    /** Thirds' two bands span the width, so a horizontal flip leaves them where they were. */
+    @Test
+    fun `the thirds layout's nearest to both is vertical`() {
+        NovelTapLayout.THIRDS.nearestInvert(TappingInvertMode.BOTH) shouldBe TappingInvertMode.VERTICAL
     }
 
     @Test

@@ -21,12 +21,12 @@ enum class NovelTapLayout(val titleRes: StringResource) {
     BOTTOM(MR.strings.nav_bottom),
     ;
 
-    /** The inversions that change this layout: the centre zones mirror onto themselves, and the
-     *  full-width bottom zone only flips vertically. */
+    /** The inversions that change this layout: the centre zones mirror onto themselves, and full-width
+     *  zones (Thirds' bands, the bottom zone) only flip vertically. */
     val invertModes: List<TappingInvertMode>
         get() = when (this) {
             CENTER, CENTER_LARGE -> listOf(TappingInvertMode.NONE)
-            BOTTOM -> listOf(TappingInvertMode.NONE, TappingInvertMode.VERTICAL)
+            THIRDS, BOTTOM -> listOf(TappingInvertMode.NONE, TappingInvertMode.VERTICAL)
             else -> TappingInvertMode.entries
         }
 

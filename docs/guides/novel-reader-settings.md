@@ -107,7 +107,7 @@ How a tap on the page is read. **Right and Left** turns the page back from the l
 **Top and bottom**, **L shaped**, **Kindle-ish** and **Edge** divide the page into other zones that turn back, turn forward and open the menu. **Center**, **Large center** and **Bottom** draw only a menu zone, and a tap anywhere else is left to the page. **Disabled** shows or hides the menu wherever you tap.
 
 ### Invert tap zones <Badge type="info" text="None" />
-Flips the zones horizontally, vertically or both. Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Bottom** only flips vertically.
+Flips the zones horizontally, vertically or both. Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Top and bottom** and **Bottom** only flip vertically.
 
 ### Bottom zone height <Badge type="info" text="12%" />
 How tall the menu zone is. Only shown for the **Bottom** layout. One height serves both **Paged** and **Scrolling**.
