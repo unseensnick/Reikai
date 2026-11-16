@@ -922,11 +922,16 @@ class NovelWebDocumentTest {
      */
     @Test
     fun aPictureAtTheTopNamesTheLineBelowIt() {
+        // Open from the start: without a gate the test host serves nothing, the picture fails, and the top
+        // of the screen is its failure box rather than a picture.
+        imageGate = CountDownLatch(0)
         val chapter = "<p>lead</p><img src=\"https://rk.test/$TALL_IMAGE\">" + "<p>lorem ipsum</p>".repeat(60)
         loadDocument(document(chapterHtml = chapter))
         awaitEval("String(document.querySelector('.rk-chapter img').complete)", "true")
         eval("window.scrollTo({ top: document.querySelector('.rk-chapter img').offsetTop + 100, behavior: 'instant' })")
         settleFrames()
+        val picture = eval("String(document.querySelector('.rk-chapter img').getBoundingClientRect().height)")
+        assertTrue("the picture drew ${picture}px tall, so none is at the top", picture.toDouble() > 500)
         assertEquals(4, topLines[CHAPTER_ID.toString()])
     }
 
