@@ -45,6 +45,7 @@ import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.details.novelDetailsIntent
+import reikai.presentation.reader.settings.sheetDualPageRowsShown
 import reikai.presentation.reader.text.NovelWindowDiff
 import reikai.util.snapshotOnChange
 import tachiyomi.core.common.util.lang.withIOContext
@@ -370,9 +371,10 @@ class NovelReaderProvider(
         shownPage.value = null
         val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
         val autoScrollInterval = novelPreferences.readerAutoScrollInterval()
-        // Read once, since a rotation, where When wide changes its answer, builds the viewport again.
+        // Read once, since a rotation, where When wide changes its answer, builds the viewport again. The
+        // sheet hides Text selectable by the same call, so it is hidden exactly where a spread ignores it.
         val spread = host.resources.configuration.let {
-            built.pageLayout.isPaged && built.dualPageView.showsTwoPages(it.screenWidthDp, it.screenHeightDp)
+            sheetDualPageRowsShown(built.pageLayout.isPaged, built.dualPageView, it.screenWidthDp, it.screenHeightDp)
         }
         if (built.renderingMode == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
