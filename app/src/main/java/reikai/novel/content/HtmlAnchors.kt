@@ -15,7 +15,8 @@ fun decodePercentKeepingPlus(value: String): String? = runCatching {
     while (i < value.length) {
         if (value[i] == '%') {
             val hex = value.substring(i + 1, i + 3)
-            require(hex.all { Character.digit(it, 16) >= 0 }) { "Not an escape: %$hex" }
+            // ASCII only, as decodeURIComponent reads it: toInt also takes a sign and other scripts' digits.
+            require(hex.all { it in '0'..'9' || it.lowercaseChar() in 'a'..'f' }) { "Not an escape: %$hex" }
             bytes.write(hex.toInt(16))
             i += 3
         } else {

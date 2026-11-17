@@ -4,6 +4,8 @@ import io.kotest.matchers.shouldBe
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class HtmlAnchorsTest {
 
@@ -12,9 +14,11 @@ class HtmlAnchorsTest {
         decodePercentKeepingPlus("a+b%20c") shouldBe "a+b c"
     }
 
-    @Test
-    fun `a malformed escape decodes to nothing`() {
-        decodePercentKeepingPlus("%zz") shouldBe null
+    /** decodeURIComponent takes two ASCII hex digits only, so a sign or another script's digits name nothing. */
+    @ParameterizedTest
+    @ValueSource(strings = ["%zz", "%+1", "%١١", "%１１"])
+    fun `a malformed escape decodes to nothing`(value: String) {
+        decodePercentKeepingPlus(value) shouldBe null
     }
 
     /** The WebView page decodes with decodeURIComponent, which refuses this, so both readers name nothing by it. */
