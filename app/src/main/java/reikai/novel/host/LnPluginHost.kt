@@ -338,18 +338,16 @@ class LnPluginHost(
         return chapterText(callMethod(pluginId, "parseChapter", listOf(JsonPrimitive(chapterPath))))
     }
 
-    /** Optional lnreader `parsePage`: one page of a paged source's chapter list. Null when the plugin
-     *  doesn't define it (single-page source) or it errors, mirroring [resolveUrl]. The plugin returns
-     *  only `{ chapters }`, so the path comes from the caller. */
-    suspend fun parsePage(pluginId: String, novelPath: String, page: String): SourceNovel? = runCatchingCancellable {
+    /**
+     * Optional lnreader `parsePage`: one page of a paged source's chapter list. Only a plugin that defines it
+     * reports more than one page, so a failure throws: the page walk keeps its mark below the page and details
+     * offers it again. The plugin returns only `{ chapters }`, so the path comes from the caller.
+     */
+    suspend fun parsePage(pluginId: String, novelPath: String, page: String): SourceNovel {
         val raw = callMethod(pluginId, "parsePage", listOf(JsonPrimitive(novelPath), JsonPrimitive(page)))
         val parsed = JSON.decodeFromJsonElement(SourcePage.serializer(), raw)
-        SourceNovel(path = novelPath, chapters = parsed.chapters)
-    }.onFailure {
-        // A thrown error here reads to the caller as "no more pages" and silently truncates the
-        // chapter list, so at least leave a trace instead of swallowing it blind.
-        logcat(LogPriority.DEBUG, it) { "parsePage failed or unsupported for $pluginId" }
-    }.getOrNull()
+        return SourceNovel(path = novelPath, chapters = parsed.chapters)
+    }
 
     /** Optional lnreader `resolveUrl`; null when the plugin doesn't define it (most don't) or errors,
      *  so callers fall back to the source site. */
