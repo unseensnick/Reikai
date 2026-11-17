@@ -204,6 +204,7 @@ class MangaReaderViewModelHarness private constructor(
      * @param queuedDownloads the chapters waiting in the download queue
      * @param onRequeue hears the chapters the reader puts back in the queue
      * @param launchPage the page a launch asks to open at, as a page preview's does
+     * @param restored the chapter and page a process death saved, which the reopened model restores
      * @param slowFlagWrites the entries whose reader flag write takes a moment, as a busy database's does
      */
     suspend fun <T> open(
@@ -226,6 +227,7 @@ class MangaReaderViewModelHarness private constructor(
         queuedDownloads: Set<Long> = emptySet(),
         onRequeue: (List<Long>) -> Unit = {},
         launchPage: Int? = null,
+        restored: Pair<Long, Int>? = null,
         slowFlagWrites: Set<Long> = emptySet(),
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
     ): T {
@@ -286,7 +288,8 @@ class MangaReaderViewModelHarness private constructor(
                 appScope = testAppScope().also { appScope = it },
                 savedState = SavedStateHandle(
                     mapOf("manga" to manga.id, "chapter" to chapterId, "source_scoped" to sourceScoped) +
-                        listOfNotNull(launchPage?.let { "launch_page" to it }),
+                        listOfNotNull(launchPage?.let { "launch_page" to it }) +
+                        restored?.let { (id, page) -> listOf("chapter_id" to id, "page_index" to page) }.orEmpty(),
                 ).also { this@MangaReaderViewModelHarness.savedState = it },
                 context = mockk<Context>(relaxed = true),
                 sourceManager = sourceManager,
