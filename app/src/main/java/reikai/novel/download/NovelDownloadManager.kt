@@ -52,6 +52,7 @@ import reikai.domain.novel.ownersOf
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceTitlesRepository
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.RunSources
 import reikai.novel.install.describing
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelSource
@@ -63,7 +64,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
@@ -146,8 +146,9 @@ class NovelDownloadManager(
     /** Which source each queued novel reads from, filled as [claimNext] meets them. Under [claimLock]. */
     private val novelSources = HashMap<Long, String>()
 
-    /** The plugins this run loaded again past the installer's wait, so each is tried once per run. */
-    private val retriedPlugins = ConcurrentHashMap.newKeySet<String>()
+    // A new set per run, so each run loads a failed plugin again once.
+    @Volatile
+    private var runSources = RunSources(installer, sourceManager)
 
     /**
      * Loads the saved queue on launch, off the main thread, behind anything queued meanwhile, as Mihon's
@@ -455,7 +456,7 @@ class NovelDownloadManager(
                 }
             } finally {
                 novelSources.clear()
-                retriedPlugins.clear()
+                runSources = RunSources(installer, sourceManager)
             }
         }
     }
@@ -494,18 +495,6 @@ class NovelDownloadManager(
         }
     }
 
-    // A run is one the user or an update asked for, so a plugin whose load failed is tried again past the wait the
-    // installer keeps for screens, as a reader or details Retry tries it.
-    private suspend fun retriedSource(sourceId: String): NovelSource? {
-        if (installer.failures.value.values.none { it.pluginId == sourceId } ||
-            !retriedPlugins.add(sourceId)
-        ) {
-            return null
-        }
-        runCatchingCancellable { installer.retryLoad(sourceId) }
-        return sourceManager.get(sourceId)
-    }
-
     // A novel gone from the database still needs a lane: its row fails there, and "" is no real source.
     private suspend fun sourceOf(novelId: Long): String =
         novelSources.getOrPut(novelId) { novelRepo.getById(novelId)?.source.orEmpty() }
@@ -519,7 +508,7 @@ class NovelDownloadManager(
     ) {
         val next = claimed.download
         val novel = novelRepo.getById(next.novelId)
-        val source = novel?.let { sourceManager.get(it.source) ?: retriedSource(it.source) }
+        val source = novel?.let { runSources.get(it.source) }
         // The least delay the source declares binds its retries as well as its pacing.
         val minimumMs = source?.minimumRequestDelayMs ?: 0L
         // A source an update or an earlier run reached moments ago waits out its delay before this chapter too.

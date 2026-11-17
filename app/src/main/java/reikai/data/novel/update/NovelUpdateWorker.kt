@@ -62,6 +62,7 @@ import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
 import reikai.domain.novel.updateerror.UpsertNovelUpdateError
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.RunSources
 import reikai.novel.install.unreachable
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -194,6 +195,7 @@ class NovelUpdateWorker(
             notifier.showProgress(updating, done, total)
             ledger.progressed(done, total)
         }
+        val sources = RunSources(installer, sourceManager)
         updateBySource(favorites, sourceOf = Novel::source, sourceContacts) { novel ->
             val outcome = checkUpdateEntry(
                 stillInLibrary = { novelRepo.getById(novel.id)?.favorite == true },
@@ -203,7 +205,7 @@ class NovelUpdateWorker(
                 recordError = { upsertNovelUpdateError.await(novel.id, it) },
                 failureMessage = { with(context) { it.updateFailureMessage() } },
             ) {
-                val source = sourceManager.get(novel.source)
+                val source = sources.get(novel.source)
                     ?: throw installer.failures.value.unreachable(novel.source, context)
                 val newChapters = checkNovel(novel, source, fetchWindow)
                 if (newChapters.isNotEmpty()) {

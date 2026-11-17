@@ -11,6 +11,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.RunSources
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
@@ -41,15 +42,16 @@ class NovelMetadataRefresh(
         val updates = UpdateProgressList<Novel>(novels.size) { updating, done, total ->
             onProgress({ notifier.visibleTitles(updating) }, done, total)
         }
+        val sources = RunSources(installer, sourceManager)
         updateBySource(novels, sourceOf = Novel::source, sourceContacts) { novel ->
             updates.around(novel) {
-                runCatchingCancellable { refresh(novel) }.onFailure { logcat(LogPriority.ERROR, it) }
+                runCatchingCancellable { refresh(novel, sources) }.onFailure { logcat(LogPriority.ERROR, it) }
             }
         }
     }
 
-    private suspend fun refresh(novel: Novel) {
-        val source = sourceManager.get(novel.source) ?: return
+    private suspend fun refresh(novel: Novel, sources: RunSources) {
+        val source = sources.get(novel.source) ?: return
         storeRefreshedNovel(
             novel,
             source.parseNovel(novel.url).toNovel(sourceId = source.id, favorite = novel.favorite).withoutPageCount(),
