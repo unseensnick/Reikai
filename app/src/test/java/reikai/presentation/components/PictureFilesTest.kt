@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
+import eu.kanade.tachiyomi.data.saver.Location
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -32,5 +33,22 @@ class PictureFilesTest {
         savePicture(context, imageSaver, picture, "Clear", folder = "", forSharing = false)
 
         saved.captured.data().use { it.readNBytes(2).toList() } shouldBe listOf(0x89.toByte(), 'P'.code.toByte())
+    }
+
+    /** Save pages into separate folders puts both readers' pictures in the series' own folder. */
+    @Test
+    fun `a picture saved into a series folder lands there`() = runTest {
+        val saved = slot<Image>()
+        val imageSaver = mockk<ImageSaver> { every { save(capture(saved)) } returns Uri.EMPTY }
+
+        savePicture(context, imageSaver, Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888), "Page", "Saga", false)
+
+        saved.captured.location shouldBe Location.Pictures.create("Saga")
+    }
+
+    @Test
+    fun `a series folder is the series' title only with separate folders on`() {
+        listOf(savedPictureFolder("Saga", perSeries = true), savedPictureFolder("Saga", perSeries = false)) shouldBe
+            listOf("Saga", "")
     }
 }
