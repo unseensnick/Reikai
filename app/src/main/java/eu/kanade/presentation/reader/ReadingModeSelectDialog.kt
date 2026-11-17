@@ -21,13 +21,15 @@ fun ReadingModeSelectDialog(
 ) {
     val manga by viewModel.mangaFlow.collectAsState()
     val readingMode = remember(manga) { ReadingMode.fromPreference(manga?.readingMode?.toInt()) }
-    // RK --> the picker rules are ReaderModeDialog's, which the novel bar's picker and rotation share, so
-    // upstream's DialogContent and its preview went with them. The grid highlights what the reader
-    // resolved, since Default is not a tile.
+    // RK: what the reader actually resolved, which for a series on Default is the global default or
+    // auto webtoon's pick. Default is not one of the tiles, so seeding from [readingMode] alone left
+    // the grid with nothing highlighted and no way to tell what you were reading in.
     val resolvedReadingMode = remember(manga) {
         ReadingMode.fromPreference(viewModel.resolvedReadingMode())
     }
 
+    // RK -->
+    // The picker both readers' mode and rotation buttons share, so its rules are written once.
     ReaderModeDialog(
         title = MR.strings.pref_category_reading_mode,
         choices = ReadingModesWithoutDefault,
@@ -35,8 +37,8 @@ fun ReadingModeSelectDialog(
         resolved = resolvedReadingMode,
         icon = { it.icon },
         label = { it.stringRes },
-        onChange = {
-            val mode = it ?: ReadingMode.DEFAULT
+        onChange = { picked ->
+            val mode = picked ?: ReadingMode.DEFAULT
             viewModel.setReadingMode(mode)
             onChange(mode.stringRes)
         },
