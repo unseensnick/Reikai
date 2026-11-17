@@ -32,6 +32,32 @@ class LiveReadingTest {
     }
 
     @Test
+    fun `a scroll's quick small steps are reading, not a jump`() {
+        // A flick reports each percent of a 2,500-word chapter a fifth of a second apart.
+        fun LiveReading.at(hundredths: Long, atMs: Long) =
+            next(1, units = 2_500, ChapterProgress.Percent(hundredths), atMs, PaceUnit.WORD)
+
+        val scrolled = LiveReading().at(0, 0).at(100, 9_000).at(200, 9_200).at(300, 9_400).at(400, 9_600)
+
+        scrolled.at(800, 30_000).msPerUnit shouldBe 150.0
+    }
+
+    @Test
+    fun `pages flipped faster than anyone reads start the measure again`() {
+        val flipped = LiveReading().page(0, atMs = 0).page(1, atMs = 200).page(2, atMs = 400)
+            .page(3, atMs = 600).page(4, atMs = 800).page(5, atMs = 1_000)
+
+        flipped.page(8, atMs = 31_000).msPerUnit shouldBe 10_000.0
+    }
+
+    @Test
+    fun `a jump after a long read starts the measure again`() {
+        val read = LiveReading().page(0, atMs = 0).page(3, atMs = 30_000).page(18, atMs = 35_000)
+
+        read.page(21, atMs = 95_000).msPerUnit shouldBe 20_000.0
+    }
+
+    @Test
     fun `going back keeps the pace`() {
         val measured = LiveReading().page(0, atMs = 0).page(3, atMs = 30_000)
 

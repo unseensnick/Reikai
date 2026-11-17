@@ -27,13 +27,17 @@ data class LiveReading(
         // yet when the next chapter asks for a learned one.
         val previous = last?.takeIf { it.chapterId == chapterId }
             ?: return LiveReading(anchor = mark, last = mark, msPerUnit = msPerUnit, progress = progress)
-        val read = mark.unitsBefore - previous.unitsBefore
-        if (read < 0 || read * unit.floorMs > mark.atMs - previous.atMs) {
-            return LiveReading(anchor = mark, last = mark, msPerUnit = msPerUnit, progress = progress)
-        }
         val from = anchor ?: previous
+        val step = mark.unitsBefore - previous.unitsBefore
         val sinceAnchor = mark.unitsBefore - from.unitsBefore
         val elapsed = mark.atMs - from.atMs
+        // A scroll reports its progress in small steps a moment apart, so speed is judged over a big step
+        // alone (a slider jump) and over the whole stretch (pages flipped through), never per small step.
+        val leapt = step >= unit.minLiveUnits && step * unit.floorMs > mark.atMs - previous.atMs
+        val skimmed = sinceAnchor * unit.floorMs > elapsed
+        if (step < 0 || leapt || skimmed) {
+            return LiveReading(anchor = mark, last = mark, msPerUnit = msPerUnit, progress = progress)
+        }
         val measured = (elapsed / sinceAnchor)
             .takeIf { sinceAnchor >= unit.minLiveUnits && elapsed >= MIN_MS && it in unit.floorMs..unit.capMs }
         return LiveReading(anchor = from, last = mark, msPerUnit = measured ?: msPerUnit, progress = progress)
