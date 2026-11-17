@@ -223,13 +223,13 @@ class ReaderEngineTest {
         advanceTimeBy(1.seconds)
         readAloud.state.value = ReaderReadAloudState(
             playback = TtsPlayback.Playing,
-            progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 0, words = 2_000),
+            progress = ReadAloudProgress(chapterId = 9, paragraph = 0, wordsSpoken = 0, words = 2_000),
         )
         advanceUntilIdle()
         advanceTimeBy(5.seconds)
 
         readAloud.state.value = readAloud.state.value.copy(
-            progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 100, words = 2_000),
+            progress = ReadAloudProgress(chapterId = 9, paragraph = 1, wordsSpoken = 100, words = 2_000),
         )
         advanceUntilIdle()
 
