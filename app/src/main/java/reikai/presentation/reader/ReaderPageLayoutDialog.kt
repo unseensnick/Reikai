@@ -9,7 +9,7 @@ import tachiyomi.i18n.MR
 
 /**
  * The novel bar's reading-mode picker, writing the novel's own mode as the sheet's For this series row
- * does. Manga's is `ReadingModeSelectDialog`, over the same [ReaderModeDialog] rules.
+ * does. Manga's `ReadingModeSelectDialog` goes through the same [ReaderModeDialog].
  */
 @Composable
 fun ReaderPageLayoutDialog(
