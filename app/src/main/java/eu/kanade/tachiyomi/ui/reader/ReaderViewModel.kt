@@ -1147,6 +1147,11 @@ class ReaderViewModel(
             .filterNot { it.read || incognito.of(it.mangaId) }
         // RK --> kept as chapters until written, so the source's own tracker hears which entry each is in
         updateChapter.awaitAll(duplicateUnreadChapters.map { ChapterUpdate(it.id) { read = true } })
+        // The chapters held too, as a sheet mark does: every resume gate reads them, so a pick of the
+        // copy would otherwise reopen it at its old page instead of its start.
+        chapterCopies(duplicateUnreadChapters.mapTo(HashSet()) { it.id }).forEach { copy ->
+            copy.update { it.copy(read = true) }
+        }
         sourceTracker.readStateWritten(
             true,
             listOfNotNull(newlyRead) +

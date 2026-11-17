@@ -40,6 +40,14 @@ class MangaStoredReadStateTest {
         } shouldBe true
     }
 
+    /** Every resume gate reads the chapter the reader holds, so a pick of the copy opens it at its start. */
+    @Test
+    fun `the copy marked read with its twin is read in the chapters the reader holds`() = runTest {
+        onFinishedFive(slots = -1) { _, model ->
+            model.getChapters().first { it.chapter.id == 51L }.chapter.read
+        } shouldBe true
+    }
+
     @Test
     fun `finishing the next chapter retires the copy marked read with its twin`() = runTest {
         val queued = mutableSetOf<Long>()
