@@ -104,7 +104,7 @@ class NovelImageGetter(
     private val outstandingLoads = AtomicInteger(0)
 
     // Main thread: the pictures arrived since the last re-measure, and the views they sit in.
-    private val swaps = mutableListOf<() -> Unit>()
+    private val swaps = PictureSwaps()
     private val dirtyViews = mutableSetOf<TextView>()
     private val arrivals = Channel<Unit>(Channel.CONFLATED)
 
@@ -172,16 +172,21 @@ class NovelImageGetter(
      */
     private fun landArrivals() {
         scope.launchUI {
-            while (true) {
-                arrivals.receive()
-                val batch = swaps.toList()
-                swaps.clear()
-                val edits = spanEdits.toList()
-                spanEdits.clear()
-                val views = dirtyViews.toList()
-                dirtyViews.clear()
-                onImagesLanded(views, { batch.forEach { it() } }, outstandingLoads.get() == 0)
-                edits.forEach { it() }
+            try {
+                while (true) {
+                    arrivals.receive()
+                    val batch = swaps.take()
+                    val edits = spanEdits.toList()
+                    spanEdits.clear()
+                    val views = dirtyViews.toList()
+                    dirtyViews.clear()
+                    onImagesLanded(views, batch, outstandingLoads.get() == 0)
+                    edits.forEach { it() }
+                }
+            } finally {
+                // The render ended: a picture still queued, or in a batch its re-measure did not get to, is not
+                // in the text, so the chapter will never close it.
+                swaps.closeUnswapped()
             }
         }
     }
@@ -424,7 +429,7 @@ class NovelImageGetter(
 
     private fun queueSwap(wrapper: DrawableWrapper, replacement: Drawable) {
         wrapper.bounds = replacement.bounds
-        swaps += { wrapper.innerDrawable = replacement }
+        swaps.queue(wrapper, replacement)
         resolveView(wrapper)?.let(dirtyViews::add)
     }
 

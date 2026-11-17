@@ -91,6 +91,8 @@ class ChapterTextBlock(
     internal fun releasePictures() {
         pictureScope?.cancel()
         pictureScope = null
+        // Afresh, since a batch cancelled between setting the text and collecting it left a picture uncounted.
+        collectTiledPictures()
         tiledPictures.forEach { it.picture.close() }
         tiledPictures.clear()
     }
