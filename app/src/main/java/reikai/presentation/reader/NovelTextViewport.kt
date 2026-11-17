@@ -1266,28 +1266,23 @@ class NovelTextViewport(
         evictAll()
     }
 
-    /** The same contract [NovelWebViewport] answers, so a volume press behaves the same in either. */
-    override fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (!NovelVolumeKeys.isVolumeKey(event.keyCode)) return handleReaderKey(event, pageLayout.isRtl, ::perform)
-        if (!callbacks.volumeKeysActive()) return false
-        val current = settings ?: return false
-        if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
-            val fraction = NovelVolumeKeys.scrollFraction(
-                event.keyCode,
-                current.volumeButtonsInverted,
-                current.volumeButtonsFraction,
-            )
-            // A turn says the reader moved once it happens: one a redraw refuses must keep the landing it carries.
-            if (paged) {
-                turnPage(forward = fraction > 0)
-            } else {
-                readerMoved()
-                val step = (recycler.height * abs(fraction)).roundToInt()
-                recycler.smoothScrollBy(0, if (fraction > 0) step else -step)
-            }
+    /** The same contract [NovelWebViewport] answers, so a key behaves the same in either. */
+    override fun handleKeyEvent(event: KeyEvent): Boolean = NovelVolumeKeys.handleKey(
+        event,
+        pageLayout.isRtl,
+        held = resumeVeil.isUp,
+        active = callbacks.volumeKeysActive,
+        settings = settings,
+        perform = ::perform,
+    ) { fraction ->
+        // A turn says the reader moved once it happens: one a redraw refuses must keep the landing it carries.
+        if (paged) {
+            turnPage(forward = fraction > 0)
+        } else {
+            readerMoved()
+            val step = (recycler.height * abs(fraction)).roundToInt()
+            recycler.smoothScrollBy(0, if (fraction > 0) step else -step)
         }
-        // Consume the key-up too, so the system volume UI never shows during a press.
-        return true
     }
 
     @Composable

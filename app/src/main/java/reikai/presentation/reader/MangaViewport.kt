@@ -115,7 +115,7 @@ class MangaViewport(
                 }
                 if (forward) Action.FORWARD else Action.BACKWARD
             }
-            else -> return handleReaderKey(event, navigation.isReversed, ::perform)
+            else -> return handleReaderKey(event, navigation.isReversed, held = false, ::perform)
         }
         if (isUp) perform(action)
         return true

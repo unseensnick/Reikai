@@ -408,21 +408,14 @@ class NovelWebViewport(
         (context as? Activity)?.finish()
     }
 
-    override fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (!NovelVolumeKeys.isVolumeKey(event.keyCode)) return handleReaderKey(event, pageLayout.isRtl, ::perform)
-        if (!callbacks.volumeKeysActive()) return false
-        val current = documentSettings ?: return false
-        if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
-            val fraction = NovelVolumeKeys.scrollFraction(
-                event.keyCode,
-                current.volumeButtonsInverted,
-                current.volumeButtonsFraction,
-            )
-            if (paged) turnPage(forward = fraction > 0) else scrollByFraction(fraction)
-        }
-        // Consume the key-up too, so the system volume UI never shows during a press.
-        return true
-    }
+    override fun handleKeyEvent(event: KeyEvent): Boolean = NovelVolumeKeys.handleKey(
+        event,
+        pageLayout.isRtl,
+        held = resumeVeil.isUp,
+        active = callbacks.volumeKeysActive,
+        settings = documentSettings,
+        perform = ::perform,
+    ) { fraction -> if (paged) turnPage(forward = fraction > 0) else scrollByFraction(fraction) }
 
     @Composable
     override fun Content(modifier: Modifier) = ViewportHost(view, modifier)

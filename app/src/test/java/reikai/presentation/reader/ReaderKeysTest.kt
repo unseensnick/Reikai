@@ -17,7 +17,9 @@ class ReaderKeysTest {
     fun `a reader key asks for its action on release`(code: Int, ctrl: Boolean, rtl: Boolean, expected: Action) {
         val asked = mutableListOf<Action>()
 
-        handleReaderKey(key(code, KeyEvent.ACTION_UP, if (ctrl) KeyEvent.META_CTRL_ON else 0), rtl) { asked += it }
+        handleReaderKey(key(code, KeyEvent.ACTION_UP, if (ctrl) KeyEvent.META_CTRL_ON else 0), rtl, held = false) {
+            asked += it
+        }
 
         asked shouldBe listOf(expected)
     }
@@ -27,14 +29,29 @@ class ReaderKeysTest {
         val asked = mutableListOf<Action>()
 
         val handled =
-            handleReaderKey(key(KeyEvent.KEYCODE_PAGE_DOWN, KeyEvent.ACTION_DOWN), rtl = false) { asked += it }
+            handleReaderKey(key(KeyEvent.KEYCODE_PAGE_DOWN, KeyEvent.ACTION_DOWN), rtl = false, held = false) {
+                asked += it
+            }
+
+        (handled to asked) shouldBe (true to emptyList<Action>())
+    }
+
+    /** Held while a saved place waits on its pictures, as a touch is, since a move would cancel the landing. */
+    @Test
+    fun `a key released while the page is held is taken without acting`() {
+        val asked = mutableListOf<Action>()
+
+        val handled =
+            handleReaderKey(key(KeyEvent.KEYCODE_PAGE_DOWN, KeyEvent.ACTION_UP), rtl = false, held = true) {
+                asked += it
+            }
 
         (handled to asked) shouldBe (true to emptyList<Action>())
     }
 
     @Test
     fun `a key the reader has no use for is left to the system`() {
-        handleReaderKey(key(KeyEvent.KEYCODE_A, KeyEvent.ACTION_UP), rtl = false) {} shouldBe false
+        handleReaderKey(key(KeyEvent.KEYCODE_A, KeyEvent.ACTION_UP), rtl = false, held = false) {} shouldBe false
     }
 
     companion object {

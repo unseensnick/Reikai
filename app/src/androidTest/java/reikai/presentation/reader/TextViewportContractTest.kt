@@ -1376,6 +1376,24 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(0, menuToggles.get())
     }
 
+    /** A Page Down is held the same way: scrolling then dropped the veil and stranded the reader at the top. */
+    @Test
+    fun aKeyWhileASavedPlaceWaitsForItsPicturesIsHeld() {
+        onMain {
+            viewport.load(illustratedChapter(SAVED_PERCENT, held = true), readerTestSettings)
+        }
+        awaitWhile { !textShown() }
+        requireTapDuringTheWait()
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_PAGE_DOWN))
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_PAGE_DOWN))
+        }
+        settle()
+        checkNotNull(server).release()
+        awaitIllustratedLanding()
+        assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
+    }
+
     /** Until its pictures land a long illustrated chapter measures short, and would be read on opening. */
     @Test
     fun anIllustratedChapterSaysNothingAboutItsEndWhileItsPicturesLoad() {
