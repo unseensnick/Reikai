@@ -21,11 +21,13 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.job
+import kotlinx.coroutines.yield
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.content.NovelRegexReplacement
 import reikai.novel.content.NovelRegexReplacements
 import reikai.novel.content.NovelRegexRules
 import reikai.novel.content.NovelStoredToggleList
+import reikai.util.runCatchingCancellable
 import kotlin.time.Duration.Companion.milliseconds
 
 /** What [rule] does to [sample], or why it cannot say: the pattern does not compile, or ran too long. */
@@ -60,8 +62,12 @@ class NovelRegexRulesViewModel(
     }
 
     private suspend fun run(rule: NovelRegexReplacement, sample: String): Result<String> {
+        // mapLatest starts this undispatched, so a run that blocks before suspending holds back the next
+        // edit, which could then never cancel it. Suspending first frees mapLatest to take that edit.
+        yield()
         val job = currentCoroutineContext().job
-        return runCatching {
+        // A run a newer edit cancelled must end there, not answer with the cancellation as the pattern's error.
+        return runCatchingCancellable {
             val compiled = NovelRegexReplacements.compile(rule)
             previewRun.applyOrNull(compiled, sample, isActive = { job.isActive })
                 ?: throw NovelRegexReplacements.TooSlowException()

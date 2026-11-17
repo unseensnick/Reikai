@@ -4,9 +4,15 @@ import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -19,9 +25,10 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.content.NovelRegexReplacement
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
+import kotlin.time.measureTime
 
 /** The rule editor asks for a preview on every keystroke, so the answer comes back as state, off the main thread. */
 class NovelRegexRulesViewModelTest {
@@ -48,19 +55,65 @@ class NovelRegexRulesViewModelTest {
         model.askPreview(rule, "a cat")
 
         val answered = withContext(Dispatchers.Default) {
-            withTimeout(5.seconds) { model.preview.filterNotNull().first() }
+            withTimeout(5.seconds) { model.preview.filterNotNull().first() }.also { model.close() }
         }
 
         answered shouldBe NovelRegexPreview(rule, "a cat", Result.success("a dog"))
     }
 
+    /**
+     * Main is a real thread here, asked for a turn while a runaway pattern runs out its budget: on Main, the
+     * run held it for the rest of that budget. The pattern is new per run, since one that ran too long is
+     * skipped from then on.
+     */
     @Test
-    fun `asking for a preview of a runaway pattern does not wait on the match`() {
-        val runaway = rule.copy(pattern = "(.*i){12}j", isRegex = true)
-        val started = TimeSource.Monotonic.markNow()
+    fun `a runaway pattern's preview leaves the main thread free`() = runTest {
+        model.close()
+        val main = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+        Dispatchers.setMain(main)
+        val onRealMain = NovelRegexRulesViewModel(NovelPreferences(InMemoryPreferenceStore()))
+        val runaway = rule.copy(pattern = "(.*i){12}j${System.nanoTime()}", isRegex = true)
 
-        model.askPreview(runaway, "i".repeat(40))
+        val mainWait = withContext(Dispatchers.Default) {
+            val answered = async { onRealMain.preview.filterNotNull().first() }
+            onRealMain.askPreview(runaway, "i".repeat(40))
+            delay(RUN_UNDER_WAY)
+            measureTime { withContext(Dispatchers.Main) {} }
+                .also { withTimeout(5.seconds) { answered.await() } }
+        }
+        onRealMain.close()
+        main.close()
 
-        started.elapsedNow() shouldBeLessThan 100.milliseconds
+        mainWait shouldBeLessThan 150.milliseconds
+    }
+
+    /**
+     * A newer edit replaces a run still matching rather than waiting out its budget, and the replaced run says
+     * nothing: its cancellation is not the pattern's error.
+     */
+    @Test
+    fun `a preview a newer edit replaces is never answered`() = runTest {
+        val slow = rule.copy(pattern = "(.*i){12}j${System.nanoTime()}", isRegex = true)
+        val seen = mutableListOf<NovelRegexPreview>()
+
+        withContext(Dispatchers.Default) {
+            val collecting = launch { model.preview.filterNotNull().collect { seen += it } }
+            model.askPreview(slow, "i".repeat(40))
+            delay(RUN_UNDER_WAY)
+            model.askPreview(rule, "a cat")
+            withTimeout(5.seconds) { model.preview.first { it?.rule == rule } }
+            collecting.cancel()
+            model.close()
+        }
+
+        seen.map { it.rule } shouldBe listOf(rule)
+    }
+
+    /** Waits the scope's work out too, since a run still ending on Default would otherwise reach Main after reset. */
+    private suspend fun NovelRegexRulesViewModel.close() = viewModelScope.coroutineContext.job.cancelAndJoin()
+
+    private companion object {
+        /** Past the 250 ms settle, early enough in the 500 ms budget for an edit made now to settle first. */
+        val RUN_UNDER_WAY = 350.milliseconds
     }
 }
