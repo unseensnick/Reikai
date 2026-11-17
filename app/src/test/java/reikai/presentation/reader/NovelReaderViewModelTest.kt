@@ -13,6 +13,7 @@ import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -22,6 +23,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -763,20 +766,64 @@ class NovelReaderViewModelTest {
             }
         }
 
-    /** As manga's drops its page images: otherwise the chapter's pictures come straight back from the cache. */
+    /**
+     * As manga's drops its page images: otherwise the chapter's pictures come straight back from the cache.
+     * The download holds its pictures inlined, as a real one does, so only the source's text names them.
+     */
     @Test
     fun `a reload from the source drops the chapter's cached pictures`() = readerTest { harness ->
         val source = harness.source("src")
         val novel = harness.novel(source)
         val first = harness.chapter(novel, 1.0)
-        harness.download(first, """<p><img src="https://a.test/plate.png"></p>""")
+        harness.download(first, """<p><img src="data:image/png;base64,AAAA"></p>""")
+        source.texts[first.url] = """<p><img src="https://a.test/plate.png"></p>"""
         val model = harness.open(novel, first.id)
         advanceUntilIdle()
 
         model.reloadChapter(fromSource = true)
         advanceUntilIdle()
 
-        verify { harness.pictureCache.evict(match { "https://a.test/plate.png" in it }, any(), source.id) }
+        verify(timeout = 5_000) {
+            harness.pictureCache.evict(match { "https://a.test/plate.png" in it }, any(), source.id)
+        }
+    }
+
+    /** A text change while a step loads starts that load over, and the step still marks the chapter it left. */
+    @Test
+    fun `a step overtaken by a text change still marks the chapter it left read`() = readerTest { harness ->
+        harness.novelPreferences.readerMarkReadOnSkip().set(true)
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val first = harness.chapter(novel, 1.0)
+        val second = harness.chapter(novel, 2.0)
+        // The neighbour's warm fails, so the step's own load is the next to ask for it.
+        source.failing += second.url
+        val model = harness.open(novel, first.id)
+        advanceUntilIdle()
+        model.awaitIdleOn(first)
+        model.chapterNeighbours.first { it.next == second.id }
+        source.failing -= second.url
+        val gate = CompletableDeferred<Unit>()
+        source.holding[second.url] = gate
+        source.chaptersAsked.clear()
+
+        model.nextChapter()
+        withContext(Dispatchers.Default) {
+            withTimeout(5_000) {
+                while (second.url !in
+                    source.chaptersAsked
+                ) {
+                    delay(10)
+                }
+            }
+        }
+        model.setRenderingMode(NovelRenderingMode.WEBVIEW)
+        advanceUntilIdle()
+        gate.complete(Unit)
+        model.awaitIdleOn(second)
+        advanceUntilIdle()
+
+        harness.isRead(first) shouldBe true
     }
 
     @Test

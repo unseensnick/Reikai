@@ -659,6 +659,9 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
     /** Page keys whose fetch throws, as a source with no connection does. */
     val failingPages: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
+    /** Chapter paths that answer with their own text rather than the default naming them. */
+    val texts: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
+
     override val version = "1.0.0"
     override val site = "https://$id.example"
     override val lang = "en"
@@ -672,7 +675,7 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
         holding[chapterPath]?.await()
         if (chapterPath in failing) throw IOException("no connection")
         blocked[chapterPath]?.let { throw CloudflareBypassIOException("blocked", it, null) }
-        return "<p>From the source: $chapterPath</p>"
+        return texts[chapterPath] ?: "<p>From the source: $chapterPath</p>"
     }
 
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =

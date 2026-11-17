@@ -284,6 +284,10 @@ class NovelReaderViewModel(
     @Volatile
     private var sourceReloadId: Long? = null
 
+    /** The chapter a step is opening to the chapter it left, which the skip setting marks once whichever load
+     *  of that step commits: a text change mid-step starts the step's load over. Changed in the lane. */
+    private var skipMark: Pair<Long, Long>? = null
+
     /**
      * The chapter on screen opened again where the reader is, as a chapter-text setting reloads it, with
      * its cached text dropped. [fromSource] skips a downloaded copy and the pictures cached of it. A load
@@ -297,11 +301,6 @@ class NovelReaderViewModel(
                 currentChapterId.also { pendingChapterId = it }
             }
             htmlCache.remove(id)
-            if (fromSource) {
-                chapter.value?.takeIf {
-                    it.chapterId == id
-                }?.let { pictureCache.evict(it.html, it.baseUrl, it.sourceId) }
-            }
             load()
         }
     }
@@ -1005,32 +1004,33 @@ class NovelReaderViewModel(
             // position is written first, or the debounce would still be waiting when the chapter it
             // belongs to stops being current. With the lane held, so a crossing cannot stamp the same
             // stretch of reading again or move the chapter the mark is for.
-            val departed = lane.withLock {
+            lane.withLock {
                 flushProgress()
                 updateHistory()
                 pendingChapterId = chapterId
                 sourceReloadId = null
-                if (!markDepartedRead) return@withLock null
-                // One that fit on the screen was read in full, whatever the skip setting says: it has
-                // no scroll room, so this step is the only point it can be called finished.
-                if (currentChapterId in fitsOnScreen) {
-                    persistProgress(currentChapterId, ChapterProgress.Percent.END)
-                    null
-                } else {
-                    currentChapterId
+                val departed = when {
+                    !markDepartedRead -> null
+                    // One that fit on the screen was read in full, whatever the skip setting says: it has
+                    // no scroll room, so this step is the only point it can be called finished.
+                    currentChapterId in fitsOnScreen -> {
+                        persistProgress(currentChapterId, ChapterProgress.Percent.END)
+                        null
+                    }
+                    else -> currentChapterId
                 }
+                skipMark = departed?.let { chapterId to it }
             }
-            load(markReadOnLanding = departed)
+            load()
         }
     }
 
     /**
      * A missing row, an uninstalled source or a parse failure leaves the rendered chapter as it was
      * and reports [ReaderLoadState.Failed], so the host offers a retry rather than tearing down or
-     * leaving the reader looking like nothing happened. [markReadOnLanding] is the chapter a step left,
-     * marked by the skip setting only if this load commits.
+     * leaving the reader looking like nothing happened.
      */
-    private fun load(markReadOnLanding: Long? = null) {
+    private fun load() {
         val requested = pendingChapterId
         var target = requested
         // An explicit open is the reader asking for chapters afresh, so nothing a previous warm
@@ -1051,9 +1051,14 @@ class NovelReaderViewModel(
                 // how read aloud reaching a chapter's end mid-warm opens the next chapter.
                 warmsInFlight.awaitIdle(row.id)
                 val fromSource = sourceReloadId == row.id
-                val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row, fromSource).also {
-                    cacheIfCurrent(row.id, it, generation)
-                    if (fromSource) sourceReloadId = null
+                val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row, fromSource).also { (text, base) ->
+                    cacheIfCurrent(row.id, text to base, generation)
+                    if (fromSource) {
+                        sourceReloadId = null
+                        // The source's own addresses, before the renderer asks for them: a download's copy
+                        // has its pictures inlined, so the one on screen names none of what is cached.
+                        pictureCache.evict(text, base, novelRepo.getById(row.novelId)?.source)
+                    }
                 }
                 val bookmarked = isBookmarkedInGroup(row.id)
                 lane.withLock {
@@ -1062,7 +1067,10 @@ class NovelReaderViewModel(
                     // its own load running, for the text this one processed by the old settings.
                     if (requested != pendingChapterId || generation != textGeneration) return@launchIO
                     commitOpen(row, html, baseUrl, bookmarked)
-                    markReadOnLanding?.let { markReadOnSkip(it) }
+                    skipMark?.takeIf { (target, _) -> target == requested }?.let { (_, departed) ->
+                        skipMark = null
+                        markReadOnSkip(departed)
+                    }
                 }
                 loadState.value = ReaderLoadState.Idle
             } catch (e: Throwable) {
