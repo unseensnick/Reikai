@@ -30,10 +30,10 @@ import kotlin.time.Clock
 /**
  * Novel-side parallel of the manga `syncChaptersWithSource`, in one transaction. A re-added chapter
  * inherits the read/bookmark state and `dateFetch` of the one it replaces, so it is not new. A [page]
- * sync matches against the whole novel, so a chapter that moved pages is re-tagged in place, and never
- * deletes: one page cannot tell a removed chapter from one that moved to a page this run did not fetch.
- * Null syncs the whole novel and drops what the source no longer lists; [pageOpened], that the page opened
- * since the last walk. Predicting the next update is the caller's, once per whole-novel sync ([predictNovelFetchInterval]).
+ * sync matches against the whole novel, so a chapter that moved pages is re-tagged in place, and drops only
+ * the rows past [dropPagesAbove], the source's last page, once every page below it synced: one page cannot
+ * tell a removed chapter from one that moved. Null syncs the whole novel and drops what the source no longer
+ * lists; [pageOpened], that the page opened since the last walk. Predicting the next update is the caller's.
  */
 suspend fun syncChaptersWithNovelSource(
     rawSourceChapters: List<ChapterItem>,
@@ -45,6 +45,7 @@ suspend fun syncChaptersWithNovelSource(
     page: String? = null,
     pageOpened: Boolean = false,
     novelDownloadManager: NovelDownloadManager? = null,
+    dropPagesAbove: Long? = null,
 ): NovelChapterSyncResult {
     if (rawSourceChapters.isEmpty()) throw NoChaptersException()
 
@@ -56,6 +57,9 @@ suspend fun syncChaptersWithNovelSource(
 
     val drafts = rawSourceChapters.toDrafts(novelId, novel.title, page)
     val draftUrls = drafts.mapTo(HashSet()) { it.url }
+    val droppedPages = dropPagesAbove?.let { last ->
+        dbChapters.filter { it.url !in draftUrls && (it.page.toLongOrNull() ?: 0L) > last }
+    }.orEmpty()
     // A page sync numbers the novel's whole stored list with its page in place, in page then listing
     // order, so a chapter at a page edge reads as one list reads it, whichever page arrived first. Its
     // source order is the place in that list too: a plugin's index restarts on every page, and every
@@ -64,6 +68,7 @@ suspend fun syncChaptersWithNovelSource(
         drafts
     } else {
         dbChapters.filter { it.url !in draftUrls && it.page != page && it.page.toLongOrNull() != null }
+            .minus(droppedPages.toSet())
             .plus(drafts)
             .sortedWith(compareBy({ it.page.toLong() }, { it.sourceOrder }))
             .mapIndexed { i, chapter -> chapter.copy(sourceOrder = i.toLong()) }
@@ -90,7 +95,7 @@ suspend fun syncChaptersWithNovelSource(
     // A local group member's folder or book gone from the local folder could not be read, so its rows stay as they
     // are; a local book's chapter whose file is still there fails the refresh, as a local manga's does.
     val isLocal = LocalNovelSource.isLocal(novel.source)
-    val unlisted = if (page == null) dbChapters.filterNot { it.url in sourceUrls } else emptyList()
+    val unlisted = if (page == null) dbChapters.filterNot { it.url in sourceUrls } else droppedPages
     val held = tombstones.held(ContentType.NOVELS, isLocal, novel.url, unlisted.map { it.toSyncedChapter() })
     val toDelete = unlisted.filterNot { it.url in held }
     tombstones.confirm(ContentType.NOVELS, isLocal, toDelete.map { it.toSyncedChapter() }, sourceUrls)

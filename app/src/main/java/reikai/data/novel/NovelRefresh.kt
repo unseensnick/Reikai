@@ -206,6 +206,9 @@ suspend fun refreshNovelFromSource(
         novelDownloadManager,
     )
     if (sourcePages > 1L) {
+        // Rows on a page past the source's last
+        val dropsPages =
+            novelChapterRepository.getDistinctPages(merged.id).any { (it.toLongOrNull() ?: 0L) > sourcePages }
         val walk = walkNovelPages(
             merged,
             source,
@@ -217,6 +220,7 @@ suspend fun refreshNovelFromSource(
             syncRules,
             novelDownloadManager = novelDownloadManager,
             alsoPage = viewedPage,
+            dropsPagesPastLast = dropsPages,
         )
         synced = synced?.plus(walk.synced) ?: walk.synced
         if (walk.walkedThrough != merged.totalPages) {

@@ -470,6 +470,42 @@ class NovelRefreshTest {
         refresh(novels.getById(novel.id)!!, source).newChapters.map { it.url } shouldBe listOf("/c/5")
     }
 
+    @Test
+    fun `a page the source dropped loses its stored chapters`() = runTest {
+        val novel = threeStoredPages()
+
+        refresh(novel, pagesThrough(2))
+
+        chapters.getByNovelId(novel.id).map { it.url }.sorted() shouldBe listOf("/c/1", "/c/2")
+    }
+
+    /** Page 2 sits below the last page, which a walk would not fetch again, so the chapter moved there unseen. */
+    @Test
+    fun `a chapter moved down from a dropped page keeps its row and read state`() = runTest {
+        val novel = storedNovel(totalPages = 4L)
+        (1..4).forEach { storedChapter(novel, "/c/$it", it.toDouble(), read = it == 4, page = "$it") }
+        val id = rowsFor(novel, "/c/4").single().id
+        val source = PagedSource(
+            listOf(chapter("/c/1", 1.0)),
+            mapOf("2" to listOf(chapter("/c/2", 2.0), chapter("/c/4", 4.0)), "3" to listOf(chapter("/c/3", 3.0))),
+        )
+
+        refresh(novel, source)
+
+        rowsFor(novel, "/c/4").map { Triple(it.id, it.read, it.page) } shouldBe listOf(Triple(id, true, "2"))
+    }
+
+    /** A failed page may be where a dropped page's chapters moved, so nothing past the last page goes this time. */
+    @Test
+    fun `a page that failed to load keeps the chapters of a dropped page`() = runTest {
+        val novel = storedNovel(totalPages = 4L)
+        (1..4).forEach { storedChapter(novel, "/c/$it", it.toDouble(), read = false, page = "$it") }
+
+        refresh(novel, pagesThrough(3, failingOnce = mutableSetOf("2")))
+
+        rowsFor(novel, "/c/4").map { it.page } shouldBe listOf("4")
+    }
+
     /** A newest-first source: the release that pushes the list onto a second page lands on the first. */
     @Test
     fun `a novel that grows a second page reports the new chapter on its first`() = runTest {
