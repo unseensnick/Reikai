@@ -35,6 +35,7 @@ import logcat.LogPriority
 import reikai.data.coil.NovelImage
 import reikai.data.coil.isNovelImageAddress
 import reikai.data.coil.novelImageCacheKey
+import reikai.novel.content.NovelChapterAddress
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchUI
@@ -141,7 +142,7 @@ class NovelImageGetter(
 
         when {
             source.isNullOrBlank() -> showFailure(wrapper, retryable = false)
-            source.startsWith("data:") -> decodeInlineImage(source, wrapper)
+            NovelChapterAddress.isDataAddress(source) -> decodeInlineImage(source, wrapper)
             isNovelImageAddress(source) -> pendingLoads += PendingLoad(source, wrapper)
             else -> {
                 logcat(LogPriority.DEBUG) { "Skipping unsupported image source" }

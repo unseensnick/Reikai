@@ -387,6 +387,13 @@ class EpubWriterTest {
             "image/jpeg"
     }
 
+    /** A WebView reads a scheme in any case, so an export keeps what the reader shows. */
+    @Test
+    fun `a picture whose scheme is in capitals is still carried`() {
+        EpubWriter.decodeDataAddress("DATA:image/png;base64," + Base64.getEncoder().encodeToString(png))!!.mime shouldBe
+            "image/png"
+    }
+
     /** The [index]th chapter's file, chapters being written in reading order. */
     private fun Map<String, ByteArray>.chapter(index: Int): ByteArray =
         filterKeys { it.startsWith("OEBPS/text/") }.values.elementAt(index)

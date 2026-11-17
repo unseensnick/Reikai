@@ -2,6 +2,7 @@ package reikai.presentation.reader.text
 
 import reikai.data.coil.NovelImage
 import reikai.data.coil.isNovelImageAddress
+import reikai.novel.content.NovelChapterAddress
 
 /**
  * How a chapter's picture opens full screen, one rule both renderers follow (the page takes [opensOnTap]'s
@@ -17,7 +18,7 @@ object NovelPictureGesture {
      *  local book address as a [NovelImage]. Null for anything else. */
     fun modelOf(source: String?, sourceId: String?): Any? = when {
         source.isNullOrBlank() -> null
-        source.startsWith("data:") -> source
+        NovelChapterAddress.isDataAddress(source) -> source
         isNovelImageAddress(source) -> NovelImage(source, sourceId)
         else -> null
     }

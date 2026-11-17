@@ -290,7 +290,7 @@ class NovelWebViewport(
                 },
                 // Only an address this viewport routed, or inline data, so the page names nothing else to load.
                 onPictureOpened = { src, chapterId ->
-                    (webImages.imageFor(src) ?: src.takeIf { it.startsWith("data:") })?.let { model ->
+                    (webImages.imageFor(src) ?: src.takeIf(NovelChapterAddress::isDataAddress))?.let { model ->
                         callbacks.onPictureOpened(model, held.firstOrNull { it.chapterId == chapterId }?.title)
                     }
                 },

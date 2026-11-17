@@ -302,7 +302,7 @@ $points
         /** A `data:` picture's bytes and type, or null for any other address or type. Parsed by hand, not by a
          *  regex, since a picture's base64 runs to megabytes. */
         internal fun decodeDataAddress(src: String): ExportPicture? {
-            if (!src.startsWith("data:")) return null
+            if (!NovelChapterAddress.isDataAddress(src)) return null
             val marker = src.indexOf(";base64,")
             if (marker < 0) return null
             val declared = src.substring(5, marker).substringBefore(';')

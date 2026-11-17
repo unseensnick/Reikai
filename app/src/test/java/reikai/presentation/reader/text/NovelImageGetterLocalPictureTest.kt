@@ -41,6 +41,14 @@ class NovelImageGetterLocalPictureTest {
         NovelChapterAddress.absolute("https://site.example/chapter", address) shouldBe address
     }
 
+    /** A WebView reads a scheme in any case, and the native renderer and the viewer read it the same way. */
+    @Test
+    fun `the picture viewer opens an inline picture whose scheme is in capitals`() {
+        val inline = "DATA:image/png;base64,AQID"
+
+        NovelPictureGesture.modelOf(inline, null) shouldBe inline
+    }
+
     @Test
     fun `the picture viewer opens a local book's picture with its source`() {
         NovelPictureGesture.modelOf(address, LocalNovelSource.ID) shouldBe NovelImage(address, LocalNovelSource.ID)

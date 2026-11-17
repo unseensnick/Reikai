@@ -7,6 +7,7 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
+import reikai.novel.content.NovelChapterAddress
 import reikai.novel.content.elementNamed
 
 /**
@@ -288,7 +289,7 @@ object EpubChapters {
             img.removeAttr("srcset")
             when {
                 // Both readers draw an embedded picture as it is.
-                src.startsWith("data:") -> img.attr("src", src)
+                NovelChapterAddress.isDataAddress(src) -> img.attr("src", src)
                 // A local book reads nothing from the web, so a picture there is dropped with the broken ones.
                 src.isEmpty() || "://" in src -> img.remove()
                 else -> img.attr(PATH_ATTR, resolve(base, src))

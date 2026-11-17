@@ -36,4 +36,7 @@ object NovelChapterAddress {
     }
 
     fun isWebAddress(url: String): Boolean = url.toHttpUrlOrNull() != null
+
+    /** An inline `data:` picture. A scheme is read in any case, as the WebView reads it, so every reader agrees. */
+    fun isDataAddress(address: String): Boolean = address.startsWith("data:", ignoreCase = true)
 }

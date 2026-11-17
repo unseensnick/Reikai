@@ -36,7 +36,7 @@ suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelIma
         // A data: src beside a srcset is a lazy-load placeholder, and the srcset holds the picture.
         val widest = NovelImageSources.srcsetCandidate(img, Int.MAX_VALUE).orEmpty()
         val given = img.attr("src")
-        val src = if (given.isBlank() || given.startsWith("data:")) widest else given
+        val src = if (given.isBlank() || NovelChapterAddress.isDataAddress(given)) widest else given
         if (src.isBlank()) continue
         val absolute = NovelChapterAddress.absolute(baseSite, src)
         // Suspending, so a pause cancels the fetch in flight and ends the loop, rather than fetching

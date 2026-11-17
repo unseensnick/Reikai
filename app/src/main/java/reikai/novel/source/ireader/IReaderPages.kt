@@ -7,6 +7,7 @@ import ireader.core.source.model.PageComplete
 import ireader.core.source.model.PageUrl
 import ireader.core.source.model.Text
 import org.jsoup.nodes.Entities
+import reikai.novel.content.NovelChapterAddress
 import reikai.novel.content.NovelHtmlUtils
 
 /**
@@ -27,4 +28,6 @@ private suspend fun Page.toHtml(resolve: suspend (PageUrl) -> PageComplete?): St
 }
 
 // A source may hand over a whole data URI or the bare base64 of the picture.
-private fun dataUri(data: String): String = if (data.startsWith("data:")) data else "data:image/png;base64,$data"
+private fun dataUri(
+    data: String,
+): String = if (NovelChapterAddress.isDataAddress(data)) data else "data:image/png;base64,$data"
