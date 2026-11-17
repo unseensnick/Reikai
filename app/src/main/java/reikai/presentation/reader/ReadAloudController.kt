@@ -182,8 +182,9 @@ class ReadAloudController(
 
     fun previousParagraph() = step(-1)
 
+    /** Ignored while the next chapter opens, as a [step] is: the paragraphs are still the finished chapter's. */
     fun seekToParagraph(index: Int) {
-        if (chapterId == null || paragraphs.isEmpty()) return
+        if (pendingChapter != null || chapterId == null || paragraphs.isEmpty()) return
         command { playAt(index.coerceIn(0, paragraphs.lastIndex)) }
     }
 

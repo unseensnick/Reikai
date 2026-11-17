@@ -828,6 +828,20 @@ class ReadAloudControllerTest {
         navigation.opened shouldBe listOf(2L)
     }
 
+    /** The notification's seek bar still holds the finished chapter's paragraphs while the next one opens. */
+    @Test
+    fun `a seek while the next chapter opens does not speak the finished chapter again`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+        act { engine.finishLast() }
+
+        act { controller.seekToParagraph(2) }
+
+        engine.spoken shouldBe listOf("c")
+    }
+
     @Test
     fun `play after a pause while the next chapter opens starts it once the renderer lands`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
