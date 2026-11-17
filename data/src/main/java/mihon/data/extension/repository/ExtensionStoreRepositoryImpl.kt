@@ -24,6 +24,7 @@ import mihon.domain.extension.model.ExtensionStore
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import reikai.domain.extension.NO_SIGNING_KEY
 import reikai.domain.extension.RefusedStore
+import reikai.domain.extension.StoreRefresh
 import reikai.domain.extension.servesAnotherStore
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -73,8 +74,9 @@ class ExtensionStoreRepositoryImpl(
         )
     }
 
-    override suspend fun refreshAll(): List<RefusedStore> { // RK: the refused stores
+    override suspend fun refreshAll(): StoreRefresh { // RK: the stores reached and refused
         val refused = mutableListOf<RefusedStore>() // RK
+        val reached = mutableSetOf<String>() // RK
         try {
             val refreshed = stores.first().mapNotNull { store ->
                 service.fetch(store.indexUrl)
@@ -105,10 +107,11 @@ class ExtensionStoreRepositoryImpl(
                     }
                 }
             }
+            reached += refreshed.map { (saved, _) -> saved.indexUrl } // RK: only once the writes landed
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
         }
-        return refused // RK
+        return StoreRefresh(refused, reached + refused.map { it.indexUrl }) // RK
     }
 
     override suspend fun upsert(store: ExtensionStore) {

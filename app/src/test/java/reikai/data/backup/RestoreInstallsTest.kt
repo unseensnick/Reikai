@@ -15,6 +15,7 @@ import mihon.domain.extension.repository.ExtensionStoreRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.extension.StoreKeyChangedException
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
@@ -154,6 +155,21 @@ class RestoreInstallsTest {
             .unreadRepos shouldBe listOf("plugins.example")
     }
 
+    /** The repository answers with the other key's listing; only the manager knows the store is refused. */
+    @Test
+    fun `a refused store's listing offers nothing to install`() = runTest {
+        val listing = app("pkg.manga", Extension.Kind.MANGA)
+        val extensionManager = mockk<ExtensionManager> {
+            coEvery { fetchListingsByStore() } returns
+                mapOf(listing.store.indexUrl to Result.failure(StoreKeyChangedException("Other")))
+        }
+
+        sources(
+            extensionManager = extensionManager,
+            storeListings = mapOf(listing.store.indexUrl to Result.success(listOf(listing))),
+        ).device().apps shouldBe emptyList()
+    }
+
     @Test
     fun `a backup store the device already has is not offered`() = runTest {
         sources(deviceStores = listOf(store(backupStore.indexUrl, KEY)))
@@ -176,12 +192,17 @@ class RestoreInstallsTest {
         novelPreferences: NovelPreferences = NovelPreferences(EmittingPreferenceStore()),
         deviceStores: List<ExtensionStore> = emptyList(),
         registryFetcher: LnRegistryFetcher = LnRegistryFetcher { emptyList() },
+        extensionManager: ExtensionManager = mockk<ExtensionManager>(),
+        storeListings: Map<String, Result<List<Extension.Available>>> = emptyMap(),
     ): RestoreInstallSources {
         val live = store(backupStore.indexUrl, liveKey)
         return RestoreInstallSources(
-            extensionManager = mockk<ExtensionManager>(),
+            extensionManager = extensionManager,
             novelPreferences = novelPreferences,
-            storeRepository = mockk<ExtensionStoreRepository> { coEvery { getAll() } returns deviceStores },
+            storeRepository = mockk<ExtensionStoreRepository> {
+                coEvery { getAll() } returns deviceStores
+                coEvery { fetchExtensionsByStore() } returns storeListings
+            },
             storeService = mockk<ExtensionStoreService> {
                 coEvery { fetch(backupStore.indexUrl) } returns Result.success(live)
                 coEvery { getExtensions(live) } returns Result.success(emptyList())

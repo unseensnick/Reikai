@@ -29,6 +29,7 @@ import org.robolectric.shadows.ShadowLooper
 import org.robolectric.shadows.ShadowToast
 import reikai.domain.extension.RefusedStore
 import reikai.domain.extension.RepoStatus
+import reikai.domain.extension.StoreRefresh
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
@@ -70,6 +71,27 @@ class ExtensionStoreRefusalTest {
     }
 
     @Test
+    fun `a refresh that finds the store's own key again lists it again`() = runTest {
+        val manager = manager(savedKey = "key", refreshes = listOf(refused(), StoreRefresh(emptyList(), setOf(URL))))
+
+        repeat(2) { manager.refreshStores() }
+        manager.findAvailableExtensions()
+
+        manager.storeStatuses.value?.get(URL) shouldBe RepoStatus.Reached(manga = 0, novels = 0)
+    }
+
+    /** A list-url or legacy store's listing is refused by the saved refusal alone. */
+    @Test
+    fun `a refresh that cannot reach a refused store keeps its listing refused`() = runTest {
+        val manager = manager(savedKey = "key", refreshes = listOf(refused(), StoreRefresh(emptyList(), emptySet())))
+
+        repeat(2) { manager.refreshStores() }
+        manager.findAvailableExtensions()
+
+        manager.storeStatuses.value?.get(URL) shouldBe RepoStatus.KeyChanged("Other")
+    }
+
+    @Test
     fun `a refused store's listing reads as refused after a restart`() = runTest {
         refused.set(setOf(refusal.encode()))
         val manager = manager(savedKey = "key")
@@ -89,7 +111,9 @@ class ExtensionStoreRefusalTest {
         manager.storeStatuses.value?.get(URL) shouldBe RepoStatus.Reached(manga = 0, novels = 0)
     }
 
-    private fun manager(savedKey: String): ExtensionManager {
+    private fun refused() = StoreRefresh(listOf(refusal), reached = setOf(URL))
+
+    private fun manager(savedKey: String, refreshes: List<StoreRefresh> = listOf(refused())): ExtensionManager {
         val saved = ExtensionStore(
             indexUrl = URL,
             name = "Store",
@@ -114,7 +138,7 @@ class ExtensionStoreRefusalTest {
                 every { getAllAsFlow() } returns flowOf(listOf(saved))
                 coEvery { fetchExtensionsByStore() } returns mapOf(URL to Result.success(emptyList()))
             },
-            updateExtensionStores = mockk { coEvery { this@mockk.invoke() } returns listOf(refusal) },
+            updateExtensionStores = mockk { coEvery { this@mockk.invoke() } returnsMany refreshes },
             installer = mockk(relaxed = true),
             extensionUpdateNotifier = mockk(relaxed = true),
             novelPreferences = mockk(relaxed = true),

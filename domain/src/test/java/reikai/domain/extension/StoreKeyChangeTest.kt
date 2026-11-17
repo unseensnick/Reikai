@@ -18,6 +18,33 @@ class StoreKeyChangeTest {
         RefusedStore.decode(refusal.encode()) shouldBe refusal
     }
 
+    /** The names come from a store's index, so any character must survive the round trip. */
+    @Test
+    fun `a refusal whose store name holds a line break survives being saved and read back`() {
+        val named = refusal.copy(name = "My\nStore")
+
+        RefusedStore.decode(named.encode()) shouldBe named
+    }
+
+    @Test
+    fun `a refresh that reached a refused store with its own key back lifts the refusal`() {
+        StoreRefresh(refused = emptyList(), reached = setOf(URL)).refusalsAfter(listOf(refusal), setOf(URL)) shouldBe
+            emptyList()
+    }
+
+    /** A legacy or list-url store's listing is refused only by the saved refusal, so a failed fetch keeps it. */
+    @Test
+    fun `a refresh that could not reach a refused store keeps the refusal`() {
+        StoreRefresh(refused = emptyList(), reached = emptySet()).refusalsAfter(listOf(refusal), setOf(URL)) shouldBe
+            listOf(refusal)
+    }
+
+    @Test
+    fun `a refusal of a store no longer saved is dropped`() {
+        StoreRefresh(refused = emptyList(), reached = emptySet()).refusalsAfter(listOf(refusal), emptySet()) shouldBe
+            emptyList()
+    }
+
     @Test
     fun `a refusal holds while the store keeps its old key`() {
         refusal.appliesTo(store("key")) shouldBe true

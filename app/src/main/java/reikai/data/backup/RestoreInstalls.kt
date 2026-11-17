@@ -163,7 +163,7 @@ class RestoreInstallSources(
 
     /** What the repos on this device list now, each read live. */
     suspend fun device(): RepoListings = RepoListings(
-        apps = storeRepository.fetchExtensionsByStore().values.flatMap { it.getOrDefault(emptyList()) },
+        apps = extensionManager.fetchListingsByStore().values.flatMap { it.getOrDefault(emptyList()) },
         plugins = registryFetcher.fetchEach(novelPreferences.addedRepoUrls().get()).listedPlugins(),
     )
 

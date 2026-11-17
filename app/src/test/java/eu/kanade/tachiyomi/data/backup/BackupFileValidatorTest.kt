@@ -106,12 +106,11 @@ class BackupFileValidatorTest {
         novelSourceManager = novelSources,
         parser = ProtoBuf,
         restoreInstalls = RestoreInstallSources(
-            extensionManager = extensions,
-            novelPreferences = deviceNovelPreferences,
             // No repo anywhere, so every missing app and plugin is one to install by hand.
+            extensionManager = extensions.also { coEvery { it.fetchListingsByStore() } returns emptyMap() },
+            novelPreferences = deviceNovelPreferences,
             storeRepository = mockk<ExtensionStoreRepository> {
                 coEvery { getAll() } returns emptyList()
-                coEvery { fetchExtensionsByStore() } returns emptyMap()
             },
             storeService = mockk<ExtensionStoreService>(),
             registryFetcher = LnRegistryFetcher { emptyList() },

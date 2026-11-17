@@ -361,13 +361,15 @@ class ExtensionManager(
 
     /**
      * Refreshes the saved stores and keeps the ones refused because their address now serves another key,
-     * so their listing stays refused across restarts. Each refusal is told once, not on every daily check.
+     * so their listing stays refused across restarts. Each refusal is told once, not on every daily check,
+     * and one whose store this refresh could not reach is kept rather than told again.
      */
     suspend fun refreshStores() {
-        val refused = updateExtensionStores()
+        val refresh = updateExtensionStores()
         val told = preferences.refusedExtensionStores.get().mapNotNullTo(HashSet(), RefusedStore::decode)
-        preferences.refusedExtensionStores.set(refused.mapTo(HashSet()) { it.encode() })
-        val untold = refused.filter { it !in told }
+        val saved = extensionStoreRepository.getAll().mapTo(HashSet()) { it.indexUrl }
+        preferences.refusedExtensionStores.set(refresh.refusalsAfter(told, saved).mapTo(HashSet()) { it.encode() })
+        val untold = refresh.refused.filter { it !in told }
         if (untold.isEmpty()) return
         withUIContext {
             untold.forEach {
@@ -393,9 +395,14 @@ class ExtensionManager(
     }
     // RK <--
 
+    // RK --> every reader of the listings, a backup restore's included, takes a refused store's as refused
+    suspend fun fetchListingsByStore(): Map<String, Result<List<Extension.Available>>> =
+        withIOContext { withoutRefusedListings(extensionStoreRepository.fetchExtensionsByStore()) }
+    // RK <--
+
     // RK: fetched per store, so each store's outcome is kept for the Repos screen
     private suspend fun fetchExtensions(): List<Extension.Available> {
-        val byStore = withIOContext { withoutRefusedListings(extensionStoreRepository.fetchExtensionsByStore()) }
+        val byStore = fetchListingsByStore() // RK
         storeStatuses.value = byStore.mapValues { (_, result) -> result.toRepoStatus() }
         return byStore.values.flatMap { it.getOrDefault(emptyList()) }
     }

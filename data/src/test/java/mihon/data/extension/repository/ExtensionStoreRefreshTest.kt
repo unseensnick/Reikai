@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.extension.RefusedStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
+import java.io.IOException
 
 /**
  * Refreshing fetches every store first and then writes them together (mihon 8066b8dfc), and a store removed
@@ -94,9 +95,23 @@ class ExtensionStoreRefreshTest {
         val repository = ExtensionStoreRepositoryImpl(backgroundScope, service, database)
         repository.upsert(store(URL, "Store"))
 
-        val refused = repository.refreshAll()
+        val refused = repository.refreshAll().refused
 
         listOf(refused, nameOf(URL)) shouldBe listOf(listOf(RefusedStore(URL, "Store", "other", "Other")), "Store")
+    }
+
+    /** A refusal is lifted only by a refresh that reached the store, so one that could not keeps it. */
+    @Test
+    fun `a store whose fetch failed is not reached`() = runTest {
+        val service = mockk<ExtensionStoreService> {
+            coEvery { fetch(URL) } returns Result.failure(IOException("timed out"))
+            coEvery { fetch(OTHER_URL) } returns Result.success(store(OTHER_URL, "Other"))
+        }
+        val repository = ExtensionStoreRepositoryImpl(backgroundScope, service, database)
+        repository.upsert(store(URL, "Store"))
+        repository.upsert(store(OTHER_URL, "Other"))
+
+        repository.refreshAll().reached shouldBe setOf(OTHER_URL)
     }
 
     private suspend fun nameOf(indexUrl: String): String? =
