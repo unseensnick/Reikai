@@ -2,7 +2,6 @@ package reikai.presentation.reader
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +49,10 @@ fun ReaderThemeDialog(
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
             Text(stringResource(MR.strings.pref_category_theme), style = MaterialTheme.typography.titleMedium)
             Row(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onFollowSystem).padding(vertical = 8.dp),
+                // One choice with the swatches below, so it says whether it is picked as they do.
+                modifier = Modifier.fillMaxWidth()
+                    .selectable(selected = followSystemTheme, onClick = onFollowSystem, role = Role.RadioButton)
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
