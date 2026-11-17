@@ -190,7 +190,12 @@ suspend fun syncChaptersWithNovelSource(
 
     // A page is compared with what that page held: chapters filling a page never stored are the back
     // catalogue, whatever other pages the novel has.
-    val hadChapters = if (page == null) dbChapters.isNotEmpty() else dbChapters.any { it.page == page }
+    // Rows stored while the novel had one page carry no page number, and they were its first page.
+    val hadChapters = when (page) {
+        null -> dbChapters.isNotEmpty()
+        "1" -> dbChapters.any { it.page == page || it.page.toLongOrNull() == null }
+        else -> dbChapters.any { it.page == page }
+    }
     // Nor are they new, unless the page opened since the last walk or the novel had nothing stored to compare with.
     val backCatalogue = !hadChapters && !pageOpened && dbChapters.isNotEmpty()
     return NovelChapterSyncResult(

@@ -470,6 +470,20 @@ class NovelRefreshTest {
         refresh(novels.getById(novel.id)!!, source).newChapters.map { it.url } shouldBe listOf("/c/5")
     }
 
+    /** A newest-first source: the release that pushes the list onto a second page lands on the first. */
+    @Test
+    fun `a novel that grows a second page reports the new chapter on its first`() = runTest {
+        val novel = storedNovel()
+        storedChapter(novel, "/c/1", 1.0, read = false)
+        storedChapter(novel, "/c/2", 2.0, read = false)
+        val source = PagedSource(
+            listOf(chapter("/c/3", 3.0), chapter("/c/2", 2.0)),
+            mapOf("2" to listOf(chapter("/c/1", 1.0))),
+        )
+
+        refresh(novel, source).newChapters.map { it.url } shouldBe listOf("/c/3")
+    }
+
     @Test
     fun `a chapter added to the previously last page is reported with the page that opened after it`() = runTest {
         val novel = threeStoredPages()
