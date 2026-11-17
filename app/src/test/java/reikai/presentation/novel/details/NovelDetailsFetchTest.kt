@@ -96,6 +96,33 @@ class NovelDetailsFetchTest {
         (state as NovelDetailsState.Failed).retryable shouldBe true
     }
 
+    /** The update names the failed load for the same novel, so a pull to refresh must not call it not installed. */
+    @Test
+    fun `refreshing a stored novel whose plugin threw while loading says why`() = runTest {
+        val message = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            harness.pluginFailures.value = mapOf(
+                "https://example.org/gone.js" to LnPluginLoadFailure(
+                    url = "https://example.org/gone.js",
+                    pluginId = "gone",
+                    name = "Gone plugin",
+                    iconUrl = null,
+                    lang = null,
+                    version = "1.0.0",
+                    customCssUrl = null,
+                    reason = LnPluginLoadFailure.Reason.Failed("ReferenceError: x", "trace"),
+                ),
+            )
+            val novel = harness.novel(FakeNovelSource("gone", "unregistered"))
+            harness.chapter(novel, 1.0)
+            val model = harness.openDetails(novel)
+            model.awaitLoaded { it.sourceState == EntrySourceState.Missing }
+            model.refresh()
+            model.snackbarWithin(10_000)?.visuals?.message
+        }
+
+        message?.contains("ReferenceError: x") shouldBe true
+    }
+
     @Test
     fun `a novel opened from browsing whose source cannot answer shows why`() = runTest {
         val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->

@@ -552,7 +552,8 @@ class NovelReaderViewModelHarness private constructor(
             reikaiLibraryPreferences = reikaiLibraryPreferences,
             libraryPreferences = LibraryPreferences(store),
             syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, NoChapterTombstones),
-            localSeriesRelink = mockk(),
+            // A remote novel's failed refresh offers no folders, as offerAfterFailure answers for one.
+            localSeriesRelink = mockk { coEvery { offerAfterFailure(any(), any(), false) } returns null },
             editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
             getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },

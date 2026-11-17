@@ -155,6 +155,7 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.describing
+import reikai.novel.install.unreachable
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -1089,7 +1090,8 @@ class NovelDetailsViewModel(
                 val firstError = refreshMergeGroup(
                     anchor = {
                         runCatchingCancellable {
-                            val src = resolvedSource ?: sourceManager.getOrThrow(loaded.novel.source)
+                            val src = resolvedSource ?: sourceManager.get(loaded.novel.source)
+                                ?: throw installer.failures.value.unreachable(loaded.novel.source, context)
                             refreshNovel(src, loaded.novel, toDownload, viewedPage)
                         }
                     },

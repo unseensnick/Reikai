@@ -30,7 +30,6 @@ import reikai.novel.source.ireader.IReaderNovelSource
 import reikai.novel.source.ireader.IReaderSourceHolder
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.source.model.SourceNotInstalledException
 
 /**
  * In-memory registry of installed [NovelSource]s, keyed by `source.id`, over both kinds: LNReader
@@ -128,9 +127,6 @@ class NovelSourceManager(
         awaitFirstLoad()
         return sourcesFlow.value[id]
     }
-
-    /** Twin of manga's `getOrStub`, pinned by NovelSourceManagerTest: both throw SourceNotInstalledException. */
-    suspend fun getOrThrow(id: String): NovelSource = get(id) ?: throw SourceNotInstalledException()
 
     /**
      * A source's name: its own, else the one it had when last seen installed, else its id, as a manga
