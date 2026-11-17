@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -29,6 +30,13 @@ class ReaderThemeSwatchesTest {
         show()
 
         compose.onNodeWithContentDescription("Sepia").assertIsSelected()
+    }
+
+    @Test
+    fun aSwatchNotInUseIsNotSelected() {
+        show()
+
+        compose.onNodeWithContentDescription("Mint").assertIsNotSelected()
     }
 
     @Test

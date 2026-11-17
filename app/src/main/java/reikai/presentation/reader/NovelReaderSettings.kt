@@ -200,7 +200,7 @@ fun NovelReaderSettings.resolvedForSystemTheme(isDark: Boolean): NovelReaderSett
  *  picks. The settings sheet shows the same, so its swatches are what the renderers draw. */
 fun readerThemeShown(followSystem: Boolean, isDark: Boolean, background: String, textColor: String): ReaderThemePreset =
     when {
-        !followSystem -> ReaderThemePreset("", background, textColor)
+        !followSystem -> ReaderThemePreset("", MR.strings.pref_reader_theme, background, textColor)
         isDark -> readerDarkPreset
         else -> readerLightPreset
     }

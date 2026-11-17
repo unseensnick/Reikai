@@ -13,7 +13,13 @@ import tachiyomi.i18n.MR
  * own background now; an install still storing the old value draws it through [readerColorOrNull],
  * which reads eight digits as CSS does in both renderers.
  */
-data class ReaderThemePreset(val name: String, val background: String, val textColor: String) {
+data class ReaderThemePreset(
+    val name: String,
+    /** What the preset is called on screen, which the swatch, showing only its colours, gives TalkBack. */
+    val label: StringResource,
+    val background: String,
+    val textColor: String,
+) {
 
     /**
      * Whether the page shows this preset: both stored colours compared as drawn, so a case or `#rgb`
@@ -30,25 +36,13 @@ data class ReaderThemePreset(val name: String, val background: String, val textC
 
 /** LNReader's five presets, its dark one named Grey as tsundoku names it, plus tsundoku's Dark. */
 val readerThemePresets = listOf(
-    ReaderThemePreset("Light", "#f5f5fa", "#111111"),
-    ReaderThemePreset("Sepia", "#F7DFC6", "#593100"),
-    ReaderThemePreset("Mint", "#dce5e2", "#000000"),
-    ReaderThemePreset("Grey", "#292832", "#CCCCCC"),
-    ReaderThemePreset("Dark", "#121212", "#E0E0E0"),
-    ReaderThemePreset("Black", "#000000", "#B3B3B3"),
+    ReaderThemePreset("Light", MR.strings.theme_light, "#f5f5fa", "#111111"),
+    ReaderThemePreset("Sepia", MR.strings.sepia_background, "#F7DFC6", "#593100"),
+    ReaderThemePreset("Mint", MR.strings.mint_background, "#dce5e2", "#000000"),
+    ReaderThemePreset("Grey", MR.strings.gray_background, "#292832", "#CCCCCC"),
+    ReaderThemePreset("Dark", MR.strings.theme_dark, "#121212", "#E0E0E0"),
+    ReaderThemePreset("Black", MR.strings.black_background, "#000000", "#B3B3B3"),
 )
-
-/** What a preset is called on screen, which the swatch, showing only its colours, gives TalkBack. */
-val ReaderThemePreset.label: StringResource
-    get() = when (name) {
-        "Light" -> MR.strings.theme_light
-        "Sepia" -> MR.strings.sepia_background
-        "Mint" -> MR.strings.mint_background
-        "Grey" -> MR.strings.gray_background
-        "Dark" -> MR.strings.theme_dark
-        "Black" -> MR.strings.black_background
-        else -> MR.strings.pref_reader_theme
-    }
 
 /**
  * Presets the "Auto" (follow-system) option resolves to for light and dark system modes. Dark mode keeps

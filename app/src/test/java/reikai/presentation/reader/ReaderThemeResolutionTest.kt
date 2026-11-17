@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.i18n.MR
 
 /** The colours the settings sheet shows and the page draws are one resolution, so the two cannot disagree. */
 class ReaderThemeResolutionTest {
@@ -25,7 +26,7 @@ class ReaderThemeResolutionTest {
     @Test
     fun `a manual theme shows the stored colours`() {
         readerThemeShown(followSystem = false, isDark = true, background = "#123456", textColor = "#abcdef") shouldBe
-            ReaderThemePreset("", "#123456", "#abcdef")
+            ReaderThemePreset("", MR.strings.pref_reader_theme, "#123456", "#abcdef")
     }
 
     @Test
@@ -62,6 +63,7 @@ class ReaderThemeResolutionTest {
         val preferences = NovelPreferences(InMemoryPreferenceStore())
         ReaderThemePreset(
             "Grey",
+            MR.strings.gray_background,
             preferences.readerBackgroundColor().defaultValue(),
             preferences.readerTextColor().defaultValue(),
         ) shouldBe readerDarkPreset
