@@ -13,10 +13,12 @@ import androidx.core.graphics.ColorUtils
  * A failed chapter picture, drawn as the WebView page draws one (`.rk-image-failure` in reader.css): a
  * box saying so, and a Retry pill when the picture can be asked for again. The colour is read as it
  * draws, so a theme change reaches a box already on screen. Sized at creation, [em] being the text size.
+ * The border, corner and opacity are the page's, held to it by NovelWebTwinValuesTest.
  */
 internal class ImageFailureDrawable(
     width: Int,
     private val em: Float,
+    private val density: Float,
     val heading: String,
     /** Null for a picture that cannot be asked for again, an inline one or an unsupported address. */
     val retryLabel: String?,
@@ -45,9 +47,18 @@ internal class ImageFailureDrawable(
     override fun draw(canvas: Canvas) {
         val color = textColor()
         val box = RectF(bounds)
-        linePaint.color = ColorUtils.setAlphaComponent(color, (255 * BOX_ALPHA).toInt())
-        linePaint.strokeWidth = em / 16
-        canvas.drawRoundRect(box, em / 2, em / 2, linePaint)
+        // The page's opacity is the whole box's, heading and pill included, so the box is drawn as one layer.
+        val layer = canvas.saveLayerAlpha(box, (255 * BOX_ALPHA).toInt())
+        drawBox(canvas, box, color)
+        canvas.restoreToCount(layer)
+    }
+
+    private fun drawBox(canvas: Canvas, box: RectF, color: Int) {
+        linePaint.color = color
+        linePaint.strokeWidth = BORDER_DP * density
+        // Inset by half the stroke, as CSS draws a border inside the box rather than across its edge.
+        val outline = RectF(box).apply { inset(linePaint.strokeWidth / 2, linePaint.strokeWidth / 2) }
+        canvas.drawRoundRect(outline, CORNER_DP * density, CORNER_DP * density, linePaint)
 
         textPaint.color = color
         textPaint.textAlign = Paint.Align.CENTER
@@ -73,11 +84,12 @@ internal class ImageFailureDrawable(
     @Deprecated("Deprecated in Java", ReplaceWith("PixelFormat.TRANSLUCENT", "android.graphics.PixelFormat"))
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
-    private companion object {
-        /** `opacity: 0.85` on `.rk-failure`. */
+    companion object {
         const val BOX_ALPHA = 0.85f
-        const val RETRYING_ALPHA = 96
-        const val BLACK = 0xFF000000.toInt()
-        const val WHITE = 0xFFFFFFFF.toInt()
+        const val BORDER_DP = 1f
+        const val CORNER_DP = 8f
+        private const val RETRYING_ALPHA = 96
+        private const val BLACK = 0xFF000000.toInt()
+        private const val WHITE = 0xFFFFFFFF.toInt()
     }
 }

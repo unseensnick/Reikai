@@ -40,6 +40,21 @@ class NovelWebTwinValuesTest {
     }
 
     @Test
+    fun `a failure box's border is as thick on the page`() {
+        number(css, """\.rk-failure \{[^}]*?border: ([\d.]+)px""") shouldBe ImageFailureDrawable.BORDER_DP
+    }
+
+    @Test
+    fun `a failure box is as round on the page`() {
+        number(css, """\.rk-failure \{[^}]*?border-radius: ([\d.]+)px""") shouldBe ImageFailureDrawable.CORNER_DP
+    }
+
+    @Test
+    fun `a failure box is as faint on the page`() {
+        number(css, """\.rk-failure \{[^}]*?opacity: ([\d.]+);""") shouldBe ImageFailureDrawable.BOX_ALPHA
+    }
+
+    @Test
     fun `a loading picture's box is as tall on the page`() {
         number(css, """img\[src]:not\(\.rk-loaded\) \{[^}]*?height: ([\d.]+)px""") shouldBe
             NovelImageGetter.PLACEHOLDER_HEIGHT_DP.toFloat()

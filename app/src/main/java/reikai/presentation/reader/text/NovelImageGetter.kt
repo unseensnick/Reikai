@@ -459,6 +459,7 @@ class NovelImageGetter(
     private fun failureBox(retryable: Boolean) = ImageFailureDrawable(
         width = contentWidth,
         em = textSizePx,
+        density = density,
         heading = context.stringResource(MR.strings.decode_image_error),
         retryLabel = if (retryable) context.stringResource(MR.strings.action_retry) else null,
         textColor = textColor,

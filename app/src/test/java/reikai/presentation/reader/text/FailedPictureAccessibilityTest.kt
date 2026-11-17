@@ -21,7 +21,7 @@ class FailedPictureAccessibilityTest {
 
     private fun chunk(retryLabel: String?): TextView {
         val box = DrawableWrapper().apply {
-            innerDrawable = ImageFailureDrawable(100, 10f, "Couldn't load image", retryLabel) { 0 }
+            innerDrawable = ImageFailureDrawable(100, 10f, 1f, "Couldn't load image", retryLabel) { 0 }
         }
         val text = SpannableString("Before ￼ after").apply {
             setSpan(ImageSpan(box), 7, 8, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
