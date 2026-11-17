@@ -242,6 +242,41 @@ class NovelDownloadManagerFailureTest {
         coVerify(exactly = 1) { installer.retryLoad("broken") }
     }
 
+    @Test
+    fun `a chapter whose plugin loads on the second try downloads`() = runTest {
+        val reloaded = mockk<NovelSource> {
+            every { minimumRequestDelayMs } returns 0L
+            coEvery { parseChapter("u30") } returns "text"
+        }
+        coEvery { installer.retryLoad("broken") } answers { coEvery { sourceManager.get("broken") } returns reloaded }
+        manager.downloadChapters(listOf(unloadedChapter))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+
+        NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe emptyList()
+    }
+
+    /** Only a plugin that failed to load is loaded again; a source that is not installed has nothing to load. */
+    @Test
+    fun `a chapter whose source is not installed loads no plugin again`() = runTest {
+        manager.downloadChapters(listOf(uninstalledChapter))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+
+        coVerify(exactly = 0) { installer.retryLoad(any()) }
+    }
+
+    /** Each run is asked for afresh, so the plugin a run reloaded is reloaded by the next one too. */
+    @Test
+    fun `every run loads a failed plugin again`() = runTest {
+        repeat(2) {
+            manager.downloadChapters(listOf(unloadedChapter))
+            manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+        }
+
+        coVerify(exactly = 2) { installer.retryLoad("broken") }
+    }
+
     /** The next run's plugin load retries it, so a Resume can still fetch it. */
     @Test
     fun `a chapter whose installed plugin failed to load stays in the saved queue`() = runTest {
