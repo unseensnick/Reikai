@@ -9,8 +9,20 @@ class ReadingPaceTest {
         PaceSample(entryId, (secondsPerPage * 1000 * pages).toLong(), pages)
 
     @Test
-    fun `fewer than three finished chapters is still learning`() {
-        learnPace(listOf(page(1, 5.0), page(2, 6.0)), seriesIds = setOf(1), PaceUnit.PAGE) shouldBe ReadingPace.Learning
+    fun `no finished chapter is still learning`() {
+        learnPace(emptyList(), seriesIds = setOf(1), PaceUnit.PAGE) shouldBe ReadingPace.Learning
+    }
+
+    @Test
+    fun `one finished chapter is enough for a pace`() {
+        learnPace(listOf(page(2, 5.0)), seriesIds = setOf(1), PaceUnit.PAGE) shouldBe ReadingPace.Known(5_000.0)
+    }
+
+    @Test
+    fun `a series' single chapter does not outrank the overall pace`() {
+        val samples = listOf(page(1, 10.0), page(2, 4.0), page(3, 6.0))
+
+        learnPace(samples, seriesIds = setOf(1), PaceUnit.PAGE) shouldBe ReadingPace.Known(6_000.0)
     }
 
     @Test
@@ -44,9 +56,9 @@ class ReadingPaceTest {
     @Test
     fun `a chapter skimmed through or left open does not count`() {
         // Under a second a page is tapping through; over two minutes a page is the reader left open.
-        val samples = listOf(page(1, 0.2), page(1, 300.0), page(1, 5.0), page(1, 7.0))
+        val samples = listOf(page(1, 0.2), page(1, 0.3), page(1, 300.0), page(1, 5.0))
 
-        learnPace(samples, seriesIds = setOf(1), PaceUnit.PAGE) shouldBe ReadingPace.Learning
+        learnPace(samples, seriesIds = null, PaceUnit.PAGE) shouldBe ReadingPace.Known(5_000.0)
     }
 
     @Test

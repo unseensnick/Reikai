@@ -30,15 +30,14 @@ sealed interface ReaderTimeLeft {
 }
 
 /**
- * How long the rest of the chapter takes at the learned pace, the page on screen counted as unread; null
- * with no position to measure from.
+ * How long the rest of the chapter takes at the learned pace, else at the [live] one measured in it
+ * ([LiveReading]), the page on screen counted as unread; null with no position to measure from.
  */
-fun chapterTimeLeft(chapter: ChapterPace, progress: ChapterProgress?): ReaderTimeLeft? {
-    val left = progress?.remainingFraction ?: return null
-    return when (val pace = chapter.reading) {
-        ReadingPace.Learning -> ReaderTimeLeft.Learning(listening = false)
-        is ReadingPace.Known -> ReaderTimeLeft.Remaining((chapter.units * left * pace.msPerUnit).milliseconds)
-    }
+fun chapterTimeLeft(chapter: ChapterPace, progress: ChapterProgress?, live: Double? = null): ReaderTimeLeft? {
+    val before = progress?.unitsBefore(chapter.units) ?: return null
+    val msPerUnit = (chapter.reading as? ReadingPace.Known)?.msPerUnit ?: live
+        ?: return ReaderTimeLeft.Learning(listening = false)
+    return ReaderTimeLeft.Remaining(((chapter.units - before) * msPerUnit).milliseconds)
 }
 
 /**
@@ -52,11 +51,13 @@ fun listeningTimeLeft(progress: ReadAloudProgress, live: Double?, learned: Readi
     return ReaderTimeLeft.Remaining((left * msPerWord).milliseconds)
 }
 
-private val ChapterProgress.remainingFraction: Double?
-    get() = when (this) {
-        is ChapterProgress.Pages ->
-            pageCount.takeIf { it > 0 }?.let { (it - lastPageRead).coerceIn(0, it).toDouble() / it }
-        is ChapterProgress.Percent ->
-            (ChapterProgress.Percent.FULL - hundredths).coerceIn(0L, ChapterProgress.Percent.FULL).toDouble() /
-                ChapterProgress.Percent.FULL
-    }
+/**
+ * How much of a chapter [units] long lies before the position, the page on screen counted as unread; null
+ * before its pages load. Multiplied before dividing, so whole pages come out whole.
+ */
+internal fun ChapterProgress.unitsBefore(units: Long): Double? = when (this) {
+    is ChapterProgress.Pages ->
+        pageCount.takeIf { it > 0 }?.let { units.toDouble() * lastPageRead.coerceIn(0, it) / it }
+    is ChapterProgress.Percent ->
+        units.toDouble() * hundredths.coerceIn(0L, ChapterProgress.Percent.FULL) / ChapterProgress.Percent.FULL
+}

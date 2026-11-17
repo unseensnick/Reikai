@@ -143,7 +143,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Paged novels keep each picture whole on one page, shrinking a tall one to fit while it stays readable.** A very tall picture keeps its width and continues across pages.
 - **Paged novels can show two pages side by side, from Dual page view on the reader settings' Reading tab.** Never, Always or When wide, as in the manga reader.
 - **Two-page spreads in novels, and in manga with the high quality renderer, can now have space between the pages, from Space between pages in the reader settings.** Up to 20% of a page's width, and a single page beside a spread stays the same size.
-- **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** While a novel is read aloud, it counts down at the voice's speed instead.
+- **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** It shows after a few pages of your first chapter, and counts down at the voice's speed while a novel is read aloud.
 - **Either reader's Appearance settings can draw the progress and time left under the page up to 2.5× larger, on a strip that hides what is behind them.**
 - **A mouse wheel now turns pages in paged novels.**
 - **The high quality renderer can crop borders instead of zooming, tune shader settings, turn tiles off and take your own scaling shaders (from Mihon).** Upstream: mihonapp/mihon#4226, mihonapp/mihon#4242.

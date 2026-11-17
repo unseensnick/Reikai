@@ -42,15 +42,15 @@ enum class PaceUnit(val floorMs: Double, val capMs: Double) {
 
 /**
  * The pace for a series from [samples], newest first: its own most recent chapters once it has
- * [MIN_SAMPLES] of them, else the most recent across everything read, else [ReadingPace.Learning]. A
- * series is every entry in [seriesIds], so a merged one learns from each member's chapters; null asks for
- * the overall pace.
+ * [MIN_OWN_SAMPLES] of them, else the most recent across everything read, else [ReadingPace.Learning]
+ * until one chapter is finished. A series is every entry in [seriesIds], so a merged one learns from each
+ * member's chapters; null asks for the overall pace.
  */
 fun learnPace(samples: List<PaceSample>, seriesIds: Set<Long>?, unit: PaceUnit): ReadingPace {
     val plausible = samples.filter { it.units > 0 && it.msPerUnit in unit.floorMs..unit.capMs }
     val own = plausible.filter { seriesIds != null && it.entryId in seriesIds }.take(RECENT_SAMPLES)
-    val pool = if (own.size >= MIN_SAMPLES) own else plausible.take(RECENT_SAMPLES)
-    if (pool.size < MIN_SAMPLES) return ReadingPace.Learning
+    val pool = if (own.size >= MIN_OWN_SAMPLES) own else plausible.take(RECENT_SAMPLES)
+    if (pool.isEmpty()) return ReadingPace.Learning
     val sorted = pool.map { it.msPerUnit }.sorted()
     val mid = sorted.size / 2
     return ReadingPace.Known(if (sorted.size % 2 == 1) sorted[mid] else (sorted[mid - 1] + sorted[mid]) / 2)
@@ -58,6 +58,9 @@ fun learnPace(samples: List<PaceSample>, seriesIds: Set<Long>?, unit: PaceUnit):
 
 private val PaceSample.msPerUnit: Double get() = durationMs.toDouble() / units
 
-/** How many finished chapters a pace needs, and how many of the newest it is taken from. */
-private const val MIN_SAMPLES = 3
+/**
+ * How many of its own finished chapters a series needs before they outrank the overall pace, and how many
+ * of the newest a pace is taken from.
+ */
+private const val MIN_OWN_SAMPLES = 3
 private const val RECENT_SAMPLES = 20

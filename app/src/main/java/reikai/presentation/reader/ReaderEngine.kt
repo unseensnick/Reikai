@@ -40,9 +40,11 @@ import kotlinx.coroutines.yield
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterPace
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.Listening
+import reikai.domain.reader.LiveReading
 import reikai.domain.reader.ReaderProgressLook
 import reikai.domain.reader.ReaderTimeLeft
 import reikai.domain.reader.chapterTimeLeft
@@ -116,14 +118,19 @@ class ReaderEngine(
     val progressLook: StateFlow<ReaderProgressLook> =
         provider.progressLook.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderProgressLook())
 
+    // Shared, since a novel's length is counted by parsing the whole chapter and each collector of the
+    // provider's flow would count it again.
+    private val chapterLength: StateFlow<ChapterLength?> = provider.chapterLength
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     // Each chapter this session measured, to whether its reading is recorded.
     private val recordedChapters = ConcurrentHashMap<Long, Boolean>()
 
     // Eager whether or not time left is shown, so a length is kept and the pace goes on learning while it
     // is off, and turning it on finds a pace already known. Asked once a chapter, since history only
     // changes when the reader moves to another one.
-    private val chapterPace: StateFlow<ChapterPace?> = provider.chapterLength
-        .distinctUntilChanged()
+    private val chapterPace: StateFlow<ChapterPace?> = chapterLength
         .onEach { length -> length?.let { recordedChapters[it.chapterId] = it.recorded } }
         .mapLatest { length ->
             length?.let {
@@ -313,6 +320,17 @@ class ReaderEngine(
         .onEach { it.listened?.let(::recordListened) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Listening())
 
+    // The pace measured in the open chapter, which the time left shows until finished chapters teach one.
+    private val reading: StateFlow<LiveReading> =
+        combine(chapterLength, navigator.map { it.progress }.distinctUntilChanged(), ::Pair)
+            .scan(LiveReading()) { state, (length, progress) ->
+                length?.let {
+                    val now = clock.elapsedNow().inWholeMilliseconds
+                    state.next(it.chapterId, it.units, progress, now, PaceUnit.of(it.contentType))
+                } ?: state
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, LiveReading())
+
     /**
      * The open chapter's time left while this session's setting asks for it, else null: while read-aloud
      * plays, at the voice's pace over what it has still to speak, otherwise at the reader's own.
@@ -321,16 +339,17 @@ class ReaderEngine(
         combine(
             provider.showTimeLeft,
             chapterPace,
-            navigator,
+            // The position and the live pace from one step, so a page turn recomputes this once.
+            reading,
             readAloudState,
             listening,
-        ) { show, pace, nav, speech, heard ->
+        ) { show, pace, live, speech, heard ->
             val progress = speech.progress
             when {
                 !show -> null
                 speech.playback == TtsPlayback.Playing && progress != null ->
                     listeningTimeLeft(progress, heard.msPerWord, pace?.listening ?: ReadingPace.Learning)
-                else -> pace?.let { chapterTimeLeft(it, nav.progress) }
+                else -> pace?.let { chapterTimeLeft(it, live.progress, live.msPerUnit) }
             }
         }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)

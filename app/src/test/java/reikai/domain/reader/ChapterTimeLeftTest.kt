@@ -50,6 +50,20 @@ class ChapterTimeLeftTest {
     }
 
     @Test
+    fun `a pace still learning takes the one measured in the chapter`() {
+        val learning = tenSecondsAPage.copy(reading = ReadingPace.Learning)
+
+        chapterTimeLeft(learning, ChapterProgress.Pages(0, 30), live = 10_000.0) shouldBe
+            ReaderTimeLeft.Remaining(5.minutes)
+    }
+
+    @Test
+    fun `a learned pace outranks the one measured in the chapter`() {
+        chapterTimeLeft(tenSecondsAPage, ChapterProgress.Pages(0, 30), live = 20_000.0) shouldBe
+            ReaderTimeLeft.Remaining(5.minutes)
+    }
+
+    @Test
     fun `no position shows nothing`() {
         chapterTimeLeft(tenSecondsAPage, null) shouldBe null
     }
