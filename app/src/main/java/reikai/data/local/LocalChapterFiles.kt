@@ -7,9 +7,9 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localVolumeContainer
 import reikai.novel.local.LocalNovelSource
+import reikai.source.local.isLocalVolumeExtras
 import reikai.source.local.localChapterFile
 import reikai.source.local.localChapterUnit
-import reikai.source.local.localVolumeChapter
 import reikai.storage.FolderUnreadableException
 import reikai.storage.list
 import tachiyomi.core.common.util.lang.withIOContext
@@ -32,7 +32,7 @@ class LocalChapterFiles(
     fun containerOf(type: ContentType, url: String): String? = when (type) {
         ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)
             ?.let { (series, volume) -> LocalNovelSource.volumePathPrefix(series, volume) }
-        else -> url.takeIf { localVolumeChapter(it)?.file?.isEmpty() == true }
+        else -> url.takeIf(::isLocalVolumeExtras)
     }
 
     /** The names in the type's local folder, from a listing trusted whole; one that cannot be trusted fails the refresh. */
