@@ -35,7 +35,7 @@ class ReaderProgressSave<K : Any, V>(
         if (now) {
             flush()
         } else {
-            // Undispatched, so it is waiting before a close can cancel it and the finally always runs.
+            // Undispatched, so it is already in the delay when a close cancels it, so the catch falls through to the write.
             delayed = scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 try {
                     delay(PROGRESS_SAVE_DELAY)
