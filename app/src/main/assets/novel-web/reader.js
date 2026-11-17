@@ -508,6 +508,14 @@
       return total;
     }
 
+    /* The chapter's first element that takes up room, null when its text comes first. */
+    function firstShown(chapter) {
+      for (var el = chapter.firstElementChild; el; el = el.nextElementSibling) {
+        if (el.getBoundingClientRect().height > 0) return el;
+      }
+      return null;
+    }
+
     function lastDescendant(node) {
       while (node.lastChild) node = node.lastChild;
       return node;
@@ -544,13 +552,16 @@
         range.setEnd(found.node, found.offset + 1);
         var rect = range.getClientRects()[0];
         if (!rect) return false;
+        // Line 0 is the chapter's start, where an opening picture sits above the first counted character.
+        var start = line === 0 ? firstShown(chapter) : null;
+        var top = start ? start.getBoundingClientRect().top : rect.top;
         paged.release();
-        window.scrollTo({ top: Math.round(scrollTop() + rect.top - readingTop()), behavior: 'instant' });
+        window.scrollTo({ top: Math.round(scrollTop() + top - readingTop()), behavior: 'instant' });
         place.sync();
-        paged.hold(found.node, found.offset);
+        paged.hold(start || found.node, start ? 0 : found.offset);
         var id = chapter.getAttribute(CHAPTER_ID_ATTR);
         lastChapterSeen = id;
-        var landed = range.getClientRects()[0];
+        var landed = start ? start.getBoundingClientRect() : range.getClientRects()[0];
         if (landed && landed.top > readingTop() + EDGE_TOLERANCE) {
           shortSeek = { chapter: chapter, line: line, at: measure(id) };
         }

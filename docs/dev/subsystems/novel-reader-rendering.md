@@ -112,6 +112,7 @@ Speech keeps the reader's place itself, since it moves the screen only with Keep
 - **A rebuild or a mode switch must not re-aim at the session's first chapter.** `load()` reads `pendingChapterId`, which only an explicit open moves.
 - **Paged, the list counts nothing as visible**, since the screen of padding below the last chapter takes its whole height. The visible chapter is the item holding the reading top, never `findFirstVisibleItemPosition`, and the paged layout manager refuses `requestChildRectangleOnScreen`: a tap focuses the item, and the list's scroll to bring it into view slid every page off itself.
 - **Paged, a page's top margin is the chapter's own top padding**, so every page's first line sits where a chapter's first line does. The margin band is masked, and it still holds the page before's last lines, so every position read in paged mode probes the reading top, not the screen's edge.
+- **Line 0 is the chapter's start, not its first counted character.** Pictures carry no counted text, so in the page a seek to line 0 lands on the chapter's first element that takes up room (`firstShown` in `reader.js`) and holds it; landing on the first character opened a chapter that starts with a picture on the page after it.
 - **The WebView draws its scrollbar as a view**, so the page's stylesheet cannot hide it; paged turns off `isVerticalScrollBarEnabled`.
 
 ## Decisions

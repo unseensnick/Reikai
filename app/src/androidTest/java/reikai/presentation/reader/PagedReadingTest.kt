@@ -1094,6 +1094,37 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertEquals("[$renderer] the picture on the first page shows whole", listOf(true), picturesOnPages())
     }
 
+    /** The text after an opening picture is not the reader's place, so the picture landing leaves them on it. */
+    @Test
+    fun aChapterOpeningOnAPictureOpensOnItsFirstPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        val height = pictureSourceHeightFor(PAGES_SHRUNK_TO_ONE, spread = false)
+        open(1L, "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
+        awaitTurnCopyGone()
+
+        assertEquals("[$renderer] the page shown", 0, shownPage.get()!!.first)
+    }
+
+    @Test
+    fun aChapterOpeningOnAPictureThatLandsLateStaysOnItsFirstPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        val height = pictureSourceHeightFor(PAGES_SHRUNK_TO_ONE, spread = false)
+        val server = PngServer(borderedPng(600, height), held = true).also { pictureServer = it }
+        fits.remove(1L)
+        onMain {
+            viewport.load(
+                chapter(1L, "<p><img src=\"${server.url}\"></p>" + short("after"), 0, null),
+                readerTestSettings,
+            )
+        }
+        Thread.sleep(CHAPTER_IMAGE_WAIT_MS + LATE_PICTURE_MARGIN_MS)
+        server.release()
+        awaitWhile { server.served.get() == 0 || !fits.containsKey(1L) }
+        awaitTurnCopyGone()
+
+        assertEquals("[$renderer] the page shown", 0, shownPage.get()!!.first)
+    }
+
     private fun firstPictureShowsWhole(spread: Boolean) {
         build(NovelPageLayout.PAGED_LTR, spread = spread)
         open(1L, paragraphs(3))
