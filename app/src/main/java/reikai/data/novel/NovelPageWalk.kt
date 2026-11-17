@@ -18,7 +18,7 @@ data class NovelPageWalk(val synced: NovelChapterSyncResult, val walkedThrough: 
  * picked up, and a page past it counts as opened since. [alsoPage], the page a user views, is synced too. Page 1 is
  * the caller's. A page that throws is skipped, but the returned mark stops below it, so the next walk fetches it again.
  * [dropsPagesPastLast] walks from page 2, re-tagging chapters that moved down, then drops the rows still past [toPage]
- * only when no page failed, since a failed page may be where they moved (library.md).
+ * only when no page failed or came back empty, since such a page may be where they moved (library.md).
  */
 suspend fun walkNovelPages(
     novel: Novel,
@@ -45,7 +45,8 @@ suspend fun walkNovelPages(
         val result = runCatchingCancellable {
             val chapters = source.parsePage(novel.url, key)?.chapters.orEmpty()
             if (chapters.isEmpty()) {
-                NovelChapterSyncResult.UNCHANGED
+                // A challenge page loads without an error and lists nothing, so a dropping walk counts it as failed.
+                NovelChapterSyncResult.UNCHANGED.takeUnless { dropsPagesPastLast }
             } else {
                 syncChaptersWithNovelSource(
                     chapters,

@@ -23,6 +23,7 @@ import reikai.novel.host.SourceNovel
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.LockedSeriesSource
 import reikai.novel.source.NovelSource
+import reikai.util.runCatchingCancellable
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.time.Clock
@@ -180,7 +181,15 @@ suspend fun refreshNovelFromSource(
     // land between them; any other source runs this at once.
     val sourceNovel = source.parseNovel(current.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = current.favorite)
-    val sourcePages = parsed.totalPages.takeIf { it > 0L } ?: current.totalPages
+    // A parse reporting 0 pages sent no count, and the stored one is only how far walks got: neither drops a page.
+    val sentPages = parsed.totalPages.takeIf { it > 0L }
+    // Rows on a page past the source's last, which a shrink to that page deletes.
+    val rowsPastLast = sentPages != null &&
+        novelChapterRepository.getDistinctPages(current.id).any { (it.toLongOrNull() ?: 0L) > sentPages }
+    // A plugin whose count parse falls back too low still lists the page after it, so that count drops nothing.
+    val disproved = sentPages != null && rowsPastLast && source.listsChapters(current.url, sentPages + 1)
+    val dropsPages = rowsPastLast && !disproved
+    val sourcePages = sentPages?.takeUnless { disproved } ?: current.totalPages
     // A grown page count is stored by the walk as far as it got, never before it.
     var merged = storeRefreshedNovel(
         current,
@@ -204,11 +213,9 @@ suspend fun refreshNovelFromSource(
         libraryPreferences,
         syncRules,
         novelDownloadManager,
+        pages = sourcePages,
     )
     if (sourcePages > 1L) {
-        // Rows on a page past the source's last
-        val dropsPages =
-            novelChapterRepository.getDistinctPages(merged.id).any { (it.toLongOrNull() ?: 0L) > sourcePages }
         val walk = walkNovelPages(
             merged,
             source,
@@ -291,6 +298,7 @@ suspend fun syncOpenedChapters(
         libraryPreferences,
         syncRules,
         novelDownloadManager,
+        pages = sourceNovel.totalPages.toLong().takeIf { it > 0L } ?: target.totalPages,
     ) ?: return
     predictNovelFetchInterval(
         target,
@@ -302,7 +310,14 @@ suspend fun syncOpenedChapters(
     )
 }
 
-/** Syncs the chapters [sourceNovel] parsed with [novel], or returns null when it parsed none. */
+/** Whether [page] of the novel at [novelPath] lists a chapter; a page that fails to load lists none. */
+private suspend fun NovelSource.listsChapters(novelPath: String, page: Long): Boolean =
+    runCatchingCancellable { parsePage(novelPath, page.toString()) }.getOrNull()?.chapters.isNullOrEmpty().not()
+
+/**
+ * Syncs the chapters [sourceNovel] parsed with [novel], or returns null when it parsed none. [pages] is the count the
+ * caller trusts, never a raw 0 from the parse: an unpaged sync removes every row its list lacks, later pages' included.
+ */
 private suspend fun syncFirstPage(
     sourceNovel: SourceNovel,
     novel: Novel,
@@ -311,10 +326,11 @@ private suspend fun syncFirstPage(
     libraryPreferences: LibraryPreferences,
     syncRules: NovelChapterSyncRules,
     novelDownloadManager: NovelDownloadManager?,
+    pages: Long,
 ): NovelChapterSyncResult? {
     val chapters = sourceNovel.chapters?.takeIf { it.isNotEmpty() } ?: return null
     // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
-    val pageTag = if (sourceNovel.totalPages > 1) "1" else null
+    val pageTag = if (pages > 1L) "1" else null
     return syncChaptersWithNovelSource(
         chapters,
         novel,

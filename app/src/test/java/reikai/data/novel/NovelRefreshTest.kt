@@ -506,6 +506,104 @@ class NovelRefreshTest {
         rowsFor(novel, "/c/4").map { it.page } shouldBe listOf("4")
     }
 
+    /** A novel stored through page [mark] with one chapter on each of pages 1 to [last], the one on [last] read. */
+    private suspend fun storedPages(mark: Long, last: Int): Novel {
+        val novel = storedNovel(totalPages = mark)
+        (1..last).forEach { storedChapter(novel, "/c/$it", it.toDouble(), read = it == last, page = "$it") }
+        return novel
+    }
+
+    /** A source listing one chapter on each of pages 1 to [last], whose parse reports [reported] pages. */
+    private fun listing(last: Int, reported: Int) = PagedSource(
+        listOf(chapter("/c/1", 1.0)),
+        (2..last).associate { "$it" to listOf(chapter("/c/$it", it.toDouble())) },
+        totalPages = reported,
+    )
+
+    private suspend fun storedUrls(novel: Novel) = chapters.getByNovelId(novel.id).map { it.url }.sorted()
+
+    // Several plugins report 0 pages when their count parse misses, which says nothing about the novel's pages.
+    @Test
+    fun `a parse reporting no page count keeps the rows on later pages`() = runTest {
+        val novel = storedPages(mark = 3L, last = 3)
+        val before = rowsFor(novel, "/c/3").map { it.id to it.read }
+
+        refresh(novel, listing(3, reported = 0))
+
+        rowsFor(novel, "/c/3").map { it.id to it.read } shouldBe before
+    }
+
+    /** The stored count is how far walks got, not the source's count, so rows past it are no page the source dropped. */
+    @Test
+    fun `a parse reporting no page count drops no page past the stored count`() = runTest {
+        val novel = storedPages(mark = 2L, last = 4)
+
+        refresh(novel, listing(4, reported = 0))
+
+        storedUrls(novel) shouldBe listOf("/c/1", "/c/2", "/c/3", "/c/4")
+    }
+
+    /** A challenge page loads without an error yet lists nothing, and it may be where a dropped page's chapters went. */
+    @Test
+    fun `an empty page in a dropping walk keeps the chapters of a dropped page`() = runTest {
+        val novel = storedPages(mark = 4L, last = 4)
+        val source = PagedSource(
+            listOf(chapter("/c/1", 1.0)),
+            mapOf("2" to emptyList(), "3" to listOf(chapter("/c/3", 3.0))),
+        )
+
+        refresh(novel, source)
+
+        rowsFor(novel, "/c/4").map { it.page } shouldBe listOf("4")
+    }
+
+    /** A plugin whose page count parse falls back too low still serves the page after it. */
+    @Test
+    fun `a page count the next page disproves drops no page`() = runTest {
+        val novel = storedPages(mark = 4L, last = 4)
+
+        refresh(novel, listing(4, reported = 2))
+
+        storedUrls(novel) shouldBe listOf("/c/1", "/c/2", "/c/3", "/c/4")
+    }
+
+    @Test
+    fun `a page count the next page disproves keeps the stored count`() = runTest {
+        val novel = storedPages(mark = 4L, last = 4)
+
+        refresh(novel, listing(4, reported = 2))
+
+        novels.getById(novel.id)!!.totalPages shouldBe 4L
+    }
+
+    @Test
+    fun `a single page count the next page disproves keeps the later pages`() = runTest {
+        val novel = storedPages(mark = 3L, last = 3)
+
+        refresh(novel, listing(3, reported = 1))
+
+        storedUrls(novel) shouldBe listOf("/c/1", "/c/2", "/c/3")
+    }
+
+    @Test
+    fun `a novel that shrank to one page loses the rows of its later pages`() = runTest {
+        val novel = storedPages(mark = 3L, last = 3)
+
+        refresh(novel, listing(1, reported = 1))
+
+        storedUrls(novel) shouldBe listOf("/c/1")
+    }
+
+    @Test
+    fun `a refresh that drops nothing fetches no page past the source's last`() = runTest {
+        val novel = threeStoredPages()
+        val source = pagesThrough(3)
+
+        refresh(novel, source)
+
+        source.fetchedPages shouldBe listOf("3")
+    }
+
     /** A newest-first source: the release that pushes the list onto a second page lands on the first. */
     @Test
     fun `a novel that grows a second page reports the new chapter on its first`() = runTest {

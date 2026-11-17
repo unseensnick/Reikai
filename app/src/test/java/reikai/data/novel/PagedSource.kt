@@ -12,7 +12,8 @@ import java.io.IOException
 
 /**
  * Page 1 comes from [parseNovel]; the rest from [parsePage]. More than one page makes it a paged source. A page in
- * [failingOnce] throws on its first fetch, as a flaky network does.
+ * [failingOnce] throws on its first fetch, as a flaky network does. [totalPages] is the count the parse reports, by
+ * default the pages it has.
  */
 internal class PagedSource(
     private val firstPage: List<ChapterItem>,
@@ -22,6 +23,7 @@ internal class PagedSource(
     private val genres: String? = null,
     private val cover: String? = null,
     private val failingOnce: MutableSet<String> = mutableSetOf(),
+    private val totalPages: Int = otherPages.size + 1,
 ) : NovelSource {
     val fetchedPages = mutableListOf<String>()
 
@@ -43,7 +45,7 @@ internal class PagedSource(
             genres = genres,
             cover = cover,
             chapters = firstPage,
-            totalPages = otherPages.size + 1,
+            totalPages = totalPages,
         )
 
     override suspend fun parsePage(novelPath: String, page: String): SourceNovel {
