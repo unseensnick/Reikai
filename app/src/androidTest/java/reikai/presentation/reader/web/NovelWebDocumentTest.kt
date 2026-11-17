@@ -1113,12 +1113,24 @@ class NovelWebDocumentTest {
      */
     @Test
     fun bionicReadsAWordSplitByMarkupAsOneWord() {
-        val html = "<p><i>un</i>believable</p><p>stop</p><p>start</p>"
-        val text = "unbelievable\n\nstop\n\nstart"
-        val native = SpannableString(text).also(NovelBionicSpans::apply).let { spanned ->
+        assertBionicMatchesNative(
+            html = "<p><i>un</i>believable</p><p>stop</p><p>start</p>",
+            nativeText = "unbelievable\n\nstop\n\nstart",
+        )
+    }
+
+    /** The native renderer lifts a picture out of its paragraph, so a word a picture splits is two words there. */
+    @Test
+    fun bionicEndsAWordAtAPicture() {
+        assertBionicMatchesNative(html = "<p>un<img src=\"x.png\">believable</p>", nativeText = "un\n\nbelievable")
+    }
+
+    /** The bold letters the page draws for [html] are the ones NovelBionicSpans gives [nativeText]. */
+    private fun assertBionicMatchesNative(html: String, nativeText: String) {
+        val native = SpannableString(nativeText).also(NovelBionicSpans::apply).let { spanned ->
             spanned.getSpans(0, spanned.length, StyleSpan::class.java)
                 .sortedBy(spanned::getSpanStart)
-                .joinToString("") { text.substring(spanned.getSpanStart(it), spanned.getSpanEnd(it)) }
+                .joinToString("") { nativeText.substring(spanned.getSpanStart(it), spanned.getSpanEnd(it)) }
         }
         loadDocument()
         eval("window.rkReader.setSettings({ bionic: true })")

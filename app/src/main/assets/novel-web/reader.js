@@ -988,7 +988,8 @@
     while (walker.nextNode()) {
       var node = walker.currentNode;
       if (node.nodeType !== Node.TEXT_NODE) {
-        if (node.matches(BIONIC_BLOCKS + ', br, hr')) broken = true;
+        // A picture too: the native renderer lifts each one out of its paragraph into a block of its own.
+        if (node.matches(BIONIC_BLOCKS + ', br, hr, img')) broken = true;
         continue;
       }
       var block = node.parentElement && node.parentElement.closest(BIONIC_BLOCKS);
