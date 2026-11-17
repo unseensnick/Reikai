@@ -1152,6 +1152,22 @@ class NovelWebDocumentTest {
     }
 
     /**
+     * A long run of digits is no word, and the page passes over it at once, as the native renderer's
+     * NovelBionicSpansTest holds it to: a word pattern that finds the letter inside the run backtracks
+     * quadratically, about 15 s over this run.
+     */
+    @Test
+    fun bionicPassesOverALongRunOfDigitsAtOnce() {
+        loadDocument()
+        eval("window.rkReader.setSettings({ bionic: true })")
+        val took = eval(
+            "(function () { var t = performance.now(); window.rkReader.appendChapter('99', " +
+                "'<p>' + '1'.repeat(200000) + '</p>', null, $SEAM); return performance.now() - t; })()",
+        ).toDouble()
+        assertTrue("appending the chapter took ${took}ms", took < 2_000)
+    }
+
+    /**
      * The native renderer reads its one Spannable, so a word split by markup is one word there. A paragraph
      * break still ends one, as Html.fromHtml's newline does.
      */

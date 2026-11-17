@@ -20,11 +20,10 @@ object NovelBionicSpans {
     // text-vide's word is a run of letters and digits holding at least one letter. The run is matched and
     // then checked, since a pattern that must find the letter inside it backtracks over a long run of digits.
     private val alphanumericRun = Regex("""[\p{L}\p{Nd}]+""")
-    private val letter = Regex("""\p{L}""")
 
     fun apply(text: Spannable) {
         words(text).forEach { word ->
-            val bold = boldLengthFor(word.count())
+            val bold = boldLengthFor(word.last - word.first + 1)
             if (bold <= 0) return@forEach
             text.setSpan(StyleSpan(Typeface.BOLD), word.first, word.first + bold, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
@@ -32,8 +31,19 @@ object NovelBionicSpans {
 
     internal fun words(text: CharSequence): List<IntRange> = buildList {
         alphanumericRun.forEachMatch(text) { start, end ->
-            if (letter.containsMatchIn(text.subSequence(start, end))) add(start until end)
+            if (hasLetter(text, start, end)) add(start until end)
         }
+    }
+
+    // By code point, as `\p{L}` reads, and in place: a chapter's subSequence copies every span over the run.
+    private fun hasLetter(text: CharSequence, start: Int, end: Int): Boolean {
+        var at = start
+        while (at < end) {
+            val point = Character.codePointAt(text, at)
+            if (Character.isLetter(point)) return true
+            at += Character.charCount(point)
+        }
+        return false
     }
 
     fun boldLengthFor(wordLength: Int): Int {
