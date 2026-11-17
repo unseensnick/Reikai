@@ -60,6 +60,9 @@ class NovelWebViewportGateTest {
     private companion object {
         const val TIMEOUT_S = 10L
 
+        /** One read's wait: a script sent as the next document replaces the page is never answered. */
+        const val ANSWER_MS = 500L
+
         /** Long enough for a bridge call made from the page to be queued on the main thread. */
         const val REPORT_QUEUED_MS = 300L
 
@@ -360,7 +363,7 @@ class NovelWebViewportGateTest {
                 done.countDown()
             }
         }
-        done.await(TIMEOUT_S, TimeUnit.SECONDS)
+        done.await(ANSWER_MS, TimeUnit.MILLISECONDS)
         return result
     }
 }
