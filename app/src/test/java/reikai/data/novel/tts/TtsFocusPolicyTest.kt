@@ -25,6 +25,18 @@ class TtsFocusPolicyTest {
         it.onPlayback(TtsPlayback.Paused)
     }
 
+    /** The service's tick can run late after the device slept, so a call can end before the timer's pause lands. */
+    @Test
+    fun `a gain after the sleep timer ran out does not resume`() {
+        val policy = TtsFocusPolicy(sleepEnded = { true })
+        policy.onPlayback(TtsPlayback.Playing)
+        policy.onRequestResult(granted = true)
+        policy.onFocusChange(Change.LossTransient)
+        policy.onPlayback(TtsPlayback.Paused)
+
+        policy.onFocusChange(Change.Gain) shouldBe Response.PauseAndAbandon
+    }
+
     @Test
     fun `starting to play requests focus`() {
         policy.onPlayback(TtsPlayback.Playing) shouldBe Focus.Request

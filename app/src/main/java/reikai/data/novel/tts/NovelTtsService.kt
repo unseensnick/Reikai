@@ -63,7 +63,7 @@ class NovelTtsService : Service() {
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var audioManager: AudioManager
     private lateinit var focusRequest: AudioFocusRequestCompat
-    private val focusPolicy = TtsFocusPolicy()
+    private val focusPolicy = TtsFocusPolicy { NovelTtsSession.sleepTimer.expire() }
     private var foreground = false
     private var lastStartId = 0
     private var noisyRegistered = false

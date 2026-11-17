@@ -5,9 +5,10 @@ import reikai.domain.novel.tts.TtsPlayback
 /**
  * Audio focus decisions for read-aloud, free of Android types; [NovelTtsService] carries them out. Every
  * loss pauses, ducking included, since speech under other audio cannot be followed. Only a pause a
- * transient loss caused resumes on the gain, and anything the user does in between cancels that.
+ * transient loss caused resumes on the gain, and anything the user does in between cancels that, as does
+ * [sleepEnded]: the sleep timer running out meanwhile, which it clears in answering.
  */
-class TtsFocusPolicy {
+class TtsFocusPolicy(private val sleepEnded: () -> Boolean = { false }) {
 
     enum class Change { Gain, Loss, LossTransient, LossTransientCanDuck }
 
@@ -53,11 +54,18 @@ class TtsFocusPolicy {
     fun onFocusChange(change: Change): Response {
         lostTransiently = change == Change.LossTransient || change == Change.LossTransientCanDuck
         return when (change) {
-            Change.Gain -> if (resumeOnGain && playback == TtsPlayback.Paused) {
-                resumeOnGain = false
-                Response.Resume
-            } else {
-                Response.Nothing
+            Change.Gain -> when {
+                !resumeOnGain || playback != TtsPlayback.Paused -> Response.Nothing
+                // The pause the timer would have made stands, as the user's would.
+                sleepEnded() -> {
+                    resumeOnGain = false
+                    holding = false
+                    Response.PauseAndAbandon
+                }
+                else -> {
+                    resumeOnGain = false
+                    Response.Resume
+                }
             }
             Change.Loss -> {
                 holding = false
