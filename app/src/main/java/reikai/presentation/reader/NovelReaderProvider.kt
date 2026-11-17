@@ -418,11 +418,16 @@ class NovelReaderProvider(
     }
 
     private fun attachViewport(host: ReaderActivity) {
+        val builtLayout = viewportSettings().pageLayout
         // The session and its position outlive the Activity, so a rebuild lands where the reader is.
-        viewportRebuilds.onEach { host.recreate() }.launchIn(host.lifecycleScope)
+        viewportRebuilds.onEach {
+            viewModel.viewportRebuiltFrom = builtLayout
+            host.recreate()
+        }.launchIn(host.lifecycleScope)
         val viewport = createViewport(host)
         host.showViewport(viewport)
-        readingModeNotice()?.let(host::showReadingModeToast)
+        val rebuiltFrom = viewModel.viewportRebuiltFrom.also { viewModel.viewportRebuiltFrom = null }
+        readingModeNotice(rebuiltFrom)?.let(host::showReadingModeToast)
         // Asked for rather than cast: which text renderer is running is the provider's choice.
         // A novel viewport that does not answer would render an empty reader in silence, so say so.
         when (viewport) {
@@ -448,9 +453,12 @@ class NovelReaderProvider(
     }
 
     /** The reading mode the viewport is built in, named on each build as manga's `updateViewer` names its
-     *  own; null while Show reading mode is off. */
-    internal fun readingModeNotice(): StringResource? =
-        viewportSettings().pageLayout.titleRes.takeIf { novelPreferences.readerShowReadingMode().get() }
+     *  own, except a rebuild for a sheet setting that left the mode as it was [rebuiltFrom]; null while Show
+     *  reading mode is off. */
+    internal fun readingModeNotice(rebuiltFrom: NovelPageLayout? = null): StringResource? {
+        val layout = viewportSettings().pageLayout
+        return layout.titleRes.takeIf { novelPreferences.readerShowReadingMode().get() && layout != rebuiltFrom }
+    }
 
     // Speech outlives the Activity, so the renderer it marks is let go of before it is destroyed.
     override fun detach(viewport: ReaderViewport) {

@@ -184,6 +184,29 @@ class NovelReaderProviderTest {
         provider.readingModeNotice() shouldBe NovelPageLayout.PAGED_RTL.titleRes
     }
 
+    /** Manga names its mode when the viewer changes, not when a setting beside it does. */
+    @Test
+    fun `a rebuild for a setting other than the reading mode names nothing`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelPageLayout.flagOf(NovelPageLayout.PAGED_RTL) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+
+        provider.readingModeNotice(rebuiltFrom = NovelPageLayout.PAGED_RTL) shouldBe null
+    }
+
+    @Test
+    fun `a rebuild into another reading mode names it`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelPageLayout.flagOf(NovelPageLayout.PAGED_RTL) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+
+        provider.readingModeNotice(rebuiltFrom = NovelPageLayout.PAGED_LTR) shouldBe NovelPageLayout.PAGED_RTL.titleRes
+    }
+
     @Test
     fun `a novel opens without naming its reading mode when Show reading mode is off`() = readerTest { harness ->
         harness.novelPreferences.readerShowReadingMode().set(false)

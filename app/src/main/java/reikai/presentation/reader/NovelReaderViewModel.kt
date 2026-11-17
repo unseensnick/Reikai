@@ -380,6 +380,10 @@ class NovelReaderViewModel(
     ) { own, setting -> own ?: setting }
         .stateIn(viewModelScope, SharingStarted.Eagerly, novelPreferences.readerPageLayout().get())
 
+    /** The reading mode the viewport had when a sheet setting rebuilt it, which the next build reads once: the
+     *  Activity does not survive the rebuild, so the provider cannot hold it. */
+    var viewportRebuiltFrom: NovelPageLayout? = null
+
     /** Completes once [renderingMode] and [pageLayout] hold the novel's own choices, which the first viewport is
      *  built with. */
     val viewerFlagsLoaded: Deferred<Unit>
