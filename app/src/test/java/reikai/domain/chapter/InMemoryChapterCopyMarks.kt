@@ -12,6 +12,8 @@ class InMemoryChapterCopyMarks : ChapterCopyMarkRepository {
 
     override suspend fun loadedMarks(type: ContentType) = byType.getValue(type).value
 
+    override suspend fun loadedMarks(type: ContentType, ownerId: Long) = loadedMarks(type)[ownerId].orEmpty()
+
     override suspend fun set(type: ContentType, marks: List<ChapterCopyMark>) {
         byType.getValue(type).update { current ->
             marks.fold(current) { acc, m -> acc + (m.ownerId to (acc[m.ownerId].orEmpty() + (m.url to m.mark))) }

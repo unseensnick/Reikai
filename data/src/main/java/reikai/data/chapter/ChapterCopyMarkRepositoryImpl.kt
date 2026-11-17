@@ -41,6 +41,12 @@ class ChapterCopyMarkRepositoryImpl(
 
     override suspend fun loadedMarks(type: ContentType) = of(type).loaded()
 
+    override suspend fun loadedMarks(type: ContentType, ownerId: Long): Map<String, CopyMark> =
+        when (type) {
+            ContentType.NOVELS -> queries.getNovelMarksOf(ownerId, ::row)
+            else -> queries.getMangaMarksOf(ownerId, ::row)
+        }.awaitAsList().associate { it.url to it.mark }
+
     override suspend fun set(type: ContentType, marks: List<ChapterCopyMark>) {
         database.transaction {
             marks.forEach {

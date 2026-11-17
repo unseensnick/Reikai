@@ -160,7 +160,7 @@ class SyncChaptersWithSource(
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
         // The user's copy marks bend the rule as they do in the reader; read only when the rule runs.
         val marks = if (markDuplicateAsRead) {
-            chapterCopyMarks.loadedMarks(ContentType.MANGA)[manga.id].orEmpty()
+            chapterCopyMarks.loadedMarks(ContentType.MANGA, manga.id)
         } else {
             emptyMap()
         }

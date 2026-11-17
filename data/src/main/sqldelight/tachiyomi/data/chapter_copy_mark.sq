@@ -27,6 +27,16 @@ getNovelMarks:
 SELECT novel_id, url, copy_group
 FROM novel_chapter_copy_mark;
 
+getMangaMarksOf:
+SELECT manga_id, url, copy_group
+FROM manga_chapter_copy_mark
+WHERE manga_id = :ownerId;
+
+getNovelMarksOf:
+SELECT novel_id, url, copy_group
+FROM novel_chapter_copy_mark
+WHERE novel_id = :ownerId;
+
 upsertManga:
 INSERT OR REPLACE INTO manga_chapter_copy_mark(manga_id, url, copy_group)
 VALUES (:ownerId, :url, :copyGroup);

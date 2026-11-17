@@ -48,6 +48,9 @@ interface ChapterCopyMarkRepository {
     /** [marks] once the table has been read, for a backup or a finish that must not take the empty seed. */
     suspend fun loadedMarks(type: ContentType): Map<Long, Map<String, CopyMark>>
 
+    /** One owner's marks by url, read as the table stands, for a sync that runs once per series. */
+    suspend fun loadedMarks(type: ContentType, ownerId: Long): Map<String, CopyMark>
+
     suspend fun set(type: ContentType, marks: List<ChapterCopyMark>)
 
     suspend fun clear(type: ContentType, ownerId: Long, urls: List<String>)

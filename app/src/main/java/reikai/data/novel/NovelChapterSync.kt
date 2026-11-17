@@ -136,7 +136,7 @@ suspend fun syncChaptersWithNovelSource(
     val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
     // The user's copy marks bend the rule as they do in the reader; read only when the rule runs.
-    val marks = if (markDuplicateAsRead) copyMarks.loadedMarks(ContentType.NOVELS)[novelId].orEmpty() else emptyMap()
+    val marks = if (markDuplicateAsRead) copyMarks.loadedMarks(ContentType.NOVELS, novelId) else emptyMap()
     // Sources list newest first, so the kernel counts fetch dates down from now in that order.
     val arrivals = chapterArrivals(
         added = toAdd.map {
