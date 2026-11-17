@@ -671,6 +671,41 @@ class HeadlessJsIntegrationTest {
         assertEquals("fetchViaWebview: timed out waiting for page", got)
     }
 
+    /** An empty selector is no selector, as LNReader reads it, so a site's error page still fails the call. */
+    @Test
+    fun anErrorPageFailsACallWithAnEmptySelector() = runBlocking {
+        val site = LoopbackServer { _, _ -> status(404, "<html><body><p>gone</p></body></html>") }
+        val got = site.use { renderThroughPlugin(it.url(""), it.url("chapter"), "") }
+
+        assertEquals("fetchViaWebview: HTTP 404", got)
+    }
+
+    /** Waiting on a selector does not turn a page sent to another site into the plugin's ok false. */
+    @Test
+    fun aPageRedirectedOffThePluginsSiteFailsACallWaitingOnText() = runBlocking {
+        val other = LoopbackServer { _, _ -> LoopbackServer.ok("<p>elsewhere</p>", "text/html") }
+        val site = LoopbackServer { _, _ ->
+            "HTTP/1.1 302 Found\r\nLocation: ${other.url("there")}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        }
+        val got = site.use { s ->
+            other.use { renderThroughPlugin(s.url(""), s.url("chapter"), "#text p", timeoutMs = 2_000) }
+        }
+
+        assertEquals("rejected", rejectedOr(got))
+    }
+
+    /** Only a loaded page whose text never showed is ok false; one that never loaded runs out of time as an error. */
+    @Test
+    fun aPageThatNeverFinishesLoadingTimesOutForACallWaitingOnText() = runBlocking {
+        val site = LoopbackServer { _, _ ->
+            Thread.sleep(10_000)
+            LoopbackServer.ok("<html><body><p>late</p></body></html>", "text/html")
+        }
+        val got = site.use { renderThroughPlugin(it.url(""), it.url("chapter"), "#text p", timeoutMs = 1_000) }
+
+        assertEquals("fetchViaWebview: timed out waiting for page", got)
+    }
+
     /** A plugin that names a user agent has the site see it. */
     @Test
     fun aPluginsUserAgentReachesTheSite() = runBlocking {
