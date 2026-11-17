@@ -472,6 +472,7 @@ class NovelTextViewport(
                     // Only with a marker drawn: the refresh holds the reader still, which a reflow is settling.
                     val adapter = this@NovelTextViewport.adapter
                     if (adapter.drawsMarkers()) post { adapter.refreshMarkers() }
+                    post { redrawIfPageHeightMoved() }
                 }
             }
         }
@@ -1108,6 +1109,7 @@ class NovelTextViewport(
         holdingReader {
             slots.forEach { NovelTextStyle.applyMargins(it.block.container, current, context, topInsetPx) }
         }
+        redrawIfPageHeightMoved()
     }
 
     /** The text column: what is left of the reader once the page's side margins are taken off. The
@@ -1138,6 +1140,25 @@ class NovelTextViewport(
     /** The column's width in a spread, which the reader's side margins set there; null outside one. */
     private fun spreadColumnWidth(): Int? = spreadHost?.let {
         it.columnWidth(it.width.takeIf { width -> width > 0 } ?: context.resources.displayMetrics.widthPixels)
+    }
+
+    /** The measured page height the window's paged pictures were last capped at; null before any was measured. */
+    private var builtPageHeight: Int? = null
+
+    /**
+     * A paged picture is capped at the page it was built for, so a page the cutout inset or the list's own height
+     * changed draws a window holding pictures again. Only against a measured height: before the first layout
+     * [pageHeightPx] answers from the screen, and comparing that would redraw every open.
+     */
+    private fun redrawIfPageHeightMoved() {
+        val settings = settings ?: return
+        val built = builtPageHeight ?: return
+        if (!paged || recycler.height <= 0) return
+        val page = pageHeightPx(settings)
+        if (page == built || slots.none { !it.rendered || it.block.holdsPictures() }) return
+        // The redraw records it again as it adds, and a second report before then is the same change
+        builtPageHeight = page
+        startRedraw()
     }
 
     /** A page's height for [settings], as [pageContentHeight] measures it, from the screen while the list has none. */
@@ -1193,7 +1214,11 @@ class NovelTextViewport(
             selectable = textSelectable,
             bionic = settings.bionicReading,
             contentWidth = columnWidthPx(settings).also { builtColumnWidth = it },
-            maxPictureHeight = if (paged) pageHeightPx(settings) else null,
+            maxPictureHeight = if (paged) {
+                pageHeightPx(settings).also { builtPageHeight = it.takeIf { recycler.height > 0 } }
+            } else {
+                null
+            },
             baseUrl = chapter.baseUrl,
             sourceId = chapter.sourceId,
             // A landing still waiting on the pictures is re-applied once they land, and a correction for the

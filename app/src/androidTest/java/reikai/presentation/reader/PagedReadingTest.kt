@@ -1079,6 +1079,21 @@ class PagedReadingTest(private val renderer: Renderer) {
     @Test
     fun aPictureTallerThanAPageShowsWholeOnOneOfASpreadsPages() = tallPictureShowsWholeOnce(spread = true)
 
+    /** A cutout inset arriving after the open shortens the page, so a picture fitted to the page before it refits. */
+    @Test
+    fun aPictureFittedToThePageRefitsWhenTheCutoutInsetArrives() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, paragraphs(3))
+        val height = pictureSourceHeightFor(PAGES_SHRUNK_TO_ONE, spread = false)
+        reopen(1L, "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
+        awaitTurnCopyGone()
+
+        flipCutout(53)
+        awaitTurnCopyGone()
+
+        assertEquals("[$renderer] the picture on the first page shows whole", listOf(true), picturesOnPages())
+    }
+
     private fun firstPictureShowsWhole(spread: Boolean) {
         build(NovelPageLayout.PAGED_LTR, spread = spread)
         open(1L, paragraphs(3))
