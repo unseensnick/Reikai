@@ -74,6 +74,8 @@ class ReaderEngine(
     getEntryCustomInfo: GetEntryCustomInfo,
     private val paceRepository: ReadingPaceRepository,
     @AppCoroutineScope private val appScope: CoroutineScope,
+    // Unbound in the graph, so the default is what the app runs on; a test passes its scheduler's.
+    timeSource: TimeSource = TimeSource.Monotonic,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -298,7 +300,7 @@ class ReaderEngine(
         (provider.readAloud?.state ?: flowOf(ReaderReadAloudState()))
             .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderReadAloudState())
 
-    private val clock = TimeSource.Monotonic.markNow()
+    private val clock = timeSource.markNow()
 
     // Below readAloudState, which it reads as it is built. Each step's listened time is written on the app
     // scope, so a reader closing mid-paragraph still keeps what was listened before it.

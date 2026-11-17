@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -90,6 +91,7 @@ class ReaderEngineTest {
         mockk { every { subscribeAll() } returns flowOf(customInfo) },
         paceRepository,
         appScope,
+        scheduler.timeSource,
     ).also(main::track)
 
     private val paceRepository = FakePaceRepository()
@@ -199,8 +201,7 @@ class ReaderEngineTest {
             engine(provider)
             provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000, recorded = recorded)
             advanceUntilIdle()
-            // The listening clock is a real monotonic one, so a step needs real time between paragraphs.
-            Thread.sleep(5)
+            advanceTimeBy(5.seconds)
 
             readAloud.state.value = readAloud.state.value.copy(
                 progress = ReadAloudProgress(chapterId = 9, paragraph = 1, wordsSpoken = 100, words = 2_000),
@@ -209,6 +210,31 @@ class ReaderEngineTest {
 
             paceRepository.listened.value.map { it.first } shouldBe kept
         }
+
+    @Test
+    fun `read-aloud credits the chapter the time between two paragraphs`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val readAloud = FakeReadAloud()
+        provider.readAloudSlot = readAloud
+        engine(provider)
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
+        advanceUntilIdle()
+        // Speech starts a while into the session, so the credit is measured from its start, not the open.
+        advanceTimeBy(1.seconds)
+        readAloud.state.value = ReaderReadAloudState(
+            playback = TtsPlayback.Playing,
+            progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 0, words = 2_000),
+        )
+        advanceUntilIdle()
+        advanceTimeBy(5.seconds)
+
+        readAloud.state.value = readAloud.state.value.copy(
+            progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 100, words = 2_000),
+        )
+        advanceUntilIdle()
+
+        paceRepository.listened.value shouldBe listOf(9L to 5_000L)
+    }
 
     /** The paragraph being spoken has had no step to credit it, so closing the reader is its last chance. */
     @Test
@@ -223,8 +249,7 @@ class ReaderEngineTest {
         val engine = engine(provider)
         provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
         advanceUntilIdle()
-        // The listening clock is a real monotonic one, so the paragraph needs real time to have been heard.
-        Thread.sleep(5)
+        advanceTimeBy(5.seconds)
 
         ViewModelStore().apply { put("engine", engine) }.clear()
         advanceUntilIdle()
