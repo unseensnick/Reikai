@@ -32,4 +32,22 @@ class HeldRowsTest {
 
         held.loaded() shouldBe listOf("new")
     }
+
+    /** A reader warms the held copy through a read that can wait, then reads it on a page turn. */
+    @Test
+    fun `a read that can wait leaves the held copy filled`() = runTest {
+        // The held copy's own query is the slow one, so a fresh read alone would come back first.
+        val heldQuery = CompletableDeferred<Unit>()
+        var queries = 0
+        val table = flow {
+            if (queries++ == 0) heldQuery.await()
+            emit(listOf("mark"))
+        }
+        val held = HeldRows(table, backgroundScope, emptyList())
+        val read = async { held.loaded() }
+        launch { heldQuery.complete(Unit) }
+        read.await()
+
+        held.held.value shouldBe listOf("mark")
+    }
 }
