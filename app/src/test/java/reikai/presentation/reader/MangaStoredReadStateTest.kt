@@ -4,12 +4,10 @@ import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -31,11 +29,12 @@ class MangaStoredReadStateTest {
     @Test
     fun `reading a copy marked read with its twin keeps it read`() = runTest {
         onFinishedFive(slots = -1) { harness, model ->
-            model.loadNextChapter()
-            val copy = model.state.value.viewerChapters!!.currChapter
-            model.onPageSelected(loadedPages(copy, 10)[3])
-            model.flushProgress()
-            writesLand()
+            harness.settle(model) {
+                model.loadNextChapter()
+                val copy = model.state.value.viewerChapters!!.currChapter
+                model.onPageSelected(loadedPages(copy, 10)[3])
+                model.flushProgress()
+            }
             harness.stored(51L).read
         } shouldBe true
     }
@@ -51,13 +50,14 @@ class MangaStoredReadStateTest {
     @Test
     fun `finishing the next chapter retires the copy marked read with its twin`() = runTest {
         val queued = mutableSetOf<Long>()
-        onFinishedFive(slots = 1, onEnqueueDelete = { chapters -> chapters.forEach { queued += it.id } }) { _, model ->
+        onFinishedFive(slots = 1, onEnqueueDelete = { chapters ->
+            chapters.forEach { queued += it.id }
+        }) { harness, model ->
             // Straight from 5 to 6, as with Skip duplicates off the copy is stepped over by a pick.
             model.loadNewChapterFromDialog(model.getChapters().first { it.chapter.id == 60L }.chapter)
             settled(model) { it.viewerChapters?.currChapter?.chapter?.id == 60L }
             val six = model.state.value.viewerChapters!!.currChapter
-            model.onPageSelected(loadedPages(six, 2)[1])
-            writesLand()
+            harness.settle(model) { model.onPageSelected(loadedPages(six, 2)[1]) }
         }
         queued shouldContain 51L
     }
@@ -81,12 +81,9 @@ class MangaStoredReadStateTest {
             onEnqueueDelete = onEnqueueDelete,
         ) { model, state ->
             val five = state.viewerChapters!!.currChapter
-            model.onPageSelected(loadedPages(five, 2)[1])
-            writesLand()
+            // The saves run on the app scope, off the virtual clock.
+            harness.settle(model) { model.onPageSelected(loadedPages(five, 2)[1]) }
             probe(harness, model)
         }
     }
-
-    /** The saves run on the app scope, off the virtual clock. */
-    private suspend fun writesLand() = withContext(Dispatchers.Default) { delay(500) }
 }

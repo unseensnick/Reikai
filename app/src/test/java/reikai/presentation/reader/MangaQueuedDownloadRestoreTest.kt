@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -39,11 +40,11 @@ class MangaQueuedDownloadRestoreTest {
                 queuedDownloads = setOf(60L),
                 onRequeue = { requeued += it },
             ) { model, _ ->
-                model.loadNextChapter()
                 // The mark runs on the app scope, off the virtual clock.
-                withContext(Dispatchers.Default) { delay(500) }
+                harness.settle(model) { model.loadNextChapter() }
             }
-            withContext(Dispatchers.Default) { delay(300) }
+            // The close puts the download back on the app scope, after the model it would settle is gone.
+            withContext(Dispatchers.Default) { withTimeoutOrNull(5_000) { while (requeued.isEmpty()) delay(20) } }
         }
         requeued.toSet() shouldBe setOf(60L)
     }

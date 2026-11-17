@@ -2,12 +2,10 @@ package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -35,10 +33,11 @@ class MangaRestorePageTest {
             harness.chapter(20L, manga, 2.0)
             harness.open(manga, chapterId = 10L, failing = setOf(20L)) { model, state ->
                 val chapters = state.viewerChapters!!
-                model.onPageSelected(loadedPages(chapters.currChapter, 10)[5])
-                model.onPageSelected(loadedPages(chapters.nextChapter!!, 10)[0])
                 // The switch loads on the IO dispatcher, off the virtual clock, and fails there.
-                withContext(Dispatchers.Default) { delay(300) }
+                harness.settle(model) {
+                    model.onPageSelected(loadedPages(chapters.currChapter, 10)[5])
+                    model.onPageSelected(loadedPages(chapters.nextChapter!!, 10)[0])
+                }
                 harness.savedState?.get<Int>("page_index")
             } shouldBe 5
         }

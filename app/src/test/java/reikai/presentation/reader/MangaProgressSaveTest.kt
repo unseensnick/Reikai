@@ -3,12 +3,10 @@ package reikai.presentation.reader
 import eu.kanade.tachiyomi.source.model.Page
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -30,12 +28,12 @@ class MangaProgressSaveTest {
             harness.chapter(10L, manga, 1.0)
             harness.open(manga, chapterId = 10L) { model, state ->
                 val pages = loadedPages(state.viewerChapters!!.currChapter, 10)
-                model.onPageSelected(pages[5])
-                pages[6].status = Page.State.Error(IOException("no connection"))
-                model.onPageSelected(pages[6])
-                model.flushProgress()
-                // The write runs on the app scope, off the virtual clock.
-                withContext(Dispatchers.Default) { delay(500) }
+                harness.settle(model) {
+                    model.onPageSelected(pages[5])
+                    pages[6].status = Page.State.Error(IOException("no connection"))
+                    model.onPageSelected(pages[6])
+                    model.flushProgress()
+                }
                 harness.stored(10L).lastPageRead
             } shouldBe 5L
         }
