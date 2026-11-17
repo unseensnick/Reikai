@@ -23,7 +23,17 @@ class SettingsMangaReaderPagedGroupTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val singlePageRows = listOf("Crop borders", "Split wide pages")
+    // Every row the single-page gate hides, each split and rotate invert shown by its own switch being on.
+    private val singlePageRows = listOf(
+        "Scale type",
+        "Zoom start position",
+        "Crop borders",
+        "Automatically zoom into wide images",
+        "Split wide pages",
+        "Invert split page placement",
+        "Rotate wide pages to fit",
+        "Flip orientation of rotated wide pages",
+    )
 
     private class Rows(val read: @Composable () -> Unit) : Screen {
         @Composable
@@ -32,7 +42,10 @@ class SettingsMangaReaderPagedGroupTest {
 
     /** The titles the paged group shows for [highQualityRenderer] under [dualPageView]. */
     private fun shown(highQualityRenderer: Boolean, dualPageView: DualPageView): List<String> {
-        val preferences = ReaderPreferences(EmittingPreferenceStore())
+        val preferences = ReaderPreferences(EmittingPreferenceStore()).apply {
+            dualPageSplitPaged.set(true)
+            dualPageRotateToFit.set(true)
+        }
         val rows = MangaReaderSettingsRows(highQualityRenderer, dualPageView)
         var titles = emptyList<String>()
         compose.setContent {

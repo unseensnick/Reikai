@@ -12,7 +12,10 @@ import androidx.compose.ui.test.performClick
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
+import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -39,10 +42,10 @@ class ReaderSettingsSheetTest(private val probe: SheetProbe) {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun showSheet() = compose.setContent {
+    private fun showSheet(pages: ReaderSettingsPages = probe.pages()) = compose.setContent {
         ComposeTestHost {
             ReaderSettingsSheet(
-                pages = probe.pages(),
+                pages = pages,
                 autoScrollRunning = false,
                 onToggleAutoScroll = {},
                 autoScroll = null,
@@ -115,6 +118,31 @@ class ReaderSettingsSheetTest(private val probe: SheetProbe) {
         compose.onNodeWithText("Contrast").assertExists()
     }
 
+    @Test
+    fun `the controls tab offers the volume keys`() {
+        showSheet()
+        openTab("Controls")
+
+        compose.onNodeWithText("Volume keys").assertExists()
+    }
+
+    @Test
+    fun `a scrolling reader offers the volume key scroll amount`() {
+        showSheet(probe.volumeKeyPages(paged = false))
+        openTab("Controls")
+
+        compose.onNodeWithText("Volume key scroll amount").assertExists()
+    }
+
+    /** A press turns a whole page there, so there is no distance to choose. */
+    @Test
+    fun `a paged reader offers no volume key scroll amount`() {
+        showSheet(probe.volumeKeyPages(paged = true))
+        openTab("Controls")
+
+        compose.onNodeWithText("Volume key scroll amount").assertDoesNotExist()
+    }
+
     companion object {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
@@ -127,6 +155,9 @@ interface SheetProbe {
     val tabCount: Int
     val seriesModeRows: List<String>
     fun pages(): ReaderSettingsPages
+
+    /** The pages with the volume keys on, over a reader that turns pages when [paged], else scrolls. */
+    fun volumeKeyPages(paged: Boolean): ReaderSettingsPages
 }
 
 class MangaSheetProbe : SheetProbe {
@@ -134,8 +165,16 @@ class MangaSheetProbe : SheetProbe {
     override val seriesModeRows = listOf("Reading mode")
     override fun toString() = "manga"
 
-    override fun pages(): ReaderSettingsPages {
+    override fun pages(): ReaderSettingsPages = pages(ReaderPreferences(EmittingPreferenceStore()), viewer = null)
+
+    // The classic long strip is the scrolling viewer; no viewer reads as a paged one.
+    override fun volumeKeyPages(paged: Boolean): ReaderSettingsPages {
         val preferences = ReaderPreferences(EmittingPreferenceStore())
+        preferences.readWithVolumeKeys.set(true)
+        return pages(preferences, viewer = if (paged) null else mockk<WebtoonViewer>(relaxed = true))
+    }
+
+    private fun pages(preferences: ReaderPreferences, viewer: Viewer?): ReaderSettingsPages {
         val viewModel = ReaderSettingsViewModel(
             readerState = MutableStateFlow(ReaderViewModel.State()),
             onChangeReadingMode = {},
@@ -152,7 +191,7 @@ class MangaSheetProbe : SheetProbe {
             invertedColors = preferences.invertedColors,
             contrastPercent = preferences.contrast,
         )
-        return ReaderSettingsPages.Manga(viewModel, filters, MutableStateFlow(null))
+        return ReaderSettingsPages.Manga(viewModel, filters, MutableStateFlow(viewer))
     }
 }
 
@@ -161,8 +200,18 @@ class NovelSheetProbe : SheetProbe {
     override val seriesModeRows = listOf("Reading mode", "Chapter display")
     override fun toString() = "novels"
 
-    override fun pages(): ReaderSettingsPages {
+    override fun pages(): ReaderSettingsPages = pages(
+        NovelPreferences(EmittingPreferenceStore()),
+        NovelPageLayout.SCROLL,
+    )
+
+    override fun volumeKeyPages(paged: Boolean): ReaderSettingsPages {
         val preferences = NovelPreferences(EmittingPreferenceStore())
+        preferences.readerUseVolumeButtons().set(true)
+        return pages(preferences, if (paged) NovelPageLayout.PAGED_LTR else NovelPageLayout.SCROLL)
+    }
+
+    private fun pages(preferences: NovelPreferences, layout: NovelPageLayout): ReaderSettingsPages {
         val filters = ReaderDisplayFilters(
             customBrightness = preferences.readerCustomBrightness(),
             customBrightnessValue = preferences.readerCustomBrightnessValue(),
@@ -175,7 +224,7 @@ class NovelSheetProbe : SheetProbe {
         )
         return ReaderSettingsPages.Novel(
             preferences = preferences,
-            textSettings = FixedTextSettings,
+            textSettings = FixedTextSettings(layout),
             filters = filters,
             orientation = flowOf(0),
             onChangeOrientation = {},
@@ -184,7 +233,7 @@ class NovelSheetProbe : SheetProbe {
     }
 }
 
-private object FixedTextSettings : ReaderTextSettings {
+private class FixedTextSettings(layout: NovelPageLayout) : ReaderTextSettings {
     override val state = MutableStateFlow(
         ReaderTextState(fontSize = 18, followSystemTheme = true, backgroundColor = "#000000", textColor = "#FFFFFF"),
     )
@@ -198,7 +247,7 @@ private object FixedTextSettings : ReaderTextSettings {
 
     override val pageLayout: Flow<NovelPageLayout?> = flowOf(null)
 
-    override val effectivePageLayout = MutableStateFlow(NovelPageLayout.SCROLL)
+    override val effectivePageLayout = MutableStateFlow(layout)
 
     override fun setPageLayout(layout: NovelPageLayout?) = Unit
 }

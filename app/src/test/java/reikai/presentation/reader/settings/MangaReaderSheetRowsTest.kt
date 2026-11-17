@@ -12,7 +12,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
-import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -240,36 +239,6 @@ class MangaReaderSheetRowsTest {
         show(webGpu())
 
         compose.onNodeWithText("Space between pages").assertDoesNotExist()
-    }
-
-    /** The novel sheet offers them too, so a manga reader need not leave the reader for Settings. */
-    @Test
-    fun `the Controls tab offers the volume keys`() {
-        show(null)
-        openTab("Controls")
-
-        compose.onNodeWithText("Volume keys").assertExists()
-    }
-
-    @Test
-    fun `the classic long strip offers the volume key scroll amount`() {
-        preferences.readWithVolumeKeys.set(true)
-
-        show(mockk<WebtoonViewer>(relaxed = true))
-        openTab("Controls")
-
-        compose.onNodeWithText("Volume key scroll amount").assertExists()
-    }
-
-    /** A press turns a whole page there, so there is no distance to choose. */
-    @Test
-    fun `a paged viewer offers no volume key scroll amount`() {
-        preferences.readWithVolumeKeys.set(true)
-
-        show(null)
-        openTab("Controls")
-
-        compose.onNodeWithText("Volume key scroll amount").assertDoesNotExist()
     }
 
     private fun continuous(useGap: Boolean) = mockk<WebGpuViewerContinuous>(relaxed = true) {

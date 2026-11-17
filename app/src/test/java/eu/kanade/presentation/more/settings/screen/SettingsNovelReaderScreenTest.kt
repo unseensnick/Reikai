@@ -1,12 +1,22 @@
 package eu.kanade.presentation.more.settings.screen
 
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.core.app.ApplicationProvider
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
+import eu.kanade.presentation.more.settings.Preference
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldNotContain
-import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
+import mihon.app.di.AppGraph
+import mihon.core.metro.GraphProvider
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,24 +59,41 @@ class SettingsNovelReaderScreenTest {
         readingRows(NovelPageLayout.SCROLL) shouldContain "Show reading mode"
     }
 
-    /** A novel kept on WebView under a native default reads these too, and the sheet has no row for them. */
+    /**
+     * A novel kept on WebView under a native default reads these too, and the sheet has no row for them.
+     * Read off the whole screen, so a gate on the group, its rows or the list that adds it shows here.
+     */
     @Test
     fun `the WebView-only rows show under a native default`() {
         val preferences = NovelPreferences(EmittingPreferenceStore())
             .apply { readerRenderingMode().set(NovelRenderingMode.NATIVE) }
+        val context = Graphed(ApplicationProvider.getApplicationContext(), preferences)
         var titles = emptyList<String>()
         compose.setContent {
-            ComposeTestHost {
-                Navigator(
-                    Rows({ SettingsNovelReaderScreen.getWebViewGroup(preferences).preferenceItems.map { it.title } }) {
-                        titles = it
-                    },
-                )
+            CompositionLocalProvider(LocalContext provides context) {
+                ComposeTestHost {
+                    Navigator(
+                        Rows({
+                            SettingsNovelReaderScreen.getPreferences()
+                                .filterIsInstance<Preference.PreferenceGroup>()
+                                .filter { it.visible }
+                                .flatMap { group -> group.preferenceItems.filter { it.visible }.map { it.title } }
+                        }) { titles = it },
+                    )
+                }
             }
         }
         compose.waitForIdle()
 
-        titles shouldBe listOf(RUN_SCRIPTS, "CSS snippets", "JavaScript snippets")
+        titles shouldContainAll listOf(RUN_SCRIPTS, "CSS snippets", "JavaScript snippets")
+    }
+
+    private class Graphed(base: Context, preferences: NovelPreferences) :
+        ContextWrapper(base),
+        GraphProvider<AppGraph> {
+        override val graph: AppGraph = mockk(relaxed = true) { every { novelPreferences } returns preferences }
+
+        override fun getApplicationContext(): Context = this
     }
 
     private class ReadingRows(val preferences: NovelPreferences, val read: (List<String>) -> Unit) : Screen {
