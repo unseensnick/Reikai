@@ -54,6 +54,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Updating a paged novel no longer deletes the chapters on its later pages when the source misreports its page count.** Their read state, bookmarks and queued downloads now survive.
 - **Library updates no longer skip a paged novel's page that failed once, or count a newly added novel's back chapters as new.**
 - **A merged series with a local copy counts that copy's chapters as downloaded in the library badge and Downloaded filter.**
 - **Settings -> Advanced -> Refresh library covers now refreshes novels too, and Cancel on its notification stops it.**
@@ -87,6 +88,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A partly read novel chapter's percent now follows the app's language.**
 - **Two quick chapter sort or filter picks no longer undo each other.**
 - **Details and the reader take their tint from a series' new cover once its cover changes.**
+- **A new or removed custom cover is kept even if you leave the details screen at once.**
 
 ### Merged series
 
@@ -100,6 +102,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Manage sources now opens on the real primary source when you hide a scan group.**
 - **In a merged series, a chapter that one source supplies no longer shows as missing when a filter or hide takes its row away.** The reader's chapter warning follows the same rule.
 - **Local series in a merge are now named by their titles instead of all reading Local source.** It shows on the source chips, in Manage sources and on each chapter, in the details screen and the reader.
+- **A merged novel opened through a second source now shows a new sort or filter right away.**
 
 ### Downloads
 
@@ -245,6 +248,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Rotating with a picture at the top of the screen, loaded or failed, now keeps your place in the novel reader's WebView mode.**
 - **Reload chapter from source now fetches a novel chapter's pictures again.**
 - **TalkBack now reads a novel picture that failed to load, and its Retry.**
+- **A merged manga reopens on the source you were reading after Android closes the app in the background.**
+- **With Mark duplicate read chapter as read on, picking the copy of a chapter you just finished opens it at its first page.**
+- **A novel reopened after Android closed the app in the background now opens on the chapter read aloud had reached.**
+- **Invert tap zones now offers only None and Horizontal for the Right and Left layout.**
+- **TalkBack now says whether Follow system is picked in the novel reader's theme sheet.**
+- **A novel picture that fails to load now looks the same in both reading modes.**
+- **Novel pictures embedded with a capitalised data address now show in every reading mode and in EPUB exports.**
 
 ### Statistics
 
