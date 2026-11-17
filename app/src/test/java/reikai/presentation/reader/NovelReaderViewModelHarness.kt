@@ -436,6 +436,7 @@ class NovelReaderViewModelHarness private constructor(
             readerPreferences = readerPreferences,
             downloadManagerProvider = { downloadManager },
             upsertNovelHistory = UpsertNovelHistory(history),
+            novelHistory = history,
             readingLog = NoReadingLog,
             copyMarks = copyMarks,
             localVolumes = NoLocalVolumes,

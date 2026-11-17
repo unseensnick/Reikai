@@ -72,6 +72,7 @@ import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.mergeMemberName
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
@@ -146,6 +147,7 @@ import java.io.ByteArrayInputStream
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * The light-novel provider model under the shared reader host: reader display settings, and the raw
@@ -169,6 +171,7 @@ class NovelReaderViewModel(
     private val novelPreferences: NovelPreferences,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val upsertNovelHistory: UpsertNovelHistory,
+    private val novelHistory: NovelHistoryRepository,
     private val readingLog: ReadingLogRepository,
     private val copyMarks: ChapterCopyMarkRepository,
     private val localVolumes: LocalVolumeRepository,
@@ -267,6 +270,9 @@ class NovelReaderViewModel(
      * see 0 while this initializer had not run.
      */
     private val openingChapterId: Long = savedState.get<Long>(SAVED_CHAPTER_ID) ?: initialChapterId
+
+    /** Whether the first load reopens after a process kill, which [newestStampedChapter] may move on. */
+    private var restoringAfterKill = savedState.contains(SAVED_CHAPTER_ID)
 
     /** Loading until the first chapter renders, so the host shows a spinner rather than a blank page.
      *  Declared above the init block that calls load(), which would otherwise write it before it exists. */
@@ -1000,6 +1006,7 @@ class NovelReaderViewModel(
         updateHistory()
         currentChapterId = target
         currentNovelId = owner
+        stampArrivalWhileAway(target, owner)
         startReadSession()
         this.bookmarked.value = bookmarked
         chapter.value = arriving
@@ -1045,7 +1052,7 @@ class NovelReaderViewModel(
      * leaving the reader looking like nothing happened.
      */
     private fun load() {
-        val requested = pendingChapterId
+        var requested = pendingChapterId
         var target = requested
         // An explicit open is the reader asking for chapters afresh, so nothing a previous warm
         // recorded may go on suppressing one. Without this the window strands on a chapter that has
@@ -1059,6 +1066,19 @@ class NovelReaderViewModel(
                 viewerFlagsLoaded.await()
                 val generation = textGeneration
                 if (orderedIds.isEmpty()) resolveReadingOrder()
+                if (restoringAfterKill) {
+                    restoringAfterKill = false
+                    newestStampedChapter()?.let { newest ->
+                        lane.withLock {
+                            if (requested != pendingChapterId) return@withLock
+                            pendingChapterId = newest
+                            requested = newest
+                            currentChapterId = newest
+                        }
+                        // The order keeps the chapter it was resolved around, which is no longer the one opening
+                        resolveReadingOrder()
+                    }
+                }
                 target = copiesToOpen?.idOf(requested) ?: requested
                 val row = chapterRepo.getById(target) ?: error("Chapter not found: $target")
                 // A warm already fetching it is waited on, rather than fetched again beside it, which is
@@ -1081,6 +1101,7 @@ class NovelReaderViewModel(
                     // its own load running, for the text this one processed by the old settings.
                     if (requested != pendingChapterId || generation != textGeneration) return@launchIO
                     commitOpen(row, html, baseUrl, bookmarked)
+                    stampArrivalWhileAway(row.id, row.novelId)
                     skipMark?.takeIf { (target, _) -> target == requested }?.let { (_, departed) ->
                         skipMark = null
                         markReadOnSkip(departed)
@@ -1249,6 +1270,33 @@ class NovelReaderViewModel(
         val duration = chapterReadSession.take(now)
         upsertNovelHistory.await(NovelHistoryUpdate(id, now, duration))
         readingLog.record(ContentType.NOVELS, id, now, duration)
+    }
+
+    /**
+     * Off screen it is read aloud that moves the reader on, and History is what a process kill reopens on
+     * ([newestStampedChapter]), so the chapter it reaches is stamped now rather than when speech stops.
+     * Stamped with no read time, which leaves the session's clock running.
+     */
+    private suspend fun stampArrivalWhileAway(chapterId: Long, ownerId: Long) {
+        if (onScreen || incognito.of(ownerId)) return
+        upsertNovelHistory.await(NovelHistoryUpdate(chapterId, Clock.System.now(), 0L))
+    }
+
+    /**
+     * The chapter History stamped last across the group, when the reading order holds it. The host's
+     * snapshot names the chapter on screen when the reader stopped, and read aloud can have moved on
+     * since. Incognito stamps nothing, so there the snapshot stands.
+     */
+    private suspend fun newestStampedChapter(): Long? {
+        val owner = chapterRepo.getById(currentChapterId)?.novelId ?: novelId
+        if (incognito.of(owner)) return null
+        return memberIds.flatMap { novelHistory.getHistoryByNovelId(it) }
+            .mapNotNull { row -> row.readAt?.let { it to row.chapterId } }
+            // A step stamps the chapter it leaves and the one it reaches in the same instant, and read aloud
+            // only steps forward, so the later one in reading order wins a tie.
+            .maxWithOrNull(compareBy<Pair<Instant, Long>> { it.first }.thenBy { orderedIds.indexOf(it.second) })
+            ?.second
+            ?.takeIf { it in orderedIds && it != currentChapterId }
     }
 
     private var isMenuOpen = false

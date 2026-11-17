@@ -383,6 +383,72 @@ class NovelReaderViewModelTest {
         restored.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(70)
     }
 
+    /** Read aloud opens the next chapter behind the snapshot, and History is what holds where it got to. */
+    @Test
+    fun `a recorded novel reopens after a process kill on the chapter opened while away`() =
+        readTimeTest { harness, clock ->
+            val novel = harness.novel(harness.source("src"))
+            val opened = harness.chapter(novel, 1.0)
+            val next = harness.chapter(novel, 2.0, progressPercent = 50)
+            val savedState = SavedStateHandle()
+            val model = harness.open(novel, opened.id, savedState = savedState)
+            model.awaitIdleOn(opened)
+            val snapshot = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) })
+            model.saveHistory()
+            advanceUntilIdle()
+            clock.advance(10.minutes)
+            model.nextChapter()
+            model.awaitIdleOn(next)
+            advanceUntilIdle()
+
+            val restored = harness.open(novel, opened.id, savedState = snapshot)
+            restored.loadState.first { it == ReaderLoadState.Idle }
+
+            restored.chapter.value?.chapterId shouldBe next.id
+        }
+
+    @Test
+    fun `a novel opened on a chapter opens on it whatever History read last`() = readTimeTest { harness, clock ->
+        val novel = harness.novel(harness.source("src"))
+        val first = harness.chapter(novel, 1.0)
+        val later = harness.chapter(novel, 2.0)
+        val model = harness.open(novel, later.id)
+        model.awaitIdleOn(later)
+        clock.advance(10.minutes)
+        model.saveHistory()
+        advanceUntilIdle()
+        harness.leave()
+
+        val reopened = harness.open(novel, first.id)
+        reopened.loadState.first { it == ReaderLoadState.Idle }
+
+        reopened.chapter.value?.chapterId shouldBe first.id
+    }
+
+    /** Incognito stamps no History, so the snapshot is the only record of the chapter being read. */
+    @Test
+    fun `an incognito novel reopens after a process kill on the snapshot's chapter`() =
+        readTimeTest { harness, clock ->
+            val novel = harness.novel(harness.source("src"))
+            val first = harness.chapter(novel, 1.0)
+            val opened = harness.chapter(novel, 2.0)
+            val model = harness.open(novel, first.id)
+            model.awaitIdleOn(first)
+            model.saveHistory()
+            advanceUntilIdle()
+            harness.leave()
+            harness.incognito.set(true)
+            clock.advance(10.minutes)
+            val savedState = SavedStateHandle()
+            val private = harness.open(novel, opened.id, savedState = savedState)
+            private.awaitIdleOn(opened)
+
+            val restored = harness.open(novel, first.id, savedState = savedState)
+            restored.loadState.first { it == ReaderLoadState.Idle }
+
+            restored.chapter.value?.chapterId shouldBe opened.id
+        }
+
     @Test
     fun `an incognito chapter reopens after a process kill at the spoken paragraph`() = readerTest { harness ->
         harness.incognito.set(true)
