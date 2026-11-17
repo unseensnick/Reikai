@@ -1,6 +1,5 @@
 package reikai.presentation.reader
 
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
@@ -19,9 +18,9 @@ import reikai.domain.merge.ChapterUnit
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * A reader flag picked just before the manga reader closes still reaches every source of a merged
- * series, as the novel reader's flag saves do: the write runs on the app scope, which the close does not
- * end. Each case picks a flag and lets the reader close straight away.
+ * A reading mode picked just before the manga reader closes still reaches every source of a merged
+ * series: the write runs on the app scope, which the close does not end. Rotation, the flag both readers
+ * keep, is pinned for both in ReaderViewerFlagsConformanceTest; the novel reading mode is a page layout.
  */
 class MangaViewerFlagsCloseTest {
 
@@ -36,14 +35,6 @@ class MangaViewerFlagsCloseTest {
         val webtoon = ReadingMode.WEBTOON.flagValue.toLong()
         storedAfterClose(ReadingMode.MASK.toLong(), webtoon) { setMangaReadingMode(ReadingMode.WEBTOON) } shouldBe
             listOf(webtoon, webtoon)
-    }
-
-    @Test
-    fun `a rotation picked as the reader closes is stored on every source`() = runTest {
-        val reverse = ReaderOrientation.REVERSE_PORTRAIT.flagValue.toLong()
-        storedAfterClose(ReaderOrientation.MASK.toLong(), reverse) {
-            setMangaOrientationType(ReaderOrientation.REVERSE_PORTRAIT)
-        } shouldBe listOf(reverse, reverse)
     }
 
     /** Opens the owner of a two-source group, runs [pick], closes, and answers each source's flag. */
@@ -65,7 +56,7 @@ class MangaViewerFlagsCloseTest {
             pooledChapters = pooled,
         )
         // The sibling's write is still running when the reader closes.
-        harness.open(owner, chapterId = 11L, group = group, slowFlagWrites = setOf(sibling.id)) { model, _ ->
+        harness.open(owner, chapterId = 11L, group = group, slowFlagWrite = { id, _ -> id == sibling.id }) { model, _ ->
             model.pick()
             // Into the write loop, past the owner's write.
             withContext(Dispatchers.Default) { delay(100) }

@@ -22,6 +22,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.renderStoredStitch
 import reikai.domain.novel.NovelPageLayout
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * A merged series keeps one set of reader flags, its settings owner's, whichever source the reader opens
@@ -40,6 +41,10 @@ class ReaderViewerFlagsConformanceTest {
         /** The owner reads paged one way and the sibling another. Opens a chapter of the sibling and turns
          *  the rotation: whether the reader still reads the way the owner does. */
         suspend fun ownerReadingModeKeptAfterRotationThroughSibling(scope: TestScope): Boolean
+
+        /** Opens a chapter of the owner, turns the rotation while the sibling's write is slow, and leaves the
+         *  reader at once: what each source stores. */
+        suspend fun rotationStoredAfterClose(scope: TestScope): List<Long?>
     }
 
     @BeforeEach
@@ -64,6 +69,12 @@ class ReaderViewerFlagsConformanceTest {
     @MethodSource("probes")
     fun `a rotation changed through a sibling keeps the owner's reading mode`(probe: Probe) = runTest {
         probe.ownerReadingModeKeptAfterRotationThroughSibling(this) shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a rotation picked as the reader closes is stored on every source`(probe: Probe) = runTest {
+        probe.rotationStoredAfterClose(this) shouldBe listOf(CHANGED, CHANGED)
     }
 
     companion object {
@@ -108,6 +119,15 @@ class ReaderViewerFlagsConformanceTest {
                 ReadingMode.WEBTOON.flagValue.toLong()
         }
 
+        override suspend fun rotationStoredAfterClose(scope: TestScope): List<Long?> = withGroup { owner, group ->
+            harness.open(owner, chapterId = 11L, group = group, slowFlagWrite = { id, _ ->
+                id == SIBLING_ID
+            }) { model, _ ->
+                model.setMangaOrientationType(ReaderOrientation.REVERSE_PORTRAIT)
+            }
+            listOf(OWNER_ID, SIBLING_ID).map { id -> settlesAt(CHANGED) { storedRotation(id) } }
+        }
+
         private lateinit var harness: MangaReaderViewModelHarness
 
         private suspend fun storedRotation(id: Long) = harness.storedManga(id).viewerFlags and MASK
@@ -118,32 +138,40 @@ class ReaderViewerFlagsConformanceTest {
             ownerMode: Long = 0L,
             siblingMode: Long = 0L,
             probe: suspend (ReaderViewModel) -> T,
-        ): T =
-            MangaReaderViewModelHarness.create().use { harness ->
-                this.harness = harness
-                harness.manga(OWNER_ID, source = 100L, title = "Owner")
-                harness.manga(SIBLING_ID, source = 200L, title = "Sibling")
-                harness.setViewerFlags(OWNER_ID, OWNER or ownerMode)
-                harness.setViewerFlags(SIBLING_ID, SIBLING or siblingMode)
-                val owner = harness.storedManga(OWNER_ID)
-                val sibling = harness.storedManga(SIBLING_ID)
-                val pooled = listOf(harness.chapter(11L, owner, 1.0), harness.chapter(21L, sibling, 2.0))
-                val stitch = pooled.mapIndexed { unit, chapter ->
-                    ChapterUnit(chapterId = chapter.id, unit = unit, copyOrder = 0)
-                }
-                val group = MergedChapterProvider.Group(
-                    mangaById = mapOf(owner.id to owner, sibling.id to sibling),
-                    chapters = renderStoredStitch(pooled, stitch) { it.id }
-                        .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) },
-                    sourceNameByMangaId = mapOf(owner.id to "Owner", sibling.id to "Sibling"),
-                    stitch = stitch,
-                    pooledChapters = pooled,
-                )
-                val opened = if (openedId == OWNER_ID) owner else sibling
-                harness.open(opened, chapterId = if (openedId == OWNER_ID) 11L else 21L, group = group) { model, _ ->
-                    probe(model)
-                }
+        ): T = withGroup(ownerMode, siblingMode) { owner, group ->
+            val opened = if (openedId == OWNER_ID) owner else harness.storedManga(SIBLING_ID)
+            harness.open(opened, chapterId = if (openedId == OWNER_ID) 11L else 21L, group = group) { model, _ ->
+                probe(model)
             }
+        }
+
+        /** The owner and the sibling, one chapter each, grouped with the owner first; [block] gets the owner. */
+        private suspend fun <T> withGroup(
+            ownerMode: Long = 0L,
+            siblingMode: Long = 0L,
+            block: suspend (Manga, MergedChapterProvider.Group) -> T,
+        ): T = MangaReaderViewModelHarness.create().use { harness ->
+            this.harness = harness
+            harness.manga(OWNER_ID, source = 100L, title = "Owner")
+            harness.manga(SIBLING_ID, source = 200L, title = "Sibling")
+            harness.setViewerFlags(OWNER_ID, OWNER or ownerMode)
+            harness.setViewerFlags(SIBLING_ID, SIBLING or siblingMode)
+            val owner = harness.storedManga(OWNER_ID)
+            val sibling = harness.storedManga(SIBLING_ID)
+            val pooled = listOf(harness.chapter(11L, owner, 1.0), harness.chapter(21L, sibling, 2.0))
+            val stitch = pooled.mapIndexed { unit, chapter ->
+                ChapterUnit(chapterId = chapter.id, unit = unit, copyOrder = 0)
+            }
+            val group = MergedChapterProvider.Group(
+                mangaById = mapOf(owner.id to owner, sibling.id to sibling),
+                chapters = renderStoredStitch(pooled, stitch) { it.id }
+                    .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) },
+                sourceNameByMangaId = mapOf(owner.id to "Owner", sibling.id to "Sibling"),
+                stitch = stitch,
+                pooledChapters = pooled,
+            )
+            block(owner, group)
+        }
 
         private companion object {
             const val OWNER_ID = 1L
@@ -184,6 +212,18 @@ class ReaderViewerFlagsConformanceTest {
                 scope.advanceUntilIdle()
 
                 model.effectivePageLayout.value == NovelPageLayout.PAGED_LTR
+            }
+
+        override suspend fun rotationStoredAfterClose(scope: TestScope): List<Long?> =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                val (owner, sibling) = group(harness)
+                harness.slowFlagWrite = { id, _ -> id == sibling }
+                val model = harness.open(owner, harness.chapter(owner, 1.0).id)
+                scope.advanceUntilIdle()
+
+                model.setOrientation(CHANGED.toInt())
+                harness.leave()
+                listOf(owner, sibling).map { id -> settlesAt(CHANGED) { harness.viewerFlagsOf(id) and MASK } }
             }
 
         /** The owner and the sibling, grouped with the owner first; [ownerLayout] is the owner's reading mode. */

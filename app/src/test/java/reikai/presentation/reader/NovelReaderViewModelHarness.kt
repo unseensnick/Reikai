@@ -16,13 +16,16 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
+import io.mockk.spyk
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import mihon.domain.extension.model.ContentWarning
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.coil.NovelChapterPictureCache
@@ -367,6 +371,22 @@ class NovelReaderViewModelHarness private constructor(
     /** What the reader's trim behind it queued for deletion on leaving. */
     val pendingDeletes = mutableListOf<NovelChapter>()
 
+    /** Whether a rotation write of a flag to a novel takes a moment, as a busy database's does. */
+    @Volatile
+    var slowFlagWrite: (novelId: Long, flag: Long) -> Boolean = { _, _ -> false }
+
+    /** Runs [step] and waits for the app-scope writes it started, which outlive the model and run on IO. */
+    suspend fun settleAppWrites(step: suspend () -> Unit) {
+        val running = appScope.coroutineContext.job.children.toSet()
+        step()
+        withContext(Dispatchers.Default) {
+            withTimeout(10_000) { (appScope.coroutineContext.job.children.toSet() - running).joinAll() }
+        }
+    }
+
+    /** Clears the open models, as leaving the reader does, with the database still open. */
+    fun leave() = viewModels.clear()
+
     /** The picture caches a reload from source drops, which are the app's image loader's. */
     val pictureCache = mockk<NovelChapterPictureCache>(relaxed = true)
 
@@ -432,7 +452,12 @@ class NovelReaderViewModelHarness private constructor(
                 sourcePreferences,
                 mockk(),
             ),
-            setNovelViewerFlags = SetNovelViewerFlags(novelRepo),
+            setNovelViewerFlags = spyk(SetNovelViewerFlags(novelRepo)) {
+                coEvery { awaitSetOrientation(any(), any()) } coAnswers {
+                    if (slowFlagWrite(firstArg(), secondArg())) slowWrite()
+                    callOriginal()
+                }
+            },
             novelDownloadCache = downloadCache,
             chapterTextCache = chapterTextCache,
             pageFetcher = mockk { every { chapterSaved } returns pageSaves },

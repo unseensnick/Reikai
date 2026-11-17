@@ -209,7 +209,7 @@ class MangaReaderViewModelHarness private constructor(
      * @param onRequeue hears the chapters the reader puts back in the queue
      * @param launchPage the page a launch asks to open at, as a page preview's does
      * @param restored the chapter and page a process death saved, which the reopened model restores
-     * @param slowFlagWrites the entries whose reader flag write takes a moment, as a busy database's does
+     * @param slowFlagWrite whether a reader flag write of a flag to an entry takes a moment, as a busy database's does
      */
     suspend fun <T> open(
         manga: Manga,
@@ -232,7 +232,7 @@ class MangaReaderViewModelHarness private constructor(
         onRequeue: (List<Long>) -> Unit = {},
         launchPage: Int? = null,
         restored: Pair<Long, Int>? = null,
-        slowFlagWrites: Set<Long> = emptySet(),
+        slowFlagWrite: (mangaId: Long, flag: Long) -> Boolean = { _, _ -> false },
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
     ): T {
         val resolved = group ?: single(manga)
@@ -320,12 +320,12 @@ class MangaReaderViewModelHarness private constructor(
                 localVolumes = NoLocalVolumes,
                 updateChapter = UpdateChapter(chapters),
                 setMangaViewerFlags = spyk(SetMangaViewerFlags(mangas)) {
-                    coEvery { awaitSetReadingMode(match { it in slowFlagWrites }, any()) } coAnswers {
-                        delay(SLOW_WRITE_MS)
+                    coEvery { awaitSetReadingMode(any(), any()) } coAnswers {
+                        if (slowFlagWrite(firstArg(), secondArg())) slowWrite()
                         callOriginal()
                     }
-                    coEvery { awaitSetOrientation(match { it in slowFlagWrites }, any()) } coAnswers {
-                        delay(SLOW_WRITE_MS)
+                    coEvery { awaitSetOrientation(any(), any()) } coAnswers {
+                        if (slowFlagWrite(firstArg(), secondArg())) slowWrite()
                         callOriginal()
                     }
                 },
@@ -379,6 +379,9 @@ class MangaReaderViewModelHarness private constructor(
 
     override fun close() = driver.close()
 }
+
+/** A reader flag write that takes a moment, as a busy database's does. */
+suspend fun slowWrite() = delay(SLOW_WRITE_MS)
 
 private const val SLOW_WRITE_MS = 300L
 

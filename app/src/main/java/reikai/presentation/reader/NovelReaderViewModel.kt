@@ -218,6 +218,10 @@ class NovelReaderViewModel(
     // The progress writes, which outlive the session, in the order manga's are, through the same rule
     private val progressWrites = ReaderProgressWrites(appScope)
 
+    // The reader flag writes, in the order they were picked, so the latest pick is what every member keeps:
+    // two writes running at once over a merged series' members could leave them disagreeing.
+    private val flagWrites = ReaderProgressWrites(appScope)
+
     // Building the manager restores the persisted queue and can start the download worker, so it is
     // resolved on first read rather than at construction, which keeps that off the opening thread.
     private val downloadManager: NovelDownloadManager get() = downloadManagerProvider()
@@ -360,8 +364,10 @@ class NovelReaderViewModel(
 
     fun setOrientation(flagValue: Int) {
         orientationOverride.value = flagValue
-        appScope.launchIO {
-            viewerFlags.await().write { setNovelViewerFlags.awaitSetOrientation(it, flagValue.toLong()) }
+        flagWrites.launch {
+            withContext(io) {
+                viewerFlags.await().write { setNovelViewerFlags.awaitSetOrientation(it, flagValue.toLong()) }
+            }
         }
     }
 
@@ -392,12 +398,16 @@ class NovelReaderViewModel(
     fun setRenderingMode(mode: NovelRenderingMode?) {
         renderingMode.value = mode
         textLoader.renderingMode = mode
-        appScope.launchIO { viewerFlags.await().write { setNovelViewerFlags.awaitSetRenderingMode(it, mode) } }
+        flagWrites.launch {
+            withContext(io) { viewerFlags.await().write { setNovelViewerFlags.awaitSetRenderingMode(it, mode) } }
+        }
     }
 
     fun setPageLayout(layout: NovelPageLayout?) {
         pageLayout.value = layout
-        appScope.launchIO { viewerFlags.await().write { setNovelViewerFlags.awaitSetPageLayout(it, layout) } }
+        flagWrites.launch {
+            withContext(io) { viewerFlags.await().write { setNovelViewerFlags.awaitSetPageLayout(it, layout) } }
+        }
     }
 
     fun setKeepScreenOn(enabled: Boolean) = novelPreferences.readerKeepScreenOn().set(enabled)

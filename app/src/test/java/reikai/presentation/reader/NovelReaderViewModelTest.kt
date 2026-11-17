@@ -826,6 +826,28 @@ class NovelReaderViewModelTest {
         harness.isRead(first) shouldBe true
     }
 
+    /** Only the latest pick matters, as in manga: the older write landing last would restore its choice. */
+    @Test
+    fun `the later of two quick rotation picks is stored on every source of a merged novel`() =
+        readerTest { harness ->
+            val first = ReaderOrientation.LOCKED_PORTRAIT.flagValue.toLong()
+            val later = ReaderOrientation.REVERSE_PORTRAIT.flagValue.toLong()
+            val owner = harness.novel(harness.source("alpha"))
+            val sibling = harness.novel(harness.source("beta"))
+            harness.merge(owner, sibling)
+            harness.slowFlagWrite = { id, flag -> id == sibling && flag == first }
+            val model = harness.open(owner, harness.chapter(owner, 1.0).id)
+            advanceUntilIdle()
+
+            harness.settleAppWrites {
+                model.setOrientation(first.toInt())
+                model.setOrientation(later.toInt())
+            }
+
+            listOf(owner, sibling).map { harness.viewerFlagsOf(it) and ReaderOrientation.MASK.toLong() } shouldBe
+                listOf(later, later)
+        }
+
     @Test
     fun `a chapter's picture set as cover becomes the novel's own cover`() = readerTest { harness ->
         val novel = harness.novel(harness.source("src"))
