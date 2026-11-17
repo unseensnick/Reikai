@@ -1,5 +1,7 @@
 package reikai.presentation.reader
 
+import kotlin.math.abs
+
 /**
  * Which scroll frames hide the reader's menu, for every scrolling renderer of both readers: one past
  * [threshold] (Sensitivity for hiding menu on scroll) made by a finger, or by the fling it lets go into,
@@ -26,7 +28,7 @@ class MenuHideOnScroll(
             dragging = false
         }
         lastFrameAt = now
-        return (dragging || flinging) && scrollHidesMenu(dy, threshold)
+        return (dragging || flinging) && abs(dy) > threshold
     }
 
     companion object {
