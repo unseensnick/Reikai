@@ -8,6 +8,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -55,5 +56,25 @@ class NovelFontsViewModelTest {
         model.viewModelScope.cancel()
 
         withContext(Dispatchers.Default) { withTimeout(5.seconds) { deleted.await() } } shouldBe Unit
+    }
+
+    @Test
+    fun `a download finishes after the screen closes`() = runTest {
+        val font = NovelFont("Lora.ttf", "Lora")
+        val fonts = mockk<NovelFontManager> {
+            coEvery { installed() } returns emptyList()
+            coEvery { download("Lora") } coAnswers {
+                delay(100)
+                Result.success(font)
+            }
+        }
+        val model = NovelFontsViewModel(fonts, NovelPreferences(InMemoryPreferenceStore()), testAppScope())
+
+        model.download("Lora")
+        model.viewModelScope.cancel()
+
+        val settled = withContext(Dispatchers.Default) { withTimeout(5.seconds) { model.state.first { !it.busy } } }
+
+        settled.error shouldBe null
     }
 }
