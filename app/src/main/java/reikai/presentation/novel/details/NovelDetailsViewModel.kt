@@ -921,7 +921,7 @@ class NovelDetailsViewModel(
             isPageLoading.value = true
             try {
                 src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
-                    syncChaptersWithNovelSource(
+                    val synced = syncChaptersWithNovelSource(
                         it,
                         novel,
                         chapterRepo,
@@ -929,8 +929,13 @@ class NovelDetailsViewModel(
                         libraryPreferences,
                         syncRules,
                         page = pageKey,
+                        // Past the stored count is a page the last update failed on, as walkNovelPages reads it,
+                        // so its chapters are new and the update's retry will find them already stored.
+                        pageOpened = (pageKey.toLongOrNull() ?: 0L) > novel.totalPages,
                         novelDownloadManager = downloadManager,
                     )
+                    val toDownload = filterChaptersForDownload.await(novel, synced.newChapters)
+                    if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -946,8 +951,16 @@ class NovelDetailsViewModel(
 
     fun selectPage(index: Int) {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        if (index < 0 || index >= loaded.pages.size || index == loaded.pageIndex) return
-        loaded.pages[index].let { if (failedPages.remove(it)) triedPages.remove(it) }
+        if (index < 0 || index >= loaded.pages.size) return
+        val page = loaded.pages[index]
+        val retry = failedPages.remove(page)
+        if (retry) triedPages.remove(page)
+        if (index == loaded.pageIndex) {
+            // The shown list does not change, so it never asks again: the retry is asked for here.
+            if (retry) maybeFetchPage(loaded.novel, page, loaded.chapterFilters)
+            dismissDialog()
+            return
+        }
         clearSelection()
         pageIndex.value = index
         dismissDialog()

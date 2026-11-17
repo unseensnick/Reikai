@@ -6,6 +6,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.mockk.coVerify
+import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.Test
 import reikai.data.coil.seedColor
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
+import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
@@ -177,6 +180,23 @@ class NovelDetailsFetchTest {
     }
 
     @Test
+    fun `a page that failed is asked again when it is picked again while shown`() = runTest {
+        val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val source = harness.source("alpha").apply { failingPages += "2" }
+            val (_, model) = harness.openPaged(source)
+            model.selectPage(1)
+            model.snackbarWithin(10_000)
+            model.selectPage(1)
+            withContext(Dispatchers.Default) {
+                withTimeout(10_000) { while (source.pagesAsked.size < 2) delay(20) }
+            }
+            source.pagesAsked.toList()
+        }
+
+        asked shouldContainExactly listOf("2", "2")
+    }
+
+    @Test
     fun `a paged novel shows its pages while its source is still busy with its web address`() = runTest {
         val loaded = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val busy = CompletableDeferred<Unit>()
@@ -299,6 +319,27 @@ class NovelDetailsFetchTest {
         }
 
         pages shouldBe listOf("1", "2", "3")
+    }
+
+    /** The last update failed on page 2 and kept the count at one, so page 2 opened since and holds new chapters. */
+    @Test
+    fun `a page the last update failed on brings new chapters when details fetches it`() = runTest {
+        val filter = mockk<FilterNovelChaptersForDownload>(relaxed = true)
+        NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            harness.filterChaptersForDownload = filter
+            val source = harness.source("alpha")
+            source.pageChapters["2"] = listOf(ChapterItem("Two", "/2"))
+            val novel = harness.novel(source)
+            harness.chapter(novel, 1.0, page = "1")
+            harness.chapter(novel, 3.0, page = "3")
+            val model = harness.openDetails(novel)
+            model.awaitLoaded { it.pages.size == 3 && it.sourceName == "alpha" }
+            model.selectPage(1)
+            withContext(Dispatchers.Default) {
+                withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
+            }
+            coVerify(timeout = 10_000) { filter.await(any(), match { new -> new.map { it.url } == listOf("/2") }) }
+        }
     }
 
     @Test

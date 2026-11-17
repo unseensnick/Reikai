@@ -85,6 +85,7 @@ import reikai.domain.track.ownChapterNumbers
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadedTexts
+import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.install.LnPluginInstaller
@@ -715,10 +716,13 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     override suspend fun resolveUrl(path: String, isNovel: Boolean): String? = resolve(path)
 
+    /** The chapters a page key answers with; none by default. */
+    val pageChapters: MutableMap<String, List<ChapterItem>> = java.util.concurrent.ConcurrentHashMap()
+
     override suspend fun parsePage(novelPath: String, page: String): SourceNovel? {
         pagesAsked += page
         if (page in failingPages) throw IOException("no connection")
-        return null
+        return pageChapters[page]?.let { SourceNovel(path = novelPath, chapters = it) }
     }
 
     private fun unused(): Nothing = throw UnsupportedOperationException("Not part of reading a chapter")
