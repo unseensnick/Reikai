@@ -968,6 +968,31 @@ class NovelWebDocumentTest {
         assertEquals(4, topLines[CHAPTER_ID.toString()])
     }
 
+    /** Text after a picture in its own paragraph is the line named, not the paragraph after it. */
+    @Test
+    fun aPictureAtTheTopNamesTheTextAfterItInItsParagraph() {
+        imageGate = CountDownLatch(0)
+        val chapter = "<p>lead</p><p><img src=\"https://rk.test/$TALL_IMAGE\">after</p>" +
+            "<p>lorem ipsum</p>".repeat(60)
+        loadDocument(document(chapterHtml = chapter))
+        awaitEval("String(document.querySelector('.rk-chapter img').complete)", "true")
+        eval("window.scrollTo({ top: document.querySelector('.rk-chapter img').offsetTop + 100, behavior: 'instant' })")
+        settleFrames()
+        assertEquals(4, topLines[CHAPTER_ID.toString()])
+    }
+
+    /** A closing picture names the line after all the chapter's text, as the native renderer's last chunk does. */
+    @Test
+    fun aClosingPictureAtTheTopNamesTheChapterEnd() {
+        imageGate = CountDownLatch(0)
+        val chapter = "<p>lorem ipsum</p>".repeat(60) + "<img src=\"https://rk.test/$TALL_IMAGE\">"
+        loadDocument(document(chapterHtml = chapter))
+        awaitEval("String(document.querySelector('.rk-chapter img').complete)", "true")
+        eval("window.scrollTo({ top: document.querySelector('.rk-chapter img').offsetTop + 100, behavior: 'instant' })")
+        settleFrames()
+        assertEquals(60 * "loremipsum".length, topLines[CHAPTER_ID.toString()])
+    }
+
     /** The chapter the page opened on runs its scripts as it loads; one arriving by scrolling has to too. */
     @Test
     fun aSeamlessChapterRunsItsOwnScripts() {

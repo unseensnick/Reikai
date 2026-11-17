@@ -493,13 +493,24 @@
       }
       // A picture at the top, or text the count skips (a failed picture's box): the line where the counted text
       // resumes below it, as the native renderer counts the line of the chunk that holds the picture rather
-      // than reporting none and landing a rebuild by percent.
+      // than reporting none and landing a rebuild by percent. The caret's own child counts when it is that text.
+      var after = text ? node : node.childNodes[caret.startOffset];
+      if (after && counts.has(after)) return counts.get(after);
       var walker = document.createTreeWalker(chapter, NodeFilter.SHOW_TEXT);
-      walker.currentNode = text ? node : node.childNodes[caret.startOffset] || node;
+      // Past an element's end, the walk starts below everything in it, so no text above the caret is named.
+      walker.currentNode = after || lastDescendant(node);
       while (walker.nextNode()) {
         if (counts.has(walker.currentNode)) return counts.get(walker.currentNode);
       }
-      return -1;
+      // Below the chapter's last counted text, as on a closing picture: the line after all of it.
+      var total = 0;
+      counts.forEach(function (before, counted) { total = before + countedLength(counted.nodeValue); });
+      return total;
+    }
+
+    function lastDescendant(node) {
+      while (node.lastChild) node = node.lastChild;
+      return node;
     }
 
     return {
