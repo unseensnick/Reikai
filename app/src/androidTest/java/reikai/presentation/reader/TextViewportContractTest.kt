@@ -1459,6 +1459,30 @@ class TextViewportContractTest(private val renderer: Renderer) {
     }
 
     /**
+     * The chunk holding a failed picture tells a screen reader what the box says, which the chunk's own text
+     * cannot: the box is a drawable. The page's box is markup, so a screen reader reads it there anyway.
+     */
+    @Test
+    fun aFailedPictureIsReadOutByItsChunk() {
+        assumeTrue("only the text renderer draws the box", renderer == Renderer.NATIVE)
+        val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX), failFirst = Int.MAX_VALUE).also { server = it }
+        open(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\">"))
+        awaitWhile { imageFailure() == null }
+        var heading = ""
+        var spoken = ""
+        instrumentation.runOnMainSync {
+            val chunk = textViews().first {
+                (it.text as? Spanned)?.getSpans(0, it.text.length, ImageSpan::class.java)?.isNotEmpty() ==
+                    true
+            }
+            val image = (chunk.text as Spanned).let { it.getSpans(0, it.length, ImageSpan::class.java).first() }
+            heading = ((image.drawable as DrawableWrapper).innerDrawable as ImageFailureDrawable).heading
+            spoken = chunk.createAccessibilityNodeInfo().text.toString()
+        }
+        assertTrue("the chunk reads \"$spoken\"", heading in spoken)
+    }
+
+    /**
      * The chapter before this one failing once the reader has scrolled in puts its box above the text: inside
      * the chapter's item natively, before the chapters on the page, where scroll anchoring is off. Either way
      * the line being read stays put.
