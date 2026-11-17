@@ -16,7 +16,6 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.DiskUtil.NOMEDIA_FILE
-import eu.kanade.tachiyomi.util.storage.saveTo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -52,6 +51,9 @@ import mihon.core.metro.AppCoroutineScope
 import mihon.data.cache.ChapterCache
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
+import okio.buffer
+import okio.source
+import reikai.data.download.ResumedImageDownload
 import reikai.domain.download.DownloadPacing
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.SeriesCompletions
@@ -692,13 +694,21 @@ class Downloader(
                 ?: tmpDir.createFile("$filename.tmp")!!
 
             try {
-                source.getImage(page, file.length()).use {
-                    it.body.source().saveTo(
-                        // If the server supports partial downloads (HTTP 206),
-                        // append to the existing file.
-                        // Otherwise, start from scratch and overwrite the file.
-                        stream = file.openOutputStream(it.code == 206),
-                    )
+                // RK -->
+                // A resume is appended only when it continues the bytes on disk: a source that decrypts its
+                // images decodes the shortened answer from its own start (ResumedImageDownload).
+                ResumedImageDownload.write(
+                    existingSize = file.length(),
+                    stored = { from ->
+                        file.openInputStream().source().buffer().use {
+                            it.skip(from)
+                            it.readByteArray()
+                        }
+                    },
+                    fetch = { from -> source.getImage(page, from) },
+                    open = { append -> file.openOutputStream(append) },
+                ).use {
+                    // RK <--
                     val extension = getImageExtension(it, file)
                     file.renameTo("$filename.$extension")
                 }

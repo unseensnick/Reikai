@@ -113,6 +113,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Manga pages from sources that encrypt their images no longer download damaged when a slow or dropped connection cuts a page off.** Chapters already damaged need downloading again.
 - **A storage hiccup while deleting downloads no longer removes the series' or the source's other downloads.** For manga and novels alike.
 - **Merging the downloads of a series that was in the library twice no longer deletes the old chapter folders.** Anything that wasn't copied stays in a hidden folder beside them.
 - **Manga chapters in the download queue are no longer lost or brought back when you queue, reorder, cancel or delete right after opening the app.**
