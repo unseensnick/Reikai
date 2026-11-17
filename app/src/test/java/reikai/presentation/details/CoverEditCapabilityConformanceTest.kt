@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
@@ -114,7 +115,10 @@ private fun TestScope.editable(model: EntryCoverViewModel<*>): Boolean {
     return model.isCoverEditable.value
 }
 
-class MangaCoverEditProbe(private val appScope: CoroutineScope = testAppScope()) : CoverEditProbe {
+class MangaCoverEditProbe(
+    private val appScope: CoroutineScope = testAppScope(),
+    private val clearCustomCover: ClearCustomCover = mockk(relaxed = true),
+) : CoverEditProbe {
     override val id = EntryId.Manga(1L)
 
     override fun toString() = "manga"
@@ -134,14 +138,17 @@ class MangaCoverEditProbe(private val appScope: CoroutineScope = testAppScope())
             coverCache = mockk(relaxed = true),
             updateManga = mockk(relaxed = true),
             coverManager = mockk(relaxed = true),
-            clearCustomCover = mockk(relaxed = true),
+            clearCustomCover = clearCustomCover,
             imageSaver = mockk(relaxed = true),
             appScope = appScope,
         )
     }
 }
 
-class NovelCoverEditProbe(private val appScope: CoroutineScope = testAppScope()) : CoverEditProbe {
+class NovelCoverEditProbe(
+    private val appScope: CoroutineScope = testAppScope(),
+    private val clearCustomCover: ClearCustomCover = mockk(relaxed = true),
+) : CoverEditProbe {
     override val id = EntryId.Novel(1L)
 
     val localSource = mockk<LocalNovelSource> { coEvery { writeCover(any(), any()) } returns "content://cover" }
@@ -167,7 +174,7 @@ class NovelCoverEditProbe(private val appScope: CoroutineScope = testAppScope())
             novelRepo = repo,
             getCustomNovelInfo = mockk<GetCustomNovelInfo> { every { subscribe(novel.id) } returns flowOf(null) },
             coverCache = coverCache,
-            clearCustomCover = mockk(relaxed = true),
+            clearCustomCover = clearCustomCover,
             setNovelCustomCover = SetNovelCustomCover(repo, mockk(relaxed = true), coverCache, localSource),
             imageSaver = mockk(relaxed = true),
             appScope = appScope,

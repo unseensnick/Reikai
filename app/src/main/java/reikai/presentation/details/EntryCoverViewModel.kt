@@ -18,9 +18,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.presentation.components.launchOutliving
 import reikai.presentation.components.savePictureOutliving
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -102,29 +103,24 @@ abstract class EntryCoverViewModel<T : Any>(
 
     fun editCover(context: Context, data: Uri) {
         val entry = entry.value ?: return
-        viewModelScope.launchIO {
-            try {
-                // Not a null-safe call with the notify after it: an unreadable Uri gives no stream,
-                // and the success snackbar fired anyway over a cover that was never written.
-                val input = context.contentResolver.openInputStream(data)
-                    ?: error("Could not open the chosen image")
-                input.use { persistCustomCover(entry, it) }
-                notifyCoverUpdated(context)
-            } catch (e: Exception) {
-                notifyFailed(context, e)
-            }
+        writeOutliving(context) {
+            // Not a null-safe call with the notify after it: an unreadable Uri gives no stream,
+            // and the success snackbar fired anyway over a cover that was never written.
+            val input = context.contentResolver.openInputStream(data)
+                ?: error("Could not open the chosen image")
+            input.use { persistCustomCover(entry, it) }
         }
     }
 
     fun deleteCustomCover(context: Context) {
         val entry = entry.value ?: return
-        viewModelScope.launchIO {
-            try {
-                removeCustomCover(entry)
-                notifyCoverUpdated(context)
-            } catch (e: Exception) {
-                notifyFailed(context, e)
-            }
+        writeOutliving(context) { removeCustomCover(entry) }
+    }
+
+    // On the app scope as Save is, so leaving the screen mid-write does not drop the cover change.
+    private fun writeOutliving(context: Context, write: suspend () -> Unit) {
+        viewModelScope.launchOutliving(appScope, write = { runCatchingCancellable { write() } }) { result ->
+            result.onSuccess { notifyCoverUpdated(context) }.onFailure { notifyFailed(context, it) }
         }
     }
 
