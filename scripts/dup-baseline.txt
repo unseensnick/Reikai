@@ -43,7 +43,8 @@
 #   MergedCountConformanceTest.
 # - PropagateTrackerLinks / PropagateNovelTrackerLinks: both forward to the handOutGroupTrackers kernel.
 # - RemoveMangaFromLibrary / RemoveNovelsFromLibrary: pinned by EntryLibraryRemovalConformanceTest.
-# - Entry, library, migration and recents adapters, TachiyomiNovelSource / IReaderNovelSource:
+# - Entry, library, migration, recents and reader adapters (MangaReaderProvider / NovelReaderProvider),
+#   TachiyomiNovelSource / IReaderNovelSource:
 #   adapter forwarders, one per engine or source kind, each the only seam to its side.
 # - Preference holders and settings screens (ReikaiLibraryPreferences, ReikaiRecommendationPreferences,
 #   EntryDisplayPage, ReikaiLibrarySettings, SettingsMangaReaderScreen, SettingsRecommendationsScreen):
