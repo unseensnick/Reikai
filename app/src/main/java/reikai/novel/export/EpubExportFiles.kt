@@ -3,9 +3,9 @@ package reikai.novel.export
 import android.content.Context
 import android.graphics.Bitmap
 import com.hippo.unifile.UniFile
-import eu.kanade.tachiyomi.util.storage.DiskUtil
 import reikai.storage.openTruncatingOutputStream
 import reikai.storage.replace
+import reikai.storage.validFileName
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -59,7 +59,7 @@ internal suspend fun UniFile.writeBookNamed(context: Context, name: String, writ
  */
 internal fun epubFileName(title: String, number: Int = 1): String {
     val tail = (if (number > 1) " ($number)" else "") + EPUB_EXTENSION
-    return DiskUtil.buildValidFilename(title, DiskUtil.MAX_FILE_NAME_BYTES - tail.toByteArray().size) + tail
+    return validFileName(title, tail)
 }
 
 /**

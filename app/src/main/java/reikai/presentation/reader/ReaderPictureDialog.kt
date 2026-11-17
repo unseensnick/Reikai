@@ -12,8 +12,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.reader.SetCoverDialog
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult
-import eu.kanade.tachiyomi.util.lang.byteSize
-import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
@@ -24,6 +22,7 @@ import reikai.presentation.components.PictureViewerDialog
 import reikai.presentation.components.copyPictureToClipboard
 import reikai.presentation.components.pictureBytes
 import reikai.presentation.components.savePictureOutliving
+import reikai.storage.validFileName
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -99,8 +98,5 @@ internal fun setAsCoverMessage(result: SetAsCoverResult) = when (result) {
  */
 internal fun chapterPictureName(entryTitle: String?, chapterTitle: String?, model: Any): String {
     val suffix = " - " + model.toString().hashCode().toUInt().toString(16)
-    return DiskUtil.buildValidFilename(
-        listOfNotNull(entryTitle, chapterTitle).joinToString(" - "),
-        DiskUtil.MAX_FILE_NAME_BYTES - suffix.byteSize(),
-    ) + suffix
+    return validFileName(listOfNotNull(entryTitle, chapterTitle).joinToString(" - "), suffix)
 }

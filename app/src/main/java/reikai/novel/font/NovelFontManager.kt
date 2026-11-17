@@ -10,7 +10,6 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.awaitSuccess
-import eu.kanade.tachiyomi.util.storage.DiskUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -22,6 +21,7 @@ import okhttp3.Request
 import reikai.domain.novel.NovelPreferences
 import reikai.storage.deleteFile
 import reikai.storage.replace
+import reikai.storage.validFileName
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -75,10 +75,13 @@ class NovelFontManager(
         // A font removed with a file manager leaves its copy behind, and nothing else would ever go
         // looking for it. Swept here because this is the one place that knows the full list, and only
         // when the folder answered with fonts: a picked folder whose provider failed its query lists as
-        // empty, not unreachable, and the copies are then what mirror() falls back to.
+        // empty, not unreachable, and the copies are then what mirror() falls back to. A working file is
+        // another thread's copy in progress, which its move into place would then fail on.
         if (!files.isNullOrEmpty()) {
             val kept = fonts.mapTo(HashSet()) { it.fileName }
-            mirrorDir.listFiles()?.forEach { if (it.name !in kept) it.delete() }
+            mirrorDir.listFiles()?.forEach {
+                if (it.name !in kept && !it.name.endsWith(PARTIAL_SUFFIX)) it.delete()
+            }
         }
         fonts
     }
@@ -198,14 +201,14 @@ class NovelFontManager(
 
     /**
      * Resolves [family] off the caller's thread when it is a user's file, so the render that needs it finds
-     * it cached. Checked against the file every time, as the WebView mode's font address is, so a font
-     * replaced behind the reader is drawn in its new face by both renderers.
+     * it cached. Checked against the file's [fontVersion] every time, which the WebView mode's font address
+     * carries too, so a font replaced behind the reader is drawn in its new face by both renderers.
      */
     suspend fun warm(family: String) {
         if (readerFontSource(family) !is ReaderFontSource.UserFile) return
         withIOContext {
             val mirror = mirror(family)
-            if (typefaces[family]?.stamp != mirror?.stamp()) typefaces[family] = faceOf(family, mirror)
+            if (typefaces[family]?.version != mirror?.fontVersion()) typefaces[family] = faceOf(family, mirror)
         }
     }
 
@@ -215,7 +218,7 @@ class NovelFontManager(
                 .onFailure { logcat(LogPriority.WARN, it) { "Unreadable reader font: $fileName" } }
                 .getOrNull()
         }
-        return CachedFace(face, mirror?.stamp())
+        return CachedFace(face, mirror?.fontVersion())
     }
 
     /** The readable copy, for a caller that needs the file itself. Touches the disk, so off the main
@@ -238,7 +241,7 @@ class NovelFontManager(
         // A fixed prefix, since Android adds the number to it unshortened and a font's name can fill the limit.
         var partial: File? = null
         return runCatching {
-            val copy = File.createTempFile("font", ".part", mirrorDir).also { partial = it }
+            val copy = File.createTempFile("font", PARTIAL_SUFFIX, mirrorDir).also { partial = it }
             source.openInputStream().use { input -> copy.outputStream().use(input::copyTo) }
             Files.move(copy.toPath(), local.toPath(), REPLACE_EXISTING, ATOMIC_MOVE)
             local
@@ -261,11 +264,8 @@ class NovelFontManager(
     }
 
     /** [fileName] made a valid file name with its extension kept, which shortening a long name would cut off. */
-    private fun validFileName(fileName: String): String {
-        val extension = fileName.substringAfterLast('.')
-        val stemBytes = DiskUtil.MAX_FILE_NAME_BYTES - extension.length - 1
-        return DiskUtil.buildValidFilename(fileName.substringBeforeLast('.'), maxBytes = stemBytes) + ".$extension"
-    }
+    private fun validFileName(fileName: String): String =
+        validFileName(fileName.substringBeforeLast('.'), "." + fileName.substringAfterLast('.'))
 
     private fun store(dir: UniFile, name: String, bytes: ByteArray): Result<NovelFont> =
         runCatching {
@@ -278,12 +278,15 @@ class NovelFontManager(
             logcat(LogPriority.WARN, it) { "Could not save reader font: $name" }
         }
 
-    private companion object {
-        const val CSS_URL = "https://fonts.googleapis.com/css2?family=%s:wght@400&display=swap"
-        const val CATALOGUE_URL = "https://fonts.google.com/metadata/fonts"
+    internal companion object {
+        private const val CSS_URL = "https://fonts.googleapis.com/css2?family=%s:wght@400&display=swap"
+        private const val CATALOGUE_URL = "https://fonts.google.com/metadata/fonts"
 
         // Larger than any text face; a CJK font runs to about 20 MB.
-        const val BACKUP_FONT_CAP = 32L * 1024 * 1024
+        private const val BACKUP_FONT_CAP = 32L * 1024 * 1024
+
+        /** A copy still being written, which no font's name ends in, since a font is a TTF or an OTF. */
+        const val PARTIAL_SUFFIX = ".part"
     }
 }
 
@@ -302,9 +305,10 @@ sealed class FontError : Exception() {
     data object NoStorage : FontError()
 }
 
-/** A resolved face, or the fact that there is none, with the [stamp] of the copy it was read from. Wrapped
+/** A resolved face, or the fact that there is none, with the [version] of the copy it was read from. Wrapped
  *  so a miss can live in a map that refuses null values and so it is not looked up again on every view a
  *  chapter builds. */
-private class CachedFace(val typeface: Typeface?, val stamp: Pair<Long, Long>?)
+private class CachedFace(val typeface: Typeface?, val version: String?)
 
-private fun File.stamp() = length() to lastModified()
+/** When a font's copy counts as replaced, for both renderers: the native face cache and the WebView's address. */
+fun File.fontVersion(): String = "${length()}-${lastModified()}"

@@ -5,6 +5,7 @@ import android.webkit.WebResourceResponse
 import logcat.LogPriority
 import reikai.novel.font.NovelFontManager
 import reikai.novel.font.ReaderFontSource
+import reikai.novel.font.fontVersion
 import reikai.novel.font.readerFontSource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -40,7 +41,7 @@ class NovelWebFonts {
             NovelWebImages.appAddress(PATH)
                 .addQueryParameter("f", family)
                 // A replaced file gets a new address, so the WebView never answers it from its cache.
-                .apply { file?.let { addQueryParameter("v", "${it.length()}-${it.lastModified()}") } }
+                .apply { file?.let { addQueryParameter("v", it.fontVersion()) } }
                 .build()
                 .toString()
                 .also { served[it] = Face(source, file, type) }

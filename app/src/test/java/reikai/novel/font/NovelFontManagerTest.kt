@@ -90,6 +90,40 @@ class NovelFontManagerTest {
         workingNames.all { it <= DiskUtil.MAX_FILE_NAME_BYTES } shouldBe true
     }
 
+    /**
+     * Listing sweeps the copies of fonts no longer in the folder, which must not take another thread's copy
+     * still being written. A working file stands in for one, since Windows refuses to delete an open file.
+     */
+    @Test
+    fun `listing fonts leaves a copy still being written`() = runTest {
+        val working = File(appFiles, "fonts/font123${NovelFontManager.PARTIAL_SUFFIX}").apply {
+            parentFile!!.mkdirs()
+            writeText("half")
+        }
+        val font = mockk<UniFile> {
+            every { name } returns "Lora.ttf"
+            every { isFile } returns true
+        }
+        val folder = mockk<UniFile> { every { listFiles() } returns arrayOf(font) }
+        val context = mockk<Context> { every { filesDir } returns appFiles }
+        val storage = mockk<StorageManager> { every { getFontsDirectory() } returns folder }
+
+        NovelFontManager(context, storage, mockk(), mockk()).installed()
+
+        working.exists() shouldBe true
+    }
+
+    /** Both renderers read a replaced font by this; the size is in it, since a SAF provider need not report a time. */
+    @Test
+    fun `a copy's version is its size and its time`() {
+        val copy = File(appFiles, "Lora.ttf").apply {
+            writeText("a font")
+            setLastModified(1_000)
+        }
+
+        copy.fontVersion() shouldBe "6-1000"
+    }
+
     /** Eight bytes, stopping after four until told to go on. */
     private class StalledStream(private val halfway: CountDownLatch, private val finish: CountDownLatch) :
         InputStream() {
