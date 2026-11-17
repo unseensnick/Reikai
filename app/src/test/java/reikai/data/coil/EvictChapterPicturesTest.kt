@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import reikai.novel.local.LocalNovelSource
 import java.io.File
 
 /** A reload from the source drops what the chapter's pictures left in coil's caches, and nothing else. */
@@ -65,6 +66,18 @@ class EvictChapterPicturesTest {
         evictChapterPictures(html, "https://a.test/chapter/1", "src", memory, disk)
 
         (pictures + "https://c.test/other.png").map(::inMemory) shouldBe listOf(false, false, false, true)
+    }
+
+    /** A local book's picture is cached under its source too, so the eviction has to name the same source. */
+    @Test
+    fun `a local book's picture the chapter names leaves the disk cache`() {
+        val picture = LocalNovelSource.pictureAddress("Saga", "Book.epub", "OEBPS/plate.png", 1)
+        val key = novelImageCacheKey(picture, LocalNovelSource.ID)
+        disk.openEditor(key)!!.commitAndOpenSnapshot()!!.close()
+
+        evictChapterPictures("""<img src="$picture">""", null, LocalNovelSource.ID, memory, disk)
+
+        inDisk(key) shouldBe false
     }
 
     private object StandIn : Image {

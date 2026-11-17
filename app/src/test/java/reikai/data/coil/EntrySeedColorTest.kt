@@ -35,12 +35,15 @@ class EntrySeedColorTest {
         EntryId.Manga(7L).seedColor(COVER, Instant.fromEpochMilliseconds(1)) { BLUE } shouldBe BLUE
     }
 
-    /** Restored from disk or found by a library cover load, a colour names no cover to check against. */
+    /**
+     * Restored from disk or found by a library cover load, a colour names no cover to check against. Its own id:
+     * the cover each colour came from is held for the process, and another test's would answer for it.
+     */
     @Test
     fun `a colour kept without its cover is taken from the cover again`() = runTest {
-        MangaCover.vibrantCoverColorMap[EntryId.Manga(7L).signedKey()] = RED
+        MangaCover.vibrantCoverColorMap[EntryId.Manga(9L).signedKey()] = RED
 
-        EntryId.Manga(7L).seedColor(COVER, null) { BLUE } shouldBe BLUE
+        EntryId.Manga(9L).seedColor(COVER, null) { BLUE } shouldBe BLUE
     }
 
     /** The manga viewers build their pages before the cover is read, and an old cover's colour is wrong there. */

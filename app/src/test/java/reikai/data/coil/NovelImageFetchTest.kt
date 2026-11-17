@@ -45,6 +45,22 @@ class NovelImageFetchTest {
         }
     }
 
+    /** Refused before the disk is read, so no entry under any key can hand a book's picture to another source. */
+    @Test
+    fun `a local book's picture is refused to another source before its disk cache is read`() = runTest {
+        val cache = DiskCache.Builder().directory(root.toOkioPath()).build()
+        cache.openEditor(novelImageCacheKey(address, "lnreader.x"))!!.commitAndOpenSnapshot()!!.close()
+
+        try {
+            shouldThrow<FileNotFoundException> {
+                fetchNovelImage(NovelImage(address, "lnreader.x"), mockk(), cache, readCache = true, writeCache = true)
+                    .source.close()
+            }
+        } finally {
+            cache.shutdown()
+        }
+    }
+
     /** The renderer reads Coil's memory cache before any fetch, so a picture decoded for the book must not answer there. */
     @Test
     fun `a local book's picture is cached apart from another source's chapter naming it`() {
