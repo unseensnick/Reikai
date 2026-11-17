@@ -418,6 +418,25 @@ class NovelWebDocumentTest {
     }
 
     /**
+     * Nor as a failed picture's box, which read aloud, the top line and taps pass over, as a bionic span, whose
+     * words bionic would leave plain, or as a picture that has loaded, whose loading box would go before it does.
+     */
+    @Test
+    fun aChaptersOwnReaderClassesAreNotTakenForTheReaders() {
+        val own = "<p class=\"rk-failure\">words</p><p><span class=\"rk-bionic\">plain</span></p>" +
+            "<img class=\"rk-loaded\" alt=\"never loads\">"
+        loadDocument(document(chapterHtml = own + "<p>lorem</p>".repeat(20)))
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(own)}, null, $SEAM)")
+        settleFrames()
+
+        val posing = eval(
+            "String(document.querySelectorAll('.rk-chapter p.rk-failure, .rk-chapter span.rk-bionic, ' +" +
+                "'.rk-chapter img.rk-loaded').length)",
+        )
+        assertEquals("0", posing)
+    }
+
+    /**
      * The hold only matters once a short chapter can be scrolled into, which takes a chapter below it.
      * Measured against its own height, a few pixels into one read as a negative percent.
      */

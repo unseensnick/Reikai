@@ -1024,6 +1024,7 @@
   function emphasised(text, bolds) {
     var span = document.createElement('span');
     span.className = 'rk-bionic';
+    readerMarked.add(span);
     var from = 0;
     bolds.forEach(function (run) {
       if (run[0] > from) span.appendChild(document.createTextNode(text.slice(from, run[0])));
@@ -1690,12 +1691,15 @@
    * Takes the reader's chapter marker off a chapter's own markup, which a source can carry. Left on, the
    * nested element reads as a chapter of its own, and progress, ends and fits past it name the wrong one.
    * The seam class and the reader's own ids go too: fitSeams reads a seam's card, and setEnd and
-   * setFailure replace whatever element carries their id.
+   * setFailure replace whatever element carries their id. So do a failure box's, a bionic span's and a
+   * loaded picture's classes, which read aloud, the top line, taps, bionic and fitSeams read anywhere in a chapter.
    */
   function disownMarkers(root) {
-    var owned = CHAPTER_SELECTOR + ', [' + CHAPTER_ID_ATTR + '], .rk-seam, [id^="rk-"]';
+    var owned = CHAPTER_SELECTOR + ', [' + CHAPTER_ID_ATTR + '], .rk-seam, .rk-failure, .rk-bionic, img.rk-loaded, ' +
+      '[id^="rk-"]';
     root.querySelectorAll(owned).forEach(function (node) {
-      node.classList.remove('rk-chapter', 'rk-seam');
+      if (readerMarked.has(node)) return;
+      node.classList.remove('rk-chapter', 'rk-seam', 'rk-failure', 'rk-bionic', 'rk-loaded');
       node.removeAttribute(CHAPTER_ID_ATTR);
       if (node.id.indexOf('rk-') === 0) node.removeAttribute('id');
     });
@@ -1947,9 +1951,15 @@
     }, true);
   });
 
+  // The nodes the reader marked itself, which disownMarkers leaves: a picture can load or fail in the
+  // opening chapter before start disowns that chapter's own markup.
+  var readerMarked = new WeakSet();
+
   // Drops the loading box reader.css draws in a picture's place. A failed one gets its failure box instead.
   document.addEventListener('load', function (e) {
-    if (e.target.tagName === 'IMG') e.target.classList.add('rk-loaded');
+    if (e.target.tagName !== 'IMG') return;
+    e.target.classList.add('rk-loaded');
+    readerMarked.add(e.target);
   }, true);
 
   /*
@@ -1984,6 +1994,7 @@
     if (img.tagName !== 'IMG' || !img.closest(CHAPTER_SELECTOR)) return;
     var box = document.createElement('div');
     box.className = 'rk-failure rk-image-failure';
+    readerMarked.add(box);
     box.appendChild(textBlock('rk-failure-heading', labels.imageError));
     if (/^(https?:)?\/\//i.test(img.getAttribute('src') || '')) {
       var button = document.createElement('button');
