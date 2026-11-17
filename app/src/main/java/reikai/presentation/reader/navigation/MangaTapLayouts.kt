@@ -25,6 +25,9 @@ object MangaTapLayouts {
     /** Mihon's Disabled, which is the novel reader's Disabled. */
     const val DISABLED = 5
 
+    /** Mihon's Right and left, the same two columns the novel reader's Right and left draws. */
+    private const val RIGHT_AND_LEFT = 4
+
     /** Every layout's name, by stored index. */
     val names: List<StringResource> = ReaderPreferences.TapZones + added.map { it.titleRes }
 
@@ -41,9 +44,13 @@ object MangaTapLayouts {
 
     /**
      * The novel reader's layout the one at [index] answers the inversion rules with, null for Default and
-     * Mihon's four zoned layouts, which every inversion changes.
+     * Mihon's three other zoned layouts, which every inversion changes.
      */
-    fun layout(index: Int): NovelTapLayout? = if (index == DISABLED) NovelTapLayout.DISABLED else added(index)
+    fun layout(index: Int): NovelTapLayout? = when (index) {
+        DISABLED -> NovelTapLayout.DISABLED
+        RIGHT_AND_LEFT -> NovelTapLayout.RIGHT_AND_LEFT
+        else -> added(index)
+    }
 
     /** The inversions that change the layout at [index]. */
     fun invertModes(index: Int): List<TappingInvertMode> = invertModes(layout(index))

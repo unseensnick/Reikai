@@ -55,6 +55,12 @@ class MangaTapLayoutsTest {
         (0..4).map(MangaTapLayouts::offersInvert) shouldBe List(5) { true }
     }
 
+    /** Mihon's Right and left is the novel reader's, so it offers what the novel reader offers for it. */
+    @Test
+    fun `Mihon's right and left offers the inversions the novel reader offers for it`() {
+        MangaTapLayouts.invertModes(4) shouldBe NovelTapLayout.RIGHT_AND_LEFT.invertModes
+    }
+
     @Test
     fun `one of Mihon's zoned layouts offers every inversion`() {
         MangaTapLayouts.invertModes(1) shouldBe TappingInvertMode.entries

@@ -19,6 +19,7 @@ class NovelTapLayoutTest {
                     TappingInvertMode.NONE,
                     TappingInvertMode.VERTICAL,
                 )
+                NovelTapLayout.RIGHT_AND_LEFT -> listOf(TappingInvertMode.NONE, TappingInvertMode.HORIZONTAL)
                 else -> TappingInvertMode.entries
             }
         }
@@ -38,6 +39,12 @@ class NovelTapLayoutTest {
     @Test
     fun `the thirds layout's nearest to both is vertical`() {
         NovelTapLayout.THIRDS.nearestInvert(TappingInvertMode.BOTH) shouldBe TappingInvertMode.VERTICAL
+    }
+
+    /** Right and left's two columns span the height, so a vertical flip leaves them where they were. */
+    @Test
+    fun `the right and left layout's nearest to both is horizontal`() {
+        NovelTapLayout.RIGHT_AND_LEFT.nearestInvert(TappingInvertMode.BOTH) shouldBe TappingInvertMode.HORIZONTAL
     }
 
     @Test

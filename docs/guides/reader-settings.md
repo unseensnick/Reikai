@@ -220,7 +220,7 @@ Only a strip along the bottom opens the menu, as tall as **Bottom zone height** 
 :::
 
 ### Invert tap zones <Badge type="info" text="None" /> {#invert-tap-zones-pages}
-Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Top and bottom** and **Bottom** only flip vertically.
+Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Top and bottom** and **Bottom** only flip vertically, and **Right and left** only horizontally.
 
 ::: tabs
 == None

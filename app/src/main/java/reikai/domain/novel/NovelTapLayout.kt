@@ -21,12 +21,14 @@ enum class NovelTapLayout(val titleRes: StringResource) {
     BOTTOM(MR.strings.nav_bottom),
     ;
 
-    /** The inversions that change this layout: the centre zones mirror onto themselves, and full-width
-     *  zones (Thirds' bands, the bottom zone) only flip vertically. */
+    /** The inversions that change this layout: the centre zones mirror onto themselves, full-width zones
+     *  (Thirds' bands, the bottom zone) only flip vertically, and Right and left's full-height columns only
+     *  flip horizontally. */
     val invertModes: List<TappingInvertMode>
         get() = when (this) {
             CENTER, CENTER_LARGE -> listOf(TappingInvertMode.NONE)
             THIRDS, BOTTOM -> listOf(TappingInvertMode.NONE, TappingInvertMode.VERTICAL)
+            RIGHT_AND_LEFT -> listOf(TappingInvertMode.NONE, TappingInvertMode.HORIZONTAL)
             else -> TappingInvertMode.entries
         }
 
@@ -34,10 +36,11 @@ enum class NovelTapLayout(val titleRes: StringResource) {
     val offersInvert: Boolean
         get() = this != DISABLED && invertModes.size > 1
 
-    /** [invert] when this layout can draw it, else the nearest inversion it can: the vertical half, or none. */
+    /** [invert] when this layout can draw it, else the nearest inversion it can: the half it draws, or none. */
     fun nearestInvert(invert: TappingInvertMode): TappingInvertMode = when {
         invert in invertModes -> invert
         invert.shouldInvertVertical && TappingInvertMode.VERTICAL in invertModes -> TappingInvertMode.VERTICAL
+        invert.shouldInvertHorizontal && TappingInvertMode.HORIZONTAL in invertModes -> TappingInvertMode.HORIZONTAL
         else -> TappingInvertMode.NONE
     }
 }
