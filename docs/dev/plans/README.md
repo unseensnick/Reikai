@@ -7,4 +7,5 @@ The template and the rule for what earns a plan live in [.claude/rules/roadmap-p
 ## Open plans
 
 - [local-volumes.md](local-volumes.md): one local series holding several volumes, with Vol. N headers, volume chips, and combining or splitting volumes without reimporting.
+- [novel-translation.md](novel-translation.md): translate novel chapters, titles and descriptions on the device with ML Kit or through a chosen engine, shared by the reader, downloads, export, browse and details.
 - [anime-mvp.md](anime-mvp.md): anime as a third, lighter content type, starting with Aniyomi extensions and an outside video player.
