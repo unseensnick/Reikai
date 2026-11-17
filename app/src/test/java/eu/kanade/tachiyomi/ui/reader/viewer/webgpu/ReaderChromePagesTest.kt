@@ -43,6 +43,10 @@ import kotlin.math.abs
 
 private const val WINDOW_WIDTH = 2256
 private const val WINDOW_HEIGHT = 2504
+
+// Smaller than the screen, as in split screen, so a capture sized from the screen cannot pass for one from the viewer.
+private const val VIEWER_WIDTH = 1128
+private const val VIEWER_HEIGHT = 1800
 private const val ANCHOR_SOURCE = 1L
 
 // Unlike any chapter id here, so a chapter id passed as the source cannot pass for it.
@@ -84,8 +88,8 @@ class ReaderChromePagesTest {
             widthPixels = WINDOW_WIDTH
             heightPixels = WINDOW_HEIGHT
         }
-        every { viewerState.width } returns if (laidOut) WINDOW_WIDTH else 0
-        every { viewerState.height } returns if (laidOut) WINDOW_HEIGHT else 0
+        every { viewerState.width } returns if (laidOut) VIEWER_WIDTH else 0
+        every { viewerState.height } returns if (laidOut) VIEWER_HEIGHT else 0
         every { activity } returns mockk<ReaderActivity>(relaxed = true) {
             every { viewModel } returns host
             every { resources.displayMetrics } returns metrics
@@ -109,14 +113,14 @@ class ReaderChromePagesTest {
     fun `a strip's error page is captured below its slot`() {
         val page = ErrorPage(viewer<WebGpuViewerContinuous>(), null, null)
 
-        page.size shouldBe ComposePageSize.Of(WINDOW_WIDTH / 2, (WINDOW_HEIGHT * 0.8f / 2).toInt())
+        page.size shouldBe ComposePageSize.Of(VIEWER_WIDTH / 2, (VIEWER_HEIGHT * 0.8f / 2).toInt())
     }
 
     @Test
     fun `a strip's loading page is captured below its slot`() {
         val page = ProgressPage(viewer<WebGpuViewerContinuous>())
 
-        page.size shouldBe ComposePageSize.Of(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2)
+        page.size shouldBe ComposePageSize.Of(VIEWER_WIDTH / 2, VIEWER_HEIGHT / 2)
     }
 
     @Test

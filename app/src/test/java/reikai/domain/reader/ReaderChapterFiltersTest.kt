@@ -2,6 +2,9 @@ package reikai.domain.reader
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
@@ -74,16 +77,22 @@ class ReaderChapterFiltersTest {
         noFilters.keeps(isRead = { false }, isBookmarked = { false }, isDownloaded = { error("asked") }) shouldBe true
     }
 
-    @Test
-    fun `the Downloaded only switch forces a manga's downloaded filter on, as a novel's`() {
-        Manga.create().readerChapterFilters(downloadedOnly = true).downloaded shouldBe TriState.ENABLED_IS
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("notDownloadedEntries")
+    fun `the Downloaded only switch forces the downloaded filter on`(
+        type: String,
+        filtersOf: (Boolean) -> ChapterListFilters,
+    ) {
+        filtersOf(true).downloaded shouldBe TriState.ENABLED_IS
     }
 
-    @Test
-    fun `the Downloaded only switch shows a novel's downloaded filter forced on`() {
-        val filters = novelChapterListFilters(0L, 0L, NovelChapterFlags.SHOW_NOT_DOWNLOADED, downloadedOnly = true)
-
-        filters.downloaded shouldBe TriState.ENABLED_IS
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("notDownloadedEntries")
+    fun `the entry's own downloaded filter returns with the Downloaded only switch off`(
+        type: String,
+        filtersOf: (Boolean) -> ChapterListFilters,
+    ) {
+        filtersOf(false).downloaded shouldBe TriState.ENABLED_NOT
     }
 
     @Test
@@ -106,5 +115,25 @@ class ReaderChapterFiltersTest {
     fun `a picked bookmarked state writes back the novel's own flag`() {
         TriState.ENABLED_NOT.toFlag(NovelChapterFlags.SHOW_BOOKMARKED, NovelChapterFlags.SHOW_NOT_BOOKMARKED) shouldBe
             NovelChapterFlags.SHOW_NOT_BOOKMARKED
+    }
+
+    companion object {
+        /** Each type's filters, by the Downloaded only switch, for an entry whose own filter hides downloads. */
+        @JvmStatic
+        fun notDownloadedEntries(): List<Arguments> = listOf(
+            Arguments.of(
+                "manga",
+                { downloadedOnly: Boolean ->
+                    Manga.create().copy(chapterFlags = Manga.CHAPTER_SHOW_NOT_DOWNLOADED)
+                        .readerChapterFilters(downloadedOnly)
+                },
+            ),
+            Arguments.of(
+                "novel",
+                { downloadedOnly: Boolean ->
+                    novelChapterListFilters(0L, 0L, NovelChapterFlags.SHOW_NOT_DOWNLOADED, downloadedOnly)
+                },
+            ),
+        )
     }
 }
