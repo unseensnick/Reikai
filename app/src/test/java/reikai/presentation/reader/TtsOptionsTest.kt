@@ -82,6 +82,16 @@ class TtsOptionsTest {
     }
 
     @Test
+    fun `two engines installed offer an engine choice`() {
+        TtsOptions(
+            engines = listOf(
+                TtsEngineInfo("com.example.speech", "Speech"),
+                TtsEngineInfo("com.example.voice", "Voice"),
+            ),
+        ).offersEngineChoice shouldBe true
+    }
+
+    @Test
     fun `voices in one language offer no language choice`() {
         TtsOptions(voices = listOf(TtsVoice("a", "A", "en-US"), TtsVoice("b", "B", "en-GB")))
             .offersLanguageChoice shouldBe false

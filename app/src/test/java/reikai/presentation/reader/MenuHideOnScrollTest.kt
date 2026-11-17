@@ -31,6 +31,15 @@ class MenuHideOnScrollTest {
         frame(dy = 40f, touching = false, atMs = 16) shouldBe true
     }
 
+    /** A fling runs for many frames after the finger lifts, and each one still counts. */
+    @Test
+    fun `a fling's later frames hide the menu`() {
+        frame(dy = 5f, touching = true, atMs = 0)
+        frame(dy = 5f, touching = false, atMs = 16)
+
+        frame(dy = 40f, touching = false, atMs = 32) shouldBe true
+    }
+
     /** Auto-scroll, a jump, a landing: nothing touched the screen. */
     @Test
     fun `a scroll the app makes leaves the menu`() {
