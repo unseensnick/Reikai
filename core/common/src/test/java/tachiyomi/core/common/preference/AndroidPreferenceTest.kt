@@ -32,4 +32,10 @@ class AndroidPreferenceTest {
     fun `preferences on different stores are not equal`() {
         int("size") shouldNotBe int("size", mockk(relaxed = true))
     }
+
+    /** `remember(pref)` must never hand a composable a preference of another type on the same key. */
+    @Test
+    fun `preferences of different types on one key are not equal`() {
+        int("size") shouldNotBe AndroidPreference.LongPrimitive(store, emptyFlow(), "size", 0L)
+    }
 }
