@@ -3,6 +3,7 @@ package eu.kanade.presentation.more.settings.screen.novel
 import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
@@ -11,8 +12,9 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -94,16 +96,19 @@ class NovelRegexRulesViewModelTest {
     @Test
     fun `a preview a newer edit replaces is never answered`() = runTest {
         val slow = rule.copy(pattern = "(.*i){12}j${System.nanoTime()}", isRegex = true)
-        val seen = mutableListOf<NovelRegexPreview>()
 
-        withContext(Dispatchers.Default) {
-            val collecting = launch { model.preview.filterNotNull().collect { seen += it } }
+        val seen = withContext(Dispatchers.Default) {
+            // Collected to the newer answer by the one subscriber, so nothing it saw can be cut off before it lands.
+            val answers = async(start = CoroutineStart.UNDISPATCHED) {
+                model.preview.filterNotNull().transformWhile {
+                    emit(it)
+                    it.rule != rule
+                }.toList()
+            }
             model.askPreview(slow, "i".repeat(40))
             delay(RUN_UNDER_WAY)
             model.askPreview(rule, "a cat")
-            withTimeout(5.seconds) { model.preview.first { it?.rule == rule } }
-            collecting.cancel()
-            model.close()
+            withTimeout(5.seconds) { answers.await() }.also { model.close() }
         }
 
         seen.map { it.rule } shouldBe listOf(rule)
