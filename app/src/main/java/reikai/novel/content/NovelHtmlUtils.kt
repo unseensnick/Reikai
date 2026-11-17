@@ -30,7 +30,7 @@ object NovelHtmlUtils {
     private val stripTagsRegex = Regex("<[^>]+>")
     private val paragraphBreakRegex = Regex("\n{2,}")
     private val adjacentTagsRegex = Regex(">\\s*<")
-    private val leadingSpaceInParagraph = Regex("(<p\\b[^>]*>)(?: |&#160;|&nbsp;)+", RegexOption.IGNORE_CASE)
+    private val leadingSpaceInParagraph = Regex("(<p\\b[^>]*>)(?: |$NO_BREAK_SPACE)+", RegexOption.IGNORE_CASE)
     private val paragraphTagRegex = Regex("<p[\\s>]", RegexOption.IGNORE_CASE)
     private val blankLineRegex = Regex("\r?\n\r?\n")
     private val verbatimBlockRegex = Regex(
@@ -109,14 +109,16 @@ object NovelHtmlUtils {
         Regex("<audio[^>]*>.*?</audio>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val sourceTagRegex = Regex("<source[^>]*>", RegexOption.IGNORE_CASE)
 
-    // The spacing pass reads the source's own markup, before a parser has rewritten `<br/>` or `&#160;` the
-    // one way a browser serialises them, so every spelling of a break and a no-break space is matched.
+    // The spacing and indent passes read the source's own markup, before a parser has rewritten `<br/>`,
+    // `&#160;` or a tag broken over lines the one way a browser serialises them, so every spelling is matched.
     private const val BREAK = "<br\\b[^>]*>"
+    private const val NO_BREAK_SPACE = "&nbsp;|&#160;|&#xa0;|\\u00a0"
+    private const val PARAGRAPH_AHEAD = "(?=</?p[\\s>])"
     private val paddingEntityRegex =
-        Regex("(?:(?:&nbsp;|&#160;|&#xa0;|[\\u00a0\\u200b])\\s*)+(?=</?p[> ])", RegexOption.IGNORE_CASE)
+        Regex("(?:(?:$NO_BREAK_SPACE|\\u200b)\\s*)+$PARAGRAPH_AHEAD", RegexOption.IGNORE_CASE)
     private val breakRunRegex = Regex("$BREAK\\s*$BREAK\\s*(?:$BREAK\\s*)+", RegexOption.IGNORE_CASE)
-    private val breakPairBeforeParagraphRegex = Regex("$BREAK\\s*$BREAK\\s*(?=</?p[> ])", RegexOption.IGNORE_CASE)
-    private val breakBeforeParagraphRegex = Regex("$BREAK\\s*(?=</?p[> ])", RegexOption.IGNORE_CASE)
+    private val breakPairBeforeParagraphRegex = Regex("$BREAK\\s*$BREAK\\s*$PARAGRAPH_AHEAD", RegexOption.IGNORE_CASE)
+    private val breakBeforeParagraphRegex = Regex("$BREAK\\s*$PARAGRAPH_AHEAD", RegexOption.IGNORE_CASE)
 
     // A paragraph tag, attributes allowed, then the tags and whitespace before any text: a break in that run pads the
     // paragraph. Matched as a run rather than looked back on, since Android's regex refuses an unbounded lookbehind.

@@ -42,6 +42,15 @@ class NovelExtraSpacingTest {
         cleaned shouldBe "<p>One</p>Two"
     }
 
+    /** A tag may break before its attributes, and is still the paragraph the other passes count it as. */
+    @Test
+    @DisplayName("a break before a paragraph tag broken by a newline is dropped")
+    fun dropsBreakBeforeATagBrokenByANewline() {
+        val cleaned = NovelHtmlUtils.removeExtraParagraphSpacing("Hi<br>\n<p\nclass=\"x\">Next</p>")
+
+        cleaned shouldBe "Hi<p\nclass=\"x\">Next</p>"
+    }
+
     /** One break between paragraphs, which the pair pass cannot match. */
     @Test
     @DisplayName("a single break between paragraphs is dropped")
