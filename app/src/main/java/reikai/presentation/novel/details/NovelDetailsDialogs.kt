@@ -41,14 +41,13 @@ fun NovelChapterSettingsDialog(
     sorting: Long,
     sortDescending: Boolean,
     filters: ChapterListFilters,
-    readFilter: Long,
-    bookmarkedFilter: Long,
-    downloadedFilter: Long,
     downloadedFilterLocked: Boolean,
     hideChapterTitles: Boolean,
     onDismiss: () -> Unit,
     onSortModeChange: (Long) -> Unit,
-    onFilterChange: (read: Long, bookmarked: Long, downloaded: Long) -> Unit,
+    onReadFilterChange: (Long) -> Unit,
+    onBookmarkedFilterChange: (Long) -> Unit,
+    onDownloadedFilterChange: (Long) -> Unit,
     onDisplayChange: (Boolean) -> Unit,
     onSetAsDefault: (applyToLibrary: Boolean) -> Unit,
     onReset: () -> Unit,
@@ -89,19 +88,19 @@ fun NovelChapterSettingsDialog(
         ) {
             when (page) {
                 // Under the global Downloaded only switch the filter shows forced on and is not editable, as
-                // manga's is. The other two rows hand back the novel's own setting, never the forced one.
+                // manga's is. Each row writes its own filter only, so the forced one is never saved.
                 0 -> FilterPage(
                     downloadFilter = filters.downloaded,
                     onDownloadFilterChanged = { state: TriState ->
-                        onFilterChange(readFilter, bookmarkedFilter, state.toFlag(SHOW_DOWNLOADED, SHOW_NOT_DOWNLOADED))
+                        onDownloadedFilterChange(state.toFlag(SHOW_DOWNLOADED, SHOW_NOT_DOWNLOADED))
                     }.takeUnless { downloadedFilterLocked },
                     unreadFilter = filters.unread,
                     onUnreadFilterChanged = {
-                        onFilterChange(it.toFlag(SHOW_UNREAD, SHOW_READ), bookmarkedFilter, downloadedFilter)
+                        onReadFilterChange(it.toFlag(SHOW_UNREAD, SHOW_READ))
                     },
                     bookmarkedFilter = filters.bookmarked,
                     onBookmarkedFilterChanged = {
-                        onFilterChange(readFilter, it.toFlag(SHOW_BOOKMARKED, SHOW_NOT_BOOKMARKED), downloadedFilter)
+                        onBookmarkedFilterChange(it.toFlag(SHOW_BOOKMARKED, SHOW_NOT_BOOKMARKED))
                     },
                 )
                 // The novel sort bits equal manga's, pinned by ReadingOrderConformanceTest.

@@ -386,15 +386,25 @@ class NovelDetailsViewModel(
         showHiddenFlow,
     ) { inputs, _, _ -> inputs }
         .flatMapLatest { (stored, group, idx) ->
-            // Sort, filter and display are the group's shared settings, the settings owner's (GroupChapterSettings).
-            val anchor = stored?.let { chapterSettings.shown(it, group.ids.asList()) }
-            when {
-                anchor == null -> flowOf(null)
-                group.ids.size > 1 && group.selected == null -> unifiedChapters(anchor, group)
-                else -> singleChapters(anchor, group, idx)
+            shownSettings(stored, group.ids.firstOrNull()).flatMapLatest { anchor ->
+                when {
+                    anchor == null -> flowOf(null)
+                    group.ids.size > 1 && group.selected == null -> unifiedChapters(anchor, group)
+                    else -> singleChapters(anchor, group, idx)
+                }
             }
         }
         .onEach { it?.let { list -> updateSeedColor(list.displayNovel) } }
+
+    /**
+     * Sort, filter and display are the group's shared settings, its settings owner's (GroupChapterSettings).
+     * Opened through another member, the owner's row is watched, as manga watches every member's: a pick here
+     * writes the opened row first and the owner's after it, so a read made on the first write can miss it.
+     */
+    private fun shownSettings(stored: Novel?, ownerId: Long?): Flow<Novel?> = when {
+        stored == null || ownerId == null || ownerId == stored.id -> flowOf(stored)
+        else -> novelRepo.getByIdAsFlow(ownerId).map { chapterSettings.shownWith(stored, it) }.distinctUntilChanged()
+    }
 
     /** The viewed member's page, keyed by (novel id, url, source). Never awaited by the list: a plugin
      *  answers every call behind one lock, so another call holding it would hold the whole page back. */
@@ -1268,8 +1278,13 @@ class NovelDetailsViewModel(
     fun setSortMode(sort: Long) =
         changeChapterSettings { setNovelChapterFlags.awaitSetSortingModeOrFlipOrder(it, sort) }
 
-    fun setFilters(read: Long, bookmarked: Long, downloaded: Long) =
-        changeChapterSettings { setNovelChapterFlags.awaitSetFilters(it, read, bookmarked, downloaded) }
+    fun setReadFilter(read: Long) = changeChapterSettings { setNovelChapterFlags.awaitSetReadFilter(it, read) }
+
+    fun setBookmarkedFilter(bookmarked: Long) =
+        changeChapterSettings { setNovelChapterFlags.awaitSetBookmarkedFilter(it, bookmarked) }
+
+    fun setDownloadedFilter(downloaded: Long) =
+        changeChapterSettings { setNovelChapterFlags.awaitSetDownloadedFilter(it, downloaded) }
 
     fun setHideChapterTitles(hide: Boolean) =
         changeChapterSettings { setNovelChapterFlags.awaitSetHideTitles(it, hide) }

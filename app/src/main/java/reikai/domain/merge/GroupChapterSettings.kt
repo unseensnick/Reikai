@@ -21,8 +21,11 @@ open class GroupChapterSettings<E>(
     /** [opened] carrying the setting of its group's settings owner, the first of [memberIds]. */
     suspend fun shown(opened: E, memberIds: List<Long>): E {
         val ownerId = memberIds.firstOrNull() ?: return opened
-        return opened.withOwnerChapterFlags(listOfNotNull(load(ownerId)), flagsOf, withFlags)
+        return shownWith(opened, load(ownerId))
     }
+
+    /** [opened] carrying [owner]'s setting, for a screen that watches the owner's row itself. */
+    fun shownWith(opened: E, owner: E?): E = opened.withOwnerChapterFlags(listOfNotNull(owner), flagsOf, withFlags)
 
     /**
      * Runs [change] on [openedId] as it is shown now, which writes its own setting, then gives every other

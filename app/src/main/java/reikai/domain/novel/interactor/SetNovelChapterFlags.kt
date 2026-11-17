@@ -46,7 +46,30 @@ class SetNovelChapterFlags(
         return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
-    suspend fun awaitSetFilters(novel: Novel, read: Long, bookmarked: Long, downloaded: Long): Boolean {
+    // One filter per pick, as manga's setters are: the other two keep what [novel], read fresh, shows, so two
+    // quick picks made from one copy of the sheet cannot undo each other.
+    suspend fun awaitSetReadFilter(novel: Novel, read: Long): Boolean = awaitSetFilters(
+        novel,
+        read,
+        novel.effectiveBookmarkedFilter(novelPreferences),
+        novel.effectiveDownloadedFilter(novelPreferences),
+    )
+
+    suspend fun awaitSetBookmarkedFilter(novel: Novel, bookmarked: Long): Boolean = awaitSetFilters(
+        novel,
+        novel.effectiveReadFilter(novelPreferences),
+        bookmarked,
+        novel.effectiveDownloadedFilter(novelPreferences),
+    )
+
+    suspend fun awaitSetDownloadedFilter(novel: Novel, downloaded: Long): Boolean = awaitSetFilters(
+        novel,
+        novel.effectiveReadFilter(novelPreferences),
+        novel.effectiveBookmarkedFilter(novelPreferences),
+        downloaded,
+    )
+
+    private suspend fun awaitSetFilters(novel: Novel, read: Long, bookmarked: Long, downloaded: Long): Boolean {
         var flags = setNovelFlag(novel.chapterFlags, read, NovelChapterFlags.READ_MASK)
         flags = setNovelFlag(flags, bookmarked, NovelChapterFlags.BOOKMARKED_MASK)
         flags = setNovelFlag(flags, downloaded, NovelChapterFlags.DOWNLOADED_MASK)

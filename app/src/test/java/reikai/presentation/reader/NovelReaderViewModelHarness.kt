@@ -283,6 +283,8 @@ class NovelReaderViewModelHarness private constructor(
 
     suspend fun viewerFlagsOf(novelId: Long): Long = novelRepo.getById(novelId)!!.viewerFlags
 
+    suspend fun chapterFlagsOf(novelId: Long): Long = novelRepo.getById(novelId)!!.chapterFlags
+
     /** Rewrites [novelId]'s stored row, as a refresh does. */
     suspend fun updateNovel(novelId: Long, block: NovelUpdate.() -> Unit) {
         novelRepo.update(NovelUpdate(novelId, block))

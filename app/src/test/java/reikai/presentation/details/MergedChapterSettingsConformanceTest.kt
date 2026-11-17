@@ -17,6 +17,7 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
@@ -26,6 +27,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -72,13 +74,13 @@ class MergedChapterSettingsConformanceTest {
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `opened through a sibling, All shows the owner's setting`(type: ContentType) = runTest {
-        group(type) { open -> open(SIBLING).settled().showChapterNumberOnly } shouldBe true
+        group(type) { open(SIBLING).settled().showChapterNumberOnly } shouldBe true
     }
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a source chip shows the owner's setting, not the opened member's`(type: ContentType) = runTest {
-        group(type) { open ->
+        group(type) {
             // A chip is picked from the switcher the merged page shows.
             val page = open(SIBLING).apply { settled() }
             page.selectSource(OWNER)
@@ -89,7 +91,7 @@ class MergedChapterSettingsConformanceTest {
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a setting changed through a sibling is what opening through the owner shows`(type: ContentType) = runTest {
-        group(type, ownerShowsNumbers = false) { open ->
+        group(type, ownerShowsNumbers = false) {
             // A page changes its setting once it has loaded one.
             open(SIBLING).apply { settled() }.showNumbers()
             open(OWNER).settled { it.showChapterNumberOnly }.showChapterNumberOnly
@@ -100,12 +102,37 @@ class MergedChapterSettingsConformanceTest {
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `two settings picked at once both land`(type: ContentType) = runTest {
-        group(type, ownerShowsNumbers = false) { open ->
+        group(type, ownerShowsNumbers = false) {
             open(SIBLING).apply { settled() }.apply {
                 showNumbers()
                 filterUnread()
             }
-            open(OWNER).settled { it.showChapterNumberOnly }.showChapterNumberOnly
+            open(OWNER).settled { it.showChapterNumberOnly }.showChapterNumberOnly to
+                ownerFiltersOnceSettled(expected = 1)
+        } shouldBe (true to setOf(UNREAD))
+    }
+
+    /** Each filter row writes the whole filter word, so a second pick must not put back the first one's. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `two filters picked at once both land`(type: ContentType) = runTest {
+        group(type) {
+            open(SIBLING).apply { settled() }.apply {
+                filterUnread()
+                filterBookmarked()
+            }
+            ownerFiltersOnceSettled(expected = 2)
+        } shouldBe setOf(UNREAD, BOOKMARKED)
+    }
+
+    /** A pick through a sibling writes the owner's row last, so the page has to see that write on its own. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `opened through a sibling, a later change to the owner's setting shows`(type: ContentType) = runTest {
+        group(type, ownerShowsNumbers = false) {
+            val page = open(SIBLING).apply { settled() }
+            ownerShowsNumbers()
+            page.settled { it.showChapterNumberOnly }.showChapterNumberOnly
         } shouldBe true
     }
 
@@ -115,6 +142,25 @@ class MergedChapterSettingsConformanceTest {
         fun selectSource(id: Long)
         fun showNumbers()
         fun filterUnread()
+        fun filterBookmarked()
+    }
+
+    /** The group [OWNER], [SIBLING]: its details page opened through a member, and the owner's stored row. */
+    private interface Group {
+        suspend fun open(id: Long): Page
+
+        /** Writes the number display to the owner's row alone, as the last write of a pick through a sibling. */
+        suspend fun ownerShowsNumbers()
+
+        /** Which of the unread and bookmarked filters the owner's stored setting has on. */
+        suspend fun ownerFilters(): Set<String>
+    }
+
+    /** [Group.ownerFilters] once two quick picks have had time to land; the writes run on the app scope. */
+    private suspend fun Group.ownerFiltersOnceSettled(expected: Int): Set<String> = withContext(Dispatchers.Default) {
+        withTimeoutOrNull(SETTLE_MS) { while (ownerFilters().size < expected) delay(20) }
+        delay(SETTLE_GRACE_MS)
+        ownerFilters()
     }
 
     private class MangaPage(private val model: MangaViewModel) : Page {
@@ -122,13 +168,15 @@ class MergedChapterSettingsConformanceTest {
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setDisplayMode(Manga.CHAPTER_DISPLAY_NUMBER)
         override fun filterUnread() = model.setUnreadFilter(TriState.ENABLED_IS)
+        override fun filterBookmarked() = model.setBookmarkedFilter(TriState.ENABLED_IS)
     }
 
     private class NovelPage(private val model: NovelDetailsViewModel) : Page {
         override val behavior = NovelEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setHideChapterTitles(true)
-        override fun filterUnread() = model.setFilters(NovelChapterFlags.SHOW_UNREAD, 0L, 0L)
+        override fun filterUnread() = model.setReadFilter(NovelChapterFlags.SHOW_UNREAD)
+        override fun filterBookmarked() = model.setBookmarkedFilter(NovelChapterFlags.SHOW_BOOKMARKED)
     }
 
     /** The merged page once loaded, on [chip] (null = All) and once [until] holds. A chip counts once its
@@ -149,13 +197,13 @@ class MergedChapterSettingsConformanceTest {
     private suspend fun <T> TestScope.group(
         type: ContentType,
         ownerShowsNumbers: Boolean = true,
-        block: suspend (open: suspend (Long) -> Page) -> T,
+        block: suspend Group.() -> T,
     ): T = when (type) {
         ContentType.MANGA -> mangaGroup(ownerShowsNumbers, block)
         else -> novelGroup(ownerShowsNumbers, block)
     }
 
-    private suspend fun <T> mangaGroup(ownerShowsNumbers: Boolean, block: suspend (suspend (Long) -> Page) -> T): T {
+    private suspend fun <T> mangaGroup(ownerShowsNumbers: Boolean, block: suspend Group.() -> T): T {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
@@ -166,12 +214,28 @@ class MergedChapterSettingsConformanceTest {
         val store = ViewModelStore()
         val models = mutableListOf<MangaViewModel>()
         try {
-            return block { id ->
-                val model = mangaDetailsModel(id, mangas, ChapterRepositoryImpl(database), longArrayOf(OWNER, SIBLING))
-                store.put("manga$id", model)
-                models += model
-                MangaPage(model)
+            val group = object : Group {
+                override suspend fun open(id: Long): Page {
+                    val chapters = ChapterRepositoryImpl(database)
+                    val model = mangaDetailsModel(id, mangas, chapters, longArrayOf(OWNER, SIBLING))
+                    store.put("manga$id", model)
+                    models += model
+                    return MangaPage(model)
+                }
+
+                override suspend fun ownerShowsNumbers() {
+                    val flags = mangas.getMangaById(OWNER).chapterFlags
+                    mangas.update(MangaUpdate(OWNER) { chapterFlags = flags or Manga.CHAPTER_DISPLAY_NUMBER })
+                }
+
+                override suspend fun ownerFilters(): Set<String> = mangas.getMangaById(OWNER).let {
+                    setOfNotNull(
+                        UNREAD.takeIf { _ -> it.unreadFilterRaw == Manga.CHAPTER_SHOW_UNREAD },
+                        BOOKMARKED.takeIf { _ -> it.bookmarkedFilterRaw == Manga.CHAPTER_SHOW_BOOKMARKED },
+                    )
+                }
             }
+            return group.block()
         } finally {
             // The models read on the real IO dispatcher, so they stop before the database closes.
             val jobs = models.map { it.viewModelScope.coroutineContext.job }
@@ -183,7 +247,7 @@ class MergedChapterSettingsConformanceTest {
 
     private suspend fun <T> TestScope.novelGroup(
         ownerShowsNumbers: Boolean,
-        block: suspend (suspend (Long) -> Page) -> T,
+        block: suspend Group.() -> T,
     ): T = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
         val ids = listOf(OWNER, SIBLING).map { harness.novel(harness.source("src$it")) }
         ids shouldBe listOf(OWNER, SIBLING)
@@ -194,12 +258,35 @@ class MergedChapterSettingsConformanceTest {
             chapterFlags = NovelChapterFlags.DISPLAY_NAME or NovelChapterFlags.DISPLAY_LOCAL
         }
         harness.merge(OWNER, SIBLING)
-        block { id -> NovelPage(harness.openDetails(id)) }
+        val group = object : Group {
+            override suspend fun open(id: Long): Page = NovelPage(harness.openDetails(id))
+
+            override suspend fun ownerShowsNumbers() {
+                val flags = harness.chapterFlagsOf(OWNER) and NovelChapterFlags.DISPLAY_MASK.inv()
+                harness.updateNovel(OWNER) { chapterFlags = flags or NovelChapterFlags.DISPLAY_NUMBER }
+            }
+
+            override suspend fun ownerFilters(): Set<String> = harness.chapterFlagsOf(OWNER).let { flags ->
+                setOfNotNull(
+                    UNREAD.takeIf { flags and NovelChapterFlags.READ_MASK == NovelChapterFlags.SHOW_UNREAD },
+                    BOOKMARKED.takeIf {
+                        flags and NovelChapterFlags.BOOKMARKED_MASK == NovelChapterFlags.SHOW_BOOKMARKED
+                    },
+                )
+            }
+        }
+        group.block()
     }
 
     private companion object {
         const val OWNER = 1L
         const val SIBLING = 2L
+        const val UNREAD = "unread"
+        const val BOOKMARKED = "bookmarked"
+        const val SETTLE_MS = 5_000L
+
+        // Long enough for a second write to land after the first, had it been going to undo it.
+        const val SETTLE_GRACE_MS = 300L
         const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
         const val SOURCE_EXTENSIONS_FILE = "eu.kanade.tachiyomi.source.SourceExtensionsKt"
     }
