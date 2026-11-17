@@ -164,6 +164,10 @@ class MangaReaderViewModelHarness private constructor(
     /** The chapters of [mangaId] the reader recorded in History. */
     suspend fun historyOf(mangaId: Long): List<Long> = history.getHistoryByMangaId(mangaId).map { it.chapterId }
 
+    /** The time read history holds for [chapterId] of [mangaId], in milliseconds. */
+    suspend fun readTimeOf(mangaId: Long, chapterId: Long): Long? =
+        history.getHistoryByMangaId(mangaId).firstOrNull { it.chapterId == chapterId }?.readDuration
+
     /** The open model's app scope, which the writes that outlive it are launched on. */
     private var appScope: CoroutineScope? = null
 

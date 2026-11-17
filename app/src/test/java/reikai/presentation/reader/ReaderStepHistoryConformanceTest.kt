@@ -1,6 +1,9 @@
 package reikai.presentation.reader
 
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -12,39 +15,61 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /**
  * A step or a chapter-sheet pick stamps the chapter it leaves into history, with the time read in it,
- * before the next one starts its own session. Pinned once over both readers.
+ * before the next one starts its own session. Pinned once over both readers, on a wall clock the test
+ * moves by [READ].
  */
 class ReaderStepHistoryConformanceTest {
 
     interface Probe {
-        /** Opens chapter 1 of two, moves to chapter 2 by a Next step or by a [pick], and answers History. */
-        suspend fun historyAfterMove(scope: TestScope, pick: Boolean): List<Long>
+        /** Opens chapter 1 of two, reads it for [READ], moves to chapter 2 by a Next step or by a [pick], and
+         *  answers the time History holds for chapter 1, null when it holds no row. */
+        suspend fun timeReadInLeftChapter(scope: TestScope, pick: Boolean): Long?
     }
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        Dispatchers.setMain(StandardTestDispatcher())
+        now = Instant.fromEpochMilliseconds(1_000_000_000_000L)
+        mockkObject(Clock.System)
+        every { Clock.System.now() } answers { now }
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("probes")
-    fun `a Next step puts the chapter it leaves in history`(probe: Probe) = runTest {
-        probe.historyAfterMove(this, pick = false) shouldContain FIRST
+    fun tearDown() {
+        unmockkObject(Clock.System)
+        Dispatchers.resetMain()
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `a pick from the chapter sheet puts the chapter it leaves in history`(probe: Probe) = runTest {
-        probe.historyAfterMove(this, pick = true) shouldContain FIRST
+    fun `a Next step puts the chapter it leaves in history with the time read in it`(probe: Probe) = runTest {
+        probe.timeReadInLeftChapter(this, pick = false) shouldBe READ.inWholeMilliseconds
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a pick from the chapter sheet puts the chapter it leaves in history with the time read in it`(
+        probe: Probe,
+    ) = runTest {
+        probe.timeReadInLeftChapter(this, pick = true) shouldBe READ.inWholeMilliseconds
     }
 
     companion object {
-        /** The chapter both probes open on, under the id each one stores it with. */
-        const val FIRST = -1L
+        val READ = 10.minutes
+
+        @Volatile
+        private var now = Instant.fromEpochMilliseconds(0L)
+
+        /** The reader reading for [READ]. */
+        fun read() {
+            now += READ
+        }
 
         @JvmStatic
         fun probes() = listOf(MangaProbe(), NovelProbe())
@@ -53,20 +78,21 @@ class ReaderStepHistoryConformanceTest {
     class MangaProbe : Probe {
         override fun toString() = "manga"
 
-        override suspend fun historyAfterMove(scope: TestScope, pick: Boolean): List<Long> =
+        override suspend fun timeReadInLeftChapter(scope: TestScope, pick: Boolean): Long? =
             MangaReaderViewModelHarness.create().use { harness ->
                 val manga = harness.manga(1L, source = 100L, title = "Series")
                 harness.chapter(10L, manga, 1.0)
                 val second = harness.chapter(20L, manga, 2.0)
                 harness.open(manga, chapterId = 10L) { model, _ ->
                     model.restartReadTimer()
+                    read()
                     if (pick) {
                         model.loadNewChapterFromDialog(second)
                         settled(model) { it.viewerChapters?.currChapter?.chapter?.id == 20L }
                     } else {
                         model.loadNextChapter()
                     }
-                    harness.historyOf(manga.id).map { if (it == 10L) FIRST else it }
+                    harness.readTimeOf(manga.id, 10L)
                 }
             }
     }
@@ -74,7 +100,7 @@ class ReaderStepHistoryConformanceTest {
     class NovelProbe : Probe {
         override fun toString() = "novel"
 
-        override suspend fun historyAfterMove(scope: TestScope, pick: Boolean): List<Long> =
+        override suspend fun timeReadInLeftChapter(scope: TestScope, pick: Boolean): Long? =
             NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
                 val source = harness.source("src")
                 val novel = harness.novel(source)
@@ -82,11 +108,12 @@ class ReaderStepHistoryConformanceTest {
                 val second = harness.chapter(novel, 2.0)
                 val model = harness.open(novel, first.id)
                 scope.advanceUntilIdle()
+                read()
 
                 if (pick) model.open(second.id) else model.nextChapter()
                 scope.advanceUntilIdle()
 
-                harness.historyOf(novel).map { if (it == first.id) FIRST else it }
+                harness.readTimeOf(novel, first)
             }
     }
 }

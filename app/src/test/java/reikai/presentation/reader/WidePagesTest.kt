@@ -73,9 +73,10 @@ class WidePagesTest {
             WidePageShape.Rotated(-90f)
     }
 
+    /** Settings turns split off with rotate on, so this is the state a reader actually runs. */
     @Test
     fun `rotate to fit turns a wide page clockwise by default`() {
-        settings(split = true, rotate = true)
+        settings(rotate = true)
             .widePageShape(2000, 1000, strip = false, leftToRight = true, second = false) shouldBe
             WidePageShape.Rotated(90f)
     }
