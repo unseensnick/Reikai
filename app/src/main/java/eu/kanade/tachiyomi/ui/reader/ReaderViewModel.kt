@@ -635,6 +635,7 @@ class ReaderViewModel(
      * Failures are reported through [State.initError].
      */
     private suspend fun init() {
+        System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} init start vm=${System.identityHashCode(this)} thread=${Thread.currentThread().name}")
         withIOContext {
             try {
                 val manga = getManga.await(mangaId) ?: error("Requested manga of id $mangaId not found")
@@ -688,6 +689,7 @@ class ReaderViewModel(
                 // RK --> the series' reader flags, read from its merge group's owner rather than from
                 // the member this launch opened through
                 viewerFlags = GroupViewerFlags.of(manga.id, group.mangaById.keys)
+                System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} viewerFlags set members=${viewerFlags.memberIds} vm=${System.identityHashCode(this@ReaderViewModel)} thread=${Thread.currentThread().name}")
                 val flagsOwner = group.mangaById[viewerFlags.ownerId] ?: manga
                 val source = sourceManager.getOrStub(manga.source)
                 mutableState.update {
@@ -1379,6 +1381,7 @@ class ReaderViewModel(
      */
     fun setMangaReadingMode(readingMode: ReadingMode) {
         val manga = manga ?: return
+        System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} pick members=${viewerFlags.memberIds} vm=${System.identityHashCode(this)} thread=${Thread.currentThread().name}")
         // Only the latest pick matters, and letting an older one finish last would restore its choice
         readingModeJob?.cancel()
         // RK: on the app scope, so closing the reader cannot stop the group-wide write part way, as novels do
