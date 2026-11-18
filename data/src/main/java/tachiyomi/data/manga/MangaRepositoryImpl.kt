@@ -137,6 +137,7 @@ class MangaRepositoryImpl(
             database.mangaQueries.setViewerFlagBits(mask = mask, flag = flag, id = id)
             true
         } catch (e: Exception) {
+            System.err.println("RKDIAG setViewerFlags id=$id threw $e")
             logcat(LogPriority.ERROR, e)
             false
         }

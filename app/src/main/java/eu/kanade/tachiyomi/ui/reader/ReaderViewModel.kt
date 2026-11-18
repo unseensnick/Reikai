@@ -1400,6 +1400,7 @@ class ReaderViewModel(
                 eventChannel.send(Event.ReloadViewerChapters)
             }
         }
+        readingModeJob?.invokeOnCompletion { System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} readingModeJob ended cause=$it") }
     }
 
     /**

@@ -321,8 +321,16 @@ class MangaReaderViewModelHarness private constructor(
                 updateChapter = UpdateChapter(chapters),
                 setMangaViewerFlags = spyk(SetMangaViewerFlags(mangas)) {
                     coEvery { awaitSetReadingMode(any(), any()) } coAnswers {
-                        if (slowFlagWrite(firstArg(), secondArg())) slowWrite()
-                        callOriginal()
+                        val diagId: Long = firstArg()
+                        System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} write start id=$diagId thread=${Thread.currentThread().name}")
+                        try {
+                            if (slowFlagWrite(firstArg(), secondArg())) slowWrite()
+                            System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} write after-slow id=$diagId")
+                            callOriginal().also { System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} write done id=$diagId") }
+                        } catch (t: Throwable) {
+                            System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} write threw id=$diagId $t")
+                            throw t
+                        }
                     }
                     coEvery { awaitSetOrientation(any(), any()) } coAnswers {
                         if (slowFlagWrite(firstArg(), secondArg())) slowWrite()
@@ -372,6 +380,8 @@ class MangaReaderViewModelHarness private constructor(
             store.clear()
             // A cancelled load still resumes on Main to finish, so wait for it before a test resets Main.
             withContext(NonCancellable) { modelJob?.join() }
+            System.getenv("RKDIAG_TEARDOWN")?.toLong()?.let { Thread.sleep(it) }
+            System.err.println("RKDIAG ${System.nanoTime() / 1_000_000} unmock")
             unmockkConstructor(ChapterLoader::class)
             unmockkStatic(NETWORK_STATE)
         }
