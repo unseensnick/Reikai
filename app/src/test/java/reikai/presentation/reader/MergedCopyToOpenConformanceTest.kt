@@ -13,7 +13,6 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -21,8 +20,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -181,11 +178,7 @@ class MangaCopyProbe : MergedCopyProbe {
             val pages = loadedPages(current, 2)
             // Download-ahead only runs while the chapter being read is itself read from disk.
             current.pageLoader = mockk<DownloadPageLoader>(relaxed = true)
-            model.onPageSelected(pages[1])
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(3_000) { while (queued.isEmpty()) delay(20) }
-                delay(300)
-            }
+            settle(model) { model.onPageSelected(pages[1]) }
             queued.toSet()
         }
     }
@@ -219,16 +212,15 @@ class MangaCopyProbe : MergedCopyProbe {
             sourceScoped = false,
             onDownload = { chapters -> chapters.forEach { queued += it.id } },
         ) { model, _, group ->
-            model.handleChapterDownload(
-                listOf(
-                    group.pooledChapters.first {
-                        it.id == 12L
-                    },
-                ),
-                ChapterDownloadAction.START,
-            )
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(3_000) { while (queued.isEmpty()) delay(20) }
+            settle(model) {
+                model.handleChapterDownload(
+                    listOf(
+                        group.pooledChapters.first {
+                            it.id == 12L
+                        },
+                    ),
+                    ChapterDownloadAction.START,
+                )
             }
             queued.toSet()
         }
@@ -242,17 +234,15 @@ class MangaCopyProbe : MergedCopyProbe {
             sourceScoped = sourceScoped,
             onDelete = { chapters -> chapters.forEach { deleted += it.id } },
         ) { model, _, group ->
-            model.handleChapterDownload(
-                listOf(
-                    group.pooledChapters.first {
-                        it.id == 12L
-                    },
-                ),
-                ChapterDownloadAction.DELETE,
-            )
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(3_000) { while (12L !in deleted) delay(20) }
-                delay(200)
+            settle(model) {
+                model.handleChapterDownload(
+                    listOf(
+                        group.pooledChapters.first {
+                            it.id == 12L
+                        },
+                    ),
+                    ChapterDownloadAction.DELETE,
+                )
             }
             (12L in deleted) to (22L in deleted)
         }
@@ -269,7 +259,11 @@ class MangaCopyProbe : MergedCopyProbe {
         downloadAhead: Int = 0,
         onDownload: (List<Chapter>) -> Unit = {},
         onDelete: (List<Chapter>) -> Unit = {},
-        probe: suspend (ReaderViewModel, ReaderViewModel.State, MergedChapterProvider.Group) -> T,
+        probe: suspend MangaReaderViewModelHarness.(
+            ReaderViewModel,
+            ReaderViewModel.State,
+            MergedChapterProvider.Group,
+        ) -> T,
     ): T = MangaReaderViewModelHarness.create().use { harness ->
         val leading = harness.manga(LEADING, source = 100L, title = "Leading")
         val other = harness.manga(OTHER, source = 200L, title = "Other")
@@ -303,7 +297,7 @@ class MangaCopyProbe : MergedCopyProbe {
             sourceScoped = sourceScoped,
             onDownload = onDownload,
             onDelete = onDelete,
-        ) { model, state -> probe(model, state, group) }
+        ) { model, state -> harness.probe(model, state, group) }
     }
 
     private companion object {

@@ -151,7 +151,7 @@ class UnifiedViewMemberConformanceTest {
                 mockk(relaxed = true),
                 noDuplicateMarking(),
                 noVolumePicking(),
-            ).settled().shown(ids)
+            ).settled(installed.any { it }).shown(ids)
         } finally {
             // The model reads on the real IO dispatcher, so it stops before the database closes.
             val job = model.viewModelScope.coroutineContext.job
@@ -176,16 +176,23 @@ class UnifiedViewMemberConformanceTest {
                 mockk(relaxed = true),
                 noDuplicateMarking(),
                 noVolumePicking(),
-            ).settled().shown(ids)
+            ).settled(installed.any { it }).shown(ids)
         }
 
-    /** The merged page once its page has resolved, or once its source is known to be missing. */
-    private suspend fun EntryDetailsBehavior.settled(): EntryDetailsScreenState.Loaded =
+    /**
+     * The merged page once its page has resolved, or, with no member installed, once its source is known to be
+     * missing. Each case waits for its own end state, so a page still serving the opened missing member is not taken.
+     */
+    private suspend fun EntryDetailsBehavior.settled(anyInstalled: Boolean): EntryDetailsScreenState.Loaded =
         withContext(Dispatchers.Default) {
             withTimeout(30_000) {
                 state.first {
                     it is EntryDetailsScreenState.Loaded && it.isMerged &&
-                        (it.webPage != null || it.details.header.sourceState == EntrySourceState.Missing)
+                        if (anyInstalled) {
+                            it.webPage != null
+                        } else {
+                            it.details.header.sourceState == EntrySourceState.Missing
+                        }
                 } as EntryDetailsScreenState.Loaded
             }
         }

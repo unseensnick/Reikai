@@ -25,6 +25,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
@@ -377,7 +378,14 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         )
         val replay = LocalFileJournalReplay(context, journal, locks, organizer)
 
-        suspend fun settle() = scope.coroutineContext.job.children.forEach { it.join() }
+        /** Joins until nothing is left, since a step a join waited on can launch another. */
+        suspend fun settle() {
+            while (true) {
+                val running = scope.coroutineContext.job.children.toList()
+                if (running.isEmpty()) return
+                running.joinAll()
+            }
+        }
     }
 
     private fun rel(file: File) = file.relativeTo(root).invariantSeparatorsPath

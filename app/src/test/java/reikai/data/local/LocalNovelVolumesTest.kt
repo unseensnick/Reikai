@@ -15,7 +15,8 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -185,7 +186,8 @@ class LocalNovelVolumesTest {
 
     @After
     fun tearDown() {
-        appScope.cancel()
+        // Joined, not only cancelled: a repair still retrying would otherwise reach the next test's fakes.
+        runTest { appScope.coroutineContext.job.cancelAndJoin() }
         driver.close()
         unmockkStatic("mihon.core.archive.UniFileExtensionsKt")
     }

@@ -80,8 +80,14 @@ class MangaMergedFlowDedupTest {
                 withTimeout(30_000) {
                     model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.mergeSources.size == 2 }
                 }
-                // Real dispatchers: the initial renders settle first.
-                delay(SETTLE_MS)
+                // Real dispatchers: the initial renders settle first, however long a busy runner takes.
+                withTimeout(30_000) {
+                    var last = -1
+                    while (renders.get() != last) {
+                        last = renders.get()
+                        delay(QUIET_MS)
+                    }
+                }
                 val before = renders.get()
                 ChapterRepositoryImpl(database).update(ChapterUpdate(OUTSIDE_CHAPTER) { read = true })
                 delay(SETTLE_MS)
@@ -107,5 +113,8 @@ class MangaMergedFlowDedupTest {
 
         // Far beyond the milliseconds a re-render takes to land when a write causes one.
         const val SETTLE_MS = 1_000L
+
+        // No render for this long counts as the initial ones having landed.
+        const val QUIET_MS = 300L
     }
 }

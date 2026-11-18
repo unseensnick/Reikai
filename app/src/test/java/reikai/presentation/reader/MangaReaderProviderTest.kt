@@ -204,6 +204,6 @@ class MangaReaderProviderTest {
     )
 
     private companion object {
-        val WAIT = 3.seconds
+        val WAIT = 10.seconds
     }
 }

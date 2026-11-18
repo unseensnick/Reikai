@@ -58,8 +58,8 @@ class MangaViewerFlagsCloseTest {
         // The sibling's write is still running when the reader closes.
         harness.open(owner, chapterId = 11L, group = group, slowFlagWrite = { id, _ -> id == sibling.id }) { model, _ ->
             model.pick()
-            // Into the write loop, past the owner's write.
-            withContext(Dispatchers.Default) { delay(100) }
+            // Into the write loop, past the owner's write, so the close lands while the sibling's still runs.
+            settled(harness, owner, mask, expected)
         }
         listOf(owner, sibling).map { manga -> settled(harness, manga, mask, expected) }
     }
@@ -67,7 +67,8 @@ class MangaViewerFlagsCloseTest {
     private suspend fun settled(harness: MangaReaderViewModelHarness, manga: Manga, mask: Long, expected: Long) =
         withContext(Dispatchers.Default) {
             val read = suspend { harness.storedManga(manga.id).viewerFlags and mask }
-            withTimeoutOrNull(5_000) { while (read() != expected) delay(20) }
+            // A busy CI runner has taken over 3 s for this write; a settled one ends the wait at once.
+            withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
             read()
         }
 }

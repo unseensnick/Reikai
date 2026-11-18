@@ -71,6 +71,12 @@ class DownloadCacheChangesConformanceTest {
         val secondBefore = second.get()
 
         change()
+        // A slow runner can hold the signal past one quiet window, so wait for it before checking for stragglers.
+        withContext(Dispatchers.Default) {
+            withTimeoutOrNull(20.seconds) {
+                while (first.get() <= firstBefore || second.get() <= secondBefore) delay(10.milliseconds)
+            }
+        }
         awaitQuiet(first, second)
 
         listOf(first.get() > firstBefore, second.get() > secondBefore) shouldBe listOf(true, true)

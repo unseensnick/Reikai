@@ -112,18 +112,19 @@ class NovelDownloadCacheRemoveTest {
         val signals = AtomicInteger()
         backgroundScope.launch(Dispatchers.Default) { cache.changes.collect { signals.incrementAndGet() } }
         // The replayed signal and the scan's own arrive first; only what follows the batch is counted.
+        awaitOnRealThreads { signals.get() >= 1 }
         awaitQuiet(signals)
         val before = signals.get()
 
         cache.removeChapters(novel, removed)
-        awaitOnRealThreads { cache.getDownloadCount(novel) == 1 }
+        awaitOnRealThreads { cache.getDownloadCount(novel) == 1 && signals.get() > before }
         awaitQuiet(signals)
 
         signals.get() - before shouldBe 1
     }
 
     private suspend fun awaitOnRealThreads(condition: () -> Boolean): Boolean = withContext(Dispatchers.Default) {
-        withTimeoutOrNull(5.seconds) {
+        withTimeoutOrNull(20.seconds) {
             while (!condition()) delay(10.milliseconds)
             true
         } ?: false

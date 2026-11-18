@@ -15,7 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.NovelPreferences
@@ -66,14 +66,14 @@ class ManualDeleteConformanceTest {
         const val ENTRY = 1L
         const val READ = 10L
         const val BOOKMARKED = 11L
-        val WAIT = 5.seconds
+        val WAIT = 30.seconds
 
         @JvmStatic
         fun halves() = listOf(MangaManualDeleteHalf(), NovelManualDeleteHalf())
 
-        /** Both deletes run on their engine's own IO scope, so the result is awaited in real time. */
-        suspend fun <T> awaitOnRealThreads(deferred: CompletableDeferred<T>): T? =
-            withContext(Dispatchers.Default) { withTimeoutOrNull(WAIT) { deferred.await() } }
+        /** Both deletes run on their engine's own IO scope, so the result is awaited in real time; a stall fails by name. */
+        suspend fun <T> awaitOnRealThreads(deferred: CompletableDeferred<T>): T =
+            withContext(Dispatchers.Default) { withTimeout(WAIT) { deferred.await() } }
     }
 }
 
@@ -130,7 +130,7 @@ class MangaManualDeleteHalf : ManualDeleteHalf {
             mockk(),
         )
 
-        return ManualDeleteConformanceTest.awaitOnRealThreads(removed).orEmpty()
+        return ManualDeleteConformanceTest.awaitOnRealThreads(removed)
     }
 }
 

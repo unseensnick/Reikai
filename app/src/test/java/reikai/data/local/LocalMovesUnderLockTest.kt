@@ -20,7 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
@@ -258,7 +258,8 @@ class LocalMovesUnderLockTest {
 
     @After
     fun tearDown() {
-        appScope.cancel()
+        // Joined, not only cancelled: a repair still retrying would otherwise reach the next test's fakes.
+        runTest { appScope.coroutineContext.job.cancelAndJoin() }
         driver.close()
     }
 

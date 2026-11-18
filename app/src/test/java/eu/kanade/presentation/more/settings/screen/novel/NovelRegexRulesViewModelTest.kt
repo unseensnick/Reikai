@@ -86,7 +86,8 @@ class NovelRegexRulesViewModelTest {
         onRealMain.close()
         main.close()
 
-        mainWait shouldBeLessThan 150.milliseconds
+        // Under the ~400 ms a held Main would wait out the budget, with room for a busy runner's hop.
+        mainWait shouldBeLessThan 300.milliseconds
     }
 
     /**

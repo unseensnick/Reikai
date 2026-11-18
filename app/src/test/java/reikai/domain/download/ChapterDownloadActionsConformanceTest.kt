@@ -42,7 +42,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -362,14 +362,14 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
 
     override suspend fun close() = downloader.pause()
 
-    /** The downloader runs on its own IO threads, so its progress is awaited in real time, bounded. */
+    /** The downloader runs on its own IO threads, so its progress is awaited in real time; a stall fails by name. */
     private suspend fun awaitOnRealThreads(block: suspend () -> Unit) {
-        withContext(Dispatchers.Default) { withTimeoutOrNull(WAIT) { block() } }
+        withContext(Dispatchers.Default) { withTimeout(WAIT) { block() } }
     }
 
     private companion object {
         const val ERROR_NOTICE_MS = 200L
-        val WAIT = 5.seconds
+        val WAIT = 30.seconds
     }
 }
 

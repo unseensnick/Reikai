@@ -76,9 +76,12 @@ class ReaderLoadAheadTest {
             harness.chapter(20L, manga, 2.0)
             val preferences = mapOf<String, Any>("pref_reader_load_ahead_only_over_wifi" to wifiOnly)
             harness.open(manga, chapterId = 10L, preferences = preferences, wifi = wifi) { _, _ ->
-                // The preload runs on the IO dispatcher, out of virtual time's reach
+                // The preload runs on the IO dispatcher, out of virtual time's reach: a load that never comes gets a
+                // second to show up, and one that does gets as long as a busy runner needs.
                 withContext(Dispatchers.Default) { delay(1_000) }
-                coVerify(exactly = expected) { anyConstructed<ChapterLoader>().loadChapter(next(), any()) }
+                coVerify(timeout = 10_000, exactly = expected) {
+                    anyConstructed<ChapterLoader>().loadChapter(next(), any())
+                }
             }
         }
     }

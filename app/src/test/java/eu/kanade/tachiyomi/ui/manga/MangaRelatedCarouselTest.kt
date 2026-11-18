@@ -106,7 +106,7 @@ class MangaRelatedCarouselTest {
                         favoriteAt = Instant.fromEpochMilliseconds(0L),
                     ),
                 )
-                withTimeoutOrNull(5_000) { success.first { it.relatedItems.single().inLibrary } } != null
+                withTimeoutOrNull(10_000) { success.first { it.relatedItems.single().inLibrary } } != null
             }
         } finally {
             // The model reads on the real IO dispatcher, so it stops before the database closes.

@@ -114,7 +114,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-reports
-          path: "**/build/reports/tests/"
+          # The result files too: they keep each test's error output, which a CI-only failure is read from.
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
           if-no-files-found: ignore
 
   build:

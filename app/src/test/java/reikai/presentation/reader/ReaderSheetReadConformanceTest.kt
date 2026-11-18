@@ -109,13 +109,14 @@ class ReaderSheetReadConformanceTest {
 
         /** Waits for [id]'s download to be removed, the sign the whole mark has run. */
         private suspend fun removed(deleted: List<Long>, id: Long) = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(3_000) { while (id !in deleted) delay(20) }
+            withTimeoutOrNull(15_000) { while (id !in deleted) delay(20) }
         }
 
-        /** The sheet writes on the IO dispatcher, which virtual time does not reach, so this polls. */
+        /** The sheet writes on the IO dispatcher, which virtual time does not reach, so this polls; a busy CI runner has
+         *  taken over 3 s for such a write, and a settled one ends the wait at once. */
         private suspend fun settlesAt(expected: Boolean, read: suspend () -> Boolean?): Boolean? =
             withContext(Dispatchers.Default) {
-                withTimeoutOrNull(3_000) { while (read() != expected) delay(20) }
+                withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
                 read()
             }
     }

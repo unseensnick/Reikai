@@ -278,7 +278,8 @@ class NovelDetailsFetchTest {
             gate.complete(Unit)
             model.awaitLoaded { it.sourceName == "alpha" }
             withContext(Dispatchers.Default) {
-                withTimeoutOrNull(REFETCH_WINDOW_MS) { while ("2" !in source.pagesAsked) delay(20) }
+                withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
+                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.size < 2) delay(20) }
             }
             source.pagesAsked.toList()
         }

@@ -38,6 +38,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.service.UpdatesPreferences
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Every feed model reads the category selection of the surface that built it. The combined tab builds
@@ -68,7 +69,8 @@ class RecentsFeedSurfaceTest {
         surface: RecentsSurface,
         excluded: Long,
     ) = runTest {
-        val asked = mutableListOf<List<Long>>()
+        // Written on the query's IO thread and read here, so a list safe to share between them.
+        val asked = CopyOnWriteArrayList<List<Long>>()
         val state = feed.build(surface, preferences, main) { asked += it }
         backgroundScope.launch { state.collect { } }
 

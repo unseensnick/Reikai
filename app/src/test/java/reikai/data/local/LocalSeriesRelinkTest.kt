@@ -12,7 +12,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -94,7 +95,8 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
 
     @After
     fun tearDown() {
-        scope.cancel()
+        // Joined, not only cancelled: a repair still retrying would otherwise reach the next test's fakes.
+        runTest { scope.coroutineContext.job.cancelAndJoin() }
         driver.close()
     }
 

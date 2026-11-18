@@ -106,12 +106,7 @@ class MangaSourceScopedAhead : SourceScopedAheadProbe {
             val pages = loadedPages(current, 2)
             // Download-ahead only runs while the chapter being read is itself read from disk.
             current.pageLoader = mockk<DownloadPageLoader>(relaxed = true)
-            model.onPageSelected(pages[1])
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(3_000) { while (queued.isEmpty()) delay(20) }
-                // Anything else a wrong order would queue lands in the same pass.
-                delay(300)
-            }
+            harness.settle(model) { model.onPageSelected(pages[1]) }
             (queued - 22L).mapTo(HashSet()) { numberOf.getValue(it) }
         }
     }
