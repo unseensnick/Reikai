@@ -5,10 +5,13 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -50,12 +53,16 @@ class NovelFontsViewModelTest {
                 true
             }
         }
-        val model = NovelFontsViewModel(fonts, NovelPreferences(InMemoryPreferenceStore()), testAppScope())
+        val appScope = testAppScope()
+        val model = NovelFontsViewModel(fonts, NovelPreferences(InMemoryPreferenceStore()), appScope)
 
         model.delete(font)
         model.viewModelScope.cancel()
 
-        withContext(Dispatchers.Default) { withTimeout(5.seconds) { deleted.await() } } shouldBe Unit
+        withContext(Dispatchers.Default) {
+            withTimeout(5.seconds) { deleted.await() }.also { appScope.settle() }
+        } shouldBe
+            Unit
     }
 
     @Test
@@ -68,13 +75,25 @@ class NovelFontsViewModelTest {
                 Result.success(font)
             }
         }
-        val model = NovelFontsViewModel(fonts, NovelPreferences(InMemoryPreferenceStore()), testAppScope())
+        val appScope = testAppScope()
+        val model = NovelFontsViewModel(fonts, NovelPreferences(InMemoryPreferenceStore()), appScope)
 
         model.download("Lora")
         model.viewModelScope.cancel()
 
-        val settled = withContext(Dispatchers.Default) { withTimeout(5.seconds) { model.state.first { !it.busy } } }
+        val settled = withContext(Dispatchers.Default) {
+            withTimeout(5.seconds) { model.state.first { !it.busy } }.also { appScope.settle() }
+        }
 
         settled.error shouldBe null
+    }
+
+    /**
+     * Waits out what the write still has to run (its refresh) before tearDown resets Main, since a refresh
+     * reaching Main after the reset fails the next test in this JVM.
+     */
+    private suspend fun CoroutineScope.settle() {
+        val running = this.coroutineContext.job.children.toList()
+        withTimeout(5.seconds) { running.joinAll() }
     }
 }
