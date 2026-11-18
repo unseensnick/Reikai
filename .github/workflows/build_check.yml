@@ -81,6 +81,14 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test -Proborazzi.test.verify=true
 
+      - name: Upload unit test results (diagnostics branch only)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unit-test-results
+          path: app/build/test-results/testDebugUnitTest
+          if-no-files-found: ignore
+
       - name: Upload screenshot diffs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
