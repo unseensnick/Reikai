@@ -604,10 +604,7 @@ class ReaderViewModel(
                 chapterPageIndex = currentChapter.requestedPage // RK: saved beside its own chapter
             }
             .launchIn(viewModelScope)
-
-        if (hasValidArgs) {
-            viewModelScope.launch { init() }
-        }
+        // RK: init() is launched by the init block at the end of the class
     }
 
     override fun onCleared() {
@@ -1732,6 +1729,15 @@ class ReaderViewModel(
             eventChannel.send(Event.SetCoverResult(result))
         }
     }
+
+    // RK --> last, after every field: init() assigns fields from the IO thread while construction goes on,
+    // and a field declared below the launch would take its initial value after init() set it.
+    init {
+        if (hasValidArgs) {
+            viewModelScope.launch { init() }
+        }
+    }
+    // RK <--
 
     enum class SetAsCoverResult {
         Success,
