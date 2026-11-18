@@ -2,10 +2,13 @@ package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -38,6 +41,11 @@ class MangaRestorePageTest {
                     model.onPageSelected(loadedPages(chapters.currChapter, 10)[5])
                     model.onPageSelected(loadedPages(chapters.nextChapter!!, 10)[0])
                 }
+                System.err.println(
+                    "RKDIAG neighbour saved page=${harness.savedState?.get<Int>("page_index")} " +
+                        "chapter=${harness.savedState?.get<Long>("chapter_id")} " +
+                        "current=${model.state.value.viewerChapters?.currChapter?.chapter?.id}",
+                )
                 harness.savedState?.get<Int>("page_index")
             } shouldBe 5
         }
@@ -64,7 +72,15 @@ class MangaRestorePageTest {
                 group = group,
                 onDisk = setOf(21L),
                 restored = 11L to 18,
-            ) { _, state -> state.viewerChapters!!.currChapter.let { it.chapter.id to it.requestedPage } }
+            ) { _, state ->
+                val opened = state.viewerChapters!!.currChapter
+                // Stamped by the model's state collector just after the chapter is published, on the
+                // thread that published it, so the test thread can see the chapter before the page.
+                withContext(Dispatchers.Default) {
+                    withTimeoutOrNull(5_000) { while (opened.requestedPage == 0) delay(20) }
+                }
+                opened.chapter.id to opened.requestedPage
+            }
 
             restored shouldBe (11L to 18)
         }
