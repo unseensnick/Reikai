@@ -6,6 +6,7 @@ import android.text.Selection
 import android.text.Spannable
 import android.text.Spanned
 import android.text.style.ImageSpan
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
@@ -53,7 +54,8 @@ class ChapterTextBlock(
 
     fun ensureChunkCount(count: Int) {
         while (chunkViews.size < count) {
-            val view = createChunkView()
+            // Android lists other apps' text actions (a dictionary, a translator) only for a view with an id.
+            val view = createChunkView().apply { id = View.generateViewId() }
             chunkViews.add(view)
             container.addView(view)
         }
