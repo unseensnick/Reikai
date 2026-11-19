@@ -1,10 +1,14 @@
 package reikai.presentation.library.novels
 
+import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
@@ -28,17 +32,18 @@ import reikai.presentation.library.installedIconsBySite
 import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.mergeCollapseInputsFlow
 import reikai.presentation.library.novelSourceBadge
-import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
+import reikai.presentation.library.sharedLibraryRows
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Every novel in the library as the library's rows: badges, merge groups collapsed to one row, nothing
- * filtered or searched. The novel library builds from [library] and [mergeInputs] through [build], since it
- * also needs the collapsed groups; Statistics takes [rows]. Twin of
+ * filtered or searched. The novel library, Statistics and Hidden entries all read the one shared [rows], which
+ * carries the collapsed groups beside the rows for the novel library's tracks and metadata. Twin of
  * [reikai.presentation.library.MangaLibraryRows], pinned by MergedLibraryRowConformanceTest (each type's
  * collapse and merged-row stamp, not these classes), [LibraryBadgePrefs.badges] and [downloadedUnitsByGroup].
  */
 @Inject
+@SingleIn(AppScope::class)
 class NovelLibraryRows(
     private val novelRepository: NovelRepository,
     private val novelDownloadCache: NovelDownloadCache,
@@ -50,25 +55,26 @@ class NovelLibraryRows(
     private val getNextNovelChapter: GetNextNovelChapter,
     private val basePreferences: BasePreferences,
     private val localLanguages: LocalNovelLanguageRepository,
+    @AppCoroutineScope scope: CoroutineScope,
 ) {
 
-    class Rows(val groups: List<NovelMergeCollapse.CollapsedNovel>, val items: List<LibraryItem>)
+    data class Rows(val groups: List<NovelMergeCollapse.CollapsedNovel>, val items: List<LibraryItem>)
 
     /** The library's novels, with each local series' own language by series path. */
-    class Library(val novels: List<LibraryNovel>, val localLanguages: Map<String, String>)
+    private class Library(val novels: List<LibraryNovel>, val localLanguages: Map<String, String>)
 
     /**
      * The library's novels, re-emitted when sources (un)register, so a source resolves once loaded, and when
      * a download or delete changes the disk index, which the download badge reads.
      */
-    fun library(): Flow<Library> =
+    private fun library(): Flow<Library> =
         novelRepository.getLibraryNovelAsFlow()
             .combine(sourceManager.sources) { library, _ -> library }
-            .combine(novelDownloadCache.changes.pausedWhileUnsubscribed()) { library, _ -> library }
+            .combine(novelDownloadCache.changes) { library, _ -> library }
             // A local novel's language is read when its files are, so a refresh re-labels its row.
             .combine(localLanguages.subscribeAll(), ::Library)
 
-    fun mergeInputs(): Flow<MergeCollapseInputs<String>> = mergeCollapseInputsFlow(
+    private fun mergeInputs(): Flow<MergeCollapseInputs<String>> = mergeCollapseInputsFlow(
         ContentType.NOVELS,
         reikaiLibraryPreferences.preferredNovelSources.changes(),
         reikaiLibraryPreferences,
@@ -76,16 +82,11 @@ class NovelLibraryRows(
         mergedChapterUnitRepository,
     )
 
-    fun rows(): Flow<List<LibraryItem>> =
-        combine(library(), libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences), mergeInputs()) {
-                library,
-                badges,
-                merge,
-            ->
-            build(library, badges, merge).items
-        }
+    val rows: Flow<Rows> =
+        combine(library(), libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences), mergeInputs(), ::build)
+            .sharedLibraryRows(scope)
 
-    suspend fun build(
+    private suspend fun build(
         library: Library,
         badges: LibraryBadgePrefs,
         merge: MergeCollapseInputs<String>,

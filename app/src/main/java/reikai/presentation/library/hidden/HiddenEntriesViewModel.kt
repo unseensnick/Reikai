@@ -78,7 +78,7 @@ class HiddenEntriesViewModel(
     private val selectionStore = SelectionStore<EntryId>()
 
     private val hiddenRows = combine(
-        combine(mangaLibraryRows.rows(), novelLibraryRows.rows()) { manga, novels -> manga + novels },
+        combine(mangaLibraryRows.rows, novelLibraryRows.rows) { manga, novels -> manga + novels.items },
         hideSeries.subscribeAll(),
         getEntryCustomInfo.subscribeAll(),
         libraryPreferences.sortingMode.changes(),

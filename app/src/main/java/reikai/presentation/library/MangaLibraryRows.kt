@@ -1,6 +1,8 @@
 package reikai.presentation.library
 
+import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.download.DownloadCache
@@ -11,10 +13,12 @@ import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import exh.source.getMainSource
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.entryLanguage
@@ -27,7 +31,6 @@ import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.holdsChapterFiles
-import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -38,12 +41,13 @@ import tachiyomi.source.local.isLocal
 
 /**
  * Every manga in the library as the library's rows: badges, merge groups collapsed to one row, nothing
- * filtered or searched. The library filters these, and Statistics lists them as they are, so a badge or
- * a merged count reads the same on both. Twin of [reikai.presentation.library.novels.NovelLibraryRows], pinned by
+ * filtered or searched. The library filters these, and Statistics and Hidden entries list them as they are,
+ * so a badge or a merged count reads the same on each; all three read the one shared [rows]. Twin of [reikai.presentation.library.novels.NovelLibraryRows], pinned by
  * MergedLibraryRowConformanceTest (each type's collapse and merged-row stamp, not these classes),
  * [LibraryBadgePrefs.badges] and [downloadedUnitsByGroup].
  */
 @Inject
+@SingleIn(AppScope::class)
 class MangaLibraryRows(
     private val getLibraryManga: GetLibraryManga,
     private val libraryPreferences: LibraryPreferences,
@@ -57,13 +61,16 @@ class MangaLibraryRows(
     private val mangaPreferences: MangaPreferences,
     private val basePreferences: BasePreferences,
     private val sourcePreferences: SourcePreferences,
+    @AppCoroutineScope scope: CoroutineScope,
 ) {
 
-    fun rows(): Flow<List<LibraryItem>> {
+    val rows: Flow<List<LibraryItem>> = buildRows().sharedLibraryRows(scope)
+
+    private fun buildRows(): Flow<List<LibraryItem>> {
         return combine(
             getLibraryManga.subscribe(),
             libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences),
-            downloadCache.changes.pausedWhileUnsubscribed(),
+            downloadCache.changes,
             // Re-collapse when the merge inputs change. The recognized chapter counts are the ones the
             // stitch ranks its trunk on, so the row and the details list lead on one source.
             mergeCollapseInputsFlow(

@@ -366,8 +366,8 @@ class LibraryViewModel(
     // RK: getLibraryItemPreferencesFlow and ItemPreferences moved to libraryBadgePrefsFlow, the badge
     //     gates the novel library reads too; the filter preferences live in libraryFilterSettingsFlow.
 
-    // RK: the row building moved to MangaLibraryRows, which Statistics lists its series from as well
-    private fun getFavoritesFlow(): Flow<List<LibraryItem>> = mangaLibraryRows.rows() // RK
+    // RK: the row building moved to MangaLibraryRows, one shared build Statistics and Hidden entries read too
+    private fun getFavoritesFlow(): Flow<List<LibraryItem>> = mangaLibraryRows.rows // RK
 
     // RK: getTrackingFiltersFlow moved into libraryFilterSettingsFlow (LibraryFilterSettings.trackers).
 

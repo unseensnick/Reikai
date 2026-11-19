@@ -13,7 +13,6 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -62,14 +61,11 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
-import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibrarySearchInputs
-import reikai.presentation.library.MergeCollapseInputs
 import reikai.presentation.library.SeriesTagRow
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
-import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
@@ -153,9 +149,10 @@ class NovelLibraryViewModel(
         combine(
             // No category-table input: grouping, its only reader, is LibraryEngine's, which reads the
             // table itself. Membership still reaches the filter through each row's own categories.
-            // The custom-info overlay rides with the library so a title/cover edit re-emits too.
+            // The rows are the build Statistics and Hidden entries share, never a copy of it. The
+            // custom-info overlay rides with them so a title/cover edit re-emits too.
             combine(
-                novelLibraryRows.library(),
+                novelLibraryRows.rows,
                 getCustomNovelInfo.subscribeAll(),
                 ::Pair,
             ),
@@ -177,9 +174,9 @@ class NovelLibraryViewModel(
             ),
             // No collapse input: collapse only feeds grouping, which LibraryEngine owns, and as an
             // input here every collapse tap would rebuild the whole filtered novel list for nothing.
-            settingsFlow(),
-        ) { (library, customInfo), searchInputs, settings ->
-            buildState(library, customInfo, searchInputs, settings)
+            libraryPreferences.showContinueReadingButton.changes(),
+        ) { (rows, customInfo), searchInputs, showContinue ->
+            buildState(rows, customInfo, searchInputs, showContinue)
         }
             // Here and not left to the StateFlow, whose equality check runs on Main and walks every list
             // of an unchanged rebuild, which a download-cache tick causes; the manga library does the same.
@@ -202,7 +199,7 @@ class NovelLibraryViewModel(
 
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
-        // badges); NovelLibraryRows.library() re-emits the build once the sources register.
+        // badges); NovelLibraryRows.rows re-emits the build once the sources register.
         viewModelScope.launchIO { runCatchingCancellable { installer.ensureLoaded() } }
         // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         // unread count would be wrong until something wrote them. Reconciling off the membership flow
@@ -220,20 +217,6 @@ class NovelLibraryViewModel(
         }
     }
 
-    /** Folds the badge prefs into one flow so the main combine stays at its 5-arg max. Sorting is
-     *  LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. The filters
-     *  ride the tracks gate instead, so a tracker filter waits for the tracks it reads. */
-    private fun settingsFlow(): Flow<LibrarySettings> {
-        val mergeFlow = novelLibraryRows.mergeInputs()
-        // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
-        // group-mode change would rebuild the filtered list for a decision it does not make.
-        return combine(
-            libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences),
-            libraryPreferences.showContinueReadingButton.changes(),
-            mergeFlow,
-        ) { badges, showContinue, merge -> LibrarySettings(badges, showContinue, merge) }
-    }
-
     /** One chapter-table LIKE scan per distinct `chapter:` term, resolved once per query change. */
     private suspend fun resolveChapterMatches(query: String?): Map<String, Set<Long>> {
         val node = query?.takeUnless { it.isBlank() }?.let(QueryNode::from) ?: return emptyMap()
@@ -241,18 +224,16 @@ class NovelLibraryViewModel(
     }
 
     private suspend fun buildState(
-        library: NovelLibraryRows.Library,
+        rows: NovelLibraryRows.Rows,
         customInfo: List<CustomNovelInfo>,
         searchInputs: LibrarySearchInputs<Pair<String?, Map<String, Set<Long>>>, NovelTrack>,
-        settings: LibrarySettings,
+        showContinue: Boolean,
     ): State {
         val (search, filter, categoryMatches, tracks) = searchInputs
         val (query, chapterMatches) = search
-        // The rows the library and Statistics share, before any filter or search, plus the collapsed
-        // groups the tracks and the per-novel metadata below are keyed by.
-        val (groups, allItems) = novelLibraryRows.build(library, settings.badges, settings.merge).let {
-            it.groups to it.items
-        }
+        // The shared rows, before any filter or search, plus the collapsed groups the tracks and the
+        // per-novel metadata below are keyed by.
+        val (groups, allItems) = rows
         // Each merge group's tracks keyed by the rep's real novel id, so the filter's tracker axis and the
         // grouping read a track bound on ANY grouped source. Synchronous: reads the in-memory group members,
         // never the suspend awaitGroup. Converted once to the shared Track, which the track kernels take.
@@ -335,7 +316,7 @@ class NovelLibraryViewModel(
             favoritesById = byId,
             customInfo = overlay,
             novelRoutes = routes,
-            showContinueButton = settings.showContinue,
+            showContinueButton = showContinue,
         )
     }
 
@@ -454,12 +435,6 @@ class NovelLibraryViewModel(
     val filterPickerCategories: StateFlow<List<Category>> = getNovelCategories.subscribe()
         .sortedByCategoryPref(reikaiLibraryPreferences)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
-
-    private data class LibrarySettings(
-        val badges: LibraryBadgePrefs,
-        val showContinue: Boolean,
-        val merge: MergeCollapseInputs<String>,
-    )
 
     data class State(
         val isLoading: Boolean = true,

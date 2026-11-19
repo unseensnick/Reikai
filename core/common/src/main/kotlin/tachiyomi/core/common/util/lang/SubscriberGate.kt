@@ -1,5 +1,6 @@
 package tachiyomi.core.common.util.lang
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -11,7 +12,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlin.coroutines.AbstractCoroutineContextElement
@@ -27,7 +30,7 @@ class SubscriberGate : AbstractCoroutineContextElement(SubscriberGate) {
 
     companion object Key : CoroutineContext.Key<SubscriberGate>
 
-    private val open = MutableStateFlow(true)
+    internal val open = MutableStateFlow(true) // RK: internal, read by subscribedWhileOpen
 
     fun whileSubscribed(stopTimeout: Duration): SharingStarted = object : SharingStarted {
         override fun command(subscriptionCount: StateFlow<Int>): Flow<SharingCommand> = flow {
@@ -58,3 +61,14 @@ fun <T> Flow<T>.pausedWhileUnsubscribed(): Flow<T> = flow {
         }
     }
 }
+
+// RK --> a shared flow's upstream runs on the share's own scope, out of this gate's reach, so a gated
+//     reader stops collecting the share while the gate is shut instead, and the share stops its upstream
+//     once nobody else is collecting.
+@OptIn(ExperimentalCoroutinesApi::class)
+fun <T> Flow<T>.subscribedWhileOpen(): Flow<T> = flow {
+    val gate = currentCoroutineContext()[SubscriberGate]
+    val upstream = this@subscribedWhileOpen
+    emitAll(gate?.open?.flatMapLatest { open -> if (open) upstream else emptyFlow() } ?: upstream)
+}
+// RK <--

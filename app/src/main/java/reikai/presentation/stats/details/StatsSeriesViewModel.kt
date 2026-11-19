@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
 import reikai.domain.entry.EntryCustomInfo
@@ -94,8 +95,8 @@ class StatsSeriesViewModel(
     private val rowsOfRow = combine(
         library.value.filterNotNull(),
         // A type the row does not cover is never built, so it waits on nothing.
-        if (contentType.includes(ContentType.MANGA)) mangaLibraryRows.rows() else flowOf(emptyList()),
-        if (contentType.includes(ContentType.NOVELS)) novelLibraryRows.rows() else flowOf(emptyList()),
+        if (contentType.includes(ContentType.MANGA)) mangaLibraryRows.rows else flowOf(emptyList()),
+        if (contentType.includes(ContentType.NOVELS)) novelLibraryRows.rows.map { it.items } else flowOf(emptyList()),
         getEntryCustomInfo.subscribeAll(),
     ) { library, manga, novels, customInfo ->
         val timeZone = TimeZone.currentSystemDefault()
