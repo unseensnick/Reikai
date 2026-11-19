@@ -3,6 +3,7 @@ package reikai.presentation.migrate.flow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import cafe.adriel.voyager.core.screen.Screen
 import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
 
@@ -14,8 +15,8 @@ import reikai.domain.library.ContentType
  */
 interface MigrationFlowRoute
 
-/** Whether [screen] is outside the migration flow; over Any, so it reads a screen and a route alike. */
-fun isOutsideMigrationFlow(screen: Any): Boolean = screen !is MigrationFlowRoute
+/** Whether [screen] is outside the migration flow. */
+fun isOutsideMigrationFlow(screen: Screen): Boolean = screen !is MigrationFlowRoute
 
 /**
  * The flow's adapter for [contentType], read off the graph once per composition. Every flow model

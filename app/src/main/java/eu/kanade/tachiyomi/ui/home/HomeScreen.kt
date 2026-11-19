@@ -167,6 +167,9 @@ object HomeScreen : Screen() {
                         navigationSuiteState.hide()
                     }
                 }
+                // A tab a shortcut switches to shows the bar, which a selection left on the last tab hid. A tab that
+                // shows in selection mode hides it again as it opens.
+                LaunchedEffect(tabNavigator.current) { navigationSuiteState.show() }
                 // RK <--
 
                 NavigationSuiteScaffold(

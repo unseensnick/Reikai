@@ -42,13 +42,14 @@ fun Stack<Screen>.searchLibraryFromDetails(bus: ResultEventBus, query: String, c
 /** Walks back to the library tab, after a details page changed its filter. */
 fun Stack<Screen>.showLibraryFromDetails(bus: ResultEventBus) = showHome(bus, TabEvent.Library())
 
-// Sent only once Home is on top: it is the event's one reader, and a send it never collects would sit
-// on the bus for the next time Home shows.
+// Home is TabEvent's one reader, and reads it only while shown: a send over a screen covering Home applies
+// when Home shows again, as a shortcut's does. Here Home is brought to the top first, so the search applies
+// at once, and with no Home below nothing is sent.
 private fun Stack<Screen>.showHome(bus: ResultEventBus, event: TabEvent) {
     popUntil { it is HomeScreen }
     if (lastItemOrNull is HomeScreen) bus.sendResult<TabEvent>(event)
 }
 
 /** The nearest catalogue of [source] on the stack, never another source's. */
-internal fun List<Any>.catalogueOf(source: SourceKey): EntryCatalogueRoute? =
+internal fun List<Screen>.catalogueOf(source: SourceKey): EntryCatalogueRoute? =
     filterIsInstance<EntryCatalogueRoute>().lastOrNull { it.sourceKey == source }

@@ -69,6 +69,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A local series now shows one folder badge in the library instead of two.**
 - **Stopping an adult-source series update now really stops it, with no false failure notice.**
 - **Library updates check several novel sources at once, as they do for manga.**
+- **The bottom bar comes back when a shortcut or notification leaves the library while you are selecting.**
 
 ### Details
 

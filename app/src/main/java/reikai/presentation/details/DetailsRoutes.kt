@@ -58,8 +58,8 @@ suspend fun NovelItem.storedDetailsScreen(
     .getOrNull()
     ?.let { EntryId.Novel(it.id).detailsScreen(fromSource) }
 
-/** Whether this screen or route is [entry]'s details page. */
-fun Any.shows(entry: EntryId): Boolean = when (entry) {
+/** Whether this screen is [entry]'s details page. */
+fun Screen.shows(entry: EntryId): Boolean = when (entry) {
     is EntryId.Manga -> (this as? MangaScreen)?.mangaId == entry.rawId
     is EntryId.Novel -> (this as? NovelRoute)?.novelId == entry.rawId
 }
