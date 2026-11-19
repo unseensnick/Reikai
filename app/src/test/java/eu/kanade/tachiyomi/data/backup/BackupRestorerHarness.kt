@@ -14,6 +14,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.serialization.protobuf.ProtoBuf
 import reikai.data.backup.ApprovedRepos
+import reikai.data.backup.RestoreCategoryOrder
 import reikai.data.backup.RestoreExtensionInstaller
 import reikai.data.backup.RestoreHiddenEntries
 import reikai.data.local.CombineLocalVolumes
@@ -50,11 +51,13 @@ suspend fun restoreEncoded(
     novelFonts: NovelFontManager = mockk(relaxed = true),
     preferenceRestorer: PreferenceRestorer = mockk(relaxed = true),
     restoreHiddenEntries: RestoreHiddenEntries = mockk(relaxed = true),
+    restoreCategoryOrder: RestoreCategoryOrder = mockk(relaxed = true),
 ) = restoreFile(
     ProtoBuf.encodeToByteArray(Backup.serializer(), backup), options, categoriesRestorer, mangaRestorer,
     novelRestorer, sourceManager, stubSourceRepository, novelSourceManager, alignGroupCategories, manualOrder,
     restoreExtensionInstaller, trusted, combineLocalVolumes, novelFonts, preferenceRestorer, gatherGroupViewerFlags,
     restoreHiddenEntries = restoreHiddenEntries,
+    restoreCategoryOrder = restoreCategoryOrder,
 )
 
 /** Runs the real [BackupRestorer] over the backup file [file], as another app may have written it. */
@@ -78,6 +81,7 @@ suspend fun restoreFile(
     // Where the restore writes its error log; a test whose restore records an error passes a temporary folder.
     cacheDir: File? = null,
     restoreHiddenEntries: RestoreHiddenEntries = mockk(relaxed = true),
+    restoreCategoryOrder: RestoreCategoryOrder = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
@@ -118,5 +122,6 @@ suspend fun restoreFile(
         novelFonts = novelFonts,
         combineLocalVolumes = combineLocalVolumes,
         restoreHiddenEntries = restoreHiddenEntries,
+        restoreCategoryOrder = restoreCategoryOrder,
     ).restore(uri, options, trusted)
 }

@@ -44,6 +44,7 @@ import logcat.LogPriority
 import reikai.data.backup.ApprovedRepos
 import reikai.data.backup.ForeignMergeReader
 import reikai.data.backup.ForeignMerges
+import reikai.data.backup.RestoreCategoryOrder
 import reikai.data.backup.RestoreExtensionInstaller
 import reikai.data.backup.RestoreHiddenEntries
 import reikai.data.backup.RestoreInstallSources
@@ -119,6 +120,7 @@ class BackupRestorer(
     private val novelFonts: NovelFontManager,
     private val combineLocalVolumes: CombineLocalVolumes,
     private val restoreHiddenEntries: RestoreHiddenEntries,
+    private val restoreCategoryOrder: RestoreCategoryOrder,
     // RK <--
 ) {
 
@@ -540,9 +542,11 @@ class BackupRestorer(
         // RK <--
     ) = launch {
         ensureActive()
+        val existingCategories = restoreCategoryOrder.existing() // RK
         categoriesRestorer(backupCategories, sortOverridesStored, restoredPreferences, fromReikai) // RK
         // RK -->
         novelRestorer.restoreCategories(backupNovelCategories)
+        restoreCategoryOrder.restore(existingCategories, backupCategories, backupNovelCategories)
         if (backupCategories.isNotEmpty() || backupNovelCategories.isNotEmpty()) {
             categoriesRestorer.restoreCategorizedDisplay()
         }

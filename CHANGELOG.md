@@ -396,6 +396,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Restoring someone else's backup can no longer weaken your privacy or security settings.** Header redaction, verbose logging, crash reports, analytics, the app lock and hidden notifications only ever restore to the safer choice.
 - **Restoring someone else's backup can no longer change where an extension repo you already have installs from.** The repos on your device keep their own address, name and signing key.
 - **A restore now skips a damaged series in the backup and restores the rest, listing it in the error log.** Before, it stopped partway with no error log or completion notice.
+- **A restore now puts novel categories back in their place among your manga categories.** Before, a novel category sat below every manga category it was above.
 - **A backup with App settings now carries the reader fonts you imported or downloaded, so a restore finds them.** Before, the font setting came back and the reader fell back to the default face.
 - **Unticking Extension stores on the Restore screen now keeps the backup's repos off your device.** The repos to trust are no longer offered then.
 - **Restoring App settings no longer forgets the names of novel sources you have uninstalled.** The device's own records are kept and the backup only adds ones it lacks.
