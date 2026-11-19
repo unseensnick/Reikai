@@ -460,6 +460,7 @@ class BackupRestorer(
             val owners = mutableListOf<VolumeOwner>()
             val localSeries = mutableListOf<String>()
             val hiddenRefs = mutableListOf<Pair<String, String>>()
+            val deviceHidden = restoreHiddenEntries.deviceHidden(ContentType.NOVELS)
             val kitsuScale = summary.kitsuScoreScale
             restoreEntryStream(
                 uri,
@@ -513,7 +514,7 @@ class BackupRestorer(
             }
             // After the merges, never per entry: see RestoreHiddenEntries.
             restoreIsolated("hidden novels") {
-                restoreHiddenEntries.restore(ContentType.NOVELS, hiddenRefs) { (source, url) ->
+                restoreHiddenEntries.restore(ContentType.NOVELS, deviceHidden, hiddenRefs) { (source, url) ->
                     novelRestorer.restoredId(source, url)
                 }
             }
@@ -574,6 +575,7 @@ class BackupRestorer(
         val owners = mutableListOf<VolumeOwner>() // RK: applied once every series is back
         val localSeries = mutableListOf<String>() // RK: settled against the device's grouping then
         val hiddenRefs = mutableListOf<Pair<Long, String>>() // RK: applied after the merges
+        val deviceHidden = restoreHiddenEntries.deviceHidden(ContentType.MANGA) // RK: before a re-add clears one
         restoreEntryStream(
             uri,
             fieldNumber = BackupFields.MANGA,
@@ -627,7 +629,7 @@ class BackupRestorer(
         }
         // RK: after the merges, never per entry: see RestoreHiddenEntries
         restoreIsolated("hidden manga") {
-            restoreHiddenEntries.restore(ContentType.MANGA, hiddenRefs) { (source, url) ->
+            restoreHiddenEntries.restore(ContentType.MANGA, deviceHidden, hiddenRefs) { (source, url) ->
                 mangaRestorer.restoredId(source, url)
             }
         }

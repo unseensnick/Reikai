@@ -106,6 +106,23 @@ class HiddenRestoreConformanceTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("worlds")
+    fun `the device's hidden group stays hidden when the restore brings back a member it removed`(
+        world: HiddenWorld,
+    ) = runTest {
+        world.use {
+            it.device("c", favourite = true)
+            it.device("d", favourite = false)
+            it.group("c", "d")
+            it.hide("c")
+
+            it.restore(listOf(HiddenRestoreEntry("d")))
+
+            it.hiddenUrls() shouldBe setOf("c")
+        }
+    }
+
     companion object {
         @JvmStatic
         fun worlds() = listOf(MangaHiddenWorld(), NovelHiddenWorld())
