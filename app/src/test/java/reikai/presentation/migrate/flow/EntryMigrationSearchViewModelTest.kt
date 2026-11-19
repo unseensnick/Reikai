@@ -211,6 +211,33 @@ class EntryMigrationSearchViewModelTest {
     }
 
     @Test
+    fun `a browsed pick delivered again while its target resolves is applied once`() = runTest(dispatcher.scheduler) {
+        val held = CompletableDeferred<Unit>()
+        var resolves = 0
+        val adapter = FakeMigrationFlowAdapter(
+            listOf(migrationEntry(1)),
+            storedIds = setOf(9L),
+            onResolve = {
+                resolves++
+                held.await()
+                ResolvedTarget(it, syncedNow = true)
+            },
+        )
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        model.takePick(pick)
+        advanceUntilIdle()
+        model.takePick(pick)
+        advanceUntilIdle()
+        held.complete(Unit)
+        advanceUntilIdle()
+
+        resolves shouldBe 1
+    }
+
+    @Test
     fun `a later browsed pick replaces one still being read back`() = runTest(dispatcher.scheduler) {
         val firstRead = CompletableDeferred<Unit>()
         val adapter = FakeMigrationFlowAdapter(

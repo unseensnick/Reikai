@@ -212,6 +212,91 @@ class EntryMigrationListViewModelTest {
         }
 
     @Test
+    fun `a browsed pick still resolving lands after another row takes a pick`() = runTest(dispatcher.scheduler) {
+        val firstResolve = CompletableDeferred<Unit>()
+        val model = EntryMigrationListViewModel(
+            entryIds = listOf(1L, 2L),
+            adapter = FakeMigrationFlowAdapter(
+                listOf(entry(1), entry(2)),
+                storedIds = setOf(8L, 9L),
+                onResolve = {
+                    if (it.key == "stored:8") firstResolve.await()
+                    ResolvedTarget(it, syncedNow = true)
+                },
+            ),
+            io = dispatcher,
+        )
+        advanceUntilIdle()
+
+        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+        advanceUntilIdle()
+        model.takePick(MigrationPick(EntryId.Manga(2), targetRawId = 9L))
+        advanceUntilIdle()
+        firstResolve.complete(Unit)
+        advanceUntilIdle()
+
+        val first = model.state.value.rows.single { it.entry.id == EntryId.Manga(1) }
+        first.acceptance.value.candidate?.key shouldBe "stored:8"
+    }
+
+    @Test
+    fun `a later browsed pick for a row replaces one still resolving`() = runTest(dispatcher.scheduler) {
+        val firstResolve = CompletableDeferred<Unit>()
+        val model = EntryMigrationListViewModel(
+            entryIds = listOf(1L),
+            adapter = FakeMigrationFlowAdapter(
+                listOf(entry(1)),
+                storedIds = setOf(8L, 9L),
+                onResolve = {
+                    if (it.key == "stored:8") firstResolve.await()
+                    ResolvedTarget(it, syncedNow = true)
+                },
+            ),
+            io = dispatcher,
+        )
+        advanceUntilIdle()
+
+        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+        advanceUntilIdle()
+        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 9L))
+        advanceUntilIdle()
+        firstResolve.complete(Unit)
+        advanceUntilIdle()
+
+        model.state.value.rows.single().acceptance.value.candidate?.key shouldBe "stored:9"
+    }
+
+    @Test
+    fun `a browsed pick delivered again while it resolves is applied once`() = runTest(dispatcher.scheduler) {
+        val held = CompletableDeferred<Unit>()
+        var resolves = 0
+        val model = EntryMigrationListViewModel(
+            entryIds = listOf(1L),
+            adapter = FakeMigrationFlowAdapter(
+                listOf(entry(1)),
+                storedIds = setOf(9L),
+                onResolve = {
+                    resolves++
+                    held.await()
+                    ResolvedTarget(it, syncedNow = true)
+                },
+            ),
+            io = dispatcher,
+        )
+        advanceUntilIdle()
+
+        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        model.takePick(pick)
+        advanceUntilIdle()
+        model.takePick(pick)
+        advanceUntilIdle()
+        held.complete(Unit)
+        advanceUntilIdle()
+
+        resolves shouldBe 1
+    }
+
+    @Test
     fun `a manual search on a row sends the extra query with it`() = runTest(dispatcher.scheduler) {
         val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
         val model = EntryMigrationListViewModel(

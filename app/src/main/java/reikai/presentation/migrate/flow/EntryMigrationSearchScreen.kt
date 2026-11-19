@@ -56,7 +56,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 /**
@@ -260,9 +259,8 @@ class EntryMigrationSearchViewModel(
     @Volatile
     private var searchJob: Job? = null
 
-    // A count, not a job handle: a handle is only assigned once launch returns, so a resolve that
-    // got going first would compare itself against the pick before it.
-    private val pickGeneration = AtomicInteger()
+    // One key: the screen has one entry, so every pick on it competes with every other.
+    private val picks = LatestPickGate<Unit>()
 
     init {
         viewModelScope.launch(io) {
@@ -304,20 +302,18 @@ class EntryMigrationSearchViewModel(
     /**
      * Take a picked target through [resolvePick]: open the migrate dialog on it, or say why it was
      * refused. The dialog is held in model state, not the composition, so a rotation mid-migrate
-     * keeps it alive to receive its result. A later pick supersedes one still resolving.
+     * keeps it alive to receive its result. Picks follow [LatestPickGate]'s rule.
      */
     fun pick(target: MigrationCandidate) {
-        val generation = pickGeneration.incrementAndGet()
-        state.update { it.copy(resolvingPick = true) }
-        viewModelScope.launch(io) {
-            val pick = adapter.resolvePick(target)
-            state.update {
-                if (generation != pickGeneration.get()) return@update it
-                when (pick) {
-                    is PendingPick.Ready -> it.copy(resolvingPick = false, dialogTarget = pick.candidate)
-                    is PendingPick.Rejected -> it.copy(resolvingPick = false, pickOutcome = pick.outcome)
-                }
-            }
+        val ticket = picks.begin(Unit, target) ?: return
+        viewModelScope.launch(io) { resolve(ticket, target) }
+    }
+
+    private suspend fun resolve(ticket: LatestPickGate.Ticket<Unit>, target: MigrationCandidate) {
+        state.update { if (picks.isCurrent(ticket)) it.copy(resolvingPick = true) else it }
+        when (val pick = adapter.resolvePick(target)) {
+            is PendingPick.Ready -> settle(ticket) { it.copy(resolvingPick = false, dialogTarget = pick.candidate) }
+            is PendingPick.Rejected -> settle(ticket) { it.copy(resolvingPick = false, pickOutcome = pick.outcome) }
         }
     }
 
@@ -330,23 +326,26 @@ class EntryMigrationSearchViewModel(
 
     /**
      * Take a target picked on a pushed browse screen for this entry. The pick is a stored row, which
-     * says nothing about its chapters, so it goes through [pick] like a tapped result, and by the same
-     * rule a later pick of either kind supersedes it while it is read back. A pick delivered twice is
-     * still one pick, since the second supersedes the first.
+     * says nothing about its chapters, so it is resolved like a tapped result, under the same ticket
+     * from read back to dialog, so a duplicate delivery is refused at either stage.
      */
     fun takePick(browsed: MigrationPick) {
         val entry = state.value.entry ?: return
-        val generation = pickGeneration.incrementAndGet()
+        val ticket = picks.begin(Unit, browsed) ?: return
         viewModelScope.launch(io) {
-            val read = adapter.takePendingPick(browsed, entry.id)
-            if (generation != pickGeneration.get()) return@launch
-            // Taking the generation superseded any pick still resolving, so its working state ends here.
-            when (read) {
-                null -> state.update { it.copy(resolvingPick = false) }
-                is PendingPick.Ready -> pick(read.candidate)
-                is PendingPick.Rejected -> state.update { it.copy(resolvingPick = false, pickOutcome = read.outcome) }
+            // Beginning this pick superseded any still resolving, so its working state ends here.
+            when (val read = adapter.takePendingPick(browsed, entry.id)) {
+                null -> settle(ticket) { it.copy(resolvingPick = false) }
+                is PendingPick.Ready -> resolve(ticket, read.candidate)
+                is PendingPick.Rejected -> settle(ticket) { it.copy(resolvingPick = false, pickOutcome = read.outcome) }
             }
         }
+    }
+
+    /** Apply [change] only if [ticket] is still the current pick, then let the pick go. */
+    private fun settle(ticket: LatestPickGate.Ticket<Unit>, change: (State) -> State) {
+        state.update { if (picks.isCurrent(ticket)) change(it) else it }
+        picks.end(ticket)
     }
 
     /** Called once the screen has shown the outcome; see [PickOutcome]. */
