@@ -22,7 +22,8 @@ import kotlin.coroutines.CoroutineContext
  * of its group ([LocalGroups.closure]); every [withSeries] waits for the journal replay at start ([open]).
  */
 @SingleIn(AppScope::class)
-class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerRepository) {
+@Inject
+class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
 
     private val locks = ConcurrentHashMap<Pair<ContentType, String>, Mutex>()
     private val replayed = CompletableDeferred<Unit>()
