@@ -185,6 +185,33 @@ class EntryMigrationListViewModelTest {
     }
 
     @Test
+    fun `a browsed pick for one row lands while another row's pick is still resolving`() =
+        runTest(dispatcher.scheduler) {
+            val firstResolve = CompletableDeferred<Unit>()
+            val model = EntryMigrationListViewModel(
+                entryIds = listOf(1L, 2L),
+                adapter = FakeMigrationFlowAdapter(
+                    listOf(entry(1), entry(2)),
+                    storedIds = setOf(8L, 9L),
+                    onResolve = {
+                        if (it.key == "stored:8") firstResolve.await()
+                        ResolvedTarget(it, syncedNow = true)
+                    },
+                ),
+                io = dispatcher,
+            )
+            advanceUntilIdle()
+
+            model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+            advanceUntilIdle()
+            model.takePick(MigrationPick(EntryId.Manga(2), targetRawId = 9L))
+            advanceUntilIdle()
+
+            val second = model.state.value.rows.single { it.entry.id == EntryId.Manga(2) }
+            second.acceptance.value.candidate?.key shouldBe "stored:9"
+        }
+
+    @Test
     fun `a manual search on a row sends the extra query with it`() = runTest(dispatcher.scheduler) {
         val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
         val model = EntryMigrationListViewModel(

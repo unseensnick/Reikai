@@ -56,7 +56,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
@@ -329,26 +328,23 @@ class EntryMigrationSearchViewModel(
         sourcePreferences.globalSearchFilterState.toggle()
     }
 
-    /** Whether a deep pick is being read back; see [takePick]. */
-    private val takingPick = AtomicBoolean()
-
     /**
      * Take a target picked on a pushed browse screen for this entry. The pick is a stored row, which
-     * says nothing about its chapters, so it goes through [pick] like a tapped result. A second pick
-     * while one is being read back is ignored, so a pick delivered twice is still one pick.
+     * says nothing about its chapters, so it goes through [pick] like a tapped result, and by the same
+     * rule a later pick of either kind supersedes it while it is read back. A pick delivered twice is
+     * still one pick, since the second supersedes the first.
      */
     fun takePick(browsed: MigrationPick) {
         val entry = state.value.entry ?: return
-        if (!takingPick.compareAndSet(false, true)) return
+        val generation = pickGeneration.incrementAndGet()
         viewModelScope.launch(io) {
-            try {
-                when (val read = adapter.takePendingPick(browsed, entry.id)) {
-                    null -> return@launch
-                    is PendingPick.Ready -> pick(read.candidate)
-                    is PendingPick.Rejected -> state.update { it.copy(pickOutcome = read.outcome) }
-                }
-            } finally {
-                takingPick.set(false)
+            val read = adapter.takePendingPick(browsed, entry.id)
+            if (generation != pickGeneration.get()) return@launch
+            // Taking the generation superseded any pick still resolving, so its working state ends here.
+            when (read) {
+                null -> state.update { it.copy(resolvingPick = false) }
+                is PendingPick.Ready -> pick(read.candidate)
+                is PendingPick.Rejected -> state.update { it.copy(resolvingPick = false, pickOutcome = read.outcome) }
             }
         }
     }

@@ -211,6 +211,27 @@ class EntryMigrationSearchViewModelTest {
     }
 
     @Test
+    fun `a later browsed pick replaces one still being read back`() = runTest(dispatcher.scheduler) {
+        val firstRead = CompletableDeferred<Unit>()
+        val adapter = FakeMigrationFlowAdapter(
+            listOf(migrationEntry(1)),
+            storedIds = setOf(8L, 9L),
+            beforeStored = { if (it == 8L) firstRead.await() },
+        )
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+        advanceUntilIdle()
+        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 9L))
+        advanceUntilIdle()
+        firstRead.complete(Unit)
+        advanceUntilIdle()
+
+        model.state.value.dialogTarget?.key shouldBe "stored:9"
+    }
+
+    @Test
     fun `the has-results filter opens as the user last left it`() = runTest(dispatcher.scheduler) {
         sourcePreferences.globalSearchFilterState.set(true)
 

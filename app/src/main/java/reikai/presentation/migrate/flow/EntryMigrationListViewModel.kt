@@ -34,7 +34,7 @@ import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Drives a migration batch for one content type over [MigrationFlowAdapter].
@@ -372,20 +372,20 @@ class EntryMigrationListViewModel(
         }
     }
 
-    /** Whether a deep pick is being applied; see [takePick]. */
-    private val takingPick = AtomicBoolean()
+    /** The entries a deep pick is being applied to; see [takePick]. */
+    private val picksInFlight: MutableSet<EntryId> = ConcurrentHashMap.newKeySet()
 
     /**
      * Apply a target picked on a pushed browse screen to its row here, if it is still listed.
      *
      * The pick is a stored row already, so it wraps into a resolved candidate with no search; the same
      * guards as any other pick apply, so a pick that arrives after the row migrated is dropped rather
-     * than re-arming it. A second pick while one is being applied is ignored, so a pick delivered twice
-     * is still one pick.
+     * than re-arming it. A pick for a row already taking one is ignored, so a double tap is one pick;
+     * per row, since the bus delivers once and a list-wide guard lost other rows' picks (migrate.md).
      */
     fun takePick(pick: MigrationPick) {
         val row = rows.firstOrNull { it.entry.id == pick.entry } ?: return
-        if (!takingPick.compareAndSet(false, true)) return
+        if (!picksInFlight.add(row.entry.id)) return
         viewModelScope.launch(io) {
             try {
                 val candidate = when (val read = adapter.takePendingPick(pick, row.entry.id)) {
@@ -405,7 +405,7 @@ class EntryMigrationListViewModel(
                 // chapter-shortfall warning could never fire on a deep pick.
                 acceptPicked(live, candidate)
             } finally {
-                takingPick.set(false)
+                picksInFlight.remove(row.entry.id)
             }
         }
     }
