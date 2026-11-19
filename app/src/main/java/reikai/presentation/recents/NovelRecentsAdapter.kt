@@ -52,9 +52,9 @@ import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.novel.browse.NovelLibraryAdder
-import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.updates.NovelUpdatesItem
 import reikai.presentation.updates.NovelUpdatesViewModel
 import kotlin.time.Instant
@@ -288,10 +288,8 @@ class NovelRecentsAdapter(
     // Straight to the job, as the manga adapter goes and for the same two reasons.
     override suspend fun refresh(): Boolean = NovelUpdateWorker.startNow(application.workManager)
 
-    override suspend fun detailsScreen(entry: EntryId): Screen? {
-        val novelId = (entry as? EntryId.Novel)?.rawId ?: return null
-        return NovelScreen.forStored(novelId, novelRepository)
-    }
+    override suspend fun detailsScreen(entry: EntryId): Screen? =
+        (entry as? EntryId.Novel)?.detailsScreen(novelRepository)
 
     // No lookup, unlike detailsScreen: the novel reader is keyed by id, not by source and url.
     override fun open(item: RecentsItem, chapter: ChapterRef): Intent = ReaderActivity.newNovelIntent(

@@ -42,6 +42,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.track.toUiTrack
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.gridColumns
@@ -53,7 +54,6 @@ import reikai.presentation.library.novels.NovelLibraryRows
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionStore
 import reikai.presentation.stats.sortedForDisplay
-import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibrarySort
@@ -161,7 +161,7 @@ class HiddenEntriesViewModel(
         if (ids.isNotEmpty()) appScope.launchIO { hideSeries.unhide(ids) }
     }
 
-    suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
+    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 
     fun displayMode(): PreferenceMutableState<LibraryDisplayMode> = libraryPreferences.gridDisplayMode(viewModelScope)
 

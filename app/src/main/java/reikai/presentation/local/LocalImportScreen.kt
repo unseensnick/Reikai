@@ -61,7 +61,6 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.collections.immutable.persistentListOf
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
@@ -73,12 +72,14 @@ import reikai.data.local.DuplicateChoice
 import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.LocalImport
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
 import reikai.novel.local.LocalNovelSource
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.readableColumn
-import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.novelDetailsAt
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -113,9 +114,9 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
             if (state.groups.isNotEmpty()) return@LaunchedEffect
             navigator.replace(
                 if (only.type == ContentType.NOVELS) {
-                    NovelScreen(LocalNovelSource.ID, only.path)
+                    novelDetailsAt(LocalNovelSource.ID, only.path)
                 } else {
-                    MangaScreen(only.entryId)
+                    EntryId.Manga(only.entryId).detailsScreen()
                 },
             )
         }
@@ -169,8 +170,8 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
                     onOpen = { series ->
                         when {
                             series.type == ContentType.NOVELS ->
-                                navigator.push(NovelScreen(LocalNovelSource.ID, series.path))
-                            series.entryId != null -> navigator.push(MangaScreen(series.entryId))
+                                navigator.push(novelDetailsAt(LocalNovelSource.ID, series.path))
+                            series.entryId != null -> navigator.push(EntryId.Manga(series.entryId).detailsScreen())
                         }
                     },
                 )

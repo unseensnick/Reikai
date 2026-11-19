@@ -30,7 +30,6 @@ import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
-import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -55,6 +54,7 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.editInfoDialog
+import reikai.presentation.details.novelDetailsAt
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
@@ -237,12 +237,6 @@ class NovelScreen(
             }
         }
     }
-
-    companion object {
-        // The page is keyed by source and url, so an id from the download queue or recents needs its stored row.
-        suspend fun forStored(novelId: Long, novelRepository: NovelRepository): NovelScreen? =
-            novelRepository.getById(novelId)?.let { NovelScreen(it.source, it.url) }
-    }
 }
 
 /** The novel dialogs that stay per-type (their data genuinely diverges); the shared ones go through
@@ -262,7 +256,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             card = NovelWithChapterCount::toDuplicateCard,
             onDismissRequest = viewModel::dismissDialog,
             onConfirm = viewModel::addFavoriteAnyway,
-            onOpen = { navigator.push(NovelScreen(it.novel.source, it.novel.url)) },
+            onOpen = { navigator.push(novelDetailsAt(it.novel.source, it.novel.url)) },
             onMigrate = { viewModel.startMigrate(it.novel.id) },
             onAddToGroup = viewModel::addToExistingGroup,
         )

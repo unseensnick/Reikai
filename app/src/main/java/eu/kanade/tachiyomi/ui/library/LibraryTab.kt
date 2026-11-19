@@ -60,7 +60,6 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import kotlinx.coroutines.channels.Channel
@@ -84,6 +83,8 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.reportVolumeMove
+import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.novelDetailsAt
 import reikai.presentation.library.CombineVolumesDialog // RK
 import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
@@ -105,7 +106,6 @@ import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.library.visualLabel
 import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
-import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -392,9 +392,9 @@ data object LibraryTab : Tab {
         val openEntry: (EntryId) -> Unit = { entryId ->
             when (entryId) {
                 is EntryId.Novel -> novelModel.state.value.routeFor(entryId.rawId)?.let {
-                    navigator.push(NovelScreen(it.source, it.url))
+                    navigator.push(novelDetailsAt(it.source, it.url))
                 }
-                is EntryId.Manga -> navigator.push(MangaScreen(entryId.rawId))
+                is EntryId.Manga -> navigator.push(entryId.detailsScreen())
             }
         }
 

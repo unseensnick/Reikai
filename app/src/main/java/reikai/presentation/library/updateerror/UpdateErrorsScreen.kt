@@ -32,20 +32,21 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.rounded.SwapCalls
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelCover
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.rememberChipListState
+import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.novelDetailsAt
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
-import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -190,9 +191,9 @@ class UpdateErrorsScreen(
                                     } else {
                                         when (entry) {
                                             is UpdateErrorEntry.Manga ->
-                                                navigator.push(MangaScreen(entry.error.mangaId))
+                                                navigator.push(EntryId.Manga(entry.error.mangaId).detailsScreen())
                                             is UpdateErrorEntry.Novel ->
-                                                navigator.push(NovelScreen(entry.error.source, entry.error.novelUrl))
+                                                navigator.push(novelDetailsAt(entry.error.source, entry.error.novelUrl))
                                         }
                                     }
                                 },

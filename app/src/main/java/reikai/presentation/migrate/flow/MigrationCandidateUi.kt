@@ -2,9 +2,11 @@ package reikai.presentation.migrate.flow
 
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import reikai.domain.entry.EntryId
+import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.novelDetailsAt
+import reikai.presentation.details.shows
 import reikai.presentation.migrate.PickMember
-import reikai.presentation.novel.details.NovelScreen
 
 /**
  * Where the flow opens an entry's details page.
@@ -23,17 +25,17 @@ internal fun PickMember.openDetails(navigator: Navigator) = navigator.pushDetail
 
 private fun Navigator.pushDetails(payload: MigrationPayload) {
     when (payload) {
-        is MigrationPayload.OfManga -> push(MangaScreen(payload.manga.id))
-        is MigrationPayload.OfNovel -> push(NovelScreen(payload.novel.source, payload.novel.url))
+        is MigrationPayload.OfManga -> push(EntryId.Manga(payload.manga.id).detailsScreen())
+        is MigrationPayload.OfNovel -> push(novelDetailsAt(payload.novel.source, payload.novel.url))
     }
 }
 
 /** The details page of a candidate, for checking a match before committing to it. */
 internal fun MigrationCandidate.openDetails(navigator: Navigator) {
     when (val handle = handle) {
-        is MangaCandidateHandle -> navigator.push(MangaScreen(handle.manga.id, true))
+        is MangaCandidateHandle -> navigator.push(EntryId.Manga(handle.manga.id).detailsScreen(fromSource = true))
         is NovelCandidateHandle -> navigator.push(
-            NovelScreen(sourceKey, handle.item.path, handle.item.cover, fromSource = true),
+            novelDetailsAt(sourceKey, handle.item.path, handle.item.cover, fromSource = true),
         )
     }
 }
@@ -51,17 +53,11 @@ internal fun MigrationCandidate.openDetailsAfterCommit(
     replaced: Boolean,
     migrated: MigrationEntry,
 ) {
+    val showsMigrated = navigator.lastItem.shows(migrated.id, migrated.sourceKey, migrated.ownUrl)
     val (details: Screen, previousIsMigrated: Boolean) = when (val handle = handle) {
-        is MangaCandidateHandle -> MangaScreen(handle.manga.id) to
-            ((navigator.lastItem as? MangaScreen)?.mangaId == migrated.id.rawId)
-        is NovelCandidateHandle -> {
-            val last = navigator.lastItem as? NovelScreen
-            NovelScreen(sourceKey, handle.item.path, handle.item.cover) to (
-                handle.stored != null &&
-                    last != null &&
-                    migrated.isOwnListing(last.sourceId, last.novelUrl)
-                )
-        }
+        is MangaCandidateHandle -> EntryId.Manga(handle.manga.id).detailsScreen() to showsMigrated
+        is NovelCandidateHandle ->
+            novelDetailsAt(sourceKey, handle.item.path, handle.item.cover) to (handle.stored != null && showsMigrated)
     }
     if (replaced && previousIsMigrated) navigator.replace(details) else navigator.push(details)
 }

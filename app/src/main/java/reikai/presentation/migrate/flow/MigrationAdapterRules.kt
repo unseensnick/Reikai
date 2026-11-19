@@ -3,13 +3,15 @@ package reikai.presentation.migrate.flow
 import reikai.presentation.migrate.PickMember
 
 /** Whether [url] on [sourceKey] is this entry's own listing, which is never a migration target. */
-fun MigrationEntry.isOwnListing(sourceKey: String, url: String): Boolean {
-    val ownUrl = when (payload) {
+fun MigrationEntry.isOwnListing(sourceKey: String, url: String): Boolean =
+    sourceKey == this.sourceKey && url == ownUrl
+
+/** The url of this entry's own listing on [MigrationEntry.sourceKey]. */
+val MigrationEntry.ownUrl: String
+    get() = when (payload) {
         is MigrationPayload.OfManga -> payload.manga.url
         is MigrationPayload.OfNovel -> payload.novel.url
     }
-    return sourceKey == this.sourceKey && url == ownUrl
-}
 
 /** Every stored entry in [ids] expanded to its merge group ([relatedIds]), deduped in encounter order. */
 suspend fun <T : Any> mergeGroupPickMembers(

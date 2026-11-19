@@ -1,8 +1,6 @@
 package reikai.presentation.browse
 
-import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.source.model.MangasPage
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import exh.metadata.metadata.RaisedSearchMetadata
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.coroutineScope
@@ -20,7 +18,6 @@ import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryBrowseRowContent
 import reikai.presentation.browse.catalogue.mapState
 import reikai.presentation.novel.browse.NovelAddFlow
-import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
@@ -75,12 +72,6 @@ val EntryBrowseRow.manga: Manga
 /** The result behind a row built by [novelBrowseRow]; sound only under a novel source key. */
 val EntryBrowseRow.item: NovelItem
     get() = content.value.payload as NovelItem
-
-/** The details page a result opens, as a listing opens it. */
-fun EntryBrowseRow.detailsScreen(sourceKey: SourceKey): Screen = when (sourceKey) {
-    is SourceKey.Manga -> MangaScreen(manga.id, fromSource = true)
-    is SourceKey.Novel -> NovelScreen(sourceKey.id, item.path, item.cover, fromSource = true)
-}
 
 /** Starts the long-press add on this result of the source at [sourceKey], with its own type's flow. */
 fun EntryBrowseRow.startAdd(sourceKey: SourceKey, mangaFlow: MangaAddFlow, novelFlow: NovelAddFlow) =

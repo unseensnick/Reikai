@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelRepository
+import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.Constants
 import java.util.IdentityHashMap
 
@@ -66,7 +67,7 @@ class DetailsIntentsTest {
     fun `a novel intent opens the saved novel it was built for`() = runTest {
         val screen = novelDetailsIntent(context, "src", "/n/1").novelDetailsScreen(novels)
 
-        screen?.let { it.sourceId to it.novelUrl } shouldBe ("src" to "/n/1")
+        (screen as? NovelScreen)?.let { it.sourceId to it.novelUrl } shouldBe ("src" to "/n/1")
     }
 
     // MainActivity is exported, so any app can send one; opening it would fetch the url and save the novel.

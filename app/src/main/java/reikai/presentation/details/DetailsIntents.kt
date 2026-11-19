@@ -2,9 +2,9 @@ package reikai.presentation.details
 
 import android.content.Context
 import android.content.Intent
+import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import reikai.domain.novel.NovelRepository
-import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.withIOContext
 
@@ -29,9 +29,9 @@ fun novelDetailsIntent(context: Context, source: String, url: String): Intent =
  * unsaved url fetches it from the source and saves it; Mihon's manga shortcut carries a row id for the same
  * reason.
  */
-suspend fun Intent.novelDetailsScreen(novels: NovelRepository): NovelScreen? {
+suspend fun Intent.novelDetailsScreen(novels: NovelRepository): Screen? {
     val source = getStringExtra(Constants.NOVEL_SOURCE_EXTRA) ?: return null
     val url = getStringExtra(Constants.NOVEL_URL_EXTRA) ?: return null
     withIOContext { novels.getByUrlAndSource(url, source) } ?: return null
-    return NovelScreen(source, url)
+    return novelDetailsAt(source, url)
 }

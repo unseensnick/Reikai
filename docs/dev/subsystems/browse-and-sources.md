@@ -50,7 +50,7 @@ Rows fill through `fillEntryRows` in `EntryRowFill.kt`: one `Semaphore` of `SOUR
 
 ### Result rows
 
-A catalogue, global-search or feed result is one `EntryBrowseRow`, built by the kernels in `EntryBrowseRows.kt`: `mangaBrowseRow` (the catalogue pager), `liveMangaRow` (a search or feed manga, following its stored row only while a cell collects it), and `novelBrowseRow`. Selection keys are `mangaRowKey` and `novelRowKey`, and which details page a result opens is `detailsScreen`. A row's neutral content is a derived view (`mapState`) that launches nothing, so the only collector is the cell drawing it. An in-library novel result draws its library row's cover through `novelResultCover`. Failures read through `sourceFailureMessage`: offline, an error the formatter has no wording for reads "No Internet connection", since a source can swallow the network error and fail later on an empty answer.
+A catalogue, global-search or feed result is one `EntryBrowseRow`, built by the kernels in `EntryBrowseRows.kt`: `mangaBrowseRow` (the catalogue pager), `liveMangaRow` (a search or feed manga, following its stored row only while a cell collects it), and `novelBrowseRow`. Selection keys are `mangaRowKey` and `novelRowKey`, and which details page a result opens is `EntryBrowseRow.detailsScreen` in `details/DetailsRoutes.kt`. A row's neutral content is a derived view (`mapState`) that launches nothing, so the only collector is the cell drawing it. An in-library novel result draws its library row's cover through `novelResultCover`. Failures read through `sourceFailureMessage`: offline, an error the formatter has no wording for reads "No Internet connection", since a source can swallow the network error and fail later on an empty answer.
 
 Cells take their haptics from `EntryCellHaptics`: silent while choosing, the platform's own while browsing.
 
@@ -120,7 +120,7 @@ Trust is Mihon's: a store's signing key covers its extensions, a keyless store's
 - `app/src/main/java/reikai/presentation/browse/catalogue/EntryCatalogueScreen.kt`: `mangaListingQuery`, `savedSearchToOpen`; `EntryBrowseBehavior.kt`, `EntryBrowseScreenState.kt`, `MangaBrowseAdapter.kt`, `NovelBrowseAdapter.kt` (`filterChipActive`), `EntryBrowseCatalogue.kt`, `BrowseDisplayMode.kt`, `BrowseColumns.kt`.
 - `domain/src/main/java/reikai/domain/source/CataloguePaging.kt`: `CataloguePaging`, `CatalogueEnd`; `app/src/main/java/reikai/novel/source/NovelPagingSource.kt`.
 - `app/src/main/java/reikai/presentation/novel/browse/NovelBrowseViewModel.kt`, `NovelSourceFilterSheet.kt`, `NovelSourceSettingsSheet.kt`.
-- `app/src/main/java/reikai/presentation/browse/EntryBrowseRows.kt`: `mangaBrowseRow`, `liveMangaRow`, `novelBrowseRow`, `detailsScreen`; `catalogue/EntryBrowseRow.kt` (`mapState`).
+- `app/src/main/java/reikai/presentation/browse/EntryBrowseRows.kt`: `mangaBrowseRow`, `liveMangaRow`, `novelBrowseRow`; `catalogue/EntryBrowseRow.kt` (`mapState`).
 - `app/src/main/java/reikai/presentation/browse/SourceFailureMessage.kt` and `EntryGestures.kt` (`EntryCellHaptics`).
 - `domain/src/main/java/reikai/domain/novel/FavoritedNovels.kt` and `domain/src/main/java/reikai/domain/novel/model/NovelCover.kt` (`novelResultCover`).
 - `app/src/main/java/reikai/presentation/browse/AddOutcome.kt` (`addEntry`, `finishAdd`), `AddDecision.kt` (`decideAdd`), `DuplicatePrompt.kt`, `EntryAddFlow.kt`, `MangaAddFlow.kt`, `EntryAddDialogs.kt`, `MangaLibraryAdder.kt`, `EntryBulkFavoriteViewModel.kt`, `BulkSelectionSupport.kt` (`MixedBulkSelection`).

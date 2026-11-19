@@ -21,10 +21,10 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.StatsLibrarySource
 import reikai.presentation.stats.StatsReload
 import reikai.presentation.stats.statsCovers
-import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.domain.manga.repository.MangaRepository
 
 /** Every series by total reading time, longest first, as the overview's Most read card ranks them. */
@@ -61,5 +61,5 @@ class StatsMostReadViewModel(
     /** Called each time the screen comes back on screen, so it shows the library as it is now. */
     fun refresh() = library.reload()
 
-    suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
+    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 }

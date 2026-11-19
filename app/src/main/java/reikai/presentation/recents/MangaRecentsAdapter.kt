@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
@@ -46,6 +45,7 @@ import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
+import reikai.presentation.details.detailsScreen
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -310,7 +310,7 @@ class MangaRecentsAdapter(
     override suspend fun refresh(): Boolean = LibraryUpdateWorker.startNow(application.workManager)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? =
-        (entry as? EntryId.Manga)?.let { MangaScreen(it.rawId) }
+        (entry as? EntryId.Manga)?.detailsScreen()
 
     override fun open(item: RecentsItem, chapter: ChapterRef): Intent = ReaderActivity.newIntent(
         application,

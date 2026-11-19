@@ -37,7 +37,6 @@ import reikai.domain.local.localGroupUnit
 import reikai.domain.local.localVolumeKey
 import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
-import reikai.presentation.stats.statsDetailsScreen
 import reikai.source.local.localChapterUnit
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -280,7 +279,7 @@ class VolumePicking(
         .onEach { taken -> organizeRequests.update { if (it[entry] === taken) it - entry else it } }
 
     /** The details screen of [entry], which a split or a library combine opens to organize it. */
-    suspend fun detailsScreen(entry: EntryId): Screen? = statsDetailsScreen(entry, novelRepository)
+    suspend fun detailsScreen(entry: EntryId): Screen? = entry.detailsScreen(novelRepository)
 }
 
 /**

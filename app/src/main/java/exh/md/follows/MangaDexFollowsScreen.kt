@@ -28,8 +28,8 @@ import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryBrowseScreenState
 import reikai.presentation.browse.catalogue.MangaBrowseAdapter
 import reikai.presentation.browse.components.BulkSelectionToolbar
-import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.rememberEntryGestures
+import reikai.presentation.details.detailsScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -63,7 +63,9 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
         }
         val gestures = rememberEntryGestures(
             choose = adapter::toggleSelection.takeIf { bulkFavoriteState.selectionMode },
-            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(SourceKey.Manga(sourceId))) },
+            open = { row: EntryBrowseRow ->
+                navigator.push(row.detailsScreen(SourceKey.Manga(sourceId), fromSource = true))
+            },
             add = adapter::onRowLongClick,
         )
 

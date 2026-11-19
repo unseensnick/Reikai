@@ -26,13 +26,13 @@ import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
-import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
 import reikai.presentation.components.HeaderTabRow
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.rememberChipListState
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -101,7 +101,7 @@ class EntryGlobalSearchScreen(
                     is EntrySearchState.Loading -> return@LaunchedEffect
                     is EntrySearchState.Success ->
                         result.entries.singleOrNull()
-                            ?.let { navigator.replace(it.detailsScreen(only.key)) }
+                            ?.let { navigator.replace(it.detailsScreen(only.key, fromSource = true)) }
                             ?: run { showSingleLoadingScreen = false }
                     else -> showSingleLoadingScreen = false
                 }
@@ -173,7 +173,9 @@ class EntryGlobalSearchScreen(
                     val gestures = rememberEntryGestures(
                         choose = { entry: EntryBrowseRow -> selection.toggle(entry, row.key) }
                             .takeIf { selection.selectionMode },
-                        open = { entry: EntryBrowseRow -> navigator.push(entry.detailsScreen(row.key)) },
+                        open = { entry: EntryBrowseRow ->
+                            navigator.push(entry.detailsScreen(row.key, fromSource = true))
+                        },
                         add = { entry: EntryBrowseRow ->
                             entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
                         },

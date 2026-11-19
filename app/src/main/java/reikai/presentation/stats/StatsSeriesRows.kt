@@ -1,8 +1,6 @@
 package reikai.presentation.stats
 
-import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
@@ -10,16 +8,9 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.library.withCustomInfo
-import reikai.presentation.novel.details.NovelScreen
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.manga.repository.MangaRepository
-
-/** A series' details page: a manga by id, a novel by its stored source and url; null for a novel since removed. */
-suspend fun statsDetailsScreen(entryId: EntryId, novelRepository: NovelRepository): Screen? = when (entryId) {
-    is EntryId.Manga -> MangaScreen(entryId.rawId)
-    is EntryId.Novel -> NovelScreen.forStored(entryId.rawId, novelRepository)
-}
 
 /**
  * The covers of [ids] for Coil. A library series draws its lead's, with its Edit info cover, as the library

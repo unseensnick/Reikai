@@ -68,8 +68,8 @@ import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.PendingBulkCategoryDialog
 import reikai.presentation.browse.components.BulkSelectionToolbar
-import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.rememberEntryGestures
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
@@ -342,7 +342,7 @@ class EntryCatalogueScreen(
             // A migration pick outranks a selection.
             choose = loaded.capabilities.migrationPick?.let { pick -> { row: EntryBrowseRow -> pick.pick(row) {} } }
                 ?: behavior::toggleSelection.takeIf { loaded.selectionMode },
-            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(sourceKey)) },
+            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(sourceKey, fromSource = true)) },
             add = behavior::onRowLongClick,
         )
 

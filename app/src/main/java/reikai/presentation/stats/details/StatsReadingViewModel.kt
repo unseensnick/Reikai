@@ -27,6 +27,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.ReadingBar
 import reikai.presentation.stats.ReadingPeriod
 import reikai.presentation.stats.ReadingWindow
@@ -34,7 +35,6 @@ import reikai.presentation.stats.StatsLibrarySource
 import reikai.presentation.stats.StatsReload
 import reikai.presentation.stats.readingTimeByDayAndTitle
 import reikai.presentation.stats.statsCovers
-import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.domain.manga.repository.MangaRepository
 import kotlin.time.Clock
 
@@ -115,7 +115,7 @@ class StatsReadingViewModel(
 
     fun move(forward: Boolean) = view.update { View(it.window.shifted(forward, today), selected = null) }
 
-    suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
+    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 
     private data class View(val window: ReadingWindow, val selected: LocalDate?)
 }

@@ -34,6 +34,7 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.local.LocalNovelSource
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.OVERVIEW_GROUPINGS
 import reikai.presentation.stats.StatsCardKind
 import reikai.presentation.stats.StatsFigureKind
@@ -46,7 +47,6 @@ import reikai.presentation.stats.rows
 import reikai.presentation.stats.statsCardLayout
 import reikai.presentation.stats.statsCardsByKey
 import reikai.presentation.stats.statsCharts
-import reikai.presentation.stats.statsDetailsScreen
 import reikai.presentation.stats.statsFigureLayout
 import reikai.presentation.stats.statsFiguresByKey
 import tachiyomi.core.common.util.lang.launchIO
@@ -120,7 +120,7 @@ class StatsViewModel(
         sourcePreferences.statsHiddenFigures.delete()
     }
 
-    suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
+    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
     // RK <--
 
     // RK --> both content types loaded on each refresh, then folded per selected type on chip change.

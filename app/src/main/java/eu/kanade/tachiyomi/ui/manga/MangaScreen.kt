@@ -59,6 +59,7 @@ import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.chapterToOpen
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
@@ -94,7 +95,7 @@ class MangaScreen(
 
         // RK: the E-Hentai root redirect opens the gallery's favorited copy in this screen's place
         LaunchedEffect(viewModel) {
-            viewModel.exhRootRedirects.collect { navigator.replace(MangaScreen(it)) }
+            viewModel.exhRootRedirects.collect { navigator.replace(EntryId.Manga(it).detailsScreen()) }
         }
 
         val state by viewModel.state.collectAsStateWithLifecycle()
@@ -262,7 +263,7 @@ class MangaScreen(
                         card = MangaWithChapterCount::toDuplicateCard,
                         onDismissRequest = onDismissRequest,
                         onConfirm = { viewModel.toggleFavorite(checkDuplicate = false) },
-                        onOpen = { navigator.push(MangaScreen(it.manga.id)) },
+                        onOpen = { navigator.push(EntryId.Manga(it.manga.id).detailsScreen()) },
                         onMigrate = { viewModel.showMigrateDialog(it.manga) },
                         onAddToGroup = viewModel::addToExistingGroup,
                     )

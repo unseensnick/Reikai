@@ -35,6 +35,7 @@ import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.novel.NovelRepository
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.gridColumns
@@ -55,7 +56,6 @@ import reikai.presentation.stats.readState
 import reikai.presentation.stats.rows
 import reikai.presentation.stats.sortedForDisplay
 import reikai.presentation.stats.standingFor
-import reikai.presentation.stats.statsDetailsScreen
 import reikai.presentation.stats.titleOf
 import reikai.presentation.stats.titlesIn
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -152,7 +152,7 @@ class StatsSeriesViewModel(
     fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
         libraryPreferences.gridColumns(viewModelScope, isLandscape)
 
-    suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
+    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 
     /** The reader at the row's next chapter, as the library's continue-reading opens it; null when none. */
     suspend fun resumeIntent(context: Context, item: LibraryItem): Intent? = when (item.entryId) {
