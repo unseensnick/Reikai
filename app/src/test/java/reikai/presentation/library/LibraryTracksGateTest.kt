@@ -154,6 +154,7 @@ class LibraryTracksGateTest {
     private val filterSettings = LibraryFilterSettings(
         downloadedOnly = false,
         downloaded = TriState.DISABLED,
+        local = TriState.DISABLED,
         unread = TriState.DISABLED,
         started = TriState.DISABLED,
         bookmarked = TriState.DISABLED,

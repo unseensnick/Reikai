@@ -97,6 +97,7 @@ class LibraryRowScheduleConformanceTest {
 
         fun filterPrefs(intervalCustom: TriState) = LibraryFilterPrefs(
             downloaded = TriState.DISABLED,
+            local = TriState.DISABLED,
             unread = TriState.DISABLED,
             started = TriState.DISABLED,
             bookmarked = TriState.DISABLED,

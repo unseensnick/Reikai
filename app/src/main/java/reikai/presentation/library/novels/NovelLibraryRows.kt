@@ -10,6 +10,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.downloadedUnitsByGroup
+import reikai.domain.merge.holdsChapterFiles
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.GetNextNovelChapter
@@ -149,7 +150,7 @@ class NovelLibraryRows(
             entries = library,
             membership = membership,
             idOf = { it.novel.id },
-            holdsFiles = { LocalNovelSource.isLocal(it.novel.source) || it.downloadCount > 0 },
+            holdsFiles = { holdsChapterFiles(LocalNovelSource.isLocal(it.novel.source), it.downloadCount) },
             rowsFor = { mergedChapterUnitRepository.getDownloadUnits(ContentType.NOVELS, it) },
         ) { item, row ->
             val owner = item.novel

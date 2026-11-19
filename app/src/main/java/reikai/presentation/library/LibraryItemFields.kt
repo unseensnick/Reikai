@@ -7,6 +7,7 @@ import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.TagAliases
+import reikai.domain.merge.holdsChapterFiles
 import reikai.presentation.details.tagIdentity
 import reikai.util.isAdultEntry
 import tachiyomi.domain.track.model.Track
@@ -31,9 +32,10 @@ fun libraryItemFilterFields(
     /** The series' Edit info tags, which the tag filter reads over its sources' own, as search does. */
     customTags: (LibraryItem) -> List<String>? = { null },
 ) = LibraryFilterFields<LibraryItem>(
-    // A local series' files are on the device, so it counts as downloaded, for either type, and so does a
-    // merged series with a local member, which the leading row's own flag does not say.
-    isDownloaded = { it.isLocal || it.downloadCount > 0 || it.memberSources.any { source -> source.isLocal } },
+    // A local series' files are on the device, so it counts as downloaded, as upstream's filter has it, and
+    // Downloaded-only mode keeps local series through this axis.
+    isDownloaded = { holdsChapterFiles(it.hasLocalSource(sourceKey(it)), it.downloadCount.toLong()) },
+    isLocal = { it.hasLocalSource(sourceKey(it)) },
     // LibraryItem.unreadCount is the deduplicated group count, not the LibraryManga's own.
     isUnread = { it.unreadCount > 0 },
     hasStarted = { it.libraryManga.hasStarted },
@@ -125,6 +127,12 @@ fun LibraryItem.querySource(key: String) = LibraryQuerySource(key, sourceName, s
 
 /** Every source this row stands for: a merged series' distinct member sources, else its own under [ownKey]. */
 internal fun LibraryItem.allSources(ownKey: String) = memberSources.ifEmpty { listOf(querySource(ownKey)) }
+
+/**
+ * Whether any source this row stands for is the local one: the Local filter's rule, read over the same
+ * sources the `source:local` search term reads, so the two keep the same series.
+ */
+internal fun LibraryItem.hasLocalSource(ownKey: String) = allSources(ownKey).any { it.isLocal }
 
 /** Maps onto the neutral overlay here rather than either content type learning about the query kernel. */
 fun EntryCustomInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)

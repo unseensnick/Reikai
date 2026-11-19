@@ -36,6 +36,7 @@ fun libraryFilterAxes(
     updateRestrictions: Set<String>,
 ) = buildList {
     add(LibraryFilterAxis(MR.strings.label_downloaded, libraryPreferences.filterDownloaded, true))
+    add(LibraryFilterAxis(MR.strings.label_local, reikaiLibraryPreferences.filterLocal))
     add(LibraryFilterAxis(MR.strings.action_filter_unread, libraryPreferences.filterUnread))
     add(LibraryFilterAxis(MR.strings.label_started, libraryPreferences.filterStarted))
     add(LibraryFilterAxis(MR.strings.action_filter_bookmarked, libraryPreferences.filterBookmarked))

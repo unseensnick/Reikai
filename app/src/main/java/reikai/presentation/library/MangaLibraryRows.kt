@@ -26,6 +26,7 @@ import reikai.domain.manga.isOnDevice
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.downloadedUnitsByGroup
+import reikai.domain.merge.holdsChapterFiles
 import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.model.LibraryManga
@@ -143,7 +144,7 @@ class MangaLibraryRows(
             entries = items,
             membership = membership,
             idOf = { it.libraryManga.manga.id },
-            holdsFiles = { it.isLocal || it.downloadCount > 0 },
+            holdsFiles = { holdsChapterFiles(it.isLocal, it.downloadCount.toLong()) },
             rowsFor = { mergedChapterUnitRepository.getDownloadUnits(ContentType.MANGA, it) },
         ) { item, row ->
             val owner = item.libraryManga.manga

@@ -245,6 +245,7 @@ class LibraryLewdConformanceTest {
 
         fun lewdPrefs(lewd: TriState) = LibraryFilterPrefs(
             downloaded = TriState.DISABLED,
+            local = TriState.DISABLED,
             unread = TriState.DISABLED,
             started = TriState.DISABLED,
             bookmarked = TriState.DISABLED,

@@ -126,6 +126,9 @@ class ReikaiLibraryPreferences(
     /** Adult-content filter. Komikku's `filterLewd`; lewdness by reikai.util.isAdultEntry. */
     val filterLewd: Preference<TriState> = preferenceStore.getEnum("pref_filter_library_lewd", TriState.DISABLED)
 
+    /** Local-series filter: a merged series passes when any of its sources is the local one. */
+    val filterLocal: Preference<TriState> = preferenceStore.getEnum("pref_filter_library_local", TriState.DISABLED)
+
     /** Master switch for the include/exclude category filter. */
     val filterCategories: Preference<Boolean> = preferenceStore.getBoolean("pref_filter_library_categories", false)
 

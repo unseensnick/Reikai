@@ -30,6 +30,7 @@ import tachiyomi.domain.manga.model.applyFilter
 data class LibraryFilterSettings(
     val downloadedOnly: Boolean,
     val downloaded: TriState,
+    val local: TriState,
     val unread: TriState,
     val started: TriState,
     val bookmarked: TriState,
@@ -51,12 +52,13 @@ data class LibraryFilterSettings(
     /** Whether the filter icon lights. Downloaded-only mode is left out: it is a global mode, not a filter. */
     val isActive: Boolean
         get() = categoriesActive || tags.isActive ||
-            listOf(downloaded, unread, started, bookmarked, completed, effectiveInterval, lewd)
+            listOf(downloaded, local, unread, started, bookmarked, completed, effectiveInterval, lewd)
                 .plus(trackers.values)
                 .any { it != TriState.DISABLED }
 
     fun resolve(): LibraryFilterPrefs = LibraryFilterPrefs(
         downloaded = if (downloadedOnly) TriState.ENABLED_IS else downloaded,
+        local = local,
         unread = unread,
         started = started,
         bookmarked = bookmarked,
@@ -109,40 +111,43 @@ fun libraryFilterSettingsFlow(
     ),
     combine(
         reikaiLibraryPreferences.filterLewd.changes(),
+        reikaiLibraryPreferences.filterLocal.changes(),
         basePreferences.downloadedOnly.changes(),
         reikaiLibraryPreferences.tagFilterFlow(),
         reikaiLibraryPreferences.tagAliasesFlow(),
-        ::LewdAndTags,
+        ::SourceAxesAndTags,
     ),
     trackerFiltersFlow(libraryPreferences, trackerManager),
 ) {
         progress,
         (interval, skipsOutsideReleasePeriod),
         (categoriesEnabled, include, exclude),
-        lewdAndTags,
+        sourceAxes,
         trackers,
     ->
     LibraryFilterSettings(
-        downloadedOnly = lewdAndTags.downloadedOnly,
+        downloadedOnly = sourceAxes.downloadedOnly,
         downloaded = progress.downloaded,
+        local = sourceAxes.local,
         unread = progress.unread,
         started = progress.started,
         bookmarked = progress.bookmarked,
         completed = progress.completed,
         intervalCustom = interval,
         skipsOutsideReleasePeriod = skipsOutsideReleasePeriod,
-        lewd = lewdAndTags.lewd,
+        lewd = sourceAxes.lewd,
         trackers = trackers,
         categoriesEnabled = categoriesEnabled,
         categoriesInclude = include.toLongIdSet(),
         categoriesExclude = exclude.toLongIdSet(),
-        tags = lewdAndTags.tags,
-        tagAliases = lewdAndTags.aliases,
+        tags = sourceAxes.tags,
+        tagAliases = sourceAxes.aliases,
     )
 }
 
-private class LewdAndTags(
+private class SourceAxesAndTags(
     val lewd: TriState,
+    val local: TriState,
     val downloadedOnly: Boolean,
     val tags: TagFilter,
     val aliases: TagAliases,
@@ -181,6 +186,7 @@ private fun trackerFiltersFlow(
  */
 data class LibraryFilterPrefs(
     val downloaded: TriState,
+    val local: TriState,
     val unread: TriState,
     val started: TriState,
     val bookmarked: TriState,
@@ -205,6 +211,7 @@ data class LibraryFilterPrefs(
  */
 class LibraryFilterFields<T>(
     val isDownloaded: (T) -> Boolean,
+    val isLocal: (T) -> Boolean,
     val isUnread: (T) -> Boolean,
     val hasStarted: (T) -> Boolean,
     val hasBookmarks: (T) -> Boolean,
@@ -223,6 +230,7 @@ fun <T> libraryFilterMatches(
     fields: LibraryFilterFields<T>,
 ): Boolean =
     applyFilter(prefs.downloaded) { fields.isDownloaded(row) } &&
+        applyFilter(prefs.local) { fields.isLocal(row) } &&
         applyFilter(prefs.unread) { fields.isUnread(row) } &&
         applyFilter(prefs.started) { fields.hasStarted(row) } &&
         applyFilter(prefs.bookmarked) { fields.hasBookmarks(row) } &&

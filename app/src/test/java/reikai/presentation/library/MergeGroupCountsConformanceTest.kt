@@ -3,7 +3,9 @@ package reikai.presentation.library
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.novel.model.LibraryNovel
@@ -105,9 +107,50 @@ class MergeGroupCountsConformanceTest {
         libraryFilterMatches(row, filterPrefs(downloaded = TriState.ENABLED_IS), filterFields) shouldBe true
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a group whose sibling is local passes the Local filter`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = null, stitchedDownloads = 0, localSibling = true)
+
+        libraryFilterMatches(row, filterPrefs(local = TriState.ENABLED_IS), filterFields) shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a group whose sibling is local is dropped when Local is excluded`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = null, stitchedDownloads = 0, localSibling = true)
+
+        libraryFilterMatches(row, filterPrefs(local = TriState.ENABLED_NOT), filterFields) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a group with no local source is dropped by the Local filter`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = null, stitchedDownloads = 0)
+
+        libraryFilterMatches(row, filterPrefs(local = TriState.ENABLED_IS), filterFields) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}, local sibling {1}")
+    @MethodSource("collapsesWithLocalSibling")
+    fun `the Local filter keeps exactly what a source local search finds`(
+        collapse: GroupCountCollapse,
+        localSibling: Boolean,
+    ) = runTest {
+        val row = collapse.group7(stitched = null, stitchedDownloads = 0, localSibling = localSibling)
+
+        libraryFilterMatches(row, filterPrefs(local = TriState.ENABLED_IS), filterFields) shouldBe
+            libraryQueryMatches(QueryNode.from("source:local"), row, queryFields)
+    }
+
     companion object {
         @JvmStatic
         fun collapses() = listOf(MangaGroupCountCollapse(), NovelGroupCountCollapse())
+
+        @JvmStatic
+        fun collapsesWithLocalSibling() = collapses().flatMap { collapse ->
+            listOf(true, false).map { Arguments.of(collapse, it) }
+        }
     }
 }
 
@@ -141,9 +184,11 @@ private fun filterPrefs(
     started: TriState = TriState.DISABLED,
     bookmarked: TriState = TriState.DISABLED,
     downloaded: TriState = TriState.DISABLED,
+    local: TriState = TriState.DISABLED,
 ) =
     LibraryFilterPrefs(
         downloaded = downloaded,
+        local = local,
         unread = TriState.DISABLED,
         started = started,
         bookmarked = bookmarked,

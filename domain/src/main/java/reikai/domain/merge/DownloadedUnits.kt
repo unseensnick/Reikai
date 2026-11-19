@@ -52,9 +52,15 @@ fun downloadedUnitsByGroup(
 }
 
 /**
+ * Whether a series has chapter files on the device: a local one is its own files and counts no downloads.
+ * The library's Downloaded filter reads it per row and each library's merged download count per member.
+ */
+fun holdsChapterFiles(isLocal: Boolean, downloadCount: Long): Boolean = isLocal || downloadCount > 0
+
+/**
  * The same count over a library's [entries]: only a grouped entry ([membership] keyed by entry id) that
- * [holdsFiles] is an owner, so [rowsFor] reads the member chapters of those alone. A local entry holds its
- * chapters as its own files and counts no downloads, so its [holdsFiles] is true regardless.
+ * [holdsFiles] is an owner, so [rowsFor] reads the member chapters of those alone. Each library passes
+ * [holdsChapterFiles] for it.
  */
 suspend fun <T> downloadedUnitsByGroup(
     entries: List<T>,

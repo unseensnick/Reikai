@@ -10,6 +10,7 @@ class LibraryFilterTest {
 
     private data class Row(
         val downloaded: Boolean = false,
+        val local: Boolean = false,
         val unread: Boolean = false,
         val started: Boolean = false,
         val bookmarked: Boolean = false,
@@ -22,6 +23,7 @@ class LibraryFilterTest {
 
     private val fields = LibraryFilterFields<Row>(
         isDownloaded = { it.downloaded },
+        isLocal = { it.local },
         isUnread = { it.unread },
         hasStarted = { it.started },
         hasBookmarks = { it.bookmarked },
@@ -35,6 +37,7 @@ class LibraryFilterTest {
 
     private fun prefs(
         downloaded: TriState = TriState.DISABLED,
+        local: TriState = TriState.DISABLED,
         unread: TriState = TriState.DISABLED,
         started: TriState = TriState.DISABLED,
         bookmarked: TriState = TriState.DISABLED,
@@ -47,7 +50,7 @@ class LibraryFilterTest {
         categoriesInclude: Set<Long> = emptySet(),
         categoriesExclude: Set<Long> = emptySet(),
     ) = LibraryFilterPrefs(
-        downloaded, unread, started, bookmarked, completed, intervalCustom, lewd,
+        downloaded, local, unread, started, bookmarked, completed, intervalCustom, lewd,
         includedTracks, excludedTracks, categoriesActive, categoriesInclude, categoriesExclude,
     )
 
@@ -74,6 +77,17 @@ class LibraryFilterTest {
     fun `completed and lewd filter on their own fields`() {
         passes(Row(completed = true), prefs(completed = TriState.ENABLED_IS)) shouldBe true
         passes(Row(lewd = false), prefs(lewd = TriState.ENABLED_IS)) shouldBe false
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "true, ENABLED_IS, true",
+        "false, ENABLED_IS, false",
+        "true, ENABLED_NOT, false",
+        "false, ENABLED_NOT, true",
+    )
+    fun `the local axis filters on its own field`(local: Boolean, state: TriState, kept: Boolean) {
+        passes(Row(local = local), prefs(local = state)) shouldBe kept
     }
 
     @Test
@@ -124,12 +138,14 @@ class LibraryFilterTest {
     private fun settings(
         downloadedOnly: Boolean = false,
         downloaded: TriState = TriState.DISABLED,
+        local: TriState = TriState.DISABLED,
         intervalCustom: TriState = TriState.DISABLED,
         skipsOutsideReleasePeriod: Boolean = true,
         trackers: Map<Long, TriState> = emptyMap(),
     ) = LibraryFilterSettings(
         downloadedOnly = downloadedOnly,
         downloaded = downloaded,
+        local = local,
         unread = TriState.DISABLED,
         started = TriState.DISABLED,
         bookmarked = TriState.DISABLED,
@@ -153,6 +169,16 @@ class LibraryFilterTest {
     @Test
     fun `a tracker filter alone is active`() {
         settings(trackers = mapOf(2L to TriState.ENABLED_NOT, 3L to TriState.DISABLED)).isActive shouldBe true
+    }
+
+    @Test
+    fun `a local filter alone is active`() {
+        settings(local = TriState.ENABLED_NOT).isActive shouldBe true
+    }
+
+    @Test
+    fun `resolving carries the local axis`() {
+        settings(local = TriState.ENABLED_IS).resolve().local shouldBe TriState.ENABLED_IS
     }
 
     @Test
