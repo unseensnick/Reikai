@@ -51,7 +51,6 @@ import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsNotLoaded
 import reikai.presentation.details.EntryDetailsScreenState
-import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.chapterToOpen
@@ -112,8 +111,10 @@ class MangaScreen(
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
-        // The details page's shape while it loads, or its not-found page, shared with novels
-        if (state !is MangaViewModel.State.Success) {
+        // The details page's shape while it loads, or its not-found page, shared with novels, decided by the
+        // neutral state alone: it is mapped from the model's, so a loaded one means the model's is Success.
+        val loaded = neutralState as? EntryDetailsScreenState.Loaded
+        if (loaded == null) {
             EntryDetailsNotLoaded(neutralState, navigator::pop)
             return
         }
@@ -136,82 +137,80 @@ class MangaScreen(
         // RK --> the shared details body, over the adapter built above
         // RK: tint the details screen from the cover color
         TachiyomiTheme(seedColor = successState.seedColor.takeIf { viewModel.themeCoverBased }) {
-            (neutralState as? EntryDetailsScreenState.Loaded)?.let { loaded ->
-                EntryDetailsContent(
-                    behavior = adapter,
-                    state = loaded,
-                    snackbarHostState = viewModel.snackbarHostState,
-                    isTabletUi = isTabletUi(),
-                    chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
-                    chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
-                    nav = EntryDetailsNavigation(
-                        navigateUp = navigator::pop,
-                        // A specific source chip opens source scope; the All chip (null) opens group scope.
-                        // Reads the model's state at the tap rather than capturing this emission's, so the
-                        // lambda outlives an emission and the chapter rows can skip recomposing.
-                        onOpenChapter = { chapterId ->
-                            (viewModel.state.value as? MangaViewModel.State.Success)?.let { live ->
-                                val listed = live.chapters.map { it.chapter }
-                                chapterToOpen(chapterId, listed, live.resumeChapter, Chapter::id)?.let {
-                                    openChapter(context, it, live.selectedSourceMangaId != null)
-                                }
+            EntryDetailsContent(
+                behavior = adapter,
+                state = loaded,
+                snackbarHostState = viewModel.snackbarHostState,
+                isTabletUi = isTabletUi(),
+                chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
+                chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
+                nav = EntryDetailsNavigation(
+                    navigateUp = navigator::pop,
+                    // A specific source chip opens source scope; the All chip (null) opens group scope.
+                    // Reads the model's state at the tap rather than capturing this emission's, so the
+                    // lambda outlives an emission and the chapter rows can skip recomposing.
+                    onOpenChapter = { chapterId ->
+                        (viewModel.state.value as? MangaViewModel.State.Success)?.let { live ->
+                            val listed = live.chapters.map { it.chapter }
+                            chapterToOpen(chapterId, listed, live.resumeChapter, Chapter::id)?.let {
+                                openChapter(context, it, live.selectedSourceMangaId != null)
                             }
-                        },
-                        // The viewed source, since the tags on screen are the selected chip's. A stub has no
-                        // catalogue to browse, and a source with no filters searches a genre as text.
-                        viewedSource = successState.shownSource.let { source ->
-                            DetailsViewedSource(
-                                SourceKey.Manga(source.id),
-                                browsable = !source.isLocalOrStub(),
-                                filterable = source is HttpSource,
-                            )
-                        },
-                        onOpenFilterSettings = viewModel::showSettingsDialog,
-                        onEditInterval = viewModel::showSetFetchIntervalDialog,
-                        onRelatedClick = { candidate ->
-                            scope.launch {
-                                val id = viewModel.resolveRelatedToLocalId(candidate)
-                                navigator.push(relatedDestination(candidate, id))
-                            }
-                        },
-                        onRelatedSeeAll = {
-                            navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
-                        },
-                        // Recommendations moved to the overflow menu (Settings > Library > Recommendations):
-                        // open the same browse grid "See all" uses. Null keeps it off when placed inline.
-                        onRecommendations = {
-                            navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
-                        }.takeIf { viewModel.recommendationsInMenu },
-                        onOpenPagePreview = { page ->
-                            openPagePreview(
-                                context,
-                                successState.chapters.minByOrNull { it.chapter.sourceOrder }?.chapter,
-                                page,
-                            )
-                        },
-                        onMorePreviews = { navigator.push(PagePreviewRoute(successState.manga.id)) },
-                        onOpenFolder = { scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) } },
-                        // The viewed source, as the metadata viewer resolves it, so a merged entry
-                        // opens the settings of the source its chip is showing.
-                        onOpenSourceSettings = successState.shownSource
-                            .takeIf { it.configurableSource() != null }
-                            ?.let { source -> { navigator.push(SourceKey.Manga(source.id).preferencesScreen()) } },
-                        // Gallery metadata viewer, only for adult/metadata sources; follows the viewed source
-                        // (the selected chip), so enhanced-MangaDex "More info" shows even when the merge is
-                        // anchored on a non-metadata source.
-                        onMetadataViewer = {
-                            navigator.push(
-                                MetadataViewRoute(
-                                    mangaId = successState.shownManga.id,
-                                    sourceId = successState.shownSource.id,
-                                    seedColor = successState.seedColor?.toArgb(),
-                                ),
-                            )
-                        }.takeIf { successState.shownSource.getMainSource<MetadataSource<*, *>>() != null },
-                    ),
-                    settings = settings,
-                )
-            } ?: EntryDetailsSkeleton() // until the first off-Main mapping lands
+                        }
+                    },
+                    // The viewed source, since the tags on screen are the selected chip's. A stub has no
+                    // catalogue to browse, and a source with no filters searches a genre as text.
+                    viewedSource = successState.shownSource.let { source ->
+                        DetailsViewedSource(
+                            SourceKey.Manga(source.id),
+                            browsable = !source.isLocalOrStub(),
+                            filterable = source is HttpSource,
+                        )
+                    },
+                    onOpenFilterSettings = viewModel::showSettingsDialog,
+                    onEditInterval = viewModel::showSetFetchIntervalDialog,
+                    onRelatedClick = { candidate ->
+                        scope.launch {
+                            val id = viewModel.resolveRelatedToLocalId(candidate)
+                            navigator.push(relatedDestination(candidate, id))
+                        }
+                    },
+                    onRelatedSeeAll = {
+                        navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
+                    },
+                    // Recommendations moved to the overflow menu (Settings > Library > Recommendations):
+                    // open the same browse grid "See all" uses. Null keeps it off when placed inline.
+                    onRecommendations = {
+                        navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
+                    }.takeIf { viewModel.recommendationsInMenu },
+                    onOpenPagePreview = { page ->
+                        openPagePreview(
+                            context,
+                            successState.chapters.minByOrNull { it.chapter.sourceOrder }?.chapter,
+                            page,
+                        )
+                    },
+                    onMorePreviews = { navigator.push(PagePreviewRoute(successState.manga.id)) },
+                    onOpenFolder = { scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) } },
+                    // The viewed source, as the metadata viewer resolves it, so a merged entry
+                    // opens the settings of the source its chip is showing.
+                    onOpenSourceSettings = successState.shownSource
+                        .takeIf { it.configurableSource() != null }
+                        ?.let { source -> { navigator.push(SourceKey.Manga(source.id).preferencesScreen()) } },
+                    // Gallery metadata viewer, only for adult/metadata sources; follows the viewed source
+                    // (the selected chip), so enhanced-MangaDex "More info" shows even when the merge is
+                    // anchored on a non-metadata source.
+                    onMetadataViewer = {
+                        navigator.push(
+                            MetadataViewRoute(
+                                mangaId = successState.shownManga.id,
+                                sourceId = successState.shownSource.id,
+                                seedColor = successState.seedColor?.toArgb(),
+                            ),
+                        )
+                    }.takeIf { successState.shownSource.getMainSource<MetadataSource<*, *>>() != null },
+                ),
+                settings = settings,
+            )
         } // RK: end cover-based theme wrap
         // RK <--
 

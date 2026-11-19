@@ -98,6 +98,30 @@ class DetailsRoutesTest {
         failures shouldBe 1
     }
 
+    // Global search's lone result replaces the search with its page rather than pushing over it.
+    @Test
+    fun `a page opened for no tap goes where it is sent`() = runTest {
+        val sent = mutableListOf<Screen>()
+        val opener = DetailsOpener(this, { error("pushed") }, { novels }) { error("failed") }
+
+        opener.open(navigate = sent::add) { EntryId.Novel(9L).detailsScreen() }
+        advanceUntilIdle()
+
+        sent.map { (it as NovelRoute).novelId } shouldBe listOf(9L)
+    }
+
+    @Test
+    fun `a page opened for no tap that cannot be built says so and hands back`() = runTest {
+        var failures = 0
+        var handedBack = 0
+        val opener = DetailsOpener(this, {}, { novels }) { failures++ }
+
+        opener.open(navigate = {}, afterFailure = { handedBack++ }) { null }
+        advanceUntilIdle()
+
+        (failures to handedBack) shouldBe (1 to 1)
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("shownCases")
     fun `a details page shows only its own entry`(

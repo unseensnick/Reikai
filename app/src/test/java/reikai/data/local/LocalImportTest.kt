@@ -25,6 +25,7 @@ import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalGroups
@@ -126,26 +127,26 @@ class LocalImportTest(private val type: ContentType) {
     fun `a series the library refused to add is reported, not opened`() = runTest {
         val result = localImport.import(listOf(group("Foo")), addToLibrary = true, categoryIds = emptyList())
 
-        (result.problems.map { it.reason } to result.series.single().entryId) shouldBe
+        (result.problems.map { it.reason } to result.series.single().entry) shouldBe
             (listOf(ImportProblem.Reason.AddFailed) to null)
     }
 
-    // A novel is stored either way, so its page opens by row id; manga stores a series only on an add.
+    // Each type's details page opens by row id, so a series is stored whether or not it joins the library.
     @Test
-    fun `a series kept out of the library has a row to open only for novels`() = runTest {
+    fun `a series kept out of the library has a row to open`() = runTest {
         val result = localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
 
-        result.series.single().entryId shouldBe mapOf(ContentType.NOVELS to 7L)[type]
+        result.series.single().entry shouldBe EntryId.of(type, 7L)
     }
 
-    // Nothing was asked of the library, so a failed store leaves the files imported and reports no add.
     @Test
-    fun `a series kept out of the library whose store fails is imported without a problem`() = runTest {
+    fun `a series kept out of the library whose store fails is reported, not opened`() = runTest {
         storeFails = true
 
         val result = localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
 
-        (result.problems to result.series.single().entryId) shouldBe (emptyList<ImportProblem>() to null)
+        (result.problems.map { it.reason } to result.series.single().entry) shouldBe
+            (listOf(ImportProblem.Reason.StoreFailed) to null)
     }
 
     @Test

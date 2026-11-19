@@ -18,7 +18,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.manga.MangaNotesScreen
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +25,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
+import reikai.domain.entry.EntryId
+import reikai.presentation.notes.closeMissingNotes
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.UpdateMangaNotes
 import tachiyomi.domain.manga.model.Manga
@@ -50,10 +51,8 @@ fun MangaNotesScreen(mangaId: Long) {
     LaunchedEffect(mangaMissing) {
         // The manga screen below can't load a missing manga either
         if (mangaMissing) {
-            // RK: Voyager's popUntil over its screens, upstream's popTo over the routes
-            navigator.popUntil {
-                (it as? MangaNotesRoute)?.mangaId != mangaId && (it as? MangaScreen)?.mangaId != mangaId
-            }
+            // RK: the notes rule both types close by, over Voyager's stack where upstream pops its routes
+            navigator.closeMissingNotes(EntryId.Manga(mangaId))
         }
     }
 

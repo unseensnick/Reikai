@@ -3,8 +3,6 @@ package reikai.presentation.novel.notes
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -16,6 +14,7 @@ import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.CoroutineScope
 import mihon.core.metro.AppCoroutineScope
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
 import reikai.presentation.notes.EntryNotesScreen
@@ -57,9 +56,8 @@ class NovelNotesRoute(val novelId: Long) : Screen() {
 
 @Composable
 fun NovelNotesScreen(novelId: Long) {
-    val navigator = LocalNavigator.currentOrThrow
     val viewModel =
         assistedMetroViewModel<NovelNotesRoute.Model, NovelNotesRoute.Model.Factory> { create(novelId = novelId) }
 
-    EntryNotesScreen(editor = viewModel.notes, subtitle = { it }, navigateUp = navigator::pop)
+    EntryNotesScreen(editor = viewModel.notes, subtitle = { it }, series = EntryId.Novel(novelId))
 }

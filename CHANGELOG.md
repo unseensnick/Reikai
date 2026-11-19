@@ -89,6 +89,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **A notification or widget for a manga you have since deleted now opens a not-found page.**
+- **A novel opened from a notification or widget now opens over the Library tab, as a manga does.**
 - **Notes no longer lose your latest text when Android closes the app in the background while the notes are open.**
 - **The fast scroll thumb on a series' chapter list now moves evenly past the tall header (from Mihon).**
 - **Tapping a cover in its full view now closes it with the high quality renderer on.**

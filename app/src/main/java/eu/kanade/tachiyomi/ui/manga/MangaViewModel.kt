@@ -395,10 +395,14 @@ class MangaViewModel(
     // merge group (so a merged series never shows its own source's list first), the refresh flag (which the
     // related carousel waits on) and the page-preview spinner. Every input of the state waits for it.
     // Null when the id has no row (a deleted entry, a stale notification), which opens the shared not-found
-    // page where upstream's failed read takes the screen down.
+    // page, as a novel's missing row does; any other failed read takes the screen down, as upstream's does.
+    // awaitAsOne reports an empty result as a NullPointerException, SQLDelight's own contract.
     private val seed = viewModelScope.async(Dispatchers.IO) {
-        val manga = runCatchingCancellable { getMangaAndChapters.awaitManga(mangaId) }.getOrNull()
-            ?: return@async null
+        val manga = try {
+            getMangaAndChapters.awaitManga(mangaId)
+        } catch (_: NullPointerException) {
+            return@async null
+        }
         // So an entry outside the library isn't shown with its old chapter settings first
         if (!manga.favorite) {
             setMangaDefaultChapterFlags.await(manga)

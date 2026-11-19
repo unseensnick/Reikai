@@ -3,8 +3,6 @@ package reikai.presentation.notes
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -94,10 +92,9 @@ class VolumeNotesRoute(
 
 @Composable
 fun VolumeNotesScreen(type: ContentType, series: String, volumeKey: String) {
-    val navigator = LocalNavigator.currentOrThrow
     val viewModel = assistedMetroViewModel<VolumeNotesRoute.Model, VolumeNotesRoute.Model.Factory> {
         create(type = type, series = series, volumeKey = volumeKey)
     }
 
-    EntryNotesScreen(editor = viewModel.notes, subtitle = { volumeName(it) }, navigateUp = navigator::pop)
+    EntryNotesScreen(editor = viewModel.notes, subtitle = { volumeName(it) }, series = null)
 }

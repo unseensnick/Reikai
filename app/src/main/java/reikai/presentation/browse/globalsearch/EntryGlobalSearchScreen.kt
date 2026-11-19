@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -19,7 +18,6 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
-import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
@@ -78,9 +76,6 @@ fun EntryGlobalSearchScreen(
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val opener = rememberDetailsOpener()
-    val context = LocalContext.current
-    val novels = remember { context.appGraph.novelLibraryAdder }
-
     val mangaModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
         create(initialExtensionFilter = extensionFilter)
     }
@@ -114,11 +109,17 @@ fun EntryGlobalSearchScreen(
             val only = state.rows.singleOrNull()
             when (val result = only?.state) {
                 is EntrySearchState.Loading -> return@LaunchedEffect
-                is EntrySearchState.Success ->
-                    result.entries.singleOrNull()
-                        ?.detailsScreen(only.key, novels)
-                        ?.let(navigator::replace)
-                        ?: run { showSingleLoadingScreen = false }
+                is EntrySearchState.Success -> {
+                    val entry = result.entries.singleOrNull()
+                    if (entry == null) {
+                        showSingleLoadingScreen = false
+                    } else {
+                        // Through the opener, so a novel that cannot be stored says so as a tap on it would.
+                        opener.open(navigator::replace, afterFailure = { showSingleLoadingScreen = false }) {
+                            entry.detailsScreen(only.key, it)
+                        }
+                    }
+                }
                 else -> showSingleLoadingScreen = false
             }
         }

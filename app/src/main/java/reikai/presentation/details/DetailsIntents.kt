@@ -2,7 +2,6 @@ package reikai.presentation.details
 
 import android.content.Context
 import android.content.Intent
-import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
@@ -22,16 +21,18 @@ fun novelDetailsIntent(context: Context, novelId: Long): Intent =
         .setAction(Constants.SHORTCUT_NOVEL)
         .putExtra(Constants.NOVEL_EXTRA, novelId)
 
+/** The novel a [novelDetailsIntent] opens, or null when it names none, as manga's intent names its id. */
+fun Intent.novelToOpen(): EntryId.Novel? =
+    getLongExtra(Constants.NOVEL_EXTRA, -1L).takeIf { it > 0L }?.let(EntryId::Novel)
+
 /**
- * The screen a [novelDetailsIntent] opens, or null when it names no novel. An intent an older build
- * wrote (a pinned widget, a posted notification) carries the novel's source and url instead, read back
- * only to a novel this device has saved: MainActivity is exported, so any app can send one, and no url
- * it sends is ever fetched unless a row already holds it.
+ * The novel an intent an older build wrote (a pinned widget, a posted notification) opens, by the source and
+ * url it carries, read back only to a novel this device has saved: MainActivity is exported, so any app can
+ * send one, and no url it sends is ever fetched unless a row already holds it.
  */
-suspend fun Intent.novelDetailsScreen(novels: NovelRepository): Screen? {
-    getLongExtra(Constants.NOVEL_EXTRA, -1L).takeIf { it > 0L }?.let { return EntryId.Novel(it).detailsScreen() }
+suspend fun Intent.legacyNovelToOpen(novels: NovelRepository): EntryId.Novel? {
     val source = getStringExtra(Constants.NOVEL_SOURCE_EXTRA) ?: return null
     val url = getStringExtra(Constants.NOVEL_URL_EXTRA) ?: return null
     val stored = withIOContext { novels.getByUrlAndSource(url, source) } ?: return null
-    return EntryId.Novel(stored.id).detailsScreen()
+    return EntryId.Novel(stored.id)
 }

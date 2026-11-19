@@ -118,9 +118,10 @@ fun LocalImportScreen(initialUris: List<String>) {
     // land in the library. Not while files shared in during the import wait, which leaving would drop.
     LaunchedEffect(state.result) {
         val only = state.result?.series?.singleOrNull() ?: return@LaunchedEffect
-        if (state.result?.problems?.isNotEmpty() == true || only.entryId == null) return@LaunchedEffect
+        val entry = only.entry
+        if (state.result?.problems?.isNotEmpty() == true || entry == null) return@LaunchedEffect
         if (!state.addToLibrary || state.groups.isNotEmpty()) return@LaunchedEffect
-        navigator.replace(EntryId.of(only.type, only.entryId).detailsScreen())
+        navigator.replace(entry.detailsScreen())
     }
 
     Scaffold(
@@ -169,9 +170,7 @@ fun LocalImportScreen(initialUris: List<String>) {
                 onDuplicateChoice = viewModel::setDuplicateChoice,
                 onNewerCopyChoice = viewModel::setNewerCopyChoice,
                 onAddTo = { adding = it },
-                onOpen = { series ->
-                    series.entryId?.let { navigator.push(EntryId.of(series.type, it).detailsScreen()) }
-                },
+                onOpen = { navigator.push(it.detailsScreen()) },
             )
         }
     }
@@ -244,7 +243,7 @@ internal fun ImportList(
     onRename: (ImportGroup) -> Unit,
     onType: (String, ContentType) -> Unit,
     onRemove: (String) -> Unit,
-    onOpen: (reikai.data.local.ImportedSeries) -> Unit,
+    onOpen: (EntryId) -> Unit,
     onSeparate: (String, Boolean) -> Unit = { _, _ -> },
     onDuplicateChoice: (String, DuplicateChoice) -> Unit = { _, _ -> },
     onNewerCopyChoice: (String, DuplicateChoice) -> Unit = { _, _ -> },
@@ -280,7 +279,10 @@ internal fun ImportList(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(series.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { onOpen(series) }) { Text(stringResource(MR.strings.local_import_open)) }
+                    // A series with no row has nothing to open; the import listed why among its problems.
+                    series.entry?.let { entry ->
+                        TextButton(onClick = { onOpen(entry) }) { Text(stringResource(MR.strings.local_import_open)) }
+                    }
                 }
             }
         }
@@ -634,4 +636,5 @@ private fun ImportProblem.Reason.label() = when (this) {
     ImportProblem.Reason.NoStorage -> MR.strings.local_import_reason_no_storage
     ImportProblem.Reason.CopyFailed -> MR.strings.local_import_reason_copy_failed
     ImportProblem.Reason.AddFailed -> MR.strings.local_import_reason_add_failed
+    ImportProblem.Reason.StoreFailed -> MR.strings.local_import_reason_store_failed
 }

@@ -13,9 +13,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
-import reikai.presentation.novel.details.NovelRoute
 import tachiyomi.core.common.Constants
 import java.util.IdentityHashMap
 
@@ -66,31 +66,32 @@ class DetailsIntentsTest {
     }
 
     @Test
-    fun `a novel intent opens the novel it was built for`() = runTest {
-        val screen = novelDetailsIntent(context, 12L).novelDetailsScreen(novels)
+    fun `a novel intent opens the novel it was built for`() {
+        novelDetailsIntent(context, 12L).novelToOpen() shouldBe EntryId.Novel(12L)
+    }
 
-        (screen as? NovelRoute)?.novelId shouldBe 12L
+    @Test
+    fun `an older build's novel intent names no novel id`() {
+        legacyNovelIntent("src", "/n/1").novelToOpen().shouldBeNull()
     }
 
     // A pinned widget or a posted notification an older build wrote keeps its source and url.
     @Test
     fun `an older build's novel intent opens the saved novel it names`() = runTest {
-        val screen = legacyNovelIntent("src", "/n/1").novelDetailsScreen(novels)
-
-        (screen as? NovelRoute)?.novelId shouldBe 4L
+        legacyNovelIntent("src", "/n/1").legacyNovelToOpen(novels) shouldBe EntryId.Novel(4L)
     }
 
     // MainActivity is exported, so any app can send one; opening it would fetch the url and save the novel.
     @Test
     fun `an older build's novel intent for a novel this device never saved opens nothing`() = runTest {
-        legacyNovelIntent("src", "/n/2").novelDetailsScreen(novels).shouldBeNull()
+        legacyNovelIntent("src", "/n/2").legacyNovelToOpen(novels).shouldBeNull()
     }
 
     @Test
     fun `a novel intent missing its url opens nothing`() = runTest {
         val intent = Intent().setAction(Constants.SHORTCUT_NOVEL).putExtra(Constants.NOVEL_SOURCE_EXTRA, "src")
 
-        intent.novelDetailsScreen(novels).shouldBeNull()
+        intent.legacyNovelToOpen(novels).shouldBeNull()
     }
 
     private fun legacyNovelIntent(source: String, url: String) = Intent()

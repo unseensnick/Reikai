@@ -11,6 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import reikai.data.local.ImportProblem
 import reikai.data.local.ImportResult
 import reikai.data.local.ImportedSeries
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.ComposeTestHost
 
@@ -32,11 +33,23 @@ class ImportListTest {
 
     @Test
     fun `two series renamed into one folder are both listed`() {
-        val series = listOf("a", "b").map { ImportedSeries(it, ContentType.MANGA, "Foo", "Foo", 1L) }
+        val series = listOf("a", "b").map { ImportedSeries(it, ContentType.MANGA, "Foo", "Foo", EntryId.Manga(1L)) }
 
         show(LocalImportViewModel.State(result = ImportResult(series, emptyList())))
 
         compose.onAllNodesWithText("Foo").fetchSemanticsNodes().size shouldBe 2
+    }
+
+    @Test
+    fun `a series that could not be stored offers nothing to open`() {
+        val series = listOf(
+            ImportedSeries("a", ContentType.NOVELS, "Foo", "Foo", EntryId.Novel(1L)),
+            ImportedSeries("b", ContentType.MANGA, "Bar", "Bar", null),
+        )
+
+        show(LocalImportViewModel.State(result = ImportResult(series, emptyList())))
+
+        compose.onAllNodesWithText("Open").fetchSemanticsNodes().size shouldBe 1
     }
 
     private fun show(state: LocalImportViewModel.State) {

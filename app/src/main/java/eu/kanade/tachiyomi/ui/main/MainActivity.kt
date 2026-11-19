@@ -121,7 +121,8 @@ import reikai.presentation.browse.globalsearch.searchIntentScreen
 import reikai.presentation.browse.incognitoSource
 import reikai.presentation.browse.repos.RepositoriesRoute
 import reikai.presentation.components.LocalShownContent
-import reikai.presentation.details.novelDetailsScreen
+import reikai.presentation.details.legacyNovelToOpen
+import reikai.presentation.details.novelToOpen
 import reikai.presentation.library.updateerror.UpdateErrorsRoute
 import reikai.presentation.local.importFiles
 import reikai.presentation.local.importedFiles
@@ -561,12 +562,16 @@ class MainActivity : BaseActivity() {
                 navigator.popUntilRoot()
                 TabEvent.Library(EntryId.Manga(idToOpen)) // RK
             }
-            // RK: open a novel's details, as built by novelDetailsIntent (or an older build's, read only)
-            Constants.SHORTCUT_NOVEL -> {
+            // RK: open a novel's details over the library as a manga's are; an older build's intent names
+            //     the novel by source and url, so only that one is looked up first, read only
+            Constants.SHORTCUT_NOVEL -> intent.novelToOpen()?.let {
+                navigator.popUntilRoot()
+                TabEvent.Library(it)
+            } ?: run {
                 lifecycleScope.launch {
-                    intent.novelDetailsScreen(novelRepository)?.let {
+                    intent.legacyNovelToOpen(novelRepository)?.let {
                         navigator.popUntilRoot()
-                        navigator.push(it)
+                        resultEventBus.sendResult<TabEvent>(TabEvent.Library(it))
                     }
                 }
                 null

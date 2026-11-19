@@ -20,6 +20,7 @@ import reikai.data.novel.insertOpenedNovel
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
@@ -128,19 +129,22 @@ internal fun newerCopiesOf(files: List<ImportFile>, held: Map<String, String>, d
 
 /** A file or series an import had to skip, and why; [uri] is the file's, null for a whole series. */
 data class ImportProblem(val name: String, val reason: Reason, val uri: Uri? = null) {
-    enum class Reason { Unreadable, Protected, Unsupported, NoStorage, CopyFailed, AddFailed }
+    enum class Reason { Unreadable, Protected, Unsupported, NoStorage, CopyFailed, AddFailed, StoreFailed }
 }
 
 /** What an import did: the series it touched, by [ImportedSeries.type], and what it had to skip. */
 data class ImportResult(val series: List<ImportedSeries>, val problems: List<ImportProblem>)
 
-/** A series an import touched. [key] is its group's, unique where two renamed groups can share a [path]. */
+/**
+ * A series an import touched. [key] is its group's, unique where two renamed groups can share a [path]. [entry] is
+ * the row its details page opens, null when it could not be stored or added, which the import reports as a problem.
+ */
 data class ImportedSeries(
     val key: String,
     val type: ContentType,
     val title: String,
     val path: String,
-    val entryId: Long?,
+    val entry: EntryId?,
 )
 
 /**
@@ -342,20 +346,25 @@ class LocalImport(
             if (made) folder.deleteIfEmpty(context)
             return null
         }
-        // A novel is stored either way, since its details page opens by row id; manga stores one only on an add.
-        val entryId = if (addToLibrary || group.type == ContentType.NOVELS) {
-            runCatchingCancellable { add(group.type, series, addToLibrary, categoryIds) }
-                .onFailure { if (addToLibrary) problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
-                .getOrNull()
-        } else {
-            null
-        }
+        // Stored either way, since each type's details page opens by row id; a series with no row offers no Open.
+        val entryId = runCatchingCancellable { add(group.type, series, addToLibrary, categoryIds) }
+            .onFailure {
+                val reason = if (addToLibrary) ImportProblem.Reason.AddFailed else ImportProblem.Reason.StoreFailed
+                problems += ImportProblem(group.title, reason)
+            }
+            .getOrNull()
         // One already there is named by the series that lists the file, the holder's where another holds the folder.
-        return ImportedSeries(group.key, group.type, if (made) group.title else series, series, entryId)
+        return ImportedSeries(
+            group.key,
+            group.type,
+            if (made) group.title else series,
+            series,
+            entryId?.let { EntryId.of(group.type, it) },
+        )
     }
 
     /** Stores the series the folder [path] now holds, fills in its chapters and, with [favorite], favorites it. */
-    private suspend fun add(type: ContentType, path: String, favorite: Boolean, categoryIds: List<Long>): Long? =
+    private suspend fun add(type: ContentType, path: String, favorite: Boolean, categoryIds: List<Long>): Long =
         when (type) {
             ContentType.NOVELS -> {
                 val parsed = localNovels.parseNovel(path)
@@ -371,7 +380,9 @@ class LocalImport(
                 if (favorite && novelAdder.addToBatch(item, LocalNovelSource.ID, categoryIds) == AddOutcome.Failed) {
                     throw NotAddedException()
                 }
-                novel?.id ?: novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)?.id
+                novel?.id
+                    ?: novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)?.id
+                    ?: throw NotStoredException()
             }
             else -> {
                 val stored =
@@ -383,7 +394,9 @@ class LocalImport(
                     )
                 updateMangaFromRemote(stored, fetchDetails = true, fetchChapters = true, manualFetch = true)
                     .getOrThrow()
-                if (mangaAdder.addToBatch(stored.id, categoryIds) == AddOutcome.Failed) throw NotAddedException()
+                if (favorite && mangaAdder.addToBatch(stored.id, categoryIds) == AddOutcome.Failed) {
+                    throw NotAddedException()
+                }
                 stored.id
             }
         }
@@ -552,6 +565,9 @@ class LocalImport(
 
     /** The favorite write failed without throwing, so the series is not in the library. */
     private class NotAddedException : IOException()
+
+    /** The series was written but its row could not be read back, so there is no page to open. */
+    private class NotStoredException : IOException()
 
     internal class ReadFile(
         val file: ImportFile,

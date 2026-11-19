@@ -79,9 +79,22 @@ class DetailsOpener(
 
     fun open(row: EntryBrowseRow, sourceKey: SourceKey) = open { row.detailsScreen(sourceKey, it) }
 
-    fun open(screen: suspend (NovelLibraryAdder) -> Screen?) {
+    /**
+     * Opens the page [screen] builds through [navigate], a push unless the caller opens it another way. One
+     * that cannot be built is reported, then [afterFailure] runs, for a caller that waited on it.
+     */
+    fun open(
+        navigate: (Screen) -> Unit = push,
+        afterFailure: () -> Unit = {},
+        screen: suspend (NovelLibraryAdder) -> Screen?,
+    ) {
         if (pending?.isActive == true) return
-        pending = scope.launch { screen(novels())?.let(push) ?: onFailure() }
+        pending = scope.launch {
+            screen(novels())?.let(navigate) ?: run {
+                onFailure()
+                afterFailure()
+            }
+        }
     }
 }
 
