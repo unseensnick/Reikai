@@ -370,7 +370,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Migration searches a series' alternative titles when its title finds nothing, and can carry its Edit info to the new source.** The single-entry search lists the titles as chips.
+- **Migration searches a series' alternative titles when its title finds nothing, and can carry its Custom entry info to the new source.** The single-entry search lists the titles as chips.
 
 #### Fixed
 
