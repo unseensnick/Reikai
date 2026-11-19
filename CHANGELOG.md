@@ -53,6 +53,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Library categories can be arranged by hand: pick Manual in Sort, then long-press a cover and move it.** Each move offers Undo, and Reset manual order puts a category back.
 - **A banner shows how far a library update or a backup restore has got (from Komikku).** Settings -> Library and Settings -> Data and storage can each hide it.
 
+#### Changed
+
+- **Edit categories now lets you drag categories to reorder them under the Manga and Novels chips too.** It also works when Show is set to one type; the other type's categories keep their places.
+
 #### Fixed
 
 - **Updating a paged novel no longer deletes the chapters on its later pages when the source misreports its page count.** Their read state, bookmarks and queued downloads now survive.

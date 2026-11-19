@@ -67,12 +67,19 @@ class CategoryViewModel(
 
     // RK: which library's categories the list is narrowed to. Per visit, not persisted: this is a
     // settings destination rather than somewhere the user lives. Read through the Show setting live,
-    // so hiding the chip's type while the screen is open cannot leave the list on it.
+    // so hiding the chip's type while the screen is open cannot leave the list on it. One live value,
+    // first the effective chip and then every type a chip flip can reach, read by the list and the drag.
     private val chipContentType = MutableStateFlow(ContentType.ALL)
-    private val contentTypes =
-        combine(chipContentType, reikaiLibraryPreferences.shownContent.changes()) { chip, shown ->
-            chip.within(shown) to ContentType.ALL.within(shown)
-        }
+    private val contentTypes: StateFlow<Pair<ContentType, ContentType>> =
+        combine(chipContentType, reikaiLibraryPreferences.shownContent.changes(), ::contentTypesWithin)
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                contentTypesWithin(chipContentType.value, reikaiLibraryPreferences.shownContent.get()),
+            )
+
+    private fun contentTypesWithin(chip: ContentType, shown: ContentType) =
+        chip.within(shown) to ContentType.ALL.within(shown)
 
     private val dialog = MutableStateFlow<CategoryDialog?>(null)
     // RK <--
@@ -205,15 +212,22 @@ class CategoryViewModel(
     }
     // RK <--
 
-    fun changeOrder(category: Category, newIndex: Int) {
+    // RK --> a drag's index is a slot in the list the chip shows; the move menu's 0 and past-the-end
+    // mean the whole table's ends, which are also the ends of any narrowed list.
+    fun changeOrder(category: Category, newIndex: Int) = reorder(category, newIndex, contentTypes.value.first)
+
+    fun moveToEnd(category: Category, newIndex: Int) = reorder(category, newIndex, ContentType.ALL)
+
+    private fun reorder(category: Category, newIndex: Int, contentType: ContentType) {
         viewModelScope.launch {
-            // RK: the drag index comes from the visible list, which hides rows pending delete, while
-            // the reorder renumbers the full table; flush the pending delete first so the two lists
-            // agree (dragging while the undo snackbar is up also reads as moving on from the undo).
+            // The drag index comes from the visible list, which hides rows pending delete, while the
+            // reorder reads the stored table; flush the pending delete first so the two lists agree
+            // (dragging while the undo snackbar is up also reads as moving on from the undo).
             commitPendingDeletes(pendingDelete.value.keys)?.join()
-            if (!actions.reorder(category, newIndex)) _events.emit(CategoryEvent.InternalError)
+            if (!actions.reorder(category, newIndex, contentType)) _events.emit(CategoryEvent.InternalError)
         }
     }
+    // RK <--
 
     fun renameCategory(category: Category, name: String) {
         viewModelScope.launch {

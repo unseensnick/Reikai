@@ -7,9 +7,12 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.deleteCategoryAndCleanup
 import reikai.domain.category.flagsWithHidden
 import reikai.domain.category.isHidden
+import reikai.domain.library.ContentType
+import reikai.domain.library.withShownOrder
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.RenameCategory
 import tachiyomi.domain.category.model.Category
@@ -69,15 +72,20 @@ class CategoryActions(
     // otherwise interleave and scramble the order column.
     private val reorderMutex = Mutex()
 
-    /** Move a category and renumber the whole list, so one ordering serves both libraries. */
-    suspend fun reorder(category: Category, newIndex: Int): Boolean = reorderMutex.withLock {
-        val categories = nonSystemCategories().toMutableList()
-        val from = categories.indexOfFirst { it.id == category.id }
-        if (from < 0) return@withLock true
-        val moved = categories.removeAt(from)
-        categories.add(newIndex.coerceIn(0, categories.size), moved)
-        write { categoryRepository.updateAllOrders(orderedIds = categories.map { it.id }) }
-    }
+    /**
+     * Move a category to [newIndex] of the list [contentType]'s chip shows, then renumber the whole table,
+     * so a row the chip hides keeps its slot and one ordering still serves both libraries.
+     */
+    suspend fun reorder(category: Category, newIndex: Int, contentType: ContentType): Boolean =
+        reorderMutex.withLock {
+            val all = nonSystemCategories()
+            val shown = categoriesForContentType(all, contentType).toMutableList()
+            val from = shown.indexOfFirst { it.id == category.id }
+            if (from < 0) return@withLock true
+            val moved = shown.removeAt(from)
+            shown.add(newIndex.coerceIn(0, shown.size), moved)
+            write { categoryRepository.updateAllOrders(orderedIds = all.withShownOrder(shown).map { it.id }) }
+        }
 
     suspend fun toggleHidden(category: Category) = write {
         categoryRepository.updateFlags(

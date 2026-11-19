@@ -54,6 +54,7 @@ fun CategoryScreen(
     // RK: toggle a category's hidden flag bit
     onClickToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
+    onMoveToEnd: (Category, Int) -> Unit, // RK: the move menu, always to the whole table's ends
     navigateUp: () -> Unit,
     // RK --> multi-select: the action-mode toolbar + the undo snackbar live here
     onSelectContentType: (ContentType) -> Unit,
@@ -67,12 +68,8 @@ fun CategoryScreen(
     // RK <--
 ) {
     val lazyListState = rememberChipListState(state.contentType) // RK: starts at the top on a chip change
-    // RK: in selection mode the drag handle is hidden (selection-tap shouldn't fight a drag-grab), and
-    // so is it under a content-type chip: a drop index comes from the list on screen while the reorder
-    // renumbers the whole table, so dragging inside a narrowed list would land the row elsewhere.
-    val reorderable = state.categorySortOrder == CategorySortOrder.MANUAL &&
-        !state.selectionMode &&
-        state.contentType == ContentType.ALL
+    // RK: in selection mode the drag handle is hidden (selection-tap shouldn't fight a drag-grab)
+    val reorderable = state.categorySortOrder == CategorySortOrder.MANUAL && !state.selectionMode
     // RK: back leaves selection mode before it leaves the screen, as Mihon's selection lists do
     BackHandler(enabled = state.selectionMode, onBack = onClearSelection)
     Scaffold(
@@ -149,11 +146,10 @@ fun CategoryScreen(
                         onClickDelete = onClickDelete,
                         onClickToggleHidden = onClickToggleHidden,
                         onChangeOrder = onChangeOrder,
-                        // RK: drag only in Manual mode, outside selection, and only under the All chip
+                        onMoveToEnd = onMoveToEnd, // RK
+                        // RK: drag and the move menu only in Manual mode and outside selection
                         reorderable = reorderable,
-                        // RK: the move menu renumbers the whole list to an end, which is also an end of any
-                        // narrowed list, so only the manual order and selection gate it, never the chip.
-                        movable = state.categorySortOrder == CategorySortOrder.MANUAL && !state.selectionMode,
+                        movable = reorderable,
                         selection = state.selection,
                         selectionMode = state.selectionMode,
                         onToggleSelection = onToggleSelection,
@@ -175,6 +171,7 @@ private fun CategoryContent(
     onClickDelete: (Category) -> Unit,
     onClickToggleHidden: (Category) -> Unit, // RK: hidden-flag toggle
     onChangeOrder: (Category, Int) -> Unit,
+    onMoveToEnd: (Category, Int) -> Unit, // RK
     // RK: false hides the drag handle so the (sorted) list can't be manually reordered
     reorderable: Boolean = true,
     // RK: false hides the move-to-top / move-to-bottom menu
@@ -231,8 +228,8 @@ private fun CategoryContent(
                     showDragHandle = reorderable,
                     // RK: an index past the end is clamped to the last place by the reorder
                     showMoveActions = movable,
-                    onMoveToTop = { onChangeOrder(category, 0) },
-                    onMoveToBottom = { onChangeOrder(category, Int.MAX_VALUE) },
+                    onMoveToTop = { onMoveToEnd(category, 0) }, // RK
+                    onMoveToBottom = { onMoveToEnd(category, Int.MAX_VALUE) }, // RK
                 )
             }
         }

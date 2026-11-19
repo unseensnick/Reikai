@@ -226,5 +226,55 @@ class CategoryViewModelTest {
         table.value shouldBe listOf(b, c)
     }
 
+    private val universal =
+        Category(id = 5L, name = "U", order = 1L, flags = 0L, contentType = CategoryContentType.UNIVERSAL)
+
+    /** A table of [a, universal, novel, b] whose stored order follows every write, as the database's does. */
+    private fun mixedTable() {
+        table.value = listOf(a, universal, novel.copy(order = 2L), b.copy(order = 3L))
+        coEvery { repository.updateAllOrders(any()) } answers {
+            val ids = firstArg<List<Long>>()
+            table.update { rows -> rows.map { it.copy(order = ids.indexOf(it.id).toLong()) }.sortedBy { it.order } }
+        }
+    }
+
+    private fun storedIds() = table.value.sortedBy { it.order }.map { it.id }
+
+    /** The drop index is a slot in the narrowed list on screen, which also hides the row pending delete. */
+    @Test
+    fun `a drag under a chip with an undo-delete pending lands where it was dropped`() = runTest {
+        mixedTable()
+        val model = model()
+        model.setContentType(ContentType.MANGA)
+        model.deleteCategory(universal)
+
+        model.changeOrder(b, 0)
+
+        storedIds() shouldBe listOf(b.id, novel.id, a.id)
+    }
+
+    @Test
+    fun `a drag while Show hides novels moves among the manga rows`() = runTest {
+        mixedTable()
+        reikaiLibraryPreferences.shownContent.set(ContentType.MANGA)
+        val model = model()
+
+        model.changeOrder(b, 0)
+
+        storedIds() shouldBe listOf(b.id, a.id, novel.id, universal.id)
+    }
+
+    /** The move menu means the ends of every category, not of the ones the chip shows. */
+    @Test
+    fun `move to top under a chip puts the category first in the whole table`() = runTest {
+        mixedTable()
+        val model = model()
+        model.setContentType(ContentType.NOVELS)
+
+        model.moveToEnd(novel, 0)
+
+        storedIds().first() shouldBe novel.id
+    }
+
     private fun List<CategoryEvent>.undoBatches() = filterIsInstance<CategoryEvent.ShowUndoSnackbar>().map { it.batch }
 }

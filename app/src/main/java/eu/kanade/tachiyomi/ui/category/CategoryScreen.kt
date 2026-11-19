@@ -49,6 +49,7 @@ class CategoryScreen : Screen() {
             onClickDelete = { viewModel.showDialog(CategoryDialog.Delete(it)) },
             onToggleHidden = viewModel::toggleHidden,
             onChangeOrder = viewModel::changeOrder,
+            onMoveToEnd = viewModel::moveToEnd, // RK
             onDismissDialog = viewModel::dismissDialog,
             onCreate = viewModel::createCategory,
             onRename = viewModel::renameCategory,
@@ -76,6 +77,7 @@ private fun CategoryManager(
     onClickDelete: (Category) -> Unit,
     onToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
+    onMoveToEnd: (Category, Int) -> Unit, // RK: the move menu, always to the whole table's ends
     onDismissDialog: () -> Unit,
     onSelectContentType: (ContentType) -> Unit,
     onCreate: (String, Long) -> Unit,
@@ -112,6 +114,7 @@ private fun CategoryManager(
         onClickDelete = onClickDelete,
         onClickToggleHidden = onToggleHidden,
         onChangeOrder = onChangeOrder,
+        onMoveToEnd = onMoveToEnd, // RK
         navigateUp = navigator::pop,
         // RK -->
         onSelectContentType = onSelectContentType,
