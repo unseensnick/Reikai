@@ -141,7 +141,7 @@ class DetailsPushesConformanceTest {
         case: Case,
         vararg below: Screen,
         browsable: Boolean = true,
-        test: suspend TestScope.(EntryDetailsNavigation, Stack<Screen>) -> Unit,
+        test: suspend TestScope.(SharedDetailsPushes, Stack<Screen>) -> Unit,
     ) = runTest {
         val stack = mutableStateStackOf(HomeScreen, *below, mockk<Screen>(), minSize = 1)
         val nav = EntryDetailsNavigation(

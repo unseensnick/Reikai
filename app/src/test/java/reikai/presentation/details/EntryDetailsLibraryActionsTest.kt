@@ -17,34 +17,45 @@ class EntryDetailsLibraryActionsTest {
     private val migrate = {}
     private val editInterval = {}
 
-    private val nav = EntryDetailsNavigation(
-        navigateUp = {},
-        onOpenChapter = {},
-        viewedSource = DetailsViewedSource(SourceKey.Manga(1L), browsable = true),
-        onOpenTrackingSettings = { trackingSettingsOpened = true },
-        onOpenFilterSettings = {},
-        onMigrate = migrate,
-        onEditInterval = editInterval,
+    private val nav = DetailsPageNav(
+        perType = EntryDetailsNavigation(
+            navigateUp = {},
+            onOpenChapter = {},
+            viewedSource = DetailsViewedSource(SourceKey.Manga(1L), browsable = true),
+            onOpenFilterSettings = {},
+            onEditInterval = editInterval,
+        ),
+        shared = SharedDetailsPushes(
+            onGlobalSearch = {},
+            onLibrarySearch = {},
+            onTagSearch = {},
+            onBrowseSource = null,
+            onOpenTrackingSettings = { trackingSettingsOpened = true },
+            onEditNotes = {},
+            onMigrate = migrate,
+        ),
+        onFilterLibraryByTag = { _, _ -> },
+        onCoverClick = {},
     )
 
     @Test
     fun `an entry outside the library offers no Migrate`() {
-        nav.forState(loaded(favorite = false)).onMigrate shouldBe null
+        nav.forState(loaded(favorite = false)).shared.onMigrate shouldBe null
     }
 
     @Test
     fun `an entry outside the library offers no interval editor`() {
-        nav.forState(loaded(favorite = false)).onEditInterval shouldBe null
+        nav.forState(loaded(favorite = false)).perType.onEditInterval shouldBe null
     }
 
     @Test
     fun `a library entry offers Migrate`() {
-        nav.forState(loaded(favorite = true)).onMigrate shouldBe migrate
+        nav.forState(loaded(favorite = true)).shared.onMigrate shouldBe migrate
     }
 
     @Test
     fun `a library entry offers the interval editor`() {
-        nav.forState(loaded(favorite = true)).onEditInterval shouldBe editInterval
+        nav.forState(loaded(favorite = true)).perType.onEditInterval shouldBe editInterval
     }
 
     @Test

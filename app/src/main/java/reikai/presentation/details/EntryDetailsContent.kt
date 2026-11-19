@@ -81,27 +81,13 @@ private const val HIDDEN_CHAPTER_ALPHA = 0.4f
  * opening the reader, the per-type filter-settings sheet, and the manga-only capability taps (related
  * cards, page previews, gallery viewer). Each screen builds one and passes it in; a manga-only slot's
  * callback is simply absent for novels. The web actions are the body's own, from [EntryWebPage], and so
- * are the pushes both types make alike ([withSharedPushes]), over [viewedSource].
+ * are the pushes both types make alike ([SharedDetailsPushes], over [viewedSource]), which have no field here.
  */
 data class EntryDetailsNavigation(
     val navigateUp: () -> Unit,
     val onOpenChapter: (chapterId: Long) -> Unit,
     val viewedSource: DetailsViewedSource,
-    /** Header title / author / artist tap: a global search, scoped to this entry's type; filled by the shared body. */
-    val onGlobalSearch: (query: String) -> Unit = {},
-    /** A genre tap; filled by the shared body. */
-    val onTagSearch: (String) -> Unit = {},
-    /** A tag's Show only / Hide this tag, which set the library's tag filter; filled by the shared body. */
-    val onFilterLibraryByTag: ((tag: String, show: Boolean) -> Unit)? = null,
-    /** The header cover's tap, which opens the cover on screen, a picked volume's own; filled by the shared body. */
-    val onCoverClick: () -> Unit = {},
-    /** The Tracking tap with no tracker logged in; with one, the body opens the track sheet itself. Filled
-     *  by the shared body, as [onEditNotes] is. */
-    val onOpenTrackingSettings: () -> Unit = {},
-    val onEditNotes: () -> Unit = {},
     val onOpenFilterSettings: () -> Unit,
-    /** Library entries only: filled by the shared body, which drops it outside the library ([forState]). */
-    val onMigrate: (() -> Unit)? = null,
     /** Smart update's interval editor; the body drops it outside the library ([forState]), and null
      *  leaves the button doing nothing. */
     val onEditInterval: (() -> Unit)? = null,
@@ -125,11 +111,6 @@ data class EntryDetailsNavigation(
     val onOpenSourceSettings: (() -> Unit)? = null,
     /** Hands the viewed source's download folder to a file manager. */
     val onOpenFolder: (() -> Unit)? = null,
-    /** Header long-press: search the library, forced to this entry's type. The source row passes a
-     *  `srcid:` query for its source rather than the name it shows. Filled by the shared body. */
-    val onLibrarySearch: (query: String) -> Unit = {},
-    /** Header source row: browse that source; filled by the shared body, null when nothing can be browsed. */
-    val onBrowseSource: (() -> Unit)? = null,
 )
 
 /**
@@ -154,12 +135,7 @@ fun EntryDetailsContent(
     val context = LocalContext.current
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     val navigator = LocalNavigator.currentOrThrow
-    val libraryNav = nav.withSharedPushes(state, navigator, scope).forState(state).copy(
-        onFilterLibraryByTag = { tag, show ->
-            settings.filterLibraryByTag(tag, show)
-            scope.launch { navigator.showLibraryFromDetails() }
-        },
-    )
+    val shared = nav.withSharedPushes(state, navigator, scope)
     var onlyCopies by rememberSaveable { mutableStateOf(false) }
     val copies = CopiesFilter(on = onlyCopies && !state.chapters.duplicates?.copies.isNullOrEmpty()) {
         onlyCopies = !onlyCopies
@@ -192,11 +168,17 @@ fun EntryDetailsContent(
     }.orEmpty()
     val listed = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     val shown = if (pickedVolume == null) listed else listed.headedBy(volumeFiles, volumeNotes)
-    val pageNav = (
-        pickedVolume?.let { picked ->
-            libraryNav.copy(onEditNotes = { navigator.push(VolumeNotesScreen(type, picked.series, picked.key)) })
-        } ?: libraryNav
-        ).copy(onCoverClick = { behavior.showCoverDialog(pickedVolume) })
+    val pageNav = DetailsPageNav(
+        perType = nav,
+        shared = pickedVolume?.let { picked ->
+            shared.copy(onEditNotes = { navigator.push(VolumeNotesScreen(type, picked.series, picked.key)) })
+        } ?: shared,
+        onFilterLibraryByTag = { tag, show ->
+            settings.filterLibraryByTag(tag, show)
+            scope.launch { navigator.showLibraryFromDetails() }
+        },
+        onCoverClick = { behavior.showCoverDialog(pickedVolume) },
+    ).forState(state)
     val shownIds = remember(shown.chapters.items) {
         shown.chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
     }
@@ -481,17 +463,17 @@ internal fun EntryDetailsScreenState.Loaded.withOnlyCopies() = copy(
 )
 
 /** [this] with the actions that only act on a library entry dropped while [state]'s entry is outside it. */
-internal fun EntryDetailsNavigation.forState(state: EntryDetailsScreenState.Loaded) = copy(
-    onMigrate = onMigrate?.takeIf { state.details.favorite },
-    onEditInterval = onEditInterval?.takeIf { state.details.favorite },
+internal fun DetailsPageNav.forState(state: EntryDetailsScreenState.Loaded) = copy(
+    perType = perType.copy(onEditInterval = perType.onEditInterval?.takeIf { state.details.favorite }),
+    shared = shared.copy(onMigrate = shared.onMigrate?.takeIf { state.details.favorite }),
 )
 
 /** The Tracking button: the track sheet once a tracker is logged in, else tracker settings to log in to one. */
 internal fun trackingTap(
     state: EntryDetailsScreenState.Loaded,
     behavior: EntryDetailsBehavior,
-    nav: EntryDetailsNavigation,
-): () -> Unit = if (state.details.hasLoggedInTrackers) behavior::showTrackDialog else nav.onOpenTrackingSettings
+    nav: DetailsPageNav,
+): () -> Unit = if (state.details.hasLoggedInTrackers) behavior::showTrackDialog else nav.shared.onOpenTrackingSettings
 
 @Composable
 private fun EntryDetailsSmallContent(
@@ -500,7 +482,7 @@ private fun EntryDetailsSmallContent(
     snackbarHostState: SnackbarHostState,
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
-    nav: EntryDetailsNavigation,
+    nav: DetailsPageNav,
     web: EntryWebActions,
     extras: ChapterListExtras,
     chrome: DetailsChrome,
@@ -522,7 +504,7 @@ private fun EntryDetailsSmallContent(
         onCancelSelection = behavior::clearSelection,
         fabVisible = state.resumeChapterId != null && !state.selectionMode,
         fabIsResume = state.hasStarted,
-        onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
+        onFabClick = { state.resumeChapterId?.let(nav.perType.onOpenChapter) },
         fabSide = chrome.readButtonSide,
         onFabDocked = chrome.onReadButtonDocked,
         topBar = { titleAlpha, backgroundAlpha ->
@@ -561,7 +543,7 @@ private fun EntryDetailsSmallContent(
             behavior,
             chapterSwipeStartAction,
             chapterSwipeEndAction,
-            nav.onOpenChapter,
+            nav.perType.onOpenChapter,
             extras.shownChapterIds,
         )
     }
@@ -574,7 +556,7 @@ private fun EntryDetailsLargeContent(
     snackbarHostState: SnackbarHostState,
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
-    nav: EntryDetailsNavigation,
+    nav: DetailsPageNav,
     web: EntryWebActions,
     extras: ChapterListExtras,
     chrome: DetailsChrome,
@@ -596,7 +578,7 @@ private fun EntryDetailsLargeContent(
         onCancelSelection = behavior::clearSelection,
         fabVisible = state.resumeChapterId != null && !state.selectionMode,
         fabIsResume = state.hasStarted,
-        onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
+        onFabClick = { state.resumeChapterId?.let(nav.perType.onOpenChapter) },
         fabSide = chrome.readButtonSide,
         onFabDocked = chrome.onReadButtonDocked,
         topBar = { modifier ->
@@ -637,7 +619,7 @@ private fun EntryDetailsLargeContent(
                 behavior,
                 chapterSwipeStartAction,
                 chapterSwipeEndAction,
-                nav.onOpenChapter,
+                nav.perType.onOpenChapter,
                 extras.shownChapterIds,
             )
         },
@@ -648,7 +630,7 @@ private fun EntryDetailsLargeContent(
 private fun EntryDetailsToolbar(
     state: EntryDetailsScreenState.Loaded,
     behavior: EntryDetailsBehavior,
-    nav: EntryDetailsNavigation,
+    nav: DetailsPageNav,
     web: EntryWebActions,
     extras: ChapterListExtras,
     jumps: ChapterJumps,
@@ -666,18 +648,18 @@ private fun EntryDetailsToolbar(
         modifier = modifier,
         title = state.details.header.title,
         hasFilters = state.hasActiveFilter,
-        navigateUp = nav.navigateUp,
-        onClickFilter = nav.onOpenFilterSettings,
+        navigateUp = nav.perType.navigateUp,
+        onClickFilter = nav.perType.onOpenFilterSettings,
         onClickRefresh = behavior::refresh,
         onClickEditCategory = { behavior.showChangeCategoryDialog() }.takeIf { state.details.favorite },
         onClickEditInfo = { behavior.showEditInfoDialog() }.takeIf { state.details.favorite },
-        onClickEditNotes = nav.onEditNotes,
+        onClickEditNotes = nav.shared.onEditNotes,
         onClickShare = web.share,
         onClickManageSources = { behavior.showManageSourcesDialog() }.takeIf { state.isMerged },
-        onClickMigrate = nav.onMigrate,
+        onClickMigrate = nav.shared.onMigrate,
         onClickDownload = if (state.chaptersDownloadable) behavior::runDownloadAction else null,
-        onClickMetadataViewer = nav.onMetadataViewer,
-        onClickSourceSettings = nav.onOpenSourceSettings,
+        onClickMetadataViewer = nav.perType.onMetadataViewer,
+        onClickSourceSettings = nav.perType.onOpenSourceSettings,
         // Hidden with nothing to clear, and on a source whose downloads are the series itself.
         onClickClearDownloads = { behavior.showClearDownloadsDialog() }.takeIf {
             state.chaptersDownloadable && state.hasViewedDownloads
@@ -686,18 +668,18 @@ private fun EntryDetailsToolbar(
         onClickOpenFolder = if (state.ownsLocalFiles) {
             openOwnFolder
         } else {
-            nav.onOpenFolder?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads }
+            nav.perType.onOpenFolder?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads }
         },
         // A local series' text is on the device without being a download, so it searches and counts too.
-        onClickSearchText = nav.onSearchText?.takeIf { state.textOnDevice },
-        onClickWordCount = nav.onWordCount?.takeIf { state.textOnDevice },
-        onClickExport = nav.onExport,
+        onClickSearchText = nav.perType.onSearchText?.takeIf { state.textOnDevice },
+        onClickWordCount = nav.perType.onWordCount?.takeIf { state.textOnDevice },
+        onClickExport = nav.perType.onExport,
         onClickReorderVolumes = extras.onReorderVolumes,
         onClickAddVolumes = extras.onAddVolumes,
         onClickSplitOut = extras.onSplitOut,
         onClickRenameFiles = extras.onRenameFiles,
         onClickDeleteVolumes = extras.onDeleteVolumes?.let { delete -> { delete(null) } },
-        onClickRecommendations = nav.onRecommendations,
+        onClickRecommendations = nav.perType.onRecommendations,
         jumps = jumps,
         jumpsInMenu = chrome.jumpsInMenu,
         onHide = behavior::hideSelected,
@@ -761,7 +743,7 @@ private fun EntryDetailsSelectionBar(
 private fun LazyListScope.entryInfoBlock(
     state: EntryDetailsScreenState.Loaded,
     behavior: EntryDetailsBehavior,
-    nav: EntryDetailsNavigation,
+    nav: DetailsPageNav,
     web: EntryWebActions,
     isTabletUi: Boolean,
     appBarPadding: Dp,
@@ -774,19 +756,19 @@ private fun LazyListScope.entryInfoBlock(
         appBarPadding = appBarPadding,
         state = state.details,
         onCoverClick = nav.onCoverClick,
-        onGlobalSearch = nav.onGlobalSearch,
-        librarySearch = nav.onLibrarySearch,
-        onBrowseSource = nav.onBrowseSource,
+        onGlobalSearch = nav.shared.onGlobalSearch,
+        librarySearch = nav.shared.onLibrarySearch,
+        onBrowseSource = nav.shared.onBrowseSource,
         onAddToLibraryClicked = onAddToLibrary,
         onTrackingClicked = trackingTap(state, behavior, nav),
         onEditCategory = { behavior.showChangeCategoryDialog() }.takeIf { state.details.favorite },
-        onEditIntervalClicked = nav.onEditInterval,
+        onEditIntervalClicked = nav.perType.onEditInterval,
         onWebViewClicked = web.openWebView,
         onWebViewLongClicked = web.copyUrl,
-        onTagSearch = nav.onTagSearch,
+        onTagSearch = nav.shared.onTagSearch,
         onFilterLibraryByTag = nav.onFilterLibraryByTag,
         onCopyTagToClipboard = web.copyTag,
-        onEditNotes = nav.onEditNotes,
+        onEditNotes = nav.shared.onEditNotes,
         descriptionImages = descriptionImages,
         // Namespaced, grouped tag chips for the active source's gallery metadata (or its namespaced genre).
         searchMetadataChips = gallery?.chips(),
@@ -795,7 +777,7 @@ private fun LazyListScope.entryInfoBlock(
             {
                 GalleryInfoBox(
                     metadata = meta,
-                    onMoreInfoClick = nav.onMetadataViewer,
+                    onMoreInfoClick = nav.perType.onMetadataViewer,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -819,7 +801,7 @@ private fun LazyListScope.mergeSourceChipsItem(
 
 private fun LazyListScope.relatedCarouselItem(
     capability: MangaRelatedCarouselCapability,
-    nav: EntryDetailsNavigation,
+    nav: DetailsPageNav,
     topDivider: Boolean,
 ) {
     item(key = "rk-related-carousel") {
@@ -827,8 +809,8 @@ private fun LazyListScope.relatedCarouselItem(
             items = capability.items,
             loading = capability.isLoading,
             totalCount = capability.totalCount,
-            onClick = nav.onRelatedClick,
-            onSeeAll = nav.onRelatedSeeAll,
+            onClick = nav.perType.onRelatedClick,
+            onSeeAll = nav.perType.onRelatedSeeAll,
             topDivider = topDivider,
         )
     }
@@ -836,13 +818,13 @@ private fun LazyListScope.relatedCarouselItem(
 
 private fun LazyListScope.pagePreviewsItem(
     capability: MangaPagePreviewsCapability,
-    nav: EntryDetailsNavigation,
+    nav: DetailsPageNav,
 ) {
     item(key = "rk-page-previews") {
         PagePreviews(
             pagePreviewState = capability.state,
-            onOpenPage = nav.onOpenPagePreview,
-            onMorePreviewsClicked = nav.onMorePreviews,
+            onOpenPage = nav.perType.onOpenPagePreview,
+            onMorePreviewsClicked = nav.perType.onMorePreviews,
             rowCount = capability.rowCount,
         )
     }
@@ -850,7 +832,7 @@ private fun LazyListScope.pagePreviewsItem(
 
 private fun LazyListScope.chapterHeaderItem(
     state: EntryDetailsScreenState.Loaded,
-    nav: EntryDetailsNavigation,
+    nav: DetailsPageNav,
     copies: CopiesFilter,
 ) {
     item(key = "entry-chapter-header") {
@@ -859,7 +841,7 @@ private fun LazyListScope.chapterHeaderItem(
                 enabled = !state.selectionMode,
                 chapterCount = state.chapters.items.count { it is EntryChapterListItem.Chapter },
                 missingChapterCount = state.chapters.missingChapterCount,
-                onClick = nav.onOpenFilterSettings,
+                onClick = nav.perType.onOpenFilterSettings,
             )
             // Only with "Show duplicate chapters the reader skips" on, so the rule's work is visible at a glance.
             state.chapters.duplicates?.copies?.size?.takeIf { it > 0 }?.let { count ->
@@ -884,7 +866,7 @@ private fun LazyListScope.chapterHeaderItem(
                     text = novelPageText(page.pages[page.pageIndex], page.pages.size),
                     isLoading = page.isPageLoading,
                     enabled = !state.selectionMode,
-                    onClick = { nav.onOpenPageSelector?.invoke() },
+                    onClick = { nav.perType.onOpenPageSelector?.invoke() },
                 )
             }
         }
