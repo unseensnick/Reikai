@@ -14,6 +14,7 @@ import cafe.adriel.voyager.navigator.Navigator
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -40,10 +41,17 @@ class LocalImportRestoreTest {
     val compose = createComposeRule()
 
     private val file = Uri.parse("content://files/alpha.cbz")
+
+    // Holds an import open until completed, as a copy still running when the process dies.
+    private var running: CompletableDeferred<Unit>? = null
+
     private val localImport = mockk<LocalImport> {
         coEvery { preview(listOf(file)) } returns (listOf(group()) to emptyList())
         coEvery { inspect(any(), any()) } answers { firstArg() }
-        coEvery { import(any(), any(), any()) } returns ImportResult(emptyList(), emptyList())
+        coEvery { import(any(), any(), any()) } coAnswers {
+            running?.await()
+            ImportResult(emptyList(), emptyList())
+        }
     }
     private val mangaAdder = mockk<MangaLibraryAdder> {
         coEvery { resolveBatchCategories() } returns BatchCategories.Default(emptyList())
@@ -68,6 +76,7 @@ class LocalImportRestoreTest {
 
     @After
     fun tearDown() {
+        running?.complete(Unit)
         owner.viewModelStore.clear()
     }
 
@@ -102,6 +111,25 @@ class LocalImportRestoreTest {
         }
 
         compose.onAllNodesWithText(TITLE).fetchSemanticsNodes().size shouldBe 0
+    }
+
+    // The copy never finished, so the files the screen was handed are still to import.
+    @Test
+    fun `a screen restored while its import still ran offers the files again`() {
+        running = CompletableDeferred()
+        show()
+        compose.waitUntil { compose.onAllNodesWithText(TITLE).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(IMPORT).performClick()
+        compose.waitForIdle()
+
+        owner.viewModelStore.clear()
+        owner = owner()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitUntil {
+            listOf(CHOOSE, TITLE).any { compose.onAllNodesWithText(it).fetchSemanticsNodes().isNotEmpty() }
+        }
+
+        compose.onAllNodesWithText(TITLE).fetchSemanticsNodes().size shouldBe 1
     }
 
     private fun owner() = object : ViewModelStoreOwner {

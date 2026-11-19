@@ -223,7 +223,6 @@ class LocalImportViewModel(
 
     private fun runImport(groups: List<ImportGroup>, categories: Map<ContentType, List<Long>>) {
         val addToLibrary = state.value.addToLibrary
-        state.update { it.copy(hasImported = true) }
         appScope.launchIO {
             val results = groups.groupBy { it.type }.map { (type, ofType) ->
                 localImport.import(ofType, addToLibrary, categories[type].orEmpty())
@@ -261,8 +260,6 @@ class LocalImportViewModel(
         val pickCategories: CategoryPick? = null,
         val pending: Map<ContentType, List<Long>> = emptyMap(),
         val result: ImportResult? = null,
-        /** An import has started, so the files the screen was handed are taken and a restore must not offer them. */
-        val hasImported: Boolean = false,
     )
 
     @AssistedFactory
