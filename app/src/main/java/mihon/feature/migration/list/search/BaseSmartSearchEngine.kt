@@ -36,13 +36,22 @@ abstract class BaseSmartSearchEngine<T>(
     // RK --> several titles in one pass. Always scored: the lone-hit carve-out below trusts a single
     // answer to the one title asked, which an alternative title is not. Each hit scores its best
     // similarity against any of [titles]; deep subset queries are deduplicated across titles.
+    // A blank title is dropped: as a query it lists the source's default page, and two blanks score 1.0.
     protected suspend fun multiTitleSearch(searchAction: SearchAction<T>, titles: List<String>, deep: Boolean): T? {
-        val known = if (deep) titles.map(::cleanDeepSearchTitle) else titles
+        val known = (if (deep) titles.map(::cleanMultiTitle) else titles).filter { it.isNotBlank() }
         val queries = if (deep) known.flatMap(::getDeepSearchQueries).distinct() else known.distinct()
         return baseSearch(searchAction, queries, alwaysScore = true) { hit ->
-            val name = getTitle(hit).let { if (deep) cleanDeepSearchTitle(it) else it }
+            val name = getTitle(hit).let { if (deep) cleanMultiTitle(it) else it }
             known.maxOf { normalizedLevenshtein.similarity(it, name) }
         }
+    }
+
+    // cleanDeepSearchTitle strips every letter of a long non-Latin title; keep them, as it does for a short one.
+    private fun cleanMultiTitle(title: String): String = cleanDeepSearchTitle(title).ifBlank {
+        title.lowercase(Locale.getDefault())
+            .replace(titleCyrillicRegex, " ")
+            .replace(consecutiveSpacesRegex, " ")
+            .trim()
     }
     // RK <--
 

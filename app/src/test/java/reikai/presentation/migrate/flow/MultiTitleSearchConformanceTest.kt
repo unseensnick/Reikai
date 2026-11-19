@@ -60,6 +60,33 @@ class MultiTitleSearchConformanceTest {
             listOf("demon", "demon hunter", "demon slayer", "hunter", "hunter demon", "slayer", "slayer demon")
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `deep mode sends no blank query for a long non-Latin title`(engine: TitleEngine) = runTest {
+        engine.fallback(listOf("転生したらスライムだった件"), listOf("鬼滅の刃無限列車編の物語"), deep = true)
+
+        engine.queries.filter { it.isBlank() } shouldBe emptyList()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `deep mode refuses an unrelated long non-Latin hit`(engine: TitleEngine) = runTest {
+        engine.fallback(listOf("転生したらスライムだった件"), listOf("鬼滅の刃無限列車編の物語"), deep = true) shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `deep mode still finds a matching long non-Latin title`(engine: TitleEngine) = runTest {
+        engine.fallback(listOf("転生したらスライムだった件"), listOf("鬼滅の刃無限列車編の物語", "転生したらスライムだった件"), deep = true) shouldBe
+            "転生したらスライムだった件"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a title with no letters left is never searched`(engine: TitleEngine) = runTest {
+        engine.fallback(listOf("★★★★★★★"), listOf("☆☆☆☆☆☆☆", "Other"), deep = true) shouldBe null
+    }
+
     @Test
     fun `the fallback runs only when the primary finds nothing`() = runTest {
         var multiCalls = 0
