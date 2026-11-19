@@ -1,12 +1,16 @@
 package reikai.presentation.library
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -19,6 +23,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.util.lang.SubscriberGate
 import kotlin.time.Duration.Companion.seconds
@@ -86,6 +91,47 @@ class SharedLibraryRowsTest {
         runCurrent()
 
         built.value shouldBe 2
+    }
+
+    @Test
+    fun `a failed build reaches its reader`() = runTest {
+        val (rows, _) = failingOnce()
+
+        val read = runCatching { withTimeoutOrNull(1.seconds) { rows.first() } }
+
+        read.exceptionOrNull()?.message shouldBe "build failed"
+    }
+
+    @Test
+    fun `a failed build never reaches the app scope`() = runTest {
+        val (rows, escaped) = failingOnce()
+
+        runCatching { withTimeoutOrNull(1.seconds) { rows.first() } }
+
+        escaped shouldBe emptyList()
+    }
+
+    @Test
+    fun `a reader after a failed build gets a fresh build`() = runTest {
+        val (rows, _) = failingOnce()
+        runCatching { withTimeoutOrNull(1.seconds) { rows.first() } }
+        runCurrent()
+
+        withTimeoutOrNull(1.seconds) { rows.first() } shouldBe 1
+    }
+
+    // A build that throws on its first run and succeeds after, shared on a scope that records what escapes it,
+    // as the app scope's handler would.
+    private fun TestScope.failingOnce(): Pair<Flow<Int>, List<Throwable>> {
+        val escaped = mutableListOf<Throwable>()
+        val handler = CoroutineExceptionHandler { _, throwable -> escaped += throwable }
+        val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler) + handler)
+        var runs = 0
+        val flaky = flow {
+            if (runs++ == 0) error("build failed")
+            emit(1)
+        }
+        return flaky.sharedLibraryRows(scope, StandardTestDispatcher(testScheduler)) to escaped
     }
 
     // The library models' shape: an eager build under the gate, read by a screen state the gate watches,
