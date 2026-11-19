@@ -34,6 +34,7 @@ import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.ManualOrderPosition
 import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -220,6 +221,7 @@ class BackupChunkConformanceTest {
                 val database = store.database
                 val chapters = ChapterRepositoryImpl(database)
                 val creator = MangaBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     tombstones = store.tombstones,
                     manualOrder = store.manualOrder,
                     mangaRepository = MangaRepositoryImpl(database),
@@ -303,6 +305,7 @@ class BackupChunkConformanceTest {
                 val database = store.database
                 val pace = ReadingPaceRepositoryImpl(database)
                 val creator = NovelBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     tombstones = store.tombstones,
                     manualOrder = store.manualOrder,
                     novelRepository = mockk(),

@@ -19,6 +19,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.readinglog.NoReadingLog
@@ -82,6 +83,7 @@ class ManualBaseBackupConformanceTest {
                 ProtoBuf.encodeToByteArray(
                     ListSerializer(BackupNovelCategory.serializer()),
                     NovelBackupCreator(
+                        libraryHides = FakeLibraryHiddenRepository(),
                         tombstones = NoChapterTombstoneRepository,
                         manualOrder = manualOrder,
                         novelRepository = mockk(),

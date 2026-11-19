@@ -40,6 +40,7 @@ fun LibraryToolbar(
     onClickRefreshTrackers: () -> Unit,
     // RK: opt-in "Update errors" overflow entry (null = hidden)
     onClickUpdateErrors: (() -> Unit)? = null,
+    onClickHiddenEntries: () -> Unit, // RK: the series hidden from the library view
     onClickStats: (() -> Unit)?, // RK: a shortcut to Statistics (null = hidden)
     onClickImport: () -> Unit, // RK: copy files into the local sources
     searchQuery: String?,
@@ -64,6 +65,7 @@ fun LibraryToolbar(
         // RK: tracker refresh and the opt-in update-errors entry
         onClickRefreshTrackers = onClickRefreshTrackers,
         onClickUpdateErrors = onClickUpdateErrors,
+        onClickHiddenEntries = onClickHiddenEntries, // RK
         onClickStats = onClickStats, // RK
         onClickImport = onClickImport, // RK
         scrollBehavior = scrollBehavior,
@@ -83,6 +85,7 @@ private fun LibraryRegularToolbar(
     // RK: tracker refresh and the opt-in update-errors entry
     onClickRefreshTrackers: () -> Unit,
     onClickUpdateErrors: (() -> Unit)? = null,
+    onClickHiddenEntries: () -> Unit, // RK
     onClickStats: (() -> Unit)?, // RK
     onClickImport: () -> Unit, // RK
     scrollBehavior: TopAppBarScrollBehavior?,
@@ -143,6 +146,11 @@ private fun LibraryRegularToolbar(
                             onClick = it,
                         )
                     },
+                    // RK: the series hidden from the library view, where they are shown again
+                    AppBar.OverflowAction(
+                        title = stringResource(MR.strings.label_hidden_entries),
+                        onClick = onClickHiddenEntries,
+                    ),
                     // RK: files picked or shared, copied into the local sources
                     AppBar.OverflowAction(
                         title = stringResource(MR.strings.local_import_title),

@@ -32,6 +32,7 @@ import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.local.VolumeOwner
 import reikai.domain.merge.RestoreMergeGroups
@@ -239,6 +240,7 @@ class LocalFilesBackupRoundTripTest {
             ): ByteArray {
                 val entry = Manga.create().copy(id = 1, source = LocalSource.ID, url = SERIES, title = "T")
                 val creator = MangaBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = mockk { coEvery { getExcludedScanlatorsByMangaIds(any()) } returns emptyMap() },
                     chapterRepository = ChapterRepositoryImpl(database),
@@ -309,6 +311,7 @@ class LocalFilesBackupRoundTripTest {
             ): ByteArray {
                 val entry = Novel.create().copy(id = 1, source = LOCAL_NOVEL, url = SERIES, title = "T")
                 val creator = NovelBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk(),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),

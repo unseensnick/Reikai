@@ -37,6 +37,7 @@ import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.LnSourceIdentity
@@ -165,6 +166,7 @@ class BackupCustomInfoConformanceTest {
                 mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                 categoriesBackupCreator = mockk(relaxed = true),
                 mangaBackupCreator = MangaBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = mockk {
@@ -192,6 +194,7 @@ class BackupCustomInfoConformanceTest {
                 sourcesBackupCreator = mockk { coEvery { forSourceIds(any()) } returns emptyList() },
                 backupFileValidator = mockk(relaxed = true),
                 novelBackupCreator = NovelBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk {

@@ -98,7 +98,7 @@ class NovelLibraryAdapter(
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
-    override fun seriesTags(): List<List<String>> = model.state.value.seriesTags()
+    override fun seriesTagRows(): List<SeriesTagRow> = model.state.value.seriesTagRows()
 
     override suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
         val state = model.state.value

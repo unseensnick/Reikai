@@ -37,6 +37,7 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -268,6 +269,7 @@ class ChapterTombstoneBackupTest {
                 BackupManga(source = 1L, url = "u").also { backup ->
                     val batch = listOf(Manga.create().copy(id = 1) to backup)
                     MangaBackupCreator(
+                        libraryHides = FakeLibraryHiddenRepository(),
                         manualOrder = FakeLibraryManualOrderRepository(),
                         mangaRepository = mockk(),
                         chapterRepository = ChapterRepositoryImpl(database),
@@ -337,6 +339,7 @@ class ChapterTombstoneBackupTest {
                 BackupNovel(source = "src", url = "u").also { backup ->
                     val batch = listOf(Novel.create().copy(id = 1) to backup)
                     NovelBackupCreator(
+                        libraryHides = FakeLibraryHiddenRepository(),
                         manualOrder = FakeLibraryManualOrderRepository(),
                         novelRepository = mockk(),
                         novelChapterRepository = NovelChapterRepositoryImpl(database),

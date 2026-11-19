@@ -25,6 +25,8 @@ import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
+import reikai.domain.library.HideSeries
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
@@ -869,6 +871,7 @@ class MangaEngine : MigrateEngine {
             getHistory = getHistory,
             historyRepository = historyRepository,
             readingLog = rec.readingLog,
+            hideSeries = HideSeries(FakeLibraryHiddenRepository(), mockk(relaxed = true), mockk(relaxed = true)),
         )
         val current = Manga.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,
@@ -1062,6 +1065,7 @@ class NovelEngine : MigrateEngine {
             ),
             readingLog = rec.readingLog,
             readingPace = NoReadingPace,
+            hideSeries = HideSeries(FakeLibraryHiddenRepository(), mockk(relaxed = true), mockk(relaxed = true)),
         )
         val current = Novel.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,

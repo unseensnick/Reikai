@@ -16,6 +16,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -85,6 +86,7 @@ class NovelHistoryBackupTest {
 
     private fun creator(chapters: NovelChapterRepository = NovelChapterRepositoryImpl(database)) = NovelBackupCreator(
 
+        libraryHides = FakeLibraryHiddenRepository(),
         tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(),

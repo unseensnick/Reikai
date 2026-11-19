@@ -1362,6 +1362,9 @@
     <string name="pref_track_update_errors_summary">Opened from the update notification</string>
     <string name="label_update_errors">Update errors</string>
     <string name="info_empty_update_errors">No update errors</string>
+    <string name="label_hidden_entries">Hidden entries</string>
+    <string name="info_empty_hidden_entries">No hidden entries</string>
+    <string name="information_library_all_hidden">Every entry here is hidden</string>
     <string name="action_clear">Clear</string>
     <string name="action_clear_all">Clear all</string>
     <string name="pref_debug_info">Debug info</string>

@@ -56,6 +56,8 @@ class BackupNovel(
     @ProtoNumber(705) override var volumeOwners: List<BackupVolumeOwner> = emptyList(),
     // A local series' remembered volume chip, by its key, which a restore finds again by the series' address.
     @ProtoNumber(706) override var volumePick: String? = null,
+    // Hidden from the library view, on manga's number; false on an older backup, which leaves the device's hides alone.
+    @ProtoNumber(708) var libraryHidden: Boolean = false,
     // The user's custom info, on the same numbers BackupManga uses (see BackupCustomInfoFields).
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

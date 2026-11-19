@@ -86,6 +86,8 @@ class BackupTableCoverageTest {
             "manga" to on(ROOT, 1),
             "chapter" to on(MANGA, 16),
             "history" to on(MANGA, 104),
+            "library_hidden_manga" to on(MANGA, 708),
+            "library_hidden_novel" to on(NOVEL, 708),
             "manga_track" to on(MANGA, 18),
             "manga_category" to on(MANGA, 17),
             "category" to on(ROOT, 2, 701),

@@ -122,9 +122,9 @@ class MangaLibraryAdapter(
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
-    override fun seriesTags(): List<List<String>> {
+    override fun seriesTagRows(): List<SeriesTagRow> {
         val data = model.state.value.libraryData
-        return data.allFavorites.map { it.seriesTags(data.customInfo[it.id]?.genre) }
+        return data.allFavorites.map { SeriesTagRow(it, it.seriesTags(data.customInfo[it.id]?.genre)) }
     }
 
     private fun LibraryViewModel.State.toNeutral() = LibraryScreenState(

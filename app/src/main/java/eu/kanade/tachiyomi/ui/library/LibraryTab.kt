@@ -71,6 +71,7 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.TravelExplore
+import mihon.icons.materialsymbols.roundedfilled.VisibilityOff // RK
 import reikai.data.local.LocalMoveResult // RK
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.entry.EntryId
@@ -94,6 +95,7 @@ import reikai.presentation.library.ManualOrderDrag
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.ReikaiLibraryHopperOverlay
 import reikai.presentation.library.TagFilterStrip
+import reikai.presentation.library.hidden.HiddenEntriesScreen // RK
 import reikai.presentation.library.libraryToolbarTitle
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
@@ -532,6 +534,7 @@ data object LibraryTab : Tab {
                                 null
                             }
                         },
+                        onClickHiddenEntries = { navigator.push(HiddenEntriesScreen(libraryContentType)) }, // RK
                         onClickStats = { navigator.push(StatsScreen()) }.takeIf { statsInMenus }, // RK
                         onClickImport = { navigator.push(LocalImportScreen()) }, // RK
                         searchQuery = activeSearchQuery,
@@ -601,6 +604,7 @@ data object LibraryTab : Tab {
                     onCombineClicked = engine::openCombineDialog.takeIf {
                         engine.canCombineSelection(libraryContentType)
                     },
+                    onHideClicked = engine::hideSelection, // RK
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -621,6 +625,20 @@ data object LibraryTab : Tab {
                                 stringRes = MR.strings.getting_started_guide,
                                 icon = MaterialSymbols.AutoMirroredRounded.Help,
                                 onClick = { handler.openUri(GETTING_STARTED_URL) },
+                            ),
+                        ),
+                    )
+                }
+                // RK: every series the view would show is hidden, so say so and point to where they went
+                activeBuckets.isEmpty() && activeSearchQuery.isNullOrEmpty() && (assembled?.hiddenCount ?: 0) > 0 -> {
+                    EmptyScreen(
+                        stringRes = MR.strings.information_library_all_hidden,
+                        modifier = Modifier.padding(contentPadding),
+                        actions = listOf(
+                            EmptyScreenAction(
+                                stringRes = MR.strings.label_hidden_entries,
+                                icon = MaterialSymbols.RoundedFilled.VisibilityOff,
+                                onClick = { navigator.push(HiddenEntriesScreen(libraryContentType)) },
                             ),
                         ),
                     )

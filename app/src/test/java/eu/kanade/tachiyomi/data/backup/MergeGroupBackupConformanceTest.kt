@@ -28,6 +28,7 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -199,6 +200,7 @@ class NovelMergeRoundTrip : MergeRoundTrip(ContentType.NOVELS) {
     }
 
     private fun creator() = NovelBackupCreator(
+        libraryHides = FakeLibraryHiddenRepository(),
         tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk {

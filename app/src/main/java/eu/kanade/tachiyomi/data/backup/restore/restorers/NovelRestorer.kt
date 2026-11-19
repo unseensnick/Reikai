@@ -320,6 +320,9 @@ class NovelRestorer(
         }
     }
 
+    /** The restored row a backup ref names, for the steps that run once every entry is back. */
+    suspend fun restoredId(source: String, url: String): Long? = novelRepository.getByUrlAndSource(url, source)?.id
+
     /** An older root-list row for a novel the backup does not list, applied when the device has it. */
     suspend fun restoreCustomInfo(source: String, url: String, info: BackupCustomInfo) {
         novelRepository.getByUrlAndSource(url, source)?.let { restoreCustomInfo(it.id, info) }

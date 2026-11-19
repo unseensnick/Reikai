@@ -1,6 +1,7 @@
 package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId
 
 /** Whether this row stands for a merge group of more than one source. */
 val LibraryItem.isMerged: Boolean get() = relatedMangaIds.size > 1
@@ -17,3 +18,14 @@ fun Map<Long, LibraryItem>.memberIdsOf(ids: Collection<Long>): List<Long> =
     ids.flatMap { this[it]?.memberIds().orEmpty() }.distinct()
 
 fun Map<Long, LibraryItem>.anyMerged(ids: Collection<Long>): Boolean = ids.any { this[it]?.isMerged == true }
+
+/**
+ * Whether [item] is hidden from the library view: hiding any member hides the series, so a merged row
+ * shows hidden through any of its sources. The one rule every hidden-entry reader asks. Members are raw
+ * ids of the row's own type, typed through [LibraryItem.entryId], since manga and novel ids collide.
+ */
+fun isHiddenFromLibrary(item: LibraryItem, hidden: Set<EntryId>): Boolean {
+    if (hidden.isEmpty()) return false
+    val type = item.entryId.contentType
+    return item.memberIds().any { EntryId.of(type, it) in hidden }
+}

@@ -32,6 +32,7 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -143,6 +144,7 @@ class ChapterNumberOverrideBackupTest {
             override suspend fun backedUp(database: Database, overrides: ChapterNumberOverrideRepositoryImpl) =
                 BackupManga(source = 1L, url = "u").also { backup ->
                     MangaBackupCreator(
+                        libraryHides = FakeLibraryHiddenRepository(),
                         tombstones = NoChapterTombstoneRepository,
                         manualOrder = FakeLibraryManualOrderRepository(),
                         mangaRepository = mockk(),
@@ -191,6 +193,7 @@ class ChapterNumberOverrideBackupTest {
             override suspend fun backedUp(database: Database, overrides: ChapterNumberOverrideRepositoryImpl) =
                 BackupNovel(source = "src", url = "u").also { backup ->
                     NovelBackupCreator(
+                        libraryHides = FakeLibraryHiddenRepository(),
                         tombstones = NoChapterTombstoneRepository,
                         manualOrder = FakeLibraryManualOrderRepository(),
                         novelRepository = mockk(),

@@ -59,6 +59,7 @@ class MergeGroupRepositoryImpl(
             queries.insertGroup(contentType.toDbValue())
             val groupId = queries.selectLastInsertedRowId().awaitAsOne()
             distinct.forEach { insertMember(contentType, groupId, it) }
+            showGroup(contentType, groupId)
             groupId
         }
     }
@@ -173,6 +174,7 @@ class MergeGroupRepositoryImpl(
                 insertMember(contentType, groupId, id, index.toLong())
             }
         }
+        if (order.size > kept.size) showGroup(contentType, groupId)
         return groupId
     }
 
@@ -223,6 +225,7 @@ class MergeGroupRepositoryImpl(
             deleteMember(contentType, oldId)
             when (val newGroupId = getGroupId(contentType, newId)) {
                 groupId -> {}
+                // A swap, not a join: the target takes the outgoing member's place, its hide included.
                 null -> insertMember(contentType, groupId, newId)
                 // The new member brings its own group along, exactly as an absorb does: this group's
                 // row survives and keeps its own ranking, the absorbed one's row goes. Its members
@@ -232,6 +235,7 @@ class MergeGroupRepositoryImpl(
                         deleteMember(contentType, member)
                         insertMember(contentType, groupId, member)
                     }
+                    showGroup(contentType, groupId)
                     queries.deleteGroup(newGroupId)
                 }
             }
@@ -319,6 +323,20 @@ class MergeGroupRepositoryImpl(
         when (contentType) {
             ContentType.MANGA -> queries.deleteMangaMember(entryId)
             ContentType.NOVELS -> queries.deleteNovelMember(entryId)
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+    }
+
+    /**
+     * A genuine join shows the whole group, so a hidden group cannot swallow the entry that joined it.
+     * Only the joins call this: [materializeGroup] puts back a group that already existed (undo split,
+     * restore) and keeps its hide. Clears the same rows as the group clause of library_hidden.sq's
+     * favourite triggers, which LibraryHiddenTest pins. Runs inside the caller's transaction.
+     */
+    private suspend fun showGroup(contentType: ContentType, groupId: Long) {
+        when (contentType) {
+            ContentType.MANGA -> database.library_hiddenQueries.showMangaGroup(groupId)
+            ContentType.NOVELS -> database.library_hiddenQueries.showNovelGroup(groupId)
             ContentType.ALL -> error(ALL_UNSUPPORTED)
         }
     }

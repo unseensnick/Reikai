@@ -23,6 +23,7 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -101,6 +102,7 @@ class BackupDatesConformanceTest {
                     startDate = dates.startDate, finishDate = dates.finishDate, private = false,
                 )
                 val creator = MangaBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = mockk {
@@ -174,6 +176,7 @@ class BackupDatesConformanceTest {
                     startDate = dates.startDate, finishDate = dates.finishDate, private = false,
                 )
                 val creator = NovelBackupCreator(
+                    libraryHides = FakeLibraryHiddenRepository(),
                     tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk(relaxed = true),

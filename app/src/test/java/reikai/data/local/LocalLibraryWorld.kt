@@ -50,6 +50,7 @@ import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.download.DownloadIndexRules
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesBlockedException
@@ -951,6 +952,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val wipe = rng.nextBoolean()
         trace += "  backup, ${if (wipe) "clear the library, " else ""}restore"
         val creator = MangaBackupCreator(
+            libraryHides = FakeLibraryHiddenRepository(),
             manualOrder = FakeLibraryManualOrderRepository(),
             mangaRepository = mockk { coEvery { getExcludedScanlatorsByMangaIds(any()) } returns emptyMap() },
             chapterRepository = app.chapterRepository,

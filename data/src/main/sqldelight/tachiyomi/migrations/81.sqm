@@ -1,0 +1,31 @@
+-- Entries hidden from the library view (library_hidden.sq), with the triggers that drop a hide on leaving
+-- the library and show a group when one of its entries rejoins it.
+CREATE TABLE library_hidden_manga (
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE library_hidden_novel (
+    novel_id INTEGER NOT NULL PRIMARY KEY,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+CREATE TRIGGER library_hidden_manga_favorite AFTER UPDATE OF user_favorite_at ON manga
+WHEN (old.user_favorite_at IS NULL) != (new.user_favorite_at IS NULL)
+BEGIN
+    DELETE FROM library_hidden_manga WHERE manga_id = new.id OR (new.user_favorite_at IS NOT NULL AND manga_id IN (
+        SELECT manga_id FROM merge_group_manga
+        WHERE group_id = (SELECT group_id FROM merge_group_manga WHERE manga_id = new.id)
+    ));
+END;
+
+CREATE TRIGGER library_hidden_novel_favorite AFTER UPDATE OF favorite_at ON novels
+WHEN (old.favorite_at IS NULL) != (new.favorite_at IS NULL)
+BEGIN
+    DELETE FROM library_hidden_novel WHERE novel_id = new._id OR (new.favorite_at IS NOT NULL AND novel_id IN (
+        SELECT novel_id FROM merge_group_novel
+        WHERE group_id = (SELECT group_id FROM merge_group_novel WHERE novel_id = new._id)
+    ));
+END;

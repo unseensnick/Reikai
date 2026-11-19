@@ -13,6 +13,8 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.FakeLibraryHiddenRepository
+import reikai.domain.library.HideSeries
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -61,6 +63,7 @@ class MigrateNovelUseCaseTest {
         syncRules = NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
         readingLog = NoReadingLog,
         readingPace = readingPace,
+        hideSeries = HideSeries(FakeLibraryHiddenRepository(), mockk(relaxed = true), mockk(relaxed = true)),
     )
 
     @Test

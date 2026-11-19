@@ -45,6 +45,7 @@ import reikai.data.backup.ApprovedRepos
 import reikai.data.backup.ForeignMergeReader
 import reikai.data.backup.ForeignMerges
 import reikai.data.backup.RestoreExtensionInstaller
+import reikai.data.backup.RestoreHiddenEntries
 import reikai.data.backup.RestoreInstallSources
 import reikai.data.backup.backedUpNovelSources
 import reikai.data.backup.isForeignMergedRow
@@ -117,6 +118,7 @@ class BackupRestorer(
     private val manualOrder: LibraryManualOrderRepository,
     private val novelFonts: NovelFontManager,
     private val combineLocalVolumes: CombineLocalVolumes,
+    private val restoreHiddenEntries: RestoreHiddenEntries,
     // RK <--
 ) {
 
@@ -455,6 +457,7 @@ class BackupRestorer(
             val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
             val owners = mutableListOf<VolumeOwner>()
             val localSeries = mutableListOf<String>()
+            val hiddenRefs = mutableListOf<Pair<String, String>>()
             val kitsuScale = summary.kitsuScoreScale
             restoreEntryStream(
                 uri,
@@ -465,6 +468,7 @@ class BackupRestorer(
                     }.also { novel ->
                         owners += novel.restoredOwners(novel.url)
                         if (LocalNovelSource.isLocal(novel.source)) localSeries += novel.url
+                        if (novel.libraryHidden) hiddenRefs += novel.source to novel.url
                         if (!summary.mergeGroupsStored && novel.favorite) {
                             favorites += PrefEraGrouping.Favorite(
                                 BackupNovelSourceRef(novel.url, novel.source),
@@ -504,6 +508,12 @@ class BackupRestorer(
                 alignGroupCategories.align(ContentType.NOVELS)
                 // A backup made before the upgrade that gathered them carries each member's own reader flags.
                 gatherGroupViewerFlags.gather(ContentType.NOVELS)
+            }
+            // After the merges, never per entry: see RestoreHiddenEntries.
+            restoreIsolated("hidden novels") {
+                restoreHiddenEntries.restore(ContentType.NOVELS, hiddenRefs) { (source, url) ->
+                    novelRestorer.restoredId(source, url)
+                }
             }
         }
     }
@@ -559,6 +569,7 @@ class BackupRestorer(
         val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupMangaSourceRef>>()
         val owners = mutableListOf<VolumeOwner>() // RK: applied once every series is back
         val localSeries = mutableListOf<String>() // RK: settled against the device's grouping then
+        val hiddenRefs = mutableListOf<Pair<Long, String>>() // RK: applied after the merges
         restoreEntryStream(
             uri,
             fieldNumber = BackupFields.MANGA,
@@ -567,6 +578,7 @@ class BackupRestorer(
                     .let(summary.foreignMerges::applyTo).also { manga ->
                         owners += manga.restoredOwners(manga.url) // RK
                         if (manga.source == LocalSource.ID) localSeries += manga.url // RK
+                        if (manga.libraryHidden) hiddenRefs += manga.source to manga.url // RK
                         if (!summary.mergeGroupsStored && manga.favorite && !manga.isForeignMergedRow) {
                             favorites += PrefEraGrouping.Favorite(
                                 BackupMangaSourceRef(manga.url, manga.source),
@@ -608,6 +620,12 @@ class BackupRestorer(
             alignGroupCategories.align(ContentType.MANGA)
             // RK: a backup made before the upgrade that gathered them carries each member's own reader flags
             gatherGroupViewerFlags.gather(ContentType.MANGA)
+        }
+        // RK: after the merges, never per entry: see RestoreHiddenEntries
+        restoreIsolated("hidden manga") {
+            restoreHiddenEntries.restore(ContentType.MANGA, hiddenRefs) { (source, url) ->
+                mangaRestorer.restoredId(source, url)
+            }
         }
     }
 

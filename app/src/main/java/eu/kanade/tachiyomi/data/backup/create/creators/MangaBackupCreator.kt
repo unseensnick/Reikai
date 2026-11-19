@@ -27,6 +27,7 @@ import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.readinglog.ReadingLogRepository
@@ -73,6 +74,8 @@ class MangaBackupCreator(
     private val manualOrder: LibraryManualOrderRepository,
     // RK: a local series' removed chapters' kept reading state, carried with its chapters.
     private val tombstones: ChapterTombstoneRepository,
+    // RK: whether each entry is hidden from the library view.
+    private val libraryHides: LibraryHiddenRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
 
     // RK: history keys by chapter url, so it reuses the chapters part's read of the same chunk, as upstream reads once
@@ -99,11 +102,13 @@ class MangaBackupCreator(
 
     override suspend fun base(entries: List<Manga>): List<BackupManga> {
         val excludedScanlatorsByMangaId = mangaRepository.getExcludedScanlatorsByMangaIds(entries.map { it.id })
+        val hiddenIds = libraryHides.subscribe(ContentType.MANGA).first() // RK
         val backups = entries.map { entry ->
             // Entry for this manga
             val mangaObject = entry.toBackupManga()
 
             mangaObject.excludedScanlators = excludedScanlatorsByMangaId[entry.id].orEmpty()
+            mangaObject.libraryHidden = entry.id in hiddenIds // RK
 
             // Carry captured adult/EXH gallery metadata so a restore brings the tags back.
             mangaMetadataRepository.getMetadataById(entry.id)?.let { meta ->

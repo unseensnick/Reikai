@@ -34,6 +34,7 @@ import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterRepository
@@ -71,6 +72,7 @@ class NovelBackupCreator(
     private val localNovelLanguages: LocalNovelLanguageRepository,
     private val manualOrder: LibraryManualOrderRepository,
     private val tombstones: ChapterTombstoneRepository,
+    private val libraryHides: LibraryHiddenRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     // The chapters part reads the word counts and history the read-aloud times, from the same chunk-wide row.
@@ -106,9 +108,11 @@ class NovelBackupCreator(
     override suspend fun base(entries: List<Novel>): List<BackupNovel> {
         // Keyed by series path alone, so only a local novel reads it.
         val languages = localNovelLanguages.getAll()
+        val hiddenIds = libraryHides.subscribe(ContentType.NOVELS).first()
         val backups = entries.map { novel ->
             novel.toBackupNovel().apply {
                 if (LocalNovelSource.isLocal(novel.source)) language = languages[novel.url]
+                libraryHidden = novel.id in hiddenIds
             }
         }
         // A local series' grouping describes the series, not its chapters, so it rides with every entry.

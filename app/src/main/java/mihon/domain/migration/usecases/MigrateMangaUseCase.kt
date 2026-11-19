@@ -19,6 +19,7 @@ import reikai.domain.backup.mergedHistory // RK
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType // RK
+import reikai.domain.library.HideSeries // RK
 import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.readinglog.ReadingLogRepository // RK
@@ -71,6 +72,7 @@ class MigrateMangaUseCase(
     private val getHistory: GetHistory,
     private val historyRepository: HistoryRepository,
     private val readingLog: ReadingLogRepository, // RK: and so does its reading log
+    private val hideSeries: HideSeries, // RK: a replace keeps the series hidden from the library
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -233,18 +235,20 @@ class MigrateMangaUseCase(
             // rewrite: the source ended up out of the library but still in the group, feeding
             // chapters into it while invisible there and unreachable to unmerge.
             transactions.runThrowingOnRollback {
-                // The target takes the source's place in the group on a replace, or joins it on a
-                // copy. Works for manual and same-title auto groups.
-                if (replace) {
-                    mangaMergeManager.replaceInGroup(current.id, target.id)
-                } else if (mergeGroup.size > 1) {
-                    mangaMergeManager.merge(mergeGroup.toList() + target.id)
-                }
-                // Checked, where upstream discards the result. The swap is the step that decides which
-                // entry is in the library; letting it fail quietly reports the row as Migrated with
-                // the source still favorited. Throwing here rolls the group rewrite back with it.
-                check(updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))) {
-                    "Migration favorite swap failed (${current.id} -> ${target.id})"
+                hideSeries.keepAcrossSwap(EntryId.Manga(current.id), EntryId.Manga(target.id), replace) {
+                    // The target takes the source's place in the group on a replace, or joins it on a
+                    // copy. Works for manual and same-title auto groups.
+                    if (replace) {
+                        mangaMergeManager.replaceInGroup(current.id, target.id)
+                    } else if (mergeGroup.size > 1) {
+                        mangaMergeManager.merge(mergeGroup.toList() + target.id)
+                    }
+                    // Checked, where upstream discards the result. The swap is the step that decides which
+                    // entry is in the library; letting it fail quietly reports the row as Migrated with
+                    // the source still favorited. Throwing here rolls the group rewrite back with it.
+                    check(updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))) {
+                        "Migration favorite swap failed (${current.id} -> ${target.id})"
+                    }
                 }
             }
             groupCategories.fileMigrationTarget(target.id, categoryIds, mangaMergeManager)

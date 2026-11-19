@@ -35,9 +35,12 @@ import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.CategoryContentType
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.HideSeries
 import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.EntryMergeManager
 import reikai.domain.stats.StatsShortcut
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -119,6 +122,7 @@ class LibraryEngineTest {
         shown: ContentType = ContentType.ALL,
         statsShortcut: StatsShortcut = StatsShortcut.OFF,
         manualOrder: FakeLibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
+        hides: FakeLibraryHiddenRepository = FakeLibraryHiddenRepository(),
     ): LibraryEngine {
         val store = EmittingPreferenceStore()
         val uiPreferences = UiPreferences(store).also { it.statsShortcut.set(statsShortcut) }
@@ -143,8 +147,75 @@ class LibraryEngineTest {
                 manualOrderRepository = manualOrder,
                 appScope = testAppScope(),
                 combineLocalVolumes = mockk(relaxed = true),
+                hideSeries = HideSeries(hides, soloGroups(), soloGroups()),
             ),
         )
+    }
+
+    /** A merge manager whose every entry is its own group, so a hide writes the entry alone. */
+    private inline fun <reified M : EntryMergeManager> soloGroups(): M = mockk {
+        coEvery { groupLibraryMembers(any()) } answers { listOf(firstArg()) }
+    }
+
+    /** Manga 1 hidden; manga 2 not; novel 1, sharing manga 1's row id, not; novel 5 hidden through member 9. */
+    private fun engineWithHides(): LibraryEngine {
+        val reading = Category(id = 11, name = "Reading", order = 0, flags = 0)
+        val manga = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11)), row(2, listOf(11))))
+        val novels = provider(
+            ContentType.NOVELS,
+            rows = listOf(
+                row(1, listOf(11)).copy(entryId = n1),
+                row(5, listOf(11)).copy(entryId = EntryId.Novel(5), relatedMangaIds = listOf(5L, 9L)),
+            ),
+        )
+        val hides = FakeLibraryHiddenRepository(setOf(m1, EntryId.Novel(9)))
+        return engineOver(listOf(manga, novels), categories = listOf(reading), hides = hides)
+            .also { it.setContentType(ContentType.ALL) }
+    }
+
+    @Test
+    fun `a hidden series leaves the assembly, either type, a merged one through any member`() = runTest {
+        engineWithHides().assembled.first { it?.chip == ContentType.ALL }!!.presentIds shouldContainExactlyInAnyOrder
+            listOf(m2, n1)
+    }
+
+    @Test
+    fun `the assembly counts the series it left out as hidden`() = runTest {
+        engineWithHides().assembled.first { it?.chip == ContentType.ALL }!!.hiddenCount shouldBe 2
+    }
+
+    @Test
+    fun `a hidden series' tags are not offered, either type`() {
+        val mangaRows = listOf(
+            SeriesTagRow(row(5, emptyList()).copy(relatedMangaIds = listOf(5L, 6L)), listOf("Action")),
+            SeriesTagRow(row(7, emptyList()), listOf("Drama")),
+        )
+        val novelRows = listOf(
+            SeriesTagRow(
+                row(5, emptyList()).copy(relatedMangaIds = listOf(5L, 9L), entryId = EntryId.Novel(5)),
+                listOf("Romance"),
+            ),
+            SeriesTagRow(row(6, emptyList()).copy(entryId = EntryId.Novel(6)), listOf("Mystery")),
+        )
+        val manga = provider(ContentType.MANGA).also { every { it.seriesTagRows() } returns mangaRows }
+        val novels = provider(ContentType.NOVELS).also { every { it.seriesTagRows() } returns novelRows }
+        val hides = FakeLibraryHiddenRepository(setOf(EntryId.Manga(6), EntryId.Novel(9)))
+        val engine = engineOver(listOf(manga, novels), hides = hides)
+
+        engine.settingsFor(ContentType.ALL).tagFilter.seriesTags() shouldBe listOf(listOf("Drama"), listOf("Mystery"))
+    }
+
+    @Test
+    fun `hiding the selection hides each selected series, either type`() = runTest {
+        val hides = FakeLibraryHiddenRepository()
+        val engine = engineOver(listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)), hides = hides)
+        engine.toggleSelection(bucket, m2)
+        engine.toggleSelection(bucket, n1)
+
+        engine.hideSelection()
+
+        // The write runs on the app scope, one series at a time, so wait for the last of the two.
+        hides.rows.first { it.size == 2 } shouldContainExactlyInAnyOrder listOf(m2, n1)
     }
 
     private val screenState = LibraryScreenState(

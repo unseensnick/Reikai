@@ -15,6 +15,7 @@ import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.HideSeries
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelHistoryRepository
@@ -68,6 +69,7 @@ class MigrateNovelUseCase(
     private val novelHistoryRepository: NovelHistoryRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
+    private val hideSeries: HideSeries,
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
@@ -200,18 +202,20 @@ class MigrateNovelUseCase(
                 if (NovelMigrationFlag.NOTES in flags) notes = current.notes
             }
             transactions.runThrowingOnRollback {
-                // Keep the merge consistent: the target takes the source's place in the group on a
-                // replace, or joins it on a copy.
-                if (replace) {
-                    novelMergeManager.replaceInGroup(current.id, target.id)
-                } else if (group.size > 1) {
-                    novelMergeManager.merge(group.toList() + target.id)
-                }
-                // The repository swallows into a Boolean; a false MUST fail the row, or a half swap
-                // could drop the entry from the library with the row reading Migrated. Throwing here
-                // rolls the group rewrite back with it, which is the point of the shared transaction.
-                check(novelRepository.updateAll(listOfNotNull(currentUpdate, targetUpdate))) {
-                    "Migration favorite swap failed (${current.id} -> ${target.id})"
+                hideSeries.keepAcrossSwap(EntryId.Novel(current.id), EntryId.Novel(target.id), replace) {
+                    // Keep the merge consistent: the target takes the source's place in the group on a
+                    // replace, or joins it on a copy.
+                    if (replace) {
+                        novelMergeManager.replaceInGroup(current.id, target.id)
+                    } else if (group.size > 1) {
+                        novelMergeManager.merge(group.toList() + target.id)
+                    }
+                    // The repository swallows into a Boolean; a false MUST fail the row, or a half swap
+                    // could drop the entry from the library with the row reading Migrated. Throwing here
+                    // rolls the group rewrite back with it, which is the point of the shared transaction.
+                    check(novelRepository.updateAll(listOfNotNull(currentUpdate, targetUpdate))) {
+                        "Migration favorite swap failed (${current.id} -> ${target.id})"
+                    }
                 }
             }
             groupCategories.fileMigrationTarget(target.id, categoryIds, novelMergeManager)

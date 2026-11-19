@@ -113,6 +113,8 @@ class LibraryAssembled(
     val presentIds: Set<EntryId>,
     private val items: (LibraryBucket) -> List<LibraryItem>,
     private val counts: (LibraryBucket) -> Int? = { null },
+    /** The series of this view the user hid, which an empty view reads to say where they went. */
+    val hiddenCount: Int = 0,
 ) {
     fun itemsFor(bucket: LibraryBucket): List<LibraryItem> = items(bucket)
     fun countFor(bucket: LibraryBucket): Int? = counts(bucket)

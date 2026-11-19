@@ -250,6 +250,8 @@ fun LibraryBottomActionMenu(
     onExportClicked: (() -> Unit)? = null,
     // RK: combine local series into one with volumes; takes Merge's place, Merge moving into the overflow
     onCombineClicked: (() -> Unit)? = null,
+    // RK: hide the selected series from the library view, from the overflow
+    onHideClicked: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -276,8 +278,9 @@ fun LibraryBottomActionMenu(
                     if (isActive) confirm[toConfirmIndex] = false
                 }
             }
-            // RK: Export lives there, and Merge when Combine as volumes takes its place
-            val itemOverflow = onDownloadClicked != null || onExportClicked != null || onCombineClicked != null
+            // RK: Export and Hide live there, and Merge when Combine as volumes takes its place
+            val itemOverflow = onDownloadClicked != null || onExportClicked != null || onCombineClicked != null ||
+                onHideClicked != null
             Row(
                 modifier = Modifier
                     .windowInsetsPadding(
@@ -408,6 +411,15 @@ fun LibraryBottomActionMenu(
                                     onClick = {
                                         overflowMenuOpen = false
                                         onExportClicked()
+                                    },
+                                )
+                            }
+                            if (onHideClicked != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(MR.strings.action_hide)) },
+                                    onClick = {
+                                        overflowMenuOpen = false
+                                        onHideClicked()
                                     },
                                 )
                             }

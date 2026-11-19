@@ -1,0 +1,70 @@
+-- Library entries the user hid from the library view, one table per content type so each row cascades
+-- with its own entry. Only library entries hold a row: leaving the library drops it.
+CREATE TABLE library_hidden_manga (
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE library_hidden_novel (
+    novel_id INTEGER NOT NULL PRIMARY KEY,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+-- Leaving the library drops the entry's hide. Joining it shows the entry's whole group, so a hidden
+-- group cannot swallow the entry that rejoined it. Joining a group is cleared by MergeGroupRepositoryImpl
+-- at the genuine joins (showMangaGroup / showNovelGroup below clear the same rows as the group clause),
+-- never by a membership insert, which undo split and restore also make.
+CREATE TRIGGER library_hidden_manga_favorite AFTER UPDATE OF user_favorite_at ON manga
+WHEN (old.user_favorite_at IS NULL) != (new.user_favorite_at IS NULL)
+BEGIN
+    DELETE FROM library_hidden_manga WHERE manga_id = new.id OR (new.user_favorite_at IS NOT NULL AND manga_id IN (
+        SELECT manga_id FROM merge_group_manga
+        WHERE group_id = (SELECT group_id FROM merge_group_manga WHERE manga_id = new.id)
+    ));
+END;
+
+CREATE TRIGGER library_hidden_novel_favorite AFTER UPDATE OF favorite_at ON novels
+WHEN (old.favorite_at IS NULL) != (new.favorite_at IS NULL)
+BEGIN
+    DELETE FROM library_hidden_novel WHERE novel_id = new._id OR (new.favorite_at IS NOT NULL AND novel_id IN (
+        SELECT novel_id FROM merge_group_novel
+        WHERE group_id = (SELECT group_id FROM merge_group_novel WHERE novel_id = new._id)
+    ));
+END;
+
+insertManga:
+INSERT OR IGNORE INTO library_hidden_manga(manga_id) VALUES (:mangaId);
+
+deleteManga:
+DELETE FROM library_hidden_manga WHERE manga_id = :mangaId;
+
+selectAllManga:
+SELECT manga_id FROM library_hidden_manga;
+
+isMangaHidden:
+SELECT manga_id FROM library_hidden_manga WHERE manga_id = :mangaId;
+
+insertNovel:
+INSERT OR IGNORE INTO library_hidden_novel(novel_id) VALUES (:novelId);
+
+deleteNovel:
+DELETE FROM library_hidden_novel WHERE novel_id = :novelId;
+
+selectAllNovel:
+SELECT novel_id FROM library_hidden_novel;
+
+isNovelHidden:
+SELECT novel_id FROM library_hidden_novel WHERE novel_id = :novelId;
+
+-- The group clause of library_hidden_*_favorite, for MergeGroupRepositoryImpl's joins.
+showMangaGroup:
+DELETE FROM library_hidden_manga WHERE manga_id IN (
+    SELECT manga_id FROM merge_group_manga WHERE group_id = :groupId
+);
+
+showNovelGroup:
+DELETE FROM library_hidden_novel WHERE novel_id IN (
+    SELECT novel_id FROM merge_group_novel WHERE group_id = :groupId
+);

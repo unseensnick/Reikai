@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -42,6 +43,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
+import reikai.domain.library.HideSeries
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ManualOrderPosition
@@ -104,6 +106,7 @@ class LibraryEngine(
     // A stored order must land even when the drop closes the screen, as every library write does.
     @AppCoroutineScope private val appScope: CoroutineScope,
     private val combineLocalVolumes: CombineLocalVolumes,
+    private val hideSeries: HideSeries,
 ) : ViewModel() {
 
     /**
@@ -129,6 +132,15 @@ class LibraryEngine(
     val contentType: StateFlow<ContentType> by lazy {
         reikaiLibraryPreferences.libraryContentType.changes()
             .stateIn(viewModelScope, SharingStarted.Eagerly, reikaiLibraryPreferences.libraryContentType.get())
+    }
+
+    /**
+     * The series hidden from the library view, null until first read. Eager once started, because the
+     * tag picker reads it synchronously when it opens; the assembly waits for it rather than drawing a
+     * hidden series for a frame.
+     */
+    private val hiddenSeries: StateFlow<Set<EntryId>?> by lazy {
+        hideSeries.subscribeAll().stateIn(viewModelScope, SharingStarted.Eagerly, null)
     }
 
     /** Whether the overflow menu offers Statistics. */
@@ -196,7 +208,8 @@ class LibraryEngine(
             categoryRepository.getUnfilteredAsFlow(),
             prefsFlow,
             manualFlow,
-        ) { inputs, allCategories, prefs, manual ->
+            hiddenSeries.filterNotNull(),
+        ) { inputs, allCategories, prefs, manual, hidden ->
             // Piggybacked here rather than a collector of its own so it runs exactly when the list
             // changes: a selected entry the assembly dropped must leave the selection too, or the
             // toolbar count promises more than the verbs will touch. Pruned after the assembly, not
@@ -204,7 +217,7 @@ class LibraryEngine(
             // category, an emptied bucket and a lagging dynamic group all do, and those leave the
             // entry in the providers' rows, where the verbs would still find and act on it.
             // No assembly says nothing about what is on screen, so it prunes nothing.
-            assembleFor(inputs, allCategories, prefs, manual)
+            assembleFor(inputs, allCategories, prefs, manual, hidden)
                 ?.also { pruneSelection(it.presentIds) }
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
@@ -229,6 +242,7 @@ class LibraryEngine(
         allCategories: List<Category>,
         prefs: AssemblyPrefs,
         manual: ManualOrder,
+        hidden: Set<EntryId>,
     ): LibraryAssembled? {
         val chip = inputs.chip
         val active = providersFor(chip)
@@ -236,7 +250,9 @@ class LibraryEngine(
         // A provider in the view that has not loaded yet means no assembly, never one without its rows:
         // the tab would draw that as the whole library, short by every entry of that type. One outside
         // the view is not waited for, or the Manga chip would sit behind the novel plugins loading.
-        val rows = shown.flatMap { it.rows ?: return null }
+        // A hidden series leaves here, before bucketing, so every count, selection and pick follows.
+        val (hiddenRows, rows) = shown.flatMap { it.rows ?: return null }
+            .partition { isHiddenFromLibrary(it, hidden) }
         val searchActive = shown.any { !it.searchQuery.isNullOrEmpty() }
         // Lazy per provider, so only a view actually sorting by tracker score pays the computation.
         val means = active.associate { it.contentType to lazy(it::trackerMeans) }
@@ -268,6 +284,7 @@ class LibraryEngine(
             presentIds = presentIdsOf(assembledList),
             items = { bucket -> itemsByKey[bucket.key].orEmpty() },
             counts = { bucket -> if (showCounts) itemsByKey[bucket.key]?.size else null },
+            hiddenCount = hiddenRows.size,
         )
     }
 
@@ -455,7 +472,9 @@ class LibraryEngine(
             included = reikaiLibraryPreferences.filterCategoriesInclude,
             excluded = reikaiLibraryPreferences.filterCategoriesExclude,
         ),
-        tagFilter = LibraryTagFilter(reikaiLibraryPreferences) { providersFor(type).flatMap { it.seriesTags() } },
+        tagFilter = LibraryTagFilter(reikaiLibraryPreferences) {
+            offeredTags(providersFor(type).flatMap { it.seriesTagRows() }, hiddenSeries.value.orEmpty())
+        },
         categories = view.categories,
         groupMode = reikaiLibraryPreferences.groupLibraryBy,
         globalSort = globalSort,
@@ -670,6 +689,13 @@ class LibraryEngine(
     /** The providers owning part of [entries] with no local entry in it, which has nothing to download. */
     private fun List<LibraryProvider>.downloading(entries: Set<EntryId>): List<LibraryProvider> =
         owning(entries).filterNot { it.containsLocal(entries) }
+
+    /** Hides the selection's series from the library view, on the app scope as every library write is. */
+    fun hideSelection() {
+        val entries = selection.value
+        clearSelection()
+        appScope.launchIO { hideSeries.hide(entries) }
+    }
 
     fun mergeSelection(contentType: ContentType) =
         dispatchAndClear(contentType) { it.mergeSelection(selection.value) }

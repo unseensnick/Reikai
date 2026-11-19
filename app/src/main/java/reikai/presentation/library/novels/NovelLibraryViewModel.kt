@@ -65,6 +65,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibrarySearchInputs
 import reikai.presentation.library.MergeCollapseInputs
+import reikai.presentation.library.SeriesTagRow
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
@@ -486,8 +487,10 @@ class NovelLibraryViewModel(
 
         val isLibraryEmpty = favoritesById.isEmpty()
 
-        /** LibraryProvider.seriesTags: every novel's tags, its Edit info tags where set. */
-        fun seriesTags(): List<List<String>> = allFavorites.map { it.seriesTags(customInfo[it.id]?.genre) }
+        /** LibraryProvider.seriesTagRows: every novel row with its tags, its Edit info tags where set. */
+        fun seriesTagRows(): List<SeriesTagRow> = allFavorites.map {
+            SeriesTagRow(it, it.seriesTags(customInfo[it.id]?.genre))
+        }
 
         // These resolve an explicit id set rather than reading the selection, so a bulk action is driven
         // by the ids its caller passes. That is what lets the shared engine own a selection spanning both
