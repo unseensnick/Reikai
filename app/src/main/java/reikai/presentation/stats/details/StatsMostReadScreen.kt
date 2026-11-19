@@ -26,43 +26,46 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /** The overview's Most read card in full; tapping a series opens its details. */
-class StatsMostReadScreen : Screen() {
+class StatsMostReadRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = metroViewModel<StatsMostReadViewModel>()
-        StatsRefreshOnResume(viewModel::refresh)
-        val titles by viewModel.titles.collectAsState()
+    override fun Content() = StatsMostReadScreen()
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.stats_most_read),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { paddingValues ->
-            val current = titles
-            when {
-                current == null -> LoadingScreen()
-                current.isEmpty() -> EmptyScreen(
-                    MR.strings.stats_nothing_read,
-                    modifier = Modifier.padding(paddingValues),
-                )
-                else -> LazyColumn(contentPadding = paddingValues, horizontalAlignment = Alignment.CenterHorizontally) {
-                    items(current, key = { it.entryId.toString() }) { title ->
-                        StatsCoverTitleLine(
-                            title = title.name,
-                            readMs = title.readMs,
-                            cover = title.cover,
-                            modifier = Modifier.widthIn(
-                                max = READING_MAX_WIDTH,
-                            ).padding(horizontal = MaterialTheme.padding.medium),
-                        ) {
-                            navigator.push(title.entryId.detailsScreen())
-                        }
+@Composable
+fun StatsMostReadScreen() {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = metroViewModel<StatsMostReadViewModel>()
+    StatsRefreshOnResume(viewModel::refresh)
+    val titles by viewModel.titles.collectAsState()
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.stats_most_read),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { paddingValues ->
+        val current = titles
+        when {
+            current == null -> LoadingScreen()
+            current.isEmpty() -> EmptyScreen(
+                MR.strings.stats_nothing_read,
+                modifier = Modifier.padding(paddingValues),
+            )
+            else -> LazyColumn(contentPadding = paddingValues, horizontalAlignment = Alignment.CenterHorizontally) {
+                items(current, key = { it.entryId.toString() }) { title ->
+                    StatsCoverTitleLine(
+                        title = title.name,
+                        readMs = title.readMs,
+                        cover = title.cover,
+                        modifier = Modifier.widthIn(
+                            max = READING_MAX_WIDTH,
+                        ).padding(horizontal = MaterialTheme.padding.medium),
+                    ) {
+                        navigator.push(title.entryId.detailsScreen())
                     }
                 }
             }

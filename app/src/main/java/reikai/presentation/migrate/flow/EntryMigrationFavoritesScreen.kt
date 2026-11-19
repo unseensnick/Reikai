@@ -70,111 +70,114 @@ import kotlin.time.Duration.Companion.seconds
  * Back and the up arrow clear a selection before they leave, as Mihon's picker does; Continue keeps
  * it where Mihon clears it, since backing out of config is the only way to adjust the set.
  */
-class EntryMigrationFavoritesScreen(
+class EntryMigrationFavoritesRoute(
     private val contentType: ContentType,
     private val sourceKey: String,
-) : Screen(), MigrationFlowScreen {
+) : Screen(), MigrationFlowRoute {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val adapter = rememberMigrationAdapter(contentType)
-        val viewModel =
-            assistedMetroViewModel<EntryMigrationFavoritesViewModel, EntryMigrationFavoritesViewModel.Factory> {
-                create(
-                    adapter = adapter,
-                    sourceKey = sourceKey,
-                )
-            }
-        val state by viewModel.state.collectAsStateWithLifecycle()
-        val listState = rememberLazyListState()
+    override fun Content() = EntryMigrationFavoritesScreen(contentType, sourceKey)
+}
 
-        if (state.isLoading) {
-            LoadingScreen()
-            return
+@Composable
+fun EntryMigrationFavoritesScreen(contentType: ContentType, sourceKey: String) {
+    val navigator = LocalNavigator.currentOrThrow
+    val adapter = rememberMigrationAdapter(contentType)
+    val viewModel =
+        assistedMetroViewModel<EntryMigrationFavoritesViewModel, EntryMigrationFavoritesViewModel.Factory> {
+            create(
+                adapter = adapter,
+                sourceKey = sourceKey,
+            )
         }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
 
-        BackHandler(enabled = state.selected.isNotEmpty()) {
-            viewModel.clearSelection()
-        }
+    if (state.isLoading) {
+        LoadingScreen()
+        return
+    }
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = state.sourceName,
-                    navigateUp = {
-                        if (state.selected.isNotEmpty()) {
-                            viewModel.clearSelection()
-                        } else {
-                            navigator.pop()
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        if (state.entries.isNotEmpty()) {
-                            AppBarActions(
-                                listOf(
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_select_all),
-                                        icon = MaterialSymbols.Rounded.SelectAll,
-                                        onClick = viewModel::selectAll,
-                                    ),
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_select_inverse),
-                                        icon = MaterialSymbols.Rounded.FlipToBack,
-                                        onClick = viewModel::invertSelection,
-                                    ),
+    BackHandler(enabled = state.selected.isNotEmpty()) {
+        viewModel.clearSelection()
+    }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = state.sourceName,
+                navigateUp = {
+                    if (state.selected.isNotEmpty()) {
+                        viewModel.clearSelection()
+                    } else {
+                        navigator.pop()
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    if (state.entries.isNotEmpty()) {
+                        AppBarActions(
+                            listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_select_all),
+                                    icon = MaterialSymbols.Rounded.SelectAll,
+                                    onClick = viewModel::selectAll,
                                 ),
-                            )
-                        }
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_select_inverse),
+                                    icon = MaterialSymbols.Rounded.FlipToBack,
+                                    onClick = viewModel::invertSelection,
+                                ),
+                            ),
+                        )
+                    }
+                },
+            )
+        },
+        floatingActionButton = {
+            if (state.selected.isNotEmpty()) {
+                SmallExtendedFloatingActionButton(
+                    text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
+                    icon = {
+                        Icon(
+                            imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward,
+                            contentDescription = null,
+                        )
                     },
+                    onClick = {
+                        navigator.push(
+                            EntryMigrationConfigRoute(contentType, state.selected.map { it.rawId }),
+                        )
+                    },
+                    expanded = listState.shouldExpandFAB(),
                 )
-            },
-            floatingActionButton = {
-                if (state.selected.isNotEmpty()) {
-                    SmallExtendedFloatingActionButton(
-                        text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
-                        icon = {
-                            Icon(
-                                imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward,
-                                contentDescription = null,
-                            )
-                        },
-                        onClick = {
-                            navigator.push(
-                                EntryMigrationConfigScreen(contentType, state.selected.map { it.rawId }),
-                            )
-                        },
-                        expanded = listState.shouldExpandFAB(),
-                    )
-                }
-            },
-        ) { contentPadding ->
-            if (state.entries.isEmpty()) {
-                EmptyScreen(
-                    // A failed read is not an empty source, and saying "no entries" would send the
-                    // user looking for a library problem that isn't there.
-                    stringRes = if (state.failed) MR.strings.internal_error else MR.strings.information_empty_library,
-                    modifier = Modifier.padding(contentPadding),
-                )
-                return@Scaffold
             }
-            FastScrollLazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = contentPadding,
-            ) {
-                items(items = state.entries, key = { it.id.toString() }) { entry ->
-                    MigrationPickRow(
-                        title = entry.title,
-                        subtitle = null,
-                        coverData = entry.cover,
-                        checked = entry.id in state.selected,
-                        onToggle = { viewModel.toggle(entry.id) },
-                        onLongClick = { viewModel.rangeSelect(entry.id) },
-                        onClickCover = { entry.openDetails(navigator) },
-                    )
-                }
+        },
+    ) { contentPadding ->
+        if (state.entries.isEmpty()) {
+            EmptyScreen(
+                // A failed read is not an empty source, and saying "no entries" would send the
+                // user looking for a library problem that isn't there.
+                stringRes = if (state.failed) MR.strings.internal_error else MR.strings.information_empty_library,
+                modifier = Modifier.padding(contentPadding),
+            )
+            return@Scaffold
+        }
+        FastScrollLazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+        ) {
+            items(items = state.entries, key = { it.id.toString() }) { entry ->
+                MigrationPickRow(
+                    title = entry.title,
+                    subtitle = null,
+                    coverData = entry.cover,
+                    checked = entry.id in state.selected,
+                    onToggle = { viewModel.toggle(entry.id) },
+                    onLongClick = { viewModel.rangeSelect(entry.id) },
+                    onClickCover = { entry.openDetails(navigator) },
+                )
             }
         }
     }

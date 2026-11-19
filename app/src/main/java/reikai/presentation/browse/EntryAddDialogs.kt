@@ -5,7 +5,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
@@ -22,7 +21,7 @@ import tachiyomi.i18n.MR
  * with that surface.
  */
 @Composable
-fun Screen.EntryAddDialogs(flow: EntryAddFlow<*>) {
+fun EntryAddDialogs(flow: EntryAddFlow<*>) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
     LaunchedEffect(flow) {

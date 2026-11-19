@@ -17,7 +17,7 @@ import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import mihon.app.di.appGraph
 import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.repos.RepositoriesScreen
+import reikai.presentation.browse.repos.RepositoriesRoute
 import reikai.presentation.components.LocalShownContent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -99,7 +99,7 @@ object SettingsBrowseScreen : SearchableSettings {
                             pluralStringResource(MR.plurals.repo_count, it, it)
                         },
                         onClick = {
-                            navigator.push(RepositoriesScreen())
+                            navigator.push(RepositoriesRoute())
                         },
                     ),
                     // RK <--

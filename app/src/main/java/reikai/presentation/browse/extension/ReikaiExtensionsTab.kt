@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -74,9 +73,9 @@ import reikai.presentation.browse.components.NovelSourceIcon
 import reikai.presentation.browse.components.SourceNameRow
 import reikai.presentation.browse.components.failedInstall
 import reikai.presentation.browse.components.retryInstall
-import reikai.presentation.browse.extension.details.NovelPluginDetailsScreen
-import reikai.presentation.browse.repos.RepositoriesScreen
-import reikai.presentation.browse.source.EntrySourcesFilterScreen
+import reikai.presentation.browse.extension.details.NovelPluginDetailsRoute
+import reikai.presentation.browse.repos.RepositoriesRoute
+import reikai.presentation.browse.source.EntrySourcesFilterRoute
 import reikai.presentation.browse.sourceLanguageName
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
@@ -103,7 +102,7 @@ import tachiyomi.presentation.core.util.plus
  * its call site; the replaced builder is deleted (see the off-path manifest).
  */
 @Composable
-fun Screen.reikaiExtensionsTab(
+fun reikaiExtensionsTab(
     extensionsViewModel: ExtensionsViewModel,
     browseViewModel: ReikaiBrowseViewModel,
 ): TabContent {
@@ -122,7 +121,7 @@ fun Screen.reikaiExtensionsTab(
     val novelCount by browseViewModel.novelUpdatesCount.collectAsStateWithLifecycle()
     val totalCount by browseViewModel.totalUpdatesCount.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsStateWithLifecycle()
-    val openRepos = { navigator.push(RepositoriesScreen()) }
+    val openRepos = { navigator.push(RepositoriesRoute()) }
 
     return TabContent(
         titleRes = MR.strings.label_extensions,
@@ -136,7 +135,7 @@ fun Screen.reikaiExtensionsTab(
                 onClick = {
                     navigator.push(
                         if (contentType == ContentType.NOVELS) {
-                            EntrySourcesFilterScreen(ContentType.NOVELS)
+                            EntrySourcesFilterRoute(ContentType.NOVELS)
                         } else {
                             ExtensionFilterScreen()
                         },
@@ -581,7 +580,7 @@ private fun NovelExtensionRow(
                 }
             } else {
                 ExtensionAction(MaterialSymbols.Rounded.Settings, MR.strings.action_settings) {
-                    navigator.push(NovelPluginDetailsScreen(update.entry.id))
+                    navigator.push(NovelPluginDetailsRoute(update.entry.id))
                 }
             }
             PluginRow(
@@ -625,13 +624,13 @@ private fun NovelExtensionRow(
             version = state.installedVersions[payload.id],
             repoName = state.installedRepoNames[payload.id],
             // As an installed manga extension's row: a tap or its settings button opens its page.
-            onClickItem = { navigator.push(NovelPluginDetailsScreen(payload.id)) },
+            onClickItem = { navigator.push(NovelPluginDetailsRoute(payload.id)) },
             onLongClickItem = { onConfirmUninstall(payload) },
             badge = badge,
             action = {
                 ExtensionActionButtons(
                     secondary = ExtensionAction(MaterialSymbols.Rounded.Settings, MR.strings.action_settings) {
-                        navigator.push(NovelPluginDetailsScreen(payload.id))
+                        navigator.push(NovelPluginDetailsRoute(payload.id))
                     },
                     primary = null,
                 )

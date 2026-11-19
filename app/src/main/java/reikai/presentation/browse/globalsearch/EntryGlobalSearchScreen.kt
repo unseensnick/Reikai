@@ -27,7 +27,7 @@ import reikai.domain.library.labelRes
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryBrowseRow
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
@@ -53,7 +53,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * [GlobalSearchEngine]; this draws what it is given and routes a tap. A long press goes to the result's
  * own content type's add flow, whose questions the shared [EntryAddDialogs] draw.
  */
-class EntryGlobalSearchScreen(
+class EntryGlobalSearchRoute(
     val searchQuery: String = "",
     private val extensionFilter: String? = null,
     /**
@@ -66,143 +66,151 @@ class EntryGlobalSearchScreen(
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val opener = rememberDetailsOpener()
-        val context = LocalContext.current
-        val novels = remember { context.appGraph.novelLibraryAdder }
+    override fun Content() = EntryGlobalSearchScreen(searchQuery, extensionFilter, scopedContentType, sourceFilter)
+}
 
-        val mangaModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
-            create(initialExtensionFilter = extensionFilter)
-        }
-        val novelModel = metroViewModel<NovelGlobalSearchViewModel>()
-        val providers = remember(mangaModel, novelModel) {
-            listOf(MangaGlobalSearchProvider(mangaModel), NovelGlobalSearchProvider(novelModel))
-        }
-        val engine = assistedMetroViewModel<GlobalSearchEngine, GlobalSearchEngine.Factory> {
-            // A deep link names one extension, so every source of it is in scope whether or not it is
-            // pinned. Handed in for this search only, so it never replaces the filter you last chose.
-            val filter = sourceFilter ?: SearchSourceFilter.All.takeUnless { extensionFilter.isNullOrEmpty() }
-            create(providers, searchQuery, scopedContentType, filter)
-        }
-        val state by engine.state.collectAsStateWithLifecycle()
+@Composable
+fun EntryGlobalSearchScreen(
+    searchQuery: String,
+    extensionFilter: String?,
+    scopedContentType: ContentType?,
+    sourceFilter: SearchSourceFilter?,
+) {
+    val navigator = LocalNavigator.currentOrThrow
+    val opener = rememberDetailsOpener()
+    val context = LocalContext.current
+    val novels = remember { context.appGraph.novelLibraryAdder }
 
-        val selection = rememberMixedBulkSelection()
-        BackHandler(enabled = selection.selectionMode) { selection.clear() }
+    val mangaModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
+        create(initialExtensionFilter = extensionFilter)
+    }
+    val novelModel = metroViewModel<NovelGlobalSearchViewModel>()
+    val providers = remember(mangaModel, novelModel) {
+        listOf(MangaGlobalSearchProvider(mangaModel), NovelGlobalSearchProvider(novelModel))
+    }
+    val engine = assistedMetroViewModel<GlobalSearchEngine, GlobalSearchEngine.Factory> {
+        // A deep link names one extension, so every source of it is in scope whether or not it is
+        // pinned. Handed in for this search only, so it never replaces the filter you last chose.
+        val filter = sourceFilter ?: SearchSourceFilter.All.takeUnless { extensionFilter.isNullOrEmpty() }
+        create(providers, searchQuery, scopedContentType, filter)
+    }
+    val state by engine.state.collectAsStateWithLifecycle()
 
-        // A deep link naming one extension and matching one entry opens it rather than showing a
-        // list of one.
-        var showSingleLoadingScreen by remember {
-            mutableStateOf(searchQuery.isNotEmpty() && !extensionFilter.isNullOrEmpty())
-        }
-        if (showSingleLoadingScreen) {
-            LoadingScreen()
-            // Waits on the search itself, never on the rows being non-empty: a filter naming an
-            // extension that is not installed matches no source at all, and treating that as
-            // "still loading" left this spinning with no way back but the system gesture.
-            LaunchedEffect(state.rows, state.searched) {
-                if (!state.searched) return@LaunchedEffect
-                val only = state.rows.singleOrNull()
-                when (val result = only?.state) {
-                    is EntrySearchState.Loading -> return@LaunchedEffect
-                    is EntrySearchState.Success ->
-                        result.entries.singleOrNull()
-                            ?.detailsScreen(only.key, novels)
-                            ?.let(navigator::replace)
-                            ?: run { showSingleLoadingScreen = false }
-                    else -> showSingleLoadingScreen = false
-                }
+    val selection = rememberMixedBulkSelection()
+    BackHandler(enabled = selection.selectionMode) { selection.clear() }
+
+    // A deep link naming one extension and matching one entry opens it rather than showing a
+    // list of one.
+    var showSingleLoadingScreen by remember {
+        mutableStateOf(searchQuery.isNotEmpty() && !extensionFilter.isNullOrEmpty())
+    }
+    if (showSingleLoadingScreen) {
+        LoadingScreen()
+        // Waits on the search itself, never on the rows being non-empty: a filter naming an
+        // extension that is not installed matches no source at all, and treating that as
+        // "still loading" left this spinning with no way back but the system gesture.
+        LaunchedEffect(state.rows, state.searched) {
+            if (!state.searched) return@LaunchedEffect
+            val only = state.rows.singleOrNull()
+            when (val result = only?.state) {
+                is EntrySearchState.Loading -> return@LaunchedEffect
+                is EntrySearchState.Success ->
+                    result.entries.singleOrNull()
+                        ?.detailsScreen(only.key, novels)
+                        ?.let(navigator::replace)
+                        ?: run { showSingleLoadingScreen = false }
+                else -> showSingleLoadingScreen = false
             }
-            return
         }
+        return
+    }
 
-        Scaffold(
-            topBar = { _ ->
-                GlobalSearchToolbar(
-                    searchQuery = state.query,
-                    progress = state.progress,
-                    total = state.total,
-                    navigateUp = navigator::pop,
-                    onChangeSearchQuery = engine::updateQuery,
-                    onSearch = engine::search,
-                    hideSourceFilter = false,
-                    sourceFilter = state.sourceFilter,
-                    onChangeSearchFilter = engine::setSourceFilter,
-                    onlyShowHasResults = state.onlyShowHasResults,
-                    onToggleResults = engine::toggleHasResults,
-                    onToggleSelectionMode = {
-                        if (selection.selectionMode) selection.clear() else selection.start()
-                    },
-                    selectionMode = selection.selectionMode,
-                    selectedCount = selection.count,
-                    selectionTitle = selection.title(),
-                    onClickClearSelection = selection::clear,
-                    onSelectAll = { selection.selectAll(state.visibleRows) },
-                    onReverseSelection = { selection.invert(state.visibleRows) },
-                    onChangeCategoryClick = selection::add,
-                    tabs = {
-                        if (LocalShownContent.current == ContentType.ALL) {
-                            HeaderTabRow(
-                                items = ContentType.entries,
-                                selected = state.contentType,
-                                label = ContentType::labelRes,
-                                // A flip drops the selection: the picks it would hide would still count on
-                                // the bar and reach the add.
-                                onSelect = { if (engine.setContentType(it)) selection.clear() },
-                            )
-                        }
+    Scaffold(
+        topBar = { _ ->
+            GlobalSearchToolbar(
+                searchQuery = state.query,
+                progress = state.progress,
+                total = state.total,
+                navigateUp = navigator::pop,
+                onChangeSearchQuery = engine::updateQuery,
+                onSearch = engine::search,
+                hideSourceFilter = false,
+                sourceFilter = state.sourceFilter,
+                onChangeSearchFilter = engine::setSourceFilter,
+                onlyShowHasResults = state.onlyShowHasResults,
+                onToggleResults = engine::toggleHasResults,
+                onToggleSelectionMode = {
+                    if (selection.selectionMode) selection.clear() else selection.start()
+                },
+                selectionMode = selection.selectionMode,
+                selectedCount = selection.count,
+                selectionTitle = selection.title(),
+                onClickClearSelection = selection::clear,
+                onSelectAll = { selection.selectAll(state.visibleRows) },
+                onReverseSelection = { selection.invert(state.visibleRows) },
+                onChangeCategoryClick = selection::add,
+                tabs = {
+                    if (LocalShownContent.current == ContentType.ALL) {
+                        HeaderTabRow(
+                            items = ContentType.entries,
+                            selected = state.contentType,
+                            label = ContentType::labelRes,
+                            // A flip drops the selection: the picks it would hide would still count on
+                            // the bar and reach the add.
+                            onSelect = { if (engine.setContentType(it)) selection.clear() },
+                        )
+                    }
+                },
+            )
+        },
+    ) { contentPadding ->
+        when (state.emptyReason) {
+            GlobalSearchEngine.EmptyReason.NoPinnedSources -> {
+                EmptyScreen(
+                    stringRes = MR.strings.no_pinned_sources,
+                    modifier = Modifier.padding(contentPadding),
+                    actions = listOf(
+                        EmptyScreenAction(MR.strings.all_sources, MaterialSymbols.Rounded.TravelExplore) {
+                            engine.setSourceFilter(SearchSourceFilter.All)
+                        },
+                    ),
+                )
+                return@Scaffold
+            }
+            GlobalSearchEngine.EmptyReason.NoResults -> {
+                EmptyScreen(MR.strings.no_results_found, modifier = Modifier.padding(contentPadding))
+                return@Scaffold
+            }
+            null -> Unit
+        }
+        LazyColumn(state = rememberChipListState(state.contentType), contentPadding = contentPadding) {
+            items(state.visibleRows.size, key = { state.visibleRows[it].key.toString() }) { index ->
+                val row = state.visibleRows[index]
+                val gestures = rememberEntryGestures(
+                    choose = { entry: EntryBrowseRow -> selection.toggle(entry, row.key) }
+                        .takeIf { selection.selectionMode },
+                    open = { entry: EntryBrowseRow -> opener.open(entry, row.key) },
+                    add = { entry: EntryBrowseRow ->
+                        entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
                     },
                 )
-            },
-        ) { contentPadding ->
-            when (state.emptyReason) {
-                GlobalSearchEngine.EmptyReason.NoPinnedSources -> {
-                    EmptyScreen(
-                        stringRes = MR.strings.no_pinned_sources,
-                        modifier = Modifier.padding(contentPadding),
-                        actions = listOf(
-                            EmptyScreenAction(MR.strings.all_sources, MaterialSymbols.Rounded.TravelExplore) {
-                                engine.setSourceFilter(SearchSourceFilter.All)
-                            },
-                        ),
-                    )
-                    return@Scaffold
-                }
-                GlobalSearchEngine.EmptyReason.NoResults -> {
-                    EmptyScreen(MR.strings.no_results_found, modifier = Modifier.padding(contentPadding))
-                    return@Scaffold
-                }
-                null -> Unit
-            }
-            LazyColumn(state = rememberChipListState(state.contentType), contentPadding = contentPadding) {
-                items(state.visibleRows.size, key = { state.visibleRows[it].key.toString() }) { index ->
-                    val row = state.visibleRows[index]
-                    val gestures = rememberEntryGestures(
-                        choose = { entry: EntryBrowseRow -> selection.toggle(entry, row.key) }
-                            .takeIf { selection.selectionMode },
-                        open = { entry: EntryBrowseRow -> opener.open(entry, row.key) },
-                        add = { entry: EntryBrowseRow ->
-                            entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
-                        },
-                    )
-                    SearchResultSection(
-                        // Sections re-sort as each source lands, so they slide rather than jump.
-                        modifier = Modifier.animateItem(),
-                        row = row,
-                        // Only on All, where the rows are interleaved and nothing else says which
-                        // kind a source is. The Browse lists badge their rows on the same rule.
-                        showContentType = state.contentType == ContentType.ALL,
-                        showsFormat = state.showsFormat,
-                        selectedKeys = selection.selectedKeys,
-                        onClickSource = { navigator.push(EntryCatalogueScreen(row.key, state.query)) },
-                        gestures = gestures,
-                    )
-                }
+                SearchResultSection(
+                    // Sections re-sort as each source lands, so they slide rather than jump.
+                    modifier = Modifier.animateItem(),
+                    row = row,
+                    // Only on All, where the rows are interleaved and nothing else says which
+                    // kind a source is. The Browse lists badge their rows on the same rule.
+                    showContentType = state.contentType == ContentType.ALL,
+                    showsFormat = state.showsFormat,
+                    selectedKeys = selection.selectedKeys,
+                    onClickSource = { navigator.push(EntryCatalogueRoute(row.key, state.query)) },
+                    gestures = gestures,
+                )
             }
         }
-
-        EntryAddDialogs(mangaModel.addFlow)
-        EntryAddDialogs(novelModel.addFlow)
-        selection.Dialogs()
     }
+
+    EntryAddDialogs(mangaModel.addFlow)
+    EntryAddDialogs(novelModel.addFlow)
+    selection.Dialogs()
 }

@@ -44,78 +44,81 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * library draws them, under the row's own summary card. [name] is the row's own, so the title reads as the
  * row did.
  */
-class StatsSeriesScreen(
+class StatsSeriesRoute(
     private val groupKey: StatsGroupKey,
     private val name: String?,
     private val contentType: ContentType,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val scope = rememberCoroutineScope()
-        val snackbarHostState = remember { SnackbarHostState() }
-        val viewModel = assistedMetroViewModel<StatsSeriesViewModel, StatsSeriesViewModel.Factory> {
-            create(groupKey, contentType)
-        }
-        StatsRefreshOnResume(viewModel::refresh)
-        val state by viewModel.state.collectAsState()
-        val showContinueReading by viewModel.showContinueReading.collectAsState()
-        val displayMode by remember { viewModel.displayMode() }
+    override fun Content() = StatsSeriesScreen(groupKey, name, contentType)
+}
 
-        val onContinueReading: (LibraryItem) -> Unit = { item ->
-            scope.launch {
-                val intent = viewModel.resumeIntent(context, item)
-                if (intent != null) {
-                    context.startActivity(intent)
-                } else {
-                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
-                }
+@Composable
+fun StatsSeriesScreen(groupKey: StatsGroupKey, name: String?, contentType: ContentType) {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val viewModel = assistedMetroViewModel<StatsSeriesViewModel, StatsSeriesViewModel.Factory> {
+        create(groupKey, contentType)
+    }
+    StatsRefreshOnResume(viewModel::refresh)
+    val state by viewModel.state.collectAsState()
+    val showContinueReading by viewModel.showContinueReading.collectAsState()
+    val displayMode by remember { viewModel.displayMode() }
+
+    val onContinueReading: (LibraryItem) -> Unit = { item ->
+        scope.launch {
+            val intent = viewModel.resumeIntent(context, item)
+            if (intent != null) {
+                context.startActivity(intent)
+            } else {
+                snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
             }
         }
+    }
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(title = groupKey.label(name), navigateUp = navigator::pop, scrollBehavior = scrollBehavior)
-            },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-        ) { paddingValues ->
-            val current = state
-            if (current == null) {
-                LoadingScreen()
-                return@Scaffold
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(title = groupKey.label(name), navigateUp = navigator::pop, scrollBehavior = scrollBehavior)
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
+        val current = state
+        if (current == null) {
+            LoadingScreen()
+            return@Scaffold
+        }
+        // The bar's padding goes outside the grid, as the library's does, so its scroll thumb starts below it.
+        Column(
+            modifier = Modifier.padding(
+                top = paddingValues.calculateTopPadding(),
+                start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
+                end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
+            ),
+        ) {
+            current.summary?.let { summary ->
+                ElevatedCard(
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.fillMaxWidth().padding(MaterialTheme.padding.small),
+                ) { StatsRowCardContent(summary, current.readState, viewModel::setReadState) }
             }
-            // The bar's padding goes outside the grid, as the library's does, so its scroll thumb starts below it.
-            Column(
-                modifier = Modifier.padding(
-                    top = paddingValues.calculateTopPadding(),
-                    start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                    end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
-                ),
-            ) {
-                current.summary?.let { summary ->
-                    ElevatedCard(
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth().padding(MaterialTheme.padding.small),
-                    ) { StatsRowCardContent(summary, current.readState, viewModel::setReadState) }
-                }
-                Box(Modifier.weight(1f)) {
-                    LibraryItemsLayout(
-                        items = current.rows,
-                        displayMode = displayMode,
-                        getColumnsForOrientation = viewModel::columnsForOrientation,
-                        contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding()),
-                        selection = emptySet(),
-                        onClick = { item ->
-                            navigator.push(item.entryId.detailsScreen())
-                        },
-                        onLongClick = {},
-                        onClickContinueReading = onContinueReading.takeIf { showContinueReading },
-                        searchQuery = null,
-                        onGlobalSearchClicked = {},
-                    )
-                }
+            Box(Modifier.weight(1f)) {
+                LibraryItemsLayout(
+                    items = current.rows,
+                    displayMode = displayMode,
+                    getColumnsForOrientation = viewModel::columnsForOrientation,
+                    contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding()),
+                    selection = emptySet(),
+                    onClick = { item ->
+                        navigator.push(item.entryId.detailsScreen())
+                    },
+                    onLongClick = {},
+                    onClickContinueReading = onContinueReading.takeIf { showContinueReading },
+                    searchQuery = null,
+                    onGlobalSearchClicked = {},
+                )
             }
         }
     }

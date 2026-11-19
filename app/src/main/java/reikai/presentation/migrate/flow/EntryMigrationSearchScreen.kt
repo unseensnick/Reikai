@@ -65,148 +65,151 @@ import kotlin.random.Random
  * straight to the results, and tapping one opens the shared migrate dialog. The batch list serves
  * everything else.
  */
-class EntryMigrationSearchScreen(
+class EntryMigrationSearchRoute(
     private val contentType: ContentType,
     private val entryId: Long,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
     private val extraQuery: String?,
     /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. */
     internal val flowId: Long = Random.nextLong(),
-) : Screen(), MigrationFlowScreen {
+) : Screen(), MigrationFlowRoute {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val opener = rememberDetailsOpener()
-        val context = LocalContext.current
-        val adapter = rememberMigrationAdapter(contentType)
-        val viewModel = assistedMetroViewModel<EntryMigrationSearchViewModel, EntryMigrationSearchViewModel.Factory> {
-            create(
-                entryId = entryId,
-                adapter = adapter,
-                extraQuery = extraQuery,
-                io = Dispatchers.IO,
-            )
-        }
-        val state by viewModel.state.collectAsState()
-        var query by rememberSaveable(state.entry?.title) { mutableStateOf(state.entry?.title.orEmpty()) }
+    override fun Content() = EntryMigrationSearchScreen(contentType, entryId, extraQuery, flowId)
+}
 
-        if (state.isLoading) {
-            LoadingScreen()
-            return
-        }
-        val entry = state.entry
-        if (entry == null) {
-            // The entry vanished between opening this screen and loading it (removed from the
-            // library elsewhere); say so rather than showing an empty search.
-            EmptyScreen(stringRes = MR.strings.internal_error)
-            return
-        }
+@Composable
+fun EntryMigrationSearchScreen(contentType: ContentType, entryId: Long, extraQuery: String?, flowId: Long) {
+    val navigator = LocalNavigator.currentOrThrow
+    val opener = rememberDetailsOpener()
+    val context = LocalContext.current
+    val adapter = rememberMigrationAdapter(contentType)
+    val viewModel = assistedMetroViewModel<EntryMigrationSearchViewModel, EntryMigrationSearchViewModel.Factory> {
+        create(
+            entryId = entryId,
+            adapter = adapter,
+            extraQuery = extraQuery,
+            io = Dispatchers.IO,
+        )
+    }
+    val state by viewModel.state.collectAsState()
+    var query by rememberSaveable(state.entry?.title) { mutableStateOf(state.entry?.title.orEmpty()) }
 
-        // A deep pick is made on a screen pushed over this one, so it arrives once the entry is back.
-        MigrationPickEffect(flowId, viewModel, viewModel::takePick)
+    if (state.isLoading) {
+        LoadingScreen()
+        return
+    }
+    val entry = state.entry
+    if (entry == null) {
+        // The entry vanished between opening this screen and loading it (removed from the
+        // library elsewhere); say so rather than showing an empty search.
+        EmptyScreen(stringRes = MR.strings.internal_error)
+        return
+    }
 
-        PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
+    // A deep pick is made on a screen pushed over this one, so it arrives once the entry is back.
+    MigrationPickEffect(flowId, viewModel, viewModel::takePick)
 
-        Scaffold(
-            // No scroll behaviour passed on, as Reikai's global search does, so the bar stays one
-            // plain header block with the chips under it.
-            topBar = { _ ->
-                Column {
-                    GlobalSearchToolbar(
-                        searchQuery = query,
-                        progress = state.searchedCount,
-                        total = state.sections.size,
-                        navigateUp = navigator::pop,
-                        onChangeSearchQuery = { query = it.orEmpty() },
-                        onSearch = viewModel::search,
-                        // The sources searched are the configured migration targets; the pinned/all
-                        // source filter has no meaning here.
-                        hideSourceFilter = true,
-                        sourceFilter = SearchSourceFilter.All,
-                        onChangeSearchFilter = {},
-                        onlyShowHasResults = state.onlyShowHasResults,
-                        onToggleResults = viewModel::toggleOnlyResults,
-                        isBusy = state.resolvingPick,
-                    )
-                    // The searched title leads, so a tap can always go back to it.
-                    val alternatives = entry.alternativeTitles
-                    if (alternatives.isNotEmpty()) {
-                        MigrationSearchTitleChips(listOf(entry.title) + alternatives) {
-                            query = it
-                            viewModel.search(it)
-                        }
+    PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
+
+    Scaffold(
+        // No scroll behaviour passed on, as Reikai's global search does, so the bar stays one
+        // plain header block with the chips under it.
+        topBar = { _ ->
+            Column {
+                GlobalSearchToolbar(
+                    searchQuery = query,
+                    progress = state.searchedCount,
+                    total = state.sections.size,
+                    navigateUp = navigator::pop,
+                    onChangeSearchQuery = { query = it.orEmpty() },
+                    onSearch = viewModel::search,
+                    // The sources searched are the configured migration targets; the pinned/all
+                    // source filter has no meaning here.
+                    hideSourceFilter = true,
+                    sourceFilter = SearchSourceFilter.All,
+                    onChangeSearchFilter = {},
+                    onlyShowHasResults = state.onlyShowHasResults,
+                    onToggleResults = viewModel::toggleOnlyResults,
+                    isBusy = state.resolvingPick,
+                )
+                // The searched title leads, so a tap can always go back to it.
+                val alternatives = entry.alternativeTitles
+                if (alternatives.isNotEmpty()) {
+                    MigrationSearchTitleChips(listOf(entry.title) + alternatives) {
+                        query = it
+                        viewModel.search(it)
                     }
                 }
-            },
-        ) { contentPadding ->
-            // Unlike global search, a source still loading or failed stays under the filter (see
-            // hasSomethingToSay): the user needs to tell "could not answer" from "answered nothing".
-            val sections = if (state.onlyShowHasResults) {
-                state.sections.filter { it.result.hasSomethingToSay }
-            } else {
-                state.sections
             }
-            if (sections.isEmpty()) {
-                // Never a bare blank body: with every source filtered away there is nothing on
-                // screen to explain where the results went.
-                EmptyScreen(
-                    stringRes = if (state.sections.isEmpty()) {
-                        MR.strings.migrationFlow_emptyNoSources
-                    } else {
-                        MR.strings.migrationFlow_emptySourcesFiltered
-                    },
-                    modifier = Modifier.padding(contentPadding),
-                )
-                return@Scaffold
-            }
-            // Over every searched source, not the filtered few, so a label does not come and go.
-            val showsFormat = state.sections.showsFormat
-            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
-                items(items = sections, key = { it.sourceKey }) { section ->
-                    MigrationCandidateStrip(
-                        strip = section,
-                        showsFormat = showsFormat,
-                        isCurrentSource = section.sourceKey == entry.sourceKey,
-                        onPick = viewModel::pick,
-                        onPreview = { it.openDetails(opener) },
-                        onBrowseSource = {
-                            if (!openDeepPicker(navigator, entry, section.sourceKey, query, flowId)) {
-                                context.toast(MR.strings.internal_error)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = MaterialTheme.padding.small),
-                    )
-                }
-            }
+        },
+    ) { contentPadding ->
+        // Unlike global search, a source still loading or failed stays under the filter (see
+        // hasSomethingToSay): the user needs to tell "could not answer" from "answered nothing".
+        val sections = if (state.onlyShowHasResults) {
+            state.sections.filter { it.result.hasSomethingToSay }
+        } else {
+            state.sections
         }
-
-        val target = state.dialogTarget
-        if (target != null) {
-            EntryMigrateDialog(
-                contentType = contentType,
-                entry = entry,
-                target = target,
-                onDismissRequest = viewModel::dismissDialog,
-                // Show opens the candidate, not the entry: the target is the thing being decided on,
-                // and the entry is the one the user already knows.
-                onShowEntry = {
-                    viewModel.dismissDialog()
-                    target.openDetails(opener)
+        if (sections.isEmpty()) {
+            // Never a bare blank body: with every source filtered away there is nothing on
+            // screen to explain where the results went.
+            EmptyScreen(
+                stringRes = if (state.sections.isEmpty()) {
+                    MR.strings.migrationFlow_emptyNoSources
+                } else {
+                    MR.strings.migrationFlow_emptySourcesFiltered
                 },
-                onFinished = { replaced, resolved ->
-                    viewModel.dismissDialog()
-                    // Leave the whole flow behind before landing, so back does not return to
-                    // results (or a stale config step) for a migration that already happened.
-                    navigator.popUntil { it !is MigrationFlowScreen }
-                    // The resolved candidate, not the raw pick: replace-detection needs the
-                    // stored row behind it to swap out the migrated-away details page.
-                    resolved.openDetailsAfterCommit(navigator, replaced, migrated = entry)
-                },
+                modifier = Modifier.padding(contentPadding),
             )
+            return@Scaffold
         }
+        // Over every searched source, not the filtered few, so a label does not come and go.
+        val showsFormat = state.sections.showsFormat
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
+            items(items = sections, key = { it.sourceKey }) { section ->
+                MigrationCandidateStrip(
+                    strip = section,
+                    showsFormat = showsFormat,
+                    isCurrentSource = section.sourceKey == entry.sourceKey,
+                    onPick = viewModel::pick,
+                    onPreview = { it.openDetails(opener) },
+                    onBrowseSource = {
+                        if (!openDeepPicker(navigator, entry, section.sourceKey, query, flowId)) {
+                            context.toast(MR.strings.internal_error)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = MaterialTheme.padding.small),
+                )
+            }
+        }
+    }
+
+    val target = state.dialogTarget
+    if (target != null) {
+        EntryMigrateDialog(
+            contentType = contentType,
+            entry = entry,
+            target = target,
+            onDismissRequest = viewModel::dismissDialog,
+            // Show opens the candidate, not the entry: the target is the thing being decided on,
+            // and the entry is the one the user already knows.
+            onShowEntry = {
+                viewModel.dismissDialog()
+                target.openDetails(opener)
+            },
+            onFinished = { replaced, resolved ->
+                viewModel.dismissDialog()
+                // Leave the whole flow behind before landing, so back does not return to
+                // results (or a stale config step) for a migration that already happened.
+                navigator.popUntil(::isOutsideMigrationFlow)
+                // The resolved candidate, not the raw pick: replace-detection needs the
+                // stored row behind it to swap out the migrated-away details page.
+                resolved.openDetailsAfterCommit(navigator, replaced, migrated = entry)
+            },
+        )
     }
 }
 

@@ -49,69 +49,72 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /** Picks the icon the launcher shows, from the designs every build carries. */
 // no ViewModel: the app-wide LauncherIconState holds what is shown.
-class LauncherIconScreen : Screen() {
+class LauncherIconRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val iconState = remember { context.appGraph.launcherIconState }
-        val shown by iconState.shown.collectAsState()
-        var asked by remember { mutableStateOf<LauncherIcon?>(null) }
+    override fun Content() = LauncherIconScreen()
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.pref_app_icon),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { contentPadding ->
-            Column(
-                modifier = Modifier
-                    .padding(contentPadding)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                LauncherIcon.entries.groupBy { it.design }.forEach { (design, icons) ->
-                    HeadingItem(design.label)
-                    FlowRow(
-                        modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                    ) {
-                        icons.forEach { icon ->
-                            IconTile(icon, isShown = icon == shown) { if (icon != shown) asked = icon }
-                        }
+@Composable
+fun LauncherIconScreen() {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val iconState = remember { context.appGraph.launcherIconState }
+    val shown by iconState.shown.collectAsState()
+    var asked by remember { mutableStateOf<LauncherIcon?>(null) }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.pref_app_icon),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { contentPadding ->
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            LauncherIcon.entries.groupBy { it.design }.forEach { (design, icons) ->
+                HeadingItem(design.label)
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                ) {
+                    icons.forEach { icon ->
+                        IconTile(icon, isShown = icon == shown) { if (icon != shown) asked = icon }
                     }
                 }
-                Text(
-                    text = stringResource(MR.strings.app_icon_themed_hint),
-                    modifier = Modifier.padding(MaterialTheme.padding.medium),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
-        }
-
-        asked?.let { icon ->
-            AlertDialog(
-                onDismissRequest = { asked = null },
-                title = { Text(stringResource(MR.strings.app_icon_change_title)) },
-                text = { Text(stringResource(MR.strings.app_icon_change_message)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            asked = null
-                            iconState.pick(icon)
-                        },
-                    ) { Text(stringResource(MR.strings.action_ok)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { asked = null }) { Text(stringResource(MR.strings.action_cancel)) }
-                },
+            Text(
+                text = stringResource(MR.strings.app_icon_themed_hint),
+                modifier = Modifier.padding(MaterialTheme.padding.medium),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+
+    asked?.let { icon ->
+        AlertDialog(
+            onDismissRequest = { asked = null },
+            title = { Text(stringResource(MR.strings.app_icon_change_title)) },
+            text = { Text(stringResource(MR.strings.app_icon_change_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        asked = null
+                        iconState.pick(icon)
+                    },
+                ) { Text(stringResource(MR.strings.action_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { asked = null }) { Text(stringResource(MR.strings.action_cancel)) }
+            },
+        )
     }
 }
 

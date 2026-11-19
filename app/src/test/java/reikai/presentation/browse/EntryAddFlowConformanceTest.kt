@@ -14,7 +14,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.novel.host.NovelItem
 import reikai.presentation.novel.browse.NovelAddFlow
-import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.details.NovelRoute
 import tachiyomi.domain.manga.model.Manga
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
@@ -321,7 +321,7 @@ class NovelAddFlowProbe : AddFlowProbe() {
     override fun entryId() = stored(entry)!!.id
     override fun entryCategories() = library.filed[entryId()]
 
-    override fun openedDuplicate(duplicateId: Long) = (flow.duplicateScreen(duplicateId) as? NovelScreen)?.novelId
+    override fun openedDuplicate(duplicateId: Long) = (flow.duplicateScreen(duplicateId) as? NovelRoute)?.novelId
     override val expectedDuplicate: Any = DUPLICATE
 
     private companion object {

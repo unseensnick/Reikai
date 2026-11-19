@@ -20,24 +20,24 @@ class SearchIntentScreenTest {
     @Test
     fun `a manga extension's search stays a global search`() = runTest {
         searchIntentScreen(LINK, "eu.kanade.tachiyomi.extension.en.manga", novelPackages)
-            .shouldBeInstanceOf<EntryGlobalSearchScreen>()
+            .shouldBeInstanceOf<EntryGlobalSearchRoute>()
     }
 
     @Test
     fun `a search naming no extension stays a global search`() = runTest {
-        searchIntentScreen("query", null, novelPackages).shouldBeInstanceOf<EntryGlobalSearchScreen>()
+        searchIntentScreen("query", null, novelPackages).shouldBeInstanceOf<EntryGlobalSearchRoute>()
     }
 
     @Test
     fun `a search naming no extension opens on every content type`() = runTest {
         searchIntentScreen("query", null, novelPackages)
-            .shouldBeInstanceOf<EntryGlobalSearchScreen>().scopedContentType shouldBe ContentType.ALL
+            .shouldBeInstanceOf<EntryGlobalSearchRoute>().scopedContentType shouldBe ContentType.ALL
     }
 
     @Test
     fun `a search naming no extension covers every source`() = runTest {
         searchIntentScreen("query", null, novelPackages)
-            .shouldBeInstanceOf<EntryGlobalSearchScreen>().sourceFilter shouldBe SearchSourceFilter.All
+            .shouldBeInstanceOf<EntryGlobalSearchRoute>().sourceFilter shouldBe SearchSourceFilter.All
     }
 
     private companion object {

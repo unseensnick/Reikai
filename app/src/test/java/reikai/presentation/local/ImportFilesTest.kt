@@ -18,7 +18,7 @@ class ImportFilesTest {
 
     @Test
     fun `files join the import screen already open, which is shown again`() {
-        val open = LocalImportScreen()
+        val open = LocalImportRoute()
         val stack = mutableStateStackOf(root, open, mockk<Screen>(), minSize = 1)
 
         stack.importFiles(files, recorder.bus)
@@ -33,7 +33,7 @@ class ImportFilesTest {
 
         stack.importFiles(files, recorder.bus)
 
-        stack.items.map { it::class } shouldBe listOf(root::class, LocalImportScreen::class)
+        stack.items.map { it::class } shouldBe listOf(root::class, LocalImportRoute::class)
     }
 
     @Test

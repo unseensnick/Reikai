@@ -12,29 +12,32 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import exh.pagepreview.components.PagePreviewScreen
 
-class PagePreviewScreen(private val mangaId: Long) : Screen() {
+class PagePreviewRoute(private val mangaId: Long) : Screen() {
 
     @Composable
-    override fun Content() {
-        val viewModel = assistedMetroViewModel<PagePreviewViewModel, PagePreviewViewModel.Factory> {
-            create(mangaId = mangaId)
-        }
-        val context = LocalContext.current
-        val state by viewModel.state.collectAsState()
-        val navigator = LocalNavigator.currentOrThrow
-        PagePreviewScreen(
-            state = state,
-            pageDialogOpen = viewModel.pageDialogOpen,
-            onPageSelected = viewModel::moveToPage,
-            onOpenPage = { openPage(context, state, it) },
-            onOpenPageDialog = { viewModel.pageDialogOpen = true },
-            onDismissPageDialog = { viewModel.pageDialogOpen = false },
-            navigateUp = navigator::pop,
-        )
-    }
+    override fun Content() = PagePreviewScreen(mangaId)
+}
 
-    private fun openPage(context: Context, state: PagePreviewState, page: Int) {
-        if (state !is PagePreviewState.Success) return
-        context.startActivity(ReaderActivity.newIntent(context, state.manga.id, state.chapter.id, page))
+@Composable
+fun PagePreviewScreen(mangaId: Long) {
+    val viewModel = assistedMetroViewModel<PagePreviewViewModel, PagePreviewViewModel.Factory> {
+        create(mangaId = mangaId)
     }
+    val context = LocalContext.current
+    val state by viewModel.state.collectAsState()
+    val navigator = LocalNavigator.currentOrThrow
+    PagePreviewScreen(
+        state = state,
+        pageDialogOpen = viewModel.pageDialogOpen,
+        onPageSelected = viewModel::moveToPage,
+        onOpenPage = { openPage(context, state, it) },
+        onOpenPageDialog = { viewModel.pageDialogOpen = true },
+        onDismissPageDialog = { viewModel.pageDialogOpen = false },
+        navigateUp = navigator::pop,
+    )
+}
+
+private fun openPage(context: Context, state: PagePreviewState, page: Int) {
+    if (state !is PagePreviewState.Success) return
+    context.startActivity(ReaderActivity.newIntent(context, state.manga.id, state.chapter.id, page))
 }

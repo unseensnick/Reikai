@@ -21,7 +21,7 @@ import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.item
 import reikai.presentation.browse.manga
 import reikai.presentation.novel.browse.NovelLibraryAdder
-import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.details.NovelRoute
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -34,7 +34,7 @@ import tachiyomi.i18n.MR
 /** The details page of [this] entry; one since removed opens on a not-found page. */
 fun EntryId.detailsScreen(fromSource: Boolean = false): Screen = when (this) {
     is EntryId.Manga -> MangaScreen(rawId, fromSource)
-    is EntryId.Novel -> NovelScreen(rawId, fromSource)
+    is EntryId.Novel -> NovelRoute(rawId, fromSource)
 }
 
 /**
@@ -58,10 +58,10 @@ suspend fun NovelItem.storedDetailsScreen(
     .getOrNull()
     ?.let { EntryId.Novel(it.id).detailsScreen(fromSource) }
 
-/** Whether this screen is [entry]'s details page. */
-fun Screen.shows(entry: EntryId): Boolean = when (entry) {
+/** Whether this screen or route is [entry]'s details page. */
+fun Any.shows(entry: EntryId): Boolean = when (entry) {
     is EntryId.Manga -> (this as? MangaScreen)?.mangaId == entry.rawId
-    is EntryId.Novel -> (this as? NovelScreen)?.novelId == entry.rawId
+    is EntryId.Novel -> (this as? NovelRoute)?.novelId == entry.rawId
 }
 
 /**

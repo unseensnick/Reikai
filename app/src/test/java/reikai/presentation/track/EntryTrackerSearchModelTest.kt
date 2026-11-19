@@ -60,7 +60,7 @@ class EntryTrackerSearchModelTest {
         mockIoDispatcher(dispatcher)
     }
 
-    private fun model(port: EntryTrackPort) = EntryTrackerSearchScreen.Model(
+    private fun model(port: EntryTrackPort) = EntryTrackerSearchRoute.Model(
         entry = EntryId.Manga(1L),
         currentUrl = null,
         initialQuery = "",

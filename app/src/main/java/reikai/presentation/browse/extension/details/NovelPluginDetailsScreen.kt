@@ -57,56 +57,59 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * opens Mihon's `ExtensionDetailsScreen`. A plugin is not a package the system can remove, so its
  * Uninstall is confirmed here.
  */
-data class NovelPluginDetailsScreen(private val pluginId: String) : Screen() {
+data class NovelPluginDetailsRoute(private val pluginId: String) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<NovelPluginDetailsViewModel, NovelPluginDetailsViewModel.Factory> {
-            create(pluginId)
-        }
-        val state by viewModel.state.collectAsStateWithLifecycle()
+    override fun Content() = NovelPluginDetailsScreen(pluginId)
+}
 
-        when (val current = state) {
-            NovelPluginDetailsViewModel.State.Loading -> LoadingScreen()
-            NovelPluginDetailsViewModel.State.Uninstalled -> {
-                LaunchedEffect(Unit) { navigator.pop() }
-                EmptyScreen(MR.strings.empty_screen)
-            }
-            is NovelPluginDetailsViewModel.State.Success -> Scaffold(
-                topBar = { scrollBehavior ->
-                    AppBar(
-                        title = stringResource(MR.strings.label_extension_info),
-                        navigateUp = navigator::pop,
-                        actions = {
-                            AppBarActions(
-                                actions = listOf(
-                                    AppBar.OverflowAction(
-                                        title = stringResource(MR.strings.pref_clear_cookies),
-                                        onClick = viewModel::clearCookies,
-                                    ),
+@Composable
+fun NovelPluginDetailsScreen(pluginId: String) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = assistedMetroViewModel<NovelPluginDetailsViewModel, NovelPluginDetailsViewModel.Factory> {
+        create(pluginId)
+    }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    when (val current = state) {
+        NovelPluginDetailsViewModel.State.Loading -> LoadingScreen()
+        NovelPluginDetailsViewModel.State.Uninstalled -> {
+            LaunchedEffect(Unit) { navigator.pop() }
+            EmptyScreen(MR.strings.empty_screen)
+        }
+        is NovelPluginDetailsViewModel.State.Success -> Scaffold(
+            topBar = { scrollBehavior ->
+                AppBar(
+                    title = stringResource(MR.strings.label_extension_info),
+                    navigateUp = navigator::pop,
+                    actions = {
+                        AppBarActions(
+                            actions = listOf(
+                                AppBar.OverflowAction(
+                                    title = stringResource(MR.strings.pref_clear_cookies),
+                                    onClick = viewModel::clearCookies,
                                 ),
-                            )
-                        },
-                        scrollBehavior = scrollBehavior,
-                    )
-                },
-            ) { contentPadding ->
-                NovelPluginDetails(
-                    state = current,
-                    contentPadding = contentPadding,
-                    onOpenSite = {
-                        navigator.push(
-                            WebViewScreen(
-                                url = current.plugin.site,
-                                initialTitle = current.plugin.name,
-                                pluginId = current.plugin.id,
                             ),
                         )
                     },
-                    onUninstall = viewModel::uninstall,
+                    scrollBehavior = scrollBehavior,
                 )
-            }
+            },
+        ) { contentPadding ->
+            NovelPluginDetails(
+                state = current,
+                contentPadding = contentPadding,
+                onOpenSite = {
+                    navigator.push(
+                        WebViewScreen(
+                            url = current.plugin.site,
+                            initialTitle = current.plugin.name,
+                            pluginId = current.plugin.id,
+                        ),
+                    )
+                },
+                onUninstall = viewModel::uninstall,
+            )
         }
     }
 }

@@ -80,48 +80,56 @@ import kotlin.random.Random
  * The shared migration list: one row per entry being migrated, with the batch commit at the bottom.
  * Serves both content types through [MigrationFlowAdapter]; nothing here branches on a content type.
  */
-class EntryMigrationListScreen(
+class EntryMigrationListRoute(
     private val contentType: ContentType,
     private val entryIds: List<Long>,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
     private val extraQuery: String?,
     /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. */
     internal val flowId: Long = Random.nextLong(),
-) : Screen(), MigrationFlowScreen {
+) : Screen(), MigrationFlowRoute {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val adapter = rememberMigrationAdapter(contentType)
-        val viewModel = assistedMetroViewModel<EntryMigrationListViewModel, EntryMigrationListViewModel.Factory> {
-            create(
-                entryIds = entryIds,
-                adapter = adapter,
-                extraQuery = extraQuery,
-                io = Dispatchers.IO,
-            )
-        }
-        val state by viewModel.state.collectAsState()
+    override fun Content() = EntryMigrationListScreen(contentType, entryIds, extraQuery, flowId)
+}
 
-        if (state.finished) {
-            // A migrated row leaves the list as it succeeds, so by the time the flow pops there is
-            // nothing on screen that says what happened. The count is the only report the user gets,
-            // and it goes out as a toast because the screen this pops back to varies (details,
-            // library, browse, history) and none of them offers a snackbar host to reach.
-            val migratedCount = state.migratedCount
-            val migratedMessage =
-                pluralStringResource(MR.plurals.migrationFlow_migratedCount, migratedCount, migratedCount)
-            LaunchedEffect(Unit) {
-                if (migratedCount > 0) context.toast(migratedMessage)
-                // Unwind the whole flow, not one step: the screen below is a stale flow step.
-                navigator.popUntil { it !is MigrationFlowScreen }
-            }
-            return
-        }
-
-        EntryMigrationList(state = state, viewModel = viewModel, flowId = flowId)
+@Composable
+fun EntryMigrationListScreen(
+    contentType: ContentType,
+    entryIds: List<Long>,
+    extraQuery: String?,
+    flowId: Long,
+) {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val adapter = rememberMigrationAdapter(contentType)
+    val viewModel = assistedMetroViewModel<EntryMigrationListViewModel, EntryMigrationListViewModel.Factory> {
+        create(
+            entryIds = entryIds,
+            adapter = adapter,
+            extraQuery = extraQuery,
+            io = Dispatchers.IO,
+        )
     }
+    val state by viewModel.state.collectAsState()
+
+    if (state.finished) {
+        // A migrated row leaves the list as it succeeds, so by the time the flow pops there is
+        // nothing on screen that says what happened. The count is the only report the user gets,
+        // and it goes out as a toast because the screen this pops back to varies (details,
+        // library, browse, history) and none of them offers a snackbar host to reach.
+        val migratedCount = state.migratedCount
+        val migratedMessage =
+            pluralStringResource(MR.plurals.migrationFlow_migratedCount, migratedCount, migratedCount)
+        LaunchedEffect(Unit) {
+            if (migratedCount > 0) context.toast(migratedMessage)
+            // Unwind the whole flow, not one step: the screen below is a stale flow step.
+            navigator.popUntil(::isOutsideMigrationFlow)
+        }
+        return
+    }
+
+    EntryMigrationList(state = state, viewModel = viewModel, flowId = flowId)
 }
 
 /**
@@ -161,7 +169,7 @@ internal fun EntryMigrationList(
                     if (guardExit) {
                         viewModel.showExitConfirm()
                     } else {
-                        navigator.popUntil { it !is MigrationFlowScreen }
+                        navigator.popUntil(::isOutsideMigrationFlow)
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -226,7 +234,7 @@ internal fun EntryMigrationList(
             // A commit still running would otherwise be cancelled halfway by the pop, with
             // nothing said about what had already been written.
             viewModel.cancelCommit()
-            navigator.popUntil { it !is MigrationFlowScreen }
+            navigator.popUntil(::isOutsideMigrationFlow)
         },
     )
 }

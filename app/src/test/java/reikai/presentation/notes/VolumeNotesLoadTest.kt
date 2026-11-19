@@ -54,7 +54,7 @@ class VolumeNotesLoadTest {
         model.notes.state.value?.subject?.label shouldBe VolumeLabel.Name("Renamed")
     }
 
-    private fun model(key: String, saved: List<LocalVolume>) = VolumeNotesScreen.Model(
+    private fun model(key: String, saved: List<LocalVolume>) = VolumeNotesRoute.Model(
         ContentType.NOVELS,
         SERIES,
         key,

@@ -82,7 +82,7 @@ class EntryMigrationListTest {
         override fun Content() = Text(BELOW)
     }
 
-    private class ListHost(private val model: EntryMigrationListViewModel) : Screen, MigrationFlowScreen {
+    private class ListHost(private val model: EntryMigrationListViewModel) : Screen, MigrationFlowRoute {
         @Composable
         override fun Content() {
             val state by model.state.collectAsState()

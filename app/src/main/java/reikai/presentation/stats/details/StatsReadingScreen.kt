@@ -84,75 +84,78 @@ import kotlin.time.Instant
  * Reading time over a week, a month, a year or a picked range; tapping a bar narrows the series list to
  * its dates.
  */
-class StatsReadingScreen : Screen() {
+class StatsReadingRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = metroViewModel<StatsReadingViewModel>()
-        StatsRefreshOnResume(viewModel::refresh)
-        val state by viewModel.state.collectAsState()
-        var pickingRange by rememberSaveable { mutableStateOf(false) }
+    override fun Content() = StatsReadingScreen()
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.stats_group_reading_time),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { paddingValues ->
-            val current = state
-            if (current == null) {
-                LoadingScreen()
-                return@Scaffold
+@Composable
+fun StatsReadingScreen() {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = metroViewModel<StatsReadingViewModel>()
+    StatsRefreshOnResume(viewModel::refresh)
+    val state by viewModel.state.collectAsState()
+    var pickingRange by rememberSaveable { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.stats_group_reading_time),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { paddingValues ->
+        val current = state
+        if (current == null) {
+            LoadingScreen()
+            return@Scaffold
+        }
+        if (pickingRange) {
+            RangePickerDialog(
+                window = current.window,
+                today = current.today,
+                onConfirm = { first, last ->
+                    pickingRange = false
+                    viewModel.selectRange(first, last)
+                },
+                onDismiss = { pickingRange = false },
+            )
+        }
+        LazyColumn(contentPadding = paddingValues, horizontalAlignment = Alignment.CenterHorizontally) {
+            item {
+                Capped {
+                    PeriodChips(current.window.period) { period ->
+                        if (period == ReadingPeriod.CUSTOM) pickingRange = true else viewModel.selectPeriod(period)
+                    }
+                }
             }
-            if (pickingRange) {
-                RangePickerDialog(
-                    window = current.window,
-                    today = current.today,
-                    onConfirm = { first, last ->
-                        pickingRange = false
-                        viewModel.selectRange(first, last)
-                    },
-                    onDismiss = { pickingRange = false },
-                )
-            }
-            LazyColumn(contentPadding = paddingValues, horizontalAlignment = Alignment.CenterHorizontally) {
+            item { Capped { WindowHeader(current, viewModel::move) } }
+            item { Capped { Bars(current, viewModel::selectBar) } }
+            item { Capped { SelectedBarLine(current) } }
+            if (current.titles.isEmpty()) {
                 item {
                     Capped {
-                        PeriodChips(current.window.period) { period ->
-                            if (period == ReadingPeriod.CUSTOM) pickingRange = true else viewModel.selectPeriod(period)
-                        }
+                        Text(
+                            text = stringResource(MR.strings.stats_nothing_read),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialTheme.padding.medium),
+                        )
                     }
                 }
-                item { Capped { WindowHeader(current, viewModel::move) } }
-                item { Capped { Bars(current, viewModel::selectBar) } }
-                item { Capped { SelectedBarLine(current) } }
-                if (current.titles.isEmpty()) {
-                    item {
-                        Capped {
-                            Text(
-                                text = stringResource(MR.strings.stats_nothing_read),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialTheme.padding.medium),
-                            )
-                        }
-                    }
-                }
-                items(current.titles) { title ->
-                    StatsCoverTitleLine(
-                        title = title.name,
-                        readMs = title.readMs,
-                        cover = title.cover,
-                        modifier = Modifier.widthIn(
-                            max = READING_MAX_WIDTH,
-                        ).padding(horizontal = MaterialTheme.padding.medium),
-                    ) {
-                        navigator.push(title.entryId.detailsScreen())
-                    }
+            }
+            items(current.titles) { title ->
+                StatsCoverTitleLine(
+                    title = title.name,
+                    readMs = title.readMs,
+                    cover = title.cover,
+                    modifier = Modifier.widthIn(
+                        max = READING_MAX_WIDTH,
+                    ).padding(horizontal = MaterialTheme.padding.medium),
+                ) {
+                    navigator.push(title.entryId.detailsScreen())
                 }
             }
         }

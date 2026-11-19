@@ -16,10 +16,10 @@ import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.presentation.RecordingResultBus
 import reikai.presentation.browse.catalogue.BrowseSearchEvent
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
-import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
-import reikai.presentation.novel.notes.NovelNotesScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
+import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
+import reikai.presentation.novel.notes.NovelNotesRoute
 import reikai.presentation.resultKey
 
 /** The details page's neutral pushes land on the same destination for a manga and a novel. */
@@ -37,7 +37,7 @@ class DetailsPushesConformanceTest {
     fun `a global search is scoped to the entry's type`(case: Case) = pushes(case) { nav, stack ->
         nav.onGlobalSearch("query")
 
-        val top = stack.lastItemOrNull.shouldBeInstanceOf<EntryGlobalSearchScreen>()
+        val top = stack.lastItemOrNull.shouldBeInstanceOf<EntryGlobalSearchRoute>()
         (top.searchQuery to top.scopedContentType) shouldBe ("query" to case.anchor.contentType)
     }
 
@@ -52,7 +52,7 @@ class DetailsPushesConformanceTest {
     @ParameterizedTest
     @MethodSource("cases")
     fun `a genre returns to the viewed source's catalogue`(case: Case) {
-        val catalogue = EntryCatalogueScreen(case.source)
+        val catalogue = EntryCatalogueRoute(case.source)
         pushes(case, catalogue) { nav, stack ->
             nav.onTagSearch("Action")
 
@@ -75,7 +75,7 @@ class DetailsPushesConformanceTest {
     fun `the source row browses the viewed source`(case: Case) = pushes(case) { nav, stack ->
         nav.onBrowseSource!!()
 
-        stack.lastItemOrNull.shouldBeInstanceOf<EntryCatalogueScreen>().sourceKey shouldBe case.source
+        stack.lastItemOrNull.shouldBeInstanceOf<EntryCatalogueRoute>().sourceKey shouldBe case.source
     }
 
     @ParameterizedTest
@@ -98,7 +98,7 @@ class DetailsPushesConformanceTest {
     fun `Migrate picks sources for the anchor`(case: Case) = pushes(case) { nav, stack ->
         nav.onMigrate!!()
 
-        val top = stack.lastItemOrNull.shouldBeInstanceOf<EntryMigrationSourcePickScreen>()
+        val top = stack.lastItemOrNull.shouldBeInstanceOf<EntryMigrationSourcePickRoute>()
         (top.contentType to top.entryIds) shouldBe (case.anchor.contentType to listOf(case.anchor.rawId))
     }
 
@@ -109,7 +109,7 @@ class DetailsPushesConformanceTest {
 
         when (val top = stack.lastItemOrNull) {
             is MangaNotesRoute -> EntryId.Manga(top.mangaId)
-            is NovelNotesScreen -> EntryId.Novel(top.novelId)
+            is NovelNotesRoute -> EntryId.Novel(top.novelId)
             else -> top
         } shouldBe EntryId.of(case.anchor.contentType, case.viewed)
     }

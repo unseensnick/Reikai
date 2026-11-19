@@ -116,13 +116,13 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.source.SourceKey
 import reikai.domain.task.TaskBannerPreferences
 import reikai.novel.download.NovelDownloadCache
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.closesWhenIncognitoEnds
 import reikai.presentation.browse.globalsearch.searchIntentScreen
-import reikai.presentation.browse.repos.RepositoriesScreen
+import reikai.presentation.browse.incognitoSource
+import reikai.presentation.browse.repos.RepositoriesRoute
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.details.novelDetailsScreen
-import reikai.presentation.library.updateerror.UpdateErrorsScreen
+import reikai.presentation.library.updateerror.UpdateErrorsRoute
 import reikai.presentation.local.importFiles
 import reikai.presentation.local.importedFiles
 import reikai.presentation.navigation.retainAppResultEventBus
@@ -295,7 +295,7 @@ class MainActivity : BaseActivity() {
                 }
                 LaunchedEffect(navigator.lastItem) {
                     // RK: keyed by SourceKey, so a novel catalogue shows its own per-source incognito too.
-                    val source: SourceKey? = (navigator.lastItem as? EntryCatalogueScreen)?.sourceKey
+                    val source: SourceKey? = navigator.lastItem.incognitoSource()
                     getIncognitoState.subscribe(source)
                         .collectLatest { incognito = it }
                 }
@@ -578,7 +578,7 @@ class MainActivity : BaseActivity() {
                     ?.let { name -> ContentType.entries.firstOrNull { it.name == name } }
                     ?: ContentType.ALL
                 navigator.popUntilRoot()
-                navigator.push(UpdateErrorsScreen(contentType))
+                navigator.push(UpdateErrorsRoute(contentType))
                 null
             }
             Constants.SHORTCUT_UPDATES -> TabEvent.Updates
@@ -634,7 +634,7 @@ class MainActivity : BaseActivity() {
                     intent.data?.getQueryParameter("url")?.let { repoUrl ->
                         navigator.popUntilRoot()
                         // RK: the Repos screen, which reads the address as either kind of repo
-                        navigator.push(RepositoriesScreen(repoUrl))
+                        navigator.push(RepositoriesRoute(repoUrl))
                     }
                 }
                 null

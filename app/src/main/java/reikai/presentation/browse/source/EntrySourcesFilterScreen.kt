@@ -46,119 +46,122 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * chip: routing All and Manga to the manga screen left every plugin unreachable from the default
  * chip. The two halves keep their own preferences and are drawn by one list over [SourceFilterSection].
  */
-class EntrySourcesFilterScreen(
+class EntrySourcesFilterRoute(
     /** The Browse chip this was opened from. All lands on manga. */
     private val initial: ContentType = ContentType.MANGA,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        SourcesFilterContent(
-            initial = initial,
-            navigateUp = navigator::pop,
-            mangaSources = { MangaSources(it, navigator::pop) },
-            novelSources = { NovelSources(it) },
-        )
-    }
+    override fun Content() = EntrySourcesFilterScreen(initial)
+}
 
-    @Composable
-    private fun MangaSources(contentPadding: PaddingValues, navigateUp: () -> Unit) {
-        val context = LocalContext.current
-        val viewModel = metroViewModel<SourcesFilterViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
+@Composable
+fun EntrySourcesFilterScreen(initial: ContentType) {
+    val navigator = LocalNavigator.currentOrThrow
+    SourcesFilterContent(
+        initial = initial,
+        navigateUp = navigator::pop,
+        mangaSources = { MangaSources(it, navigator::pop) },
+        novelSources = { NovelSources(it) },
+    )
+}
 
-        when (val s = state) {
-            SourcesFilterViewModel.State.Loading -> LoadingScreen(Modifier.padding(contentPadding))
-            // Upstream toasted and left the screen, and it still does. Leaving takes the novel half
-            // with it, which is survivable: this half is only composed under the Manga chip, so
-            // opening from Novels never touches the failing flow.
-            is SourcesFilterViewModel.State.Error -> LaunchedEffect(Unit) {
-                context.toast(MR.strings.internal_error)
-                navigateUp()
-            }
-            is SourcesFilterViewModel.State.Success -> if (s.isEmpty) {
-                EmptyScreen(
-                    stringRes = MR.strings.source_filter_empty_screen,
-                    modifier = Modifier.padding(contentPadding),
+@Composable
+private fun MangaSources(contentPadding: PaddingValues, navigateUp: () -> Unit) {
+    val context = LocalContext.current
+    val viewModel = metroViewModel<SourcesFilterViewModel>()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    when (val s = state) {
+        SourcesFilterViewModel.State.Loading -> LoadingScreen(Modifier.padding(contentPadding))
+        // Upstream toasted and left the screen, and it still does. Leaving takes the novel half
+        // with it, which is survivable: this half is only composed under the Manga chip, so
+        // opening from Novels never touches the failing flow.
+        is SourcesFilterViewModel.State.Error -> LaunchedEffect(Unit) {
+            context.toast(MR.strings.internal_error)
+            navigateUp()
+        }
+        is SourcesFilterViewModel.State.Success -> if (s.isEmpty) {
+            EmptyScreen(
+                stringRes = MR.strings.source_filter_empty_screen,
+                modifier = Modifier.padding(contentPadding),
+            )
+        } else {
+            SourceFilterList(
+                sections = s.toSections(),
+                contentPadding = contentPadding,
+                onToggleLanguage = viewModel::toggleLanguage,
+                onToggleSource = viewModel::toggleSource,
+            ) { source, modifier, onClick, action ->
+                BaseSourceItem(
+                    modifier = modifier,
+                    source = source,
+                    showLanguageInContent = false,
+                    onClickItem = onClick,
+                    action = { action() },
                 )
-            } else {
-                SourceFilterList(
-                    sections = s.toSections(),
-                    contentPadding = contentPadding,
-                    onToggleLanguage = viewModel::toggleLanguage,
-                    onToggleSource = viewModel::toggleSource,
-                ) { source, modifier, onClick, action ->
-                    BaseSourceItem(
-                        modifier = modifier,
-                        source = source,
-                        showLanguageInContent = false,
-                        onClickItem = onClick,
-                        action = { action() },
-                    )
-                }
             }
         }
     }
+}
 
-    @Composable
-    private fun NovelSources(contentPadding: PaddingValues) {
-        val viewModel = metroViewModel<NovelSourcesFilterViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
+@Composable
+private fun NovelSources(contentPadding: PaddingValues) {
+    val viewModel = metroViewModel<NovelSourcesFilterViewModel>()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
-        when (val s = state) {
-            NovelSourcesFilterViewModel.State.Loading -> LoadingScreen(Modifier.padding(contentPadding))
-            is NovelSourcesFilterViewModel.State.Success -> if (s.isEmpty) {
-                EmptyScreen(stringRes = MR.strings.ln_no_sources, modifier = Modifier.padding(contentPadding))
-            } else {
-                SourceFilterList(
-                    sections = s.toSections(),
-                    contentPadding = contentPadding,
-                    onToggleLanguage = viewModel::toggleLanguage,
-                    onToggleSource = { viewModel.toggleSource(it.id) },
-                ) { source, modifier, onClick, action ->
-                    NovelSourceRow(
-                        modifier = modifier,
-                        name = source.name,
-                        iconUrl = source.iconUrl,
-                        subtitle = formatLabel(source.format, s.showsFormat),
-                        onClickItem = onClick,
-                        action = action,
-                    )
-                }
+    when (val s = state) {
+        NovelSourcesFilterViewModel.State.Loading -> LoadingScreen(Modifier.padding(contentPadding))
+        is NovelSourcesFilterViewModel.State.Success -> if (s.isEmpty) {
+            EmptyScreen(stringRes = MR.strings.ln_no_sources, modifier = Modifier.padding(contentPadding))
+        } else {
+            SourceFilterList(
+                sections = s.toSections(),
+                contentPadding = contentPadding,
+                onToggleLanguage = viewModel::toggleLanguage,
+                onToggleSource = { viewModel.toggleSource(it.id) },
+            ) { source, modifier, onClick, action ->
+                NovelSourceRow(
+                    modifier = modifier,
+                    name = source.name,
+                    iconUrl = source.iconUrl,
+                    subtitle = formatLabel(source.format, s.showsFormat),
+                    onClickItem = onClick,
+                    action = action,
+                )
             }
         }
     }
+}
 
-    /** Each language as a switch over its sources, each with a checkbox; only [row] is per type. */
-    @Composable
-    private fun <S> SourceFilterList(
-        sections: List<SourceFilterSection<S>>,
-        contentPadding: PaddingValues,
-        onToggleLanguage: (String) -> Unit,
-        onToggleSource: (S) -> Unit,
-        row: @Composable (S, Modifier, onClick: () -> Unit, action: @Composable RowScope.() -> Unit) -> Unit,
-    ) {
-        val context = LocalContext.current
-        FastScrollLazyColumn(contentPadding = contentPadding) {
-            sections.forEach { section ->
-                item(key = "source-filter-header-${section.language}", contentType = "source-filter-header") {
-                    // Off hides the whole language's sources here and everywhere else.
-                    SwitchPreferenceWidget(
-                        modifier = Modifier.animateItem(),
-                        title = browseLanguageLabel(section.language, context),
-                        checked = section.enabled,
-                        onCheckedChanged = { onToggleLanguage(section.language) },
-                    )
-                }
-                items(
-                    items = section.sources,
-                    key = { "source-filter-${it.key}" },
-                    contentType = { "source-filter-item" },
-                ) { entry ->
-                    row(entry.source, Modifier.animateItem(), { onToggleSource(entry.source) }) {
-                        Checkbox(checked = entry.checked, onCheckedChange = null)
-                    }
+/** Each language as a switch over its sources, each with a checkbox; only [row] is per type. */
+@Composable
+private fun <S> SourceFilterList(
+    sections: List<SourceFilterSection<S>>,
+    contentPadding: PaddingValues,
+    onToggleLanguage: (String) -> Unit,
+    onToggleSource: (S) -> Unit,
+    row: @Composable (S, Modifier, onClick: () -> Unit, action: @Composable RowScope.() -> Unit) -> Unit,
+) {
+    val context = LocalContext.current
+    FastScrollLazyColumn(contentPadding = contentPadding) {
+        sections.forEach { section ->
+            item(key = "source-filter-header-${section.language}", contentType = "source-filter-header") {
+                // Off hides the whole language's sources here and everywhere else.
+                SwitchPreferenceWidget(
+                    modifier = Modifier.animateItem(),
+                    title = browseLanguageLabel(section.language, context),
+                    checked = section.enabled,
+                    onCheckedChanged = { onToggleLanguage(section.language) },
+                )
+            }
+            items(
+                items = section.sources,
+                key = { "source-filter-${it.key}" },
+                contentType = { "source-filter-item" },
+            ) { entry ->
+                row(entry.source, Modifier.animateItem(), { onToggleSource(entry.source) }) {
+                    Checkbox(checked = entry.checked, onCheckedChange = null)
                 }
             }
         }

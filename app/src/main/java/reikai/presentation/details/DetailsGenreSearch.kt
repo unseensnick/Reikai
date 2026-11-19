@@ -8,7 +8,7 @@ import eu.kanade.tachiyomi.ui.home.TabEvent
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.BrowseSearchEvent
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 
 /**
  * A genre tapped on a details page: back to [source]'s own catalogue when it is on the stack, which
@@ -50,5 +50,5 @@ private fun Stack<Screen>.showHome(bus: ResultEventBus, event: TabEvent) {
 }
 
 /** The nearest catalogue of [source] on the stack, never another source's. */
-internal fun List<Screen>.catalogueOf(source: SourceKey): EntryCatalogueScreen? =
-    filterIsInstance<EntryCatalogueScreen>().lastOrNull { it.sourceKey == source }
+internal fun List<Any>.catalogueOf(source: SourceKey): EntryCatalogueRoute? =
+    filterIsInstance<EntryCatalogueRoute>().lastOrNull { it.sourceKey == source }

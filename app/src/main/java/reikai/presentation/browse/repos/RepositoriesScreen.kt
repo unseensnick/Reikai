@@ -67,123 +67,126 @@ import tachiyomi.presentation.core.util.plus
 import tachiyomi.presentation.core.util.shouldExpandFAB
 
 /** Every extension store and LN plugin repo; [url] is an address a deep link asks to add. */
-class RepositoriesScreen(private val url: String? = null) : Screen() {
+class RepositoriesRoute(private val url: String? = null) : Screen() {
 
     @Composable
-    override fun Content() {
-        val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
-        val model = metroViewModel<RepositoriesViewModel>()
-        val state by model.state.collectAsStateWithLifecycle()
-        val listState = rememberLazyListState()
+    override fun Content() = RepositoriesScreen(url)
+}
 
-        LaunchedEffect(url) {
-            url?.let(model::showAdd)
-        }
+@Composable
+fun RepositoriesScreen(url: String?) {
+    val context = LocalContext.current
+    val navigator = LocalNavigator.currentOrThrow
+    val model = metroViewModel<RepositoriesViewModel>()
+    val state by model.state.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    titleContent = { RepositoriesTitle(count = state.cards.size) },
-                    navigateUp = navigator::pop,
-                    actions = {
-                        IconButton(onClick = model::refresh) {
-                            Icon(
-                                imageVector = MaterialSymbols.Rounded.Refresh,
-                                contentDescription = stringResource(MR.strings.action_webview_refresh),
+    LaunchedEffect(url) {
+        url?.let(model::showAdd)
+    }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                titleContent = { RepositoriesTitle(count = state.cards.size) },
+                navigateUp = navigator::pop,
+                actions = {
+                    IconButton(onClick = model::refresh) {
+                        Icon(
+                            imageVector = MaterialSymbols.Rounded.Refresh,
+                            contentDescription = stringResource(MR.strings.action_webview_refresh),
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+        floatingActionButton = {
+            SmallExtendedFloatingActionButton(
+                text = { Text(text = stringResource(MR.strings.action_add_repo)) },
+                icon = { Icon(imageVector = MaterialSymbols.Rounded.Add, contentDescription = null) },
+                onClick = { model.showAdd() },
+                expanded = listState.shouldExpandFAB(),
+            )
+        },
+    ) { contentPadding ->
+        when {
+            state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
+            state.cards.isEmpty() && state.hiddenCount == 0 -> EmptyScreen(
+                stringRes = MR.strings.ext_no_repos,
+                modifier = Modifier.padding(contentPadding),
+            )
+            else -> Column(Modifier.padding(top = contentPadding.calculateTopPadding())) {
+                if (state.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth())
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()) +
+                        PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(state.cards, key = { it.address }) { card ->
+                        RepoCard(
+                            card = card,
+                            showTypeBadges = state.showTypeBadges,
+                            onOpen = { model.openDetails(card) },
+                            onOpenWebsite = { card.website?.let(context::openInBrowser) },
+                            onCopy = { context.copyToClipboard(card.address, card.address) },
+                            onRemove = { model.confirmRemove(card) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                    if (state.hiddenCount > 0) {
+                        item(key = "hidden") {
+                            Text(
+                                text = pluralStringResource(
+                                    MR.plurals.repos_hidden_by_show,
+                                    state.hiddenCount,
+                                    state.hiddenCount,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-            floatingActionButton = {
-                SmallExtendedFloatingActionButton(
-                    text = { Text(text = stringResource(MR.strings.action_add_repo)) },
-                    icon = { Icon(imageVector = MaterialSymbols.Rounded.Add, contentDescription = null) },
-                    onClick = { model.showAdd() },
-                    expanded = listState.shouldExpandFAB(),
-                )
-            },
-        ) { contentPadding ->
-            when {
-                state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
-                state.cards.isEmpty() && state.hiddenCount == 0 -> EmptyScreen(
-                    stringRes = MR.strings.ext_no_repos,
-                    modifier = Modifier.padding(contentPadding),
-                )
-                else -> Column(Modifier.padding(top = contentPadding.calculateTopPadding())) {
-                    if (state.isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    LazyColumn(
-                        state = listState,
-                        contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()) +
-                            PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(state.cards, key = { it.address }) { card ->
-                            RepoCard(
-                                card = card,
-                                showTypeBadges = state.showTypeBadges,
-                                onOpen = { model.openDetails(card) },
-                                onOpenWebsite = { card.website?.let(context::openInBrowser) },
-                                onCopy = { context.copyToClipboard(card.address, card.address) },
-                                onRemove = { model.confirmRemove(card) },
-                                modifier = Modifier.animateItem(),
-                            )
-                        }
-                        if (state.hiddenCount > 0) {
-                            item(key = "hidden") {
-                                Text(
-                                    text = pluralStringResource(
-                                        MR.plurals.repos_hidden_by_show,
-                                        state.hiddenCount,
-                                        state.hiddenCount,
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
                         }
                     }
                 }
             }
         }
+    }
 
-        state.details?.let { card ->
-            RepoDetailsSheet(
-                card = card,
-                onOpenDiscord = { card.discord?.let(context::openInBrowser) },
-                onDismissRequest = model::closeDetails,
-            )
-        }
+    state.details?.let { card ->
+        RepoDetailsSheet(
+            card = card,
+            onOpenDiscord = { card.discord?.let(context::openInBrowser) },
+            onDismissRequest = model::closeDetails,
+        )
+    }
 
-        when (val dialog = state.dialog) {
-            null -> {}
-            is RepoDialog.Add -> AddRepoDialog(
-                dialog = dialog,
-                addedAddresses = state.addedAddresses,
-                onAdd = model::add,
-                onDismissRequest = model::dismissDialog,
-            )
-            is RepoDialog.Remove -> AlertDialog(
-                onDismissRequest = model::dismissDialog,
-                title = { Text(text = stringResource(MR.strings.repo_remove_title)) },
-                // The address too, since two plugin repos from one owner or host share a name.
-                text = {
-                    Text(text = stringResource(MR.strings.repo_remove_body, dialog.card.name, dialog.card.address))
-                },
-                confirmButton = {
-                    TextButton(onClick = { model.remove(dialog.card) }) {
-                        Text(text = stringResource(MR.strings.action_ok))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = model::dismissDialog) {
-                        Text(text = stringResource(MR.strings.action_cancel))
-                    }
-                },
-            )
-        }
+    when (val dialog = state.dialog) {
+        null -> {}
+        is RepoDialog.Add -> AddRepoDialog(
+            dialog = dialog,
+            addedAddresses = state.addedAddresses,
+            onAdd = model::add,
+            onDismissRequest = model::dismissDialog,
+        )
+        is RepoDialog.Remove -> AlertDialog(
+            onDismissRequest = model::dismissDialog,
+            title = { Text(text = stringResource(MR.strings.repo_remove_title)) },
+            // The address too, since two plugin repos from one owner or host share a name.
+            text = {
+                Text(text = stringResource(MR.strings.repo_remove_body, dialog.card.name, dialog.card.address))
+            },
+            confirmButton = {
+                TextButton(onClick = { model.remove(dialog.card) }) {
+                    Text(text = stringResource(MR.strings.action_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = model::dismissDialog) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+            },
+        )
     }
 }
 

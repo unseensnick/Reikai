@@ -35,21 +35,14 @@ import tachiyomi.source.local.LocalSource
  * The notes of one volume of a local series, either content type, which its page shows while that volume's
  * chip is picked. Keyed as the volume's saved order and name are, so they follow it through a move.
  */
-class VolumeNotesScreen(
+class VolumeNotesRoute(
     private val type: ContentType,
     private val series: String,
     private val volumeKey: String,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(type = type, series = series, volumeKey = volumeKey)
-        }
-
-        EntryNotesScreen(editor = viewModel.notes, subtitle = { volumeName(it) }, navigateUp = navigator::pop)
-    }
+    override fun Content() = VolumeNotesScreen(type, series, volumeKey)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -97,4 +90,14 @@ class VolumeNotesScreen(
             fun create(type: ContentType, series: String, volumeKey: String): Model
         }
     }
+}
+
+@Composable
+fun VolumeNotesScreen(type: ContentType, series: String, volumeKey: String) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = assistedMetroViewModel<VolumeNotesRoute.Model, VolumeNotesRoute.Model.Factory> {
+        create(type = type, series = series, volumeKey = volumeKey)
+    }
+
+    EntryNotesScreen(editor = viewModel.notes, subtitle = { volumeName(it) }, navigateUp = navigator::pop)
 }

@@ -40,87 +40,90 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * via [MangaDexFollowsViewModel], plus the shared bulk-selection toolbar for adding many at once.
  * Reached from the browse filter sheet's Follows button.
  */
-class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
+class MangaDexFollowsRoute(private val sourceId: Long) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val opener = rememberDetailsOpener()
-        val viewModel = assistedMetroViewModel<MangaDexFollowsViewModel, MangaDexFollowsViewModel.Factory> {
-            create(sourceId = sourceId)
-        }
-        val snackbarHostState = remember { SnackbarHostState() }
+    override fun Content() = MangaDexFollowsScreen(sourceId)
+}
 
-        val bulkFavoriteViewModel = metroViewModel<BulkFavoriteViewModel>()
-        val bulkFavoriteState by bulkFavoriteViewModel.state.collectAsState()
-        val adapter = remember(viewModel, bulkFavoriteViewModel) {
-            MangaBrowseAdapter(viewModel, bulkFavoriteViewModel)
-        }
-        val entries = adapter.rows.collectAsLazyPagingItems()
-        val browseState by adapter.state.collectAsState()
-
-        BackHandler(enabled = bulkFavoriteState.selectionMode) {
-            bulkFavoriteViewModel.backHandler()
-        }
-        val gestures = rememberEntryGestures(
-            choose = adapter::toggleSelection.takeIf { bulkFavoriteState.selectionMode },
-            open = { row: EntryBrowseRow -> opener.open(row, SourceKey.Manga(sourceId)) },
-            add = adapter::onRowLongClick,
-        )
-
-        Scaffold(
-            topBar = { scrollBehavior ->
-                if (bulkFavoriteState.selectionMode) {
-                    BulkSelectionToolbar(
-                        selectedCount = bulkFavoriteState.selection.size,
-                        onClickClearSelection = bulkFavoriteViewModel::toggleSelectionMode,
-                        onChangeCategoryClick = bulkFavoriteViewModel::addFavorite,
-                        onSelectAll = { adapter.selectAll(entries.itemSnapshotList.items) },
-                        onReverseSelection = {
-                            adapter.invertSelection(entries.itemSnapshotList.items)
-                        },
-                    )
-                } else {
-                    AppBar(
-                        title = stringResource(MR.strings.mangadex_follows),
-                        navigateUp = navigator::pop,
-                        actions = {
-                            AppBarActions(
-                                buildList {
-                                    add(
-                                        AppBar.Action(
-                                            title = stringResource(MR.strings.action_bulk_select),
-                                            icon = MaterialSymbols.Rounded.SelectAll,
-                                            onClick = bulkFavoriteViewModel::toggleSelectionMode,
-                                        ),
-                                    )
-                                },
-                            )
-                        },
-                        scrollBehavior = scrollBehavior,
-                    )
-                }
-            },
-            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        ) { paddingValues ->
-            val loaded = browseState as? EntryBrowseScreenState.Loaded
-            if (loaded == null) {
-                LoadingScreen(Modifier.padding(paddingValues))
-                return@Scaffold
-            }
-            EntryBrowseCatalogue(
-                rows = entries,
-                rowStyle = loaded.rowStyle,
-                selectedKeys = loaded.selectedKeys,
-                snackbarHostState = snackbarHostState,
-                contentPadding = paddingValues,
-                onWebViewClick = {},
-                onHelpClick = {},
-                gestures = gestures,
-            )
-        }
-
-        EntryAddDialogs(viewModel.addFlow)
-        PendingBulkCategoryDialog(bulkFavoriteViewModel)
+@Composable
+fun MangaDexFollowsScreen(sourceId: Long) {
+    val navigator = LocalNavigator.currentOrThrow
+    val opener = rememberDetailsOpener()
+    val viewModel = assistedMetroViewModel<MangaDexFollowsViewModel, MangaDexFollowsViewModel.Factory> {
+        create(sourceId = sourceId)
     }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val bulkFavoriteViewModel = metroViewModel<BulkFavoriteViewModel>()
+    val bulkFavoriteState by bulkFavoriteViewModel.state.collectAsState()
+    val adapter = remember(viewModel, bulkFavoriteViewModel) {
+        MangaBrowseAdapter(viewModel, bulkFavoriteViewModel)
+    }
+    val entries = adapter.rows.collectAsLazyPagingItems()
+    val browseState by adapter.state.collectAsState()
+
+    BackHandler(enabled = bulkFavoriteState.selectionMode) {
+        bulkFavoriteViewModel.backHandler()
+    }
+    val gestures = rememberEntryGestures(
+        choose = adapter::toggleSelection.takeIf { bulkFavoriteState.selectionMode },
+        open = { row: EntryBrowseRow -> opener.open(row, SourceKey.Manga(sourceId)) },
+        add = adapter::onRowLongClick,
+    )
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            if (bulkFavoriteState.selectionMode) {
+                BulkSelectionToolbar(
+                    selectedCount = bulkFavoriteState.selection.size,
+                    onClickClearSelection = bulkFavoriteViewModel::toggleSelectionMode,
+                    onChangeCategoryClick = bulkFavoriteViewModel::addFavorite,
+                    onSelectAll = { adapter.selectAll(entries.itemSnapshotList.items) },
+                    onReverseSelection = {
+                        adapter.invertSelection(entries.itemSnapshotList.items)
+                    },
+                )
+            } else {
+                AppBar(
+                    title = stringResource(MR.strings.mangadex_follows),
+                    navigateUp = navigator::pop,
+                    actions = {
+                        AppBarActions(
+                            buildList {
+                                add(
+                                    AppBar.Action(
+                                        title = stringResource(MR.strings.action_bulk_select),
+                                        icon = MaterialSymbols.Rounded.SelectAll,
+                                        onClick = bulkFavoriteViewModel::toggleSelectionMode,
+                                    ),
+                                )
+                            },
+                        )
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+    ) { paddingValues ->
+        val loaded = browseState as? EntryBrowseScreenState.Loaded
+        if (loaded == null) {
+            LoadingScreen(Modifier.padding(paddingValues))
+            return@Scaffold
+        }
+        EntryBrowseCatalogue(
+            rows = entries,
+            rowStyle = loaded.rowStyle,
+            selectedKeys = loaded.selectedKeys,
+            snackbarHostState = snackbarHostState,
+            contentPadding = paddingValues,
+            onWebViewClick = {},
+            onHelpClick = {},
+            gestures = gestures,
+        )
+    }
+
+    EntryAddDialogs(viewModel.addFlow)
+    PendingBulkCategoryDialog(bulkFavoriteViewModel)
 }

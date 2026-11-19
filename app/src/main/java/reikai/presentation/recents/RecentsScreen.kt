@@ -35,7 +35,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.ui.UiPreferences
@@ -107,7 +106,7 @@ import kotlin.time.Clock
  * how it looks. Record: docs/dev/subsystems/recents.md.
  */
 @Composable
-fun Screen.RecentsScreen(
+fun RecentsScreen(
     engine: RecentsEngine,
     title: String,
     modifier: Modifier = Modifier,
@@ -1002,7 +1001,7 @@ private fun RecentsBottomBar(
 
 /** The surface's one dialog slot, drawn wherever the engine raised it. */
 @Composable
-private fun Screen.RecentsDialogs(
+private fun RecentsDialogs(
     engine: RecentsEngine,
     membership: Map<EntryId, Long>,
     onOpenDetails: (EntryId) -> Unit,

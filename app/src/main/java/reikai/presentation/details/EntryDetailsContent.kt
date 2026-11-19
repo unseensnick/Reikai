@@ -63,7 +63,7 @@ import reikai.presentation.components.MergeSourceChips
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.readProgressLabel
 import reikai.presentation.components.reportVolumeMove
-import reikai.presentation.notes.VolumeNotesScreen
+import reikai.presentation.notes.VolumeNotesRoute
 import reikai.presentation.novel.details.novelPageText
 import reikai.presentation.reader.chapterRowTitle
 import reikai.presentation.reader.chapterTitleWords
@@ -173,7 +173,7 @@ fun EntryDetailsContent(
     val pageNav = DetailsPageNav(
         perType = nav,
         shared = pickedVolume?.let { picked ->
-            shared.copy(onEditNotes = { navigator.push(VolumeNotesScreen(type, picked.series, picked.key)) })
+            shared.copy(onEditNotes = { navigator.push(VolumeNotesRoute(type, picked.series, picked.key)) })
         } ?: shared,
         onFilterLibraryByTag = { tag, show ->
             settings.filterLibraryByTag(tag, show)

@@ -32,9 +32,9 @@ import tachiyomi.presentation.core.i18n.stringResource
  */
 data object RecentsTab : Tab, ShowsUpdatesBadge {
 
-    private val snackbarHostState = SnackbarHostState()
+    internal val snackbarHostState = SnackbarHostState()
 
-    private val reselectEvent = Channel<Unit>()
+    internal val reselectEvent = Channel<Unit>()
 
     override val options: TabOptions
         @Composable
@@ -53,47 +53,50 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
     }
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val engine = rememberRecentsEngine()
-        val mode by engine.mode.collectAsState()
-        // Held for the badge reset and the two feeds' own error reports. The engine builds these same
-        // instances out of this tab's store, so none of them is a second model.
-        val updatesModel = mangaUpdatesModel(RecentsSurface.RECENTS)
-        val mangaHistory = mangaHistoryModel(RecentsSurface.RECENTS)
-        val novelHistory = novelHistoryModel(RecentsSurface.RECENTS)
+    override fun Content() = RecentsTab()
+}
 
-        RecentsTabBody(
-            engine = engine,
-            title = stringResource(MR.strings.label_recents),
-            snackbarHostState = snackbarHostState,
-        )
+@Composable
+fun RecentsTab() {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val engine = rememberRecentsEngine()
+    val mode by engine.mode.collectAsState()
+    // Held for the badge reset and the two feeds' own error reports. The engine builds these same
+    // instances out of this tab's store, so none of them is a second model.
+    val updatesModel = mangaUpdatesModel(RecentsSurface.RECENTS)
+    val mangaHistory = mangaHistoryModel(RecentsSurface.RECENTS)
+    val novelHistory = novelHistoryModel(RecentsSurface.RECENTS)
 
-        // The badge counts what the updated lane shows, so a mode that does not draw that lane must
-        // not clear a count the user has had no chance to look at.
-        val showsUpdated = RecentsLaneKind.UPDATED in mode.lanes
-        DisposableEffect(showsUpdated) {
+    RecentsTabBody(
+        engine = engine,
+        title = stringResource(MR.strings.label_recents),
+        snackbarHostState = RecentsTab.snackbarHostState,
+    )
+
+    // The badge counts what the updated lane shows, so a mode that does not draw that lane must
+    // not clear a count the user has had no chance to look at.
+    val showsUpdated = RecentsLaneKind.UPDATED in mode.lanes
+    DisposableEffect(showsUpdated) {
+        if (showsUpdated) updatesModel.resetNewUpdatesCount()
+
+        onDispose {
             if (showsUpdated) updatesModel.resetNewUpdatesCount()
-
-            onDispose {
-                if (showsUpdated) updatesModel.resetNewUpdatesCount()
-            }
         }
+    }
 
-        HistoryFeedErrors(mangaHistory, novelHistory, snackbarHostState)
+    HistoryFeedErrors(mangaHistory, novelHistory, RecentsTab.snackbarHostState)
 
-        ResultEffect<RecentsModeEvent> { engine.setMode(it.mode) }
+    ResultEffect<RecentsModeEvent> { engine.setMode(it.mode) }
 
-        LaunchedEffect(Unit) {
-            reselectEvent.receiveAsFlow().collectLatest {
-                // Reselect resumes wherever there is reading to resume. Updates is the one mode with
-                // no read lane, and it keeps the download-queue shortcut it has always had.
-                if (RecentsLaneKind.READ in engine.mode.value.lanes) {
-                    engine.resumeLatestOrSay(context, snackbarHostState)
-                } else {
-                    navigator.push(DownloadQueueScreen)
-                }
+    LaunchedEffect(Unit) {
+        RecentsTab.reselectEvent.receiveAsFlow().collectLatest {
+            // Reselect resumes wherever there is reading to resume. Updates is the one mode with
+            // no read lane, and it keeps the download-queue shortcut it has always had.
+            if (RecentsLaneKind.READ in engine.mode.value.lanes) {
+                engine.resumeLatestOrSay(context, RecentsTab.snackbarHostState)
+            } else {
+                navigator.push(DownloadQueueScreen)
             }
         }
     }

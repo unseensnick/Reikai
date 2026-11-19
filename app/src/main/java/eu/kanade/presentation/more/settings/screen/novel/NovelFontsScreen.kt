@@ -70,108 +70,111 @@ import java.io.File
  * because adding a font is only ever a step towards reading in it, and a picker somewhere else would
  * mean two places that both claim to answer the same question.
  */
-class NovelFontsScreen : Screen() {
+class NovelFontsRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val viewModel = metroViewModel<NovelFontsViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
-        val lazyListState = rememberLazyListState()
-        val snackbarHostState = remember { SnackbarHostState() }
-        // Any file, because a picker filtered on font MIME types hides fonts on the devices that
-        // report them as application/octet-stream. What the file actually is, is checked on import.
-        val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            uri?.let(viewModel::import)
-        }
+    override fun Content() = NovelFontsScreen()
+}
 
-        val errorMessage = state.error?.let { stringResource(it) }
-        LaunchedEffect(errorMessage) {
-            errorMessage?.let {
-                snackbarHostState.showSnackbar(it)
-                viewModel.dismissError()
+@Composable
+fun NovelFontsScreen() {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val viewModel = metroViewModel<NovelFontsViewModel>()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val lazyListState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // Any file, because a picker filtered on font MIME types hides fonts on the devices that
+    // report them as application/octet-stream. What the file actually is, is checked on import.
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::import)
+    }
+
+    val errorMessage = state.error?.let { stringResource(it) }
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.dismissError()
+        }
+    }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.pref_novel_font),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        floatingActionButton = {
+            SmallExtendedFloatingActionButton(
+                text = { Text(text = stringResource(MR.strings.novel_font_add)) },
+                icon = { Icon(imageVector = MaterialSymbols.Rounded.Add, contentDescription = null) },
+                onClick = { viewModel.showDialog(NovelFontDialog.Add) },
+                expanded = lazyListState.shouldExpandFAB(),
+            )
+        },
+    ) { paddingValues ->
+        LazyColumn(
+            state = lazyListState,
+            contentPadding = paddingValues + topSmallPaddingValues,
+            modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
+        ) {
+            if (state.busy) {
+                item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             }
-        }
-
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.pref_novel_font),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
+            item { SectionHeader(stringResource(MR.strings.novel_font_section_built_in)) }
+            items(builtInReaderFonts, key = { "b:${it.family}" }) { font ->
+                FontRow(
+                    label = readerFontLabel(font.family, stringResource(MR.strings.label_default)),
+                    subtitle = readerFontSummary(font.family)?.let { stringResource(it) },
+                    preview = assetPreview(context, font.family),
+                    selected = state.selected == font.family,
+                    onClick = { viewModel.select(font.family) },
                 )
-            },
-            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-            floatingActionButton = {
-                SmallExtendedFloatingActionButton(
-                    text = { Text(text = stringResource(MR.strings.novel_font_add)) },
-                    icon = { Icon(imageVector = MaterialSymbols.Rounded.Add, contentDescription = null) },
-                    onClick = { viewModel.showDialog(NovelFontDialog.Add) },
-                    expanded = lazyListState.shouldExpandFAB(),
-                )
-            },
-        ) { paddingValues ->
-            LazyColumn(
-                state = lazyListState,
-                contentPadding = paddingValues + topSmallPaddingValues,
-                modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
-            ) {
-                if (state.busy) {
-                    item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-                }
-                item { SectionHeader(stringResource(MR.strings.novel_font_section_built_in)) }
-                items(builtInReaderFonts, key = { "b:${it.family}" }) { font ->
-                    FontRow(
-                        label = readerFontLabel(font.family, stringResource(MR.strings.label_default)),
-                        subtitle = readerFontSummary(font.family)?.let { stringResource(it) },
-                        preview = assetPreview(context, font.family),
-                        selected = state.selected == font.family,
-                        onClick = { viewModel.select(font.family) },
-                    )
-                }
-                item { SectionHeader(stringResource(MR.strings.novel_font_section_yours)) }
-                if (state.fonts.isEmpty()) {
-                    item {
-                        Text(
-                            text = stringResource(MR.strings.information_empty_novel_fonts),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(MaterialTheme.padding.medium),
-                        )
-                    }
-                }
-                items(state.fonts, key = { "c:${it.fileName}" }) { font ->
-                    FontRow(
-                        label = font.displayName,
-                        preview = filePreview(state.fontFiles[font.fileName]),
-                        selected = state.selected == font.fileName,
-                        onClick = { viewModel.select(font.fileName) },
-                        onDelete = { viewModel.showDialog(NovelFontDialog.Delete(font)) },
+            }
+            item { SectionHeader(stringResource(MR.strings.novel_font_section_yours)) }
+            if (state.fonts.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(MR.strings.information_empty_novel_fonts),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(MaterialTheme.padding.medium),
                     )
                 }
             }
+            items(state.fonts, key = { "c:${it.fileName}" }) { font ->
+                FontRow(
+                    label = font.displayName,
+                    preview = filePreview(state.fontFiles[font.fileName]),
+                    selected = state.selected == font.fileName,
+                    onClick = { viewModel.select(font.fileName) },
+                    onDelete = { viewModel.showDialog(NovelFontDialog.Delete(font)) },
+                )
+            }
         }
+    }
 
-        when (val dialog = state.dialog) {
-            null -> {}
-            is NovelFontDialog.Add -> AddFontSheet(
-                onDismissRequest = viewModel::dismissDialog,
-                onImport = { picker.launch(arrayOf("*/*")) },
-                onBrowse = { viewModel.showDialog(NovelFontDialog.Browse) },
-            )
-            is NovelFontDialog.Browse -> BrowseGoogleFontsDialog(
-                catalogue = state.catalogue,
-                loading = state.catalogueLoading,
-                onDismissRequest = viewModel::dismissDialog,
-                onDownload = viewModel::download,
-            )
-            is NovelFontDialog.Delete -> NovelDeleteDialog(
-                text = stringResource(MR.strings.novel_font_delete_confirmation, dialog.font.displayName),
-                onDismissRequest = viewModel::dismissDialog,
-                onConfirm = { viewModel.delete(dialog.font) },
-            )
-        }
+    when (val dialog = state.dialog) {
+        null -> {}
+        is NovelFontDialog.Add -> AddFontSheet(
+            onDismissRequest = viewModel::dismissDialog,
+            onImport = { picker.launch(arrayOf("*/*")) },
+            onBrowse = { viewModel.showDialog(NovelFontDialog.Browse) },
+        )
+        is NovelFontDialog.Browse -> BrowseGoogleFontsDialog(
+            catalogue = state.catalogue,
+            loading = state.catalogueLoading,
+            onDismissRequest = viewModel::dismissDialog,
+            onDownload = viewModel::download,
+        )
+        is NovelFontDialog.Delete -> NovelDeleteDialog(
+            text = stringResource(MR.strings.novel_font_delete_confirmation, dialog.font.displayName),
+            onDismissRequest = viewModel::dismissDialog,
+            onConfirm = { viewModel.delete(dialog.font) },
+        )
     }
 }
 

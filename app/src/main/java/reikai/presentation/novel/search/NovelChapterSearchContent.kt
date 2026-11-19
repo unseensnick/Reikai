@@ -30,9 +30,9 @@ import androidx.compose.ui.text.withStyle
 import eu.kanade.presentation.components.SearchToolbar
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.content.ChapterSearchSnippet
-import reikai.presentation.novel.search.NovelChapterSearchScreen.SearchOptions
-import reikai.presentation.novel.search.NovelChapterSearchScreen.SearchResult
-import reikai.presentation.novel.search.NovelChapterSearchScreen.State
+import reikai.presentation.novel.search.NovelChapterSearchRoute.SearchOptions
+import reikai.presentation.novel.search.NovelChapterSearchRoute.SearchResult
+import reikai.presentation.novel.search.NovelChapterSearchRoute.State
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding

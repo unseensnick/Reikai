@@ -14,25 +14,25 @@ class MigrationRouteTest {
     @ParameterizedTest
     @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a selection of one type opens that type's migration`(type: ContentType) {
-        EntryMigrationSourcePickScreen.forSelection(listOf(entry(type, 3L), entry(type, 5L)))
+        EntryMigrationSourcePickRoute.forSelection(listOf(entry(type, 3L), entry(type, 5L)))
             .shouldNotBeNull().contentType shouldBe type
     }
 
     @ParameterizedTest
     @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a selection of one type migrates exactly the selected ids`(type: ContentType) {
-        EntryMigrationSourcePickScreen.forSelection(listOf(entry(type, 3L), entry(type, 5L)))
+        EntryMigrationSourcePickRoute.forSelection(listOf(entry(type, 3L), entry(type, 5L)))
             .shouldNotBeNull().entryIds shouldBe listOf(3L, 5L)
     }
 
     @Test
     fun `a mixed manga and novel selection opens no migration`() {
-        EntryMigrationSourcePickScreen.forSelection(listOf(EntryId.Manga(3L), EntryId.Novel(3L))) shouldBe null
+        EntryMigrationSourcePickRoute.forSelection(listOf(EntryId.Manga(3L), EntryId.Novel(3L))) shouldBe null
     }
 
     @Test
     fun `an empty selection opens no migration`() {
-        EntryMigrationSourcePickScreen.forSelection(emptyList()) shouldBe null
+        EntryMigrationSourcePickRoute.forSelection(emptyList()) shouldBe null
     }
 
     private fun entry(type: ContentType, id: Long): EntryId = when (type) {

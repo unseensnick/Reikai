@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
@@ -17,22 +17,22 @@ class MigrationFlowIdTest {
 
     @Test
     fun `the list screen keeps its flow id through a save and restore`() {
-        val screen = EntryMigrationListScreen(ContentType.MANGA, listOf(1L, 2L), extraQuery = null)
+        val screen = EntryMigrationListRoute(ContentType.MANGA, listOf(1L, 2L), extraQuery = null)
 
-        (screen.roundTrip() as EntryMigrationListScreen).flowId shouldBe screen.flowId
+        (screen.roundTrip() as EntryMigrationListRoute).flowId shouldBe screen.flowId
     }
 
     @Test
     fun `the search screen keeps its flow id through a save and restore`() {
-        val screen = EntryMigrationSearchScreen(ContentType.NOVELS, 1L, extraQuery = null)
+        val screen = EntryMigrationSearchRoute(ContentType.NOVELS, 1L, extraQuery = null)
 
-        (screen.roundTrip() as EntryMigrationSearchScreen).flowId shouldBe screen.flowId
+        (screen.roundTrip() as EntryMigrationSearchRoute).flowId shouldBe screen.flowId
     }
 
     @Test
     fun `two flows get different ids`() {
-        val first = EntryMigrationListScreen(ContentType.MANGA, listOf(1L), extraQuery = null)
-        val second = EntryMigrationListScreen(ContentType.MANGA, listOf(1L), extraQuery = null)
+        val first = EntryMigrationListRoute(ContentType.MANGA, listOf(1L), extraQuery = null)
+        val second = EntryMigrationListRoute(ContentType.MANGA, listOf(1L), extraQuery = null)
 
         (first.flowId == second.flowId) shouldBe false
     }
@@ -44,7 +44,7 @@ class MigrationFlowIdTest {
 
         openDeepPicker(stack, entry, "7", "query", flowId = 9137L)
 
-        (stack.lastItemOrNull as EntryCatalogueScreen).migrateFor shouldBe MigrationPickFor(entry.id, 9137L)
+        (stack.lastItemOrNull as EntryCatalogueRoute).migrateFor shouldBe MigrationPickFor(entry.id, 9137L)
     }
 
     private fun Any.roundTrip(): Any {

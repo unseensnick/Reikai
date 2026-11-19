@@ -41,134 +41,137 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
 
-class BatchAddScreen : Screen() {
+class BatchAddRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val viewModel = metroViewModel<BatchAddViewModel>()
-        val state by viewModel.state.collectAsState()
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
+    override fun Content() = BatchAddScreen()
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.batch_add),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { paddingValues ->
-            when (state.state) {
-                BatchAddViewModel.State.INPUT -> {
-                    Column(
-                        Modifier
-                            .padding(paddingValues)
-                            .verticalScroll(rememberScrollState())
-                            .padding(MaterialTheme.padding.medium),
+@Composable
+fun BatchAddScreen() {
+    val viewModel = metroViewModel<BatchAddViewModel>()
+    val state by viewModel.state.collectAsState()
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.batch_add),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { paddingValues ->
+        when (state.state) {
+            BatchAddViewModel.State.INPUT -> {
+                Column(
+                    Modifier
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState())
+                        .padding(MaterialTheme.padding.medium),
+                ) {
+                    Text(
+                        text = stringResource(MR.strings.eh_batch_add_title),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    TextField(
+                        value = state.galleries,
+                        onValueChange = viewModel::updateGalleries,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text(
+                                text = stringResource(MR.strings.eh_batch_add_input_hint),
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { viewModel.addGalleries(context) },
                     ) {
-                        Text(
-                            text = stringResource(MR.strings.eh_batch_add_title),
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        TextField(
-                            value = state.galleries,
-                            onValueChange = viewModel::updateGalleries,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = {
-                                Text(
-                                    text = stringResource(MR.strings.eh_batch_add_input_hint),
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
-                            textStyle = MaterialTheme.typography.bodyLarge,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { viewModel.addGalleries(context) },
-                        ) {
-                            Text(text = stringResource(MR.strings.eh_batch_add_button))
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(MR.strings.batch_add_description),
-                        )
+                        Text(text = stringResource(MR.strings.eh_batch_add_button))
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(MR.strings.batch_add_description),
+                    )
                 }
-                BatchAddViewModel.State.PROGRESS -> {
-                    LazyColumn(
-                        contentPadding = paddingValues + PaddingValues(MaterialTheme.padding.medium),
-                    ) {
-                        item(key = "top") {
-                            Column {
-                                Text(
-                                    text = stringResource(MR.strings.eh_batch_add_adding_galleries),
-                                    style = MaterialTheme.typography.titleLarge,
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    val progress = state.progress.toFloat()
-                                    if (state.progressTotal > 0 && !progress.isNaN()) {
-                                        val realProgress = progress / state.progressTotal
-                                        if (!realProgress.isNaN()) {
-                                            LinearProgressIndicator(
-                                                progress = { realProgress },
-                                                modifier = Modifier
-                                                    .padding(top = 2.dp)
-                                                    .weight(1f),
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        text = state.progress.toString() + "/" + state.progressTotal,
-                                        modifier = Modifier.weight(0.15f),
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-                        }
-                        itemsIndexed(
-                            state.events,
-                            key = { index, event -> "batch-add-${index + event.message.hashCode()}" },
-                        ) { _, event ->
+            }
+            BatchAddViewModel.State.PROGRESS -> {
+                LazyColumn(
+                    contentPadding = paddingValues + PaddingValues(MaterialTheme.padding.medium),
+                ) {
+                    item(key = "top") {
+                        Column {
+                            Text(
+                                text = stringResource(MR.strings.eh_batch_add_adding_galleries),
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
+                                Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                val manga = event.manga
-                                if (manga != null) {
-                                    MangaCover.Book(
-                                        modifier = Modifier.height(48.dp),
-                                        data = manga.asMangaCover(),
-                                    )
-                                    Spacer(Modifier.width(8.dp))
+                                val progress = state.progress.toFloat()
+                                if (state.progressTotal > 0 && !progress.isNaN()) {
+                                    val realProgress = progress / state.progressTotal
+                                    if (!realProgress.isNaN()) {
+                                        LinearProgressIndicator(
+                                            progress = { realProgress },
+                                            modifier = Modifier
+                                                .padding(top = 2.dp)
+                                                .weight(1f),
+                                        )
+                                    }
                                 }
                                 Text(
-                                    text = event.message,
+                                    text = state.progress.toString() + "/" + state.progressTotal,
+                                    modifier = Modifier.weight(0.15f),
+                                    textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.weight(1f),
                                 )
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
-                        if (state.progress == state.progressTotal) {
-                            item(key = "finish") {
-                                Column {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Button(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = viewModel::finish,
-                                    ) {
-                                        Text(text = stringResource(MR.strings.eh_batch_add_finish))
-                                    }
+                    }
+                    itemsIndexed(
+                        state.events,
+                        key = { index, event -> "batch-add-${index + event.message.hashCode()}" },
+                    ) { _, event ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val manga = event.manga
+                            if (manga != null) {
+                                MangaCover.Book(
+                                    modifier = Modifier.height(48.dp),
+                                    data = manga.asMangaCover(),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(
+                                text = event.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    if (state.progress == state.progressTotal) {
+                        item(key = "finish") {
+                            Column {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = viewModel::finish,
+                                ) {
+                                    Text(text = stringResource(MR.strings.eh_batch_add_finish))
                                 }
                             }
                         }
@@ -176,24 +179,24 @@ class BatchAddScreen : Screen() {
                 }
             }
         }
+    }
 
-        val onDismissRequest = viewModel::dismissDialog
-        when (state.dialog) {
-            BatchAddViewModel.Dialog.NoGalleriesSpecified -> AlertDialog(
-                onDismissRequest = onDismissRequest,
-                confirmButton = {
-                    TextButton(onClick = onDismissRequest) {
-                        Text(text = stringResource(MR.strings.action_ok))
-                    }
-                },
-                title = {
-                    Text(text = stringResource(MR.strings.batch_add_no_valid_galleries))
-                },
-                text = {
-                    Text(text = stringResource(MR.strings.batch_add_no_valid_galleries_message))
-                },
-            )
-            null -> Unit
-        }
+    val onDismissRequest = viewModel::dismissDialog
+    when (state.dialog) {
+        BatchAddViewModel.Dialog.NoGalleriesSpecified -> AlertDialog(
+            onDismissRequest = onDismissRequest,
+            confirmButton = {
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_ok))
+                }
+            },
+            title = {
+                Text(text = stringResource(MR.strings.batch_add_no_valid_galleries))
+            },
+            text = {
+                Text(text = stringResource(MR.strings.batch_add_no_valid_galleries_message))
+            },
+        )
+        null -> Unit
     }
 }

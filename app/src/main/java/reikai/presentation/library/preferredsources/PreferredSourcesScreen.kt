@@ -32,43 +32,46 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * Settings sub-screen for ranking sources, split into Manga / Light novels tabs. Each tab ranks its
  * own content type; the rankings drive the trunk of a merged chapter list (manga + novel aggregators).
  */
-class PreferredSourcesScreen : Screen() {
+class PreferredSourcesRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val model = metroViewModel<PreferredSourcesViewModel>()
-        val shown = LocalShownContent.current
-        val tabs = listOf(ContentType.MANGA to model.manga, ContentType.NOVELS to model.novels)
-            .filter { (type, _) -> shown.includes(type) }
+    override fun Content() = PreferredSourcesScreen()
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.pref_preferred_sources),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { paddingValues ->
-            val pagerState = rememberPagerState { tabs.size }
-            val scope = rememberCoroutineScope()
-            Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
-                if (tabs.size > 1) {
-                    PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
-                        tabs.forEachIndexed { index, (type, _) ->
-                            Tab(
-                                selected = pagerState.currentPage == index,
-                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                text = { Text(stringResource(type.labelRes)) },
-                            )
-                        }
+@Composable
+fun PreferredSourcesScreen() {
+    val navigator = LocalNavigator.currentOrThrow
+    val model = metroViewModel<PreferredSourcesViewModel>()
+    val shown = LocalShownContent.current
+    val tabs = listOf(ContentType.MANGA to model.manga, ContentType.NOVELS to model.novels)
+        .filter { (type, _) -> shown.includes(type) }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.pref_preferred_sources),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { paddingValues ->
+        val pagerState = rememberPagerState { tabs.size }
+        val scope = rememberCoroutineScope()
+        Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
+            if (tabs.size > 1) {
+                PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                    tabs.forEachIndexed { index, (type, _) ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = { Text(stringResource(type.labelRes)) },
+                        )
                     }
                 }
-                val panePadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())
-                HorizontalPager(modifier = Modifier.fillMaxSize(), state = pagerState) { page ->
-                    RankingPane(editor = tabs[page].second, contentPadding = panePadding)
-                }
+            }
+            val panePadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())
+            HorizontalPager(modifier = Modifier.fillMaxSize(), state = pagerState) { page ->
+                RankingPane(editor = tabs[page].second, contentPadding = panePadding)
             }
         }
     }

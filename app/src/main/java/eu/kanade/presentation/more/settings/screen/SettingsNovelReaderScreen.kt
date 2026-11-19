@@ -12,9 +12,9 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.presentation.more.settings.screen.novel.NovelCodeSnippetsScreen
-import eu.kanade.presentation.more.settings.screen.novel.NovelFontsScreen
-import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
+import eu.kanade.presentation.more.settings.screen.novel.NovelCodeSnippetsRoute
+import eu.kanade.presentation.more.settings.screen.novel.NovelFontsRoute
+import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesRoute
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
@@ -254,7 +254,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_font),
                     subtitle = fontLabel,
-                    onClick = { navigator.push(NovelFontsScreen()) },
+                    onClick = { navigator.push(NovelFontsRoute()) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     preference = novelPreferences.readerLineSpacing().scaled(ReaderRanges.TENTHS),
@@ -377,7 +377,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_regex_rules),
                     subtitle = stringResource(MR.strings.pref_novel_regex_rules_summary),
-                    onClick = { navigator.push(NovelRegexRulesScreen()) },
+                    onClick = { navigator.push(NovelRegexRulesRoute()) },
                 ),
             ),
         )
@@ -402,12 +402,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_css_snippets),
                     subtitle = stringResource(MR.strings.pref_novel_css_snippets_summary),
-                    onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.CSS)) },
+                    onClick = { navigator.push(NovelCodeSnippetsRoute(NovelSnippetKind.CSS)) },
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_js_snippets),
                     subtitle = stringResource(MR.strings.pref_novel_js_snippets_summary),
-                    onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.JS)) },
+                    onClick = { navigator.push(NovelCodeSnippetsRoute(NovelSnippetKind.JS)) },
                 ),
             ),
         )

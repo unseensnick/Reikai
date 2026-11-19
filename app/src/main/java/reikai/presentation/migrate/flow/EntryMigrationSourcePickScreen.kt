@@ -35,10 +35,10 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * migrating them all, so the choice is asked before anything is searched. Nothing merged in the
  * selection means nothing to choose, and the screen forwards itself to [EntryMigrationConfigScreen].
  */
-class EntryMigrationSourcePickScreen(
+class EntryMigrationSourcePickRoute(
     val contentType: ContentType,
     val entryIds: List<Long>,
-) : Screen(), MigrationFlowScreen {
+) : Screen(), MigrationFlowRoute {
 
     companion object {
         /**
@@ -46,46 +46,49 @@ class EntryMigrationSourcePickScreen(
          * type migrates over its own id space, so a mixed selection has no one flow to open, and the
          * caller hides the action rather than greying it out.
          */
-        fun forSelection(selection: Collection<EntryId>): EntryMigrationSourcePickScreen? {
+        fun forSelection(selection: Collection<EntryId>): EntryMigrationSourcePickRoute? {
             val type = singleContentType(selection.map { it.contentType }) ?: return null
-            return EntryMigrationSourcePickScreen(type, selection.map { it.rawId })
+            return EntryMigrationSourcePickRoute(type, selection.map { it.rawId })
         }
     }
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val adapter = rememberMigrationAdapter(contentType)
-        val viewModel =
-            assistedMetroViewModel<EntryMigrationSourcePickViewModel, EntryMigrationSourcePickViewModel.Factory> {
-                create(
-                    adapter = adapter,
-                    entryIds = entryIds,
-                )
-            }
-        val state by viewModel.state.collectAsState()
+    override fun Content() = EntryMigrationSourcePickScreen(contentType, entryIds)
+}
 
-        // Replaces rather than pushes, so back from the config screen returns to whatever opened the
-        // migration instead of landing on a picker that decided it had nothing to ask.
-        LaunchedEffect(state.forward) {
-            if (state.forward) navigator.replace(EntryMigrationConfigScreen(contentType, entryIds))
+@Composable
+fun EntryMigrationSourcePickScreen(contentType: ContentType, entryIds: List<Long>) {
+    val navigator = LocalNavigator.currentOrThrow
+    val adapter = rememberMigrationAdapter(contentType)
+    val viewModel =
+        assistedMetroViewModel<EntryMigrationSourcePickViewModel, EntryMigrationSourcePickViewModel.Factory> {
+            create(
+                adapter = adapter,
+                entryIds = entryIds,
+            )
         }
-        if (state.isLoading || state.forward) {
-            LoadingScreen()
-            return
-        }
+    val state by viewModel.state.collectAsState()
 
-        MigrationSourcePickContent(
-            members = state.members,
-            checked = state.checked,
-            onToggle = viewModel::toggle,
-            onClickCover = { it.openDetails(navigator) },
-            onContinue = {
-                navigator.replace(EntryMigrationConfigScreen(contentType, state.checked.toList()))
-            },
-            navigateUp = navigator::pop,
-        )
+    // Replaces rather than pushes, so back from the config screen returns to whatever opened the
+    // migration instead of landing on a picker that decided it had nothing to ask.
+    LaunchedEffect(state.forward) {
+        if (state.forward) navigator.replace(EntryMigrationConfigRoute(contentType, entryIds))
     }
+    if (state.isLoading || state.forward) {
+        LoadingScreen()
+        return
+    }
+
+    MigrationSourcePickContent(
+        members = state.members,
+        checked = state.checked,
+        onToggle = viewModel::toggle,
+        onClickCover = { it.openDetails(navigator) },
+        onContinue = {
+            navigator.replace(EntryMigrationConfigRoute(contentType, state.checked.toList()))
+        },
+        navigateUp = navigator::pop,
+    )
 }
 
 @AssistedInject

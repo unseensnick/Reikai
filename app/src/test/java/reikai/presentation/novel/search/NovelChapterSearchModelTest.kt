@@ -13,9 +13,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.novel.download.NovelDownloadedTextsFixture
 import reikai.novel.download.NovelDownloadedTextsFixture.chapter
-import reikai.presentation.novel.search.NovelChapterSearchScreen.Model
-import reikai.presentation.novel.search.NovelChapterSearchScreen.SearchOptions
-import reikai.presentation.novel.search.NovelChapterSearchScreen.State
+import reikai.presentation.novel.search.NovelChapterSearchRoute.Model
+import reikai.presentation.novel.search.NovelChapterSearchRoute.SearchOptions
+import reikai.presentation.novel.search.NovelChapterSearchRoute.State
 
 /** Chapters 10..12 on disk, listed by the source out of order; 11 cannot be read. */
 class NovelChapterSearchModelTest {

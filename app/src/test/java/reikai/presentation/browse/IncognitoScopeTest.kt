@@ -7,8 +7,8 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.source.SourceKey
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
-import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
+import reikai.presentation.novel.details.NovelRoute
 
 class IncognitoScopeTest {
 
@@ -22,15 +22,33 @@ class IncognitoScopeTest {
         screen.closesWhenIncognitoEnds() shouldBe closes
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sources")
+    fun `only a catalogue names the source whose incognito applies`(
+        @Suppress("UNUSED_PARAMETER") name: String,
+        screen: Screen,
+        source: SourceKey?,
+    ) {
+        screen.incognitoSource() shouldBe source
+    }
+
     companion object {
         @JvmStatic
+        fun sources() = listOf(
+            arrayOf("manga catalogue", EntryCatalogueRoute(SourceKey.Manga(1L)), SourceKey.Manga(1L)),
+            arrayOf("novel catalogue", EntryCatalogueRoute(SourceKey.Novel("s")), SourceKey.Novel("s")),
+            arrayOf("manga from a source", MangaScreen(1L, fromSource = true), null),
+            arrayOf("home", HomeScreen, null),
+        )
+
+        @JvmStatic
         fun cases() = listOf(
-            arrayOf("novel from a source", NovelScreen(1L, fromSource = true), true),
-            arrayOf("novel from the library", NovelScreen(1L), false),
+            arrayOf("novel from a source", NovelRoute(1L, fromSource = true), true),
+            arrayOf("novel from the library", NovelRoute(1L), false),
             arrayOf("manga from a source", MangaScreen(1L, fromSource = true), true),
             arrayOf("manga from the library", MangaScreen(1L), false),
-            arrayOf("manga catalogue", EntryCatalogueScreen(SourceKey.Manga(1L)), true),
-            arrayOf("novel catalogue", EntryCatalogueScreen(SourceKey.Novel("s")), true),
+            arrayOf("manga catalogue", EntryCatalogueRoute(SourceKey.Manga(1L)), true),
+            arrayOf("novel catalogue", EntryCatalogueRoute(SourceKey.Novel("s")), true),
             arrayOf("home", HomeScreen, false),
         )
     }

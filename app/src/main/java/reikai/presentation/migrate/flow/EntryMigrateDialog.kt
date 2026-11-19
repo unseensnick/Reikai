@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -48,7 +47,7 @@ import tachiyomi.presentation.core.i18n.stringResource
  * to what was actually migrated onto.
  */
 @Composable
-fun Screen.EntryMigrateDialog(
+fun EntryMigrateDialog(
     contentType: ContentType,
     entry: MigrationEntry,
     target: MigrationCandidate,

@@ -89,120 +89,123 @@ import tachiyomi.presentation.core.i18n.stringResource
  * Picks EPUB books and comic archives, shows them as the series they will become, and copies them into the
  * local sources. [initialUris] are files another app handed over, opened with or shared to Reikai.
  */
-class LocalImportScreen(private val initialUris: List<String> = emptyList()) : Screen() {
+class LocalImportRoute(private val initialUris: List<String> = emptyList()) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        // Saved with the screen: its arguments outlive process death, and the model made on restore would offer
-        // files already imported again. Files shared in later arrive as events, so they are never taken twice.
-        var handedOverTaken by rememberSaveable { mutableStateOf(false) }
-        val viewModel = assistedMetroViewModel<LocalImportViewModel, LocalImportViewModel.Factory> {
-            create(if (handedOverTaken) emptyList() else initialUris)
-        }
-        val state by viewModel.state.collectAsState()
-        LaunchedEffect(state.hasImported) { if (state.hasImported) handedOverTaken = true }
-        val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-            viewModel.add(uris)
-        }
-        val pick = { picker.launch(LocalImport.MIME_TYPES) }
-        ResultEffect<ImportFilesEvent> { viewModel.add(it.uris) }
-        var renaming by remember { mutableStateOf<ImportGroup?>(null) }
-        var adding by remember { mutableStateOf<ImportGroup?>(null) }
+    override fun Content() = LocalImportScreen(initialUris)
+}
 
-        // A single series added to the library opens once imported, since reading it is why the user came; several
-        // land in the library. Not while files shared in during the import wait, which leaving would drop.
-        LaunchedEffect(state.result) {
-            val only = state.result?.series?.singleOrNull() ?: return@LaunchedEffect
-            if (state.result?.problems?.isNotEmpty() == true || only.entryId == null) return@LaunchedEffect
-            if (!state.addToLibrary || state.groups.isNotEmpty()) return@LaunchedEffect
-            navigator.replace(EntryId.of(only.type, only.entryId).detailsScreen())
-        }
+@Composable
+fun LocalImportScreen(initialUris: List<String>) {
+    val navigator = LocalNavigator.currentOrThrow
+    // Saved with the screen: its arguments outlive process death, and the model made on restore would offer
+    // files already imported again. Files shared in later arrive as events, so they are never taken twice.
+    var handedOverTaken by rememberSaveable { mutableStateOf(false) }
+    val viewModel = assistedMetroViewModel<LocalImportViewModel, LocalImportViewModel.Factory> {
+        create(if (handedOverTaken) emptyList() else initialUris)
+    }
+    val state by viewModel.state.collectAsState()
+    LaunchedEffect(state.hasImported) { if (state.hasImported) handedOverTaken = true }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        viewModel.add(uris)
+    }
+    val pick = { picker.launch(LocalImport.MIME_TYPES) }
+    ResultEffect<ImportFilesEvent> { viewModel.add(it.uris) }
+    var renaming by remember { mutableStateOf<ImportGroup?>(null) }
+    var adding by remember { mutableStateOf<ImportGroup?>(null) }
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.local_import_title),
-                    navigateUp = navigator::pop,
-                    actions = {
-                        if (state.groups.isNotEmpty() && !state.isImporting) {
-                            AppBarActions(
-                                persistentListOf(
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.local_import_add_more),
-                                        icon = MaterialSymbols.Rounded.Add,
-                                        onClick = pick,
-                                    ),
+    // A single series added to the library opens once imported, since reading it is why the user came; several
+    // land in the library. Not while files shared in during the import wait, which leaving would drop.
+    LaunchedEffect(state.result) {
+        val only = state.result?.series?.singleOrNull() ?: return@LaunchedEffect
+        if (state.result?.problems?.isNotEmpty() == true || only.entryId == null) return@LaunchedEffect
+        if (!state.addToLibrary || state.groups.isNotEmpty()) return@LaunchedEffect
+        navigator.replace(EntryId.of(only.type, only.entryId).detailsScreen())
+    }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.local_import_title),
+                navigateUp = navigator::pop,
+                actions = {
+                    if (state.groups.isNotEmpty() && !state.isImporting) {
+                        AppBarActions(
+                            persistentListOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.local_import_add_more),
+                                    icon = MaterialSymbols.Rounded.Add,
+                                    onClick = pick,
                                 ),
-                            )
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-            bottomBar = {
-                if (state.groups.isNotEmpty()) {
-                    ImportBar(
-                        addToLibrary = state.addToLibrary,
-                        isImporting = state.isImporting,
-                        isAnswered = state.groups.none { it.asksAboutNewerCopies },
-                        onAddToLibrary = viewModel::setAddToLibrary,
-                        onImport = viewModel::startImport,
-                    )
-                }
-            },
-        ) { padding ->
-            when {
-                state.groups.isEmpty() && state.result == null && !state.isReading && state.problems.isEmpty() ->
-                    StartPrompt(padding, onPick = pick)
-                else -> ImportList(
-                    padding = padding,
-                    state = state,
-                    onRename = { renaming = it },
-                    onType = viewModel::setType,
-                    onRemove = viewModel::remove,
-                    onSeparate = viewModel::setSeparate,
-                    onDuplicateChoice = viewModel::setDuplicateChoice,
-                    onNewerCopyChoice = viewModel::setNewerCopyChoice,
-                    onAddTo = { adding = it },
-                    onOpen = { series ->
-                        series.entryId?.let { navigator.push(EntryId.of(series.type, it).detailsScreen()) }
-                    },
+                            ),
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+        bottomBar = {
+            if (state.groups.isNotEmpty()) {
+                ImportBar(
+                    addToLibrary = state.addToLibrary,
+                    isImporting = state.isImporting,
+                    isAnswered = state.groups.none { it.asksAboutNewerCopies },
+                    onAddToLibrary = viewModel::setAddToLibrary,
+                    onImport = viewModel::startImport,
                 )
             }
+        },
+    ) { padding ->
+        when {
+            state.groups.isEmpty() && state.result == null && !state.isReading && state.problems.isEmpty() ->
+                StartPrompt(padding, onPick = pick)
+            else -> ImportList(
+                padding = padding,
+                state = state,
+                onRename = { renaming = it },
+                onType = viewModel::setType,
+                onRemove = viewModel::remove,
+                onSeparate = viewModel::setSeparate,
+                onDuplicateChoice = viewModel::setDuplicateChoice,
+                onNewerCopyChoice = viewModel::setNewerCopyChoice,
+                onAddTo = { adding = it },
+                onOpen = { series ->
+                    series.entryId?.let { navigator.push(EntryId.of(series.type, it).detailsScreen()) }
+                },
+            )
         }
+    }
 
-        renaming?.let { group ->
-            RenameDialog(group.title, onDismiss = { renaming = null }) {
-                viewModel.rename(group.key, it)
-                renaming = null
-            }
+    renaming?.let { group ->
+        RenameDialog(group.title, onDismiss = { renaming = null }) {
+            viewModel.rename(group.key, it)
+            renaming = null
         }
-        adding?.let { group ->
-            AddToDialog(
-                group = group,
-                batch = state.groups.filter { it.key != group.key && it.type == group.type },
-                load = { viewModel.librarySeries(group.type) },
-                onDismiss = { adding = null },
-                onGroup = {
-                    viewModel.addToGroup(group.key, it)
-                    adding = null
-                },
-                onSeries = {
-                    viewModel.addToSeries(group.key, it)
-                    adding = null
-                },
-            )
-        }
-        state.pickCategories?.let { pick ->
-            ChangeCategoryDialog(
-                initialSelection = pick.initialSelection,
-                onDismissRequest = viewModel::dismissCategories,
-                onEditCategories = { navigator.push(CategoryScreen()) },
-                onConfirm = { include, _ -> viewModel.confirmCategories(pick.type, include) },
-                title = stringResource(pick.type.labelRes),
-            )
-        }
+    }
+    adding?.let { group ->
+        AddToDialog(
+            group = group,
+            batch = state.groups.filter { it.key != group.key && it.type == group.type },
+            load = { viewModel.librarySeries(group.type) },
+            onDismiss = { adding = null },
+            onGroup = {
+                viewModel.addToGroup(group.key, it)
+                adding = null
+            },
+            onSeries = {
+                viewModel.addToSeries(group.key, it)
+                adding = null
+            },
+        )
+    }
+    state.pickCategories?.let { pick ->
+        ChangeCategoryDialog(
+            initialSelection = pick.initialSelection,
+            onDismissRequest = viewModel::dismissCategories,
+            onEditCategories = { navigator.push(CategoryScreen()) },
+            onConfirm = { include, _ -> viewModel.confirmCategories(pick.type, include) },
+            title = stringResource(pick.type.labelRes),
+        )
     }
 }
 

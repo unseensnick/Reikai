@@ -19,6 +19,8 @@ The entry point is a class extending Voyager's `Screen` / `Tab` (`cafe.adriel.vo
 
 Voyager `Screen` constructor args must be serializable (no lambdas: they crash on state-save). Route navigation via the local navigator inside `Content()`.
 
+**The class is a route; the body is a function.** A Reikai screen is a thin `FooRoute` class holding only what identifies the page, whose `Content()` calls a top-level `@Composable fun FooScreen(<those fields>)`, the shape upstream's Navigation 3 routes take (`MangaRoute` / `MangaScreen`). Fields carry identity, never editable content. A check on what is shown (incognito, the migration flow, `shows`) is a function over the route's fields, never a Voyager type.
+
 **A details page is addressed by row id; a listing open stores first.** Build every details page through `reikai/presentation/details/DetailsRoutes.kt` (`DetailsRoutesGuardTest` fails on any other construction), and open a tap on a listing through its `rememberDetailsOpener`, which stores a novel's row before it pushes.
 
 ### 2. Business logic in a `ViewModel`

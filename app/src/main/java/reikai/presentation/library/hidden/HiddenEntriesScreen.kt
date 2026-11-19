@@ -37,43 +37,46 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /** The series hidden from the library view, opened on the [initialContentType] chip the library showed. */
-class HiddenEntriesScreen(
+class HiddenEntriesRoute(
     private val initialContentType: ContentType = ContentType.ALL,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<HiddenEntriesViewModel, HiddenEntriesViewModel.Factory> {
-            create(initialContentType = initialContentType)
-        }
-        val state by viewModel.state.collectAsState()
-        val displayMode by remember { viewModel.displayMode() }
+    override fun Content() = HiddenEntriesScreen(initialContentType)
+}
 
-        val current = state
-        if (current == null) {
-            LoadingScreen()
-            return
-        }
-        HiddenEntriesContent(
-            state = current,
-            displayMode = displayMode,
-            getColumnsForOrientation = viewModel::columnsForOrientation,
-            navigateUp = navigator::pop,
-            onSelectContentType = viewModel::setContentType,
-            onClick = { item ->
-                if (current.selection.isEmpty()) {
-                    navigator.push(item.entryId.detailsScreen())
-                } else {
-                    viewModel.toggleSelection(item.entryId)
-                }
-            },
-            onLongClick = { viewModel.rangeSelection(it.entryId) },
-            onSelectAll = viewModel::selectAll,
-            onClearSelection = viewModel::clearSelection,
-            onUnhide = viewModel::unhideSelected,
-        )
+@Composable
+fun HiddenEntriesScreen(initialContentType: ContentType) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = assistedMetroViewModel<HiddenEntriesViewModel, HiddenEntriesViewModel.Factory> {
+        create(initialContentType = initialContentType)
     }
+    val state by viewModel.state.collectAsState()
+    val displayMode by remember { viewModel.displayMode() }
+
+    val current = state
+    if (current == null) {
+        LoadingScreen()
+        return
+    }
+    HiddenEntriesContent(
+        state = current,
+        displayMode = displayMode,
+        getColumnsForOrientation = viewModel::columnsForOrientation,
+        navigateUp = navigator::pop,
+        onSelectContentType = viewModel::setContentType,
+        onClick = { item ->
+            if (current.selection.isEmpty()) {
+                navigator.push(item.entryId.detailsScreen())
+            } else {
+                viewModel.toggleSelection(item.entryId)
+            }
+        },
+        onLongClick = { viewModel.rangeSelection(it.entryId) },
+        onSelectAll = viewModel::selectAll,
+        onClearSelection = viewModel::clearSelection,
+        onUnhide = viewModel::unhideSelected,
+    )
 }
 
 @Composable

@@ -4,7 +4,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.stack.Stack
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 
 /**
  * Push a full browse of one source to choose a migration target from, when the inline strips are not
@@ -25,6 +25,6 @@ internal fun openDeepPicker(
         is EntryId.Manga -> SourceKey.Manga(sourceKey.toLongOrNull() ?: return false)
         is EntryId.Novel -> SourceKey.Novel(sourceKey)
     }
-    navigator.push(EntryCatalogueScreen(key, query, migrateFor = MigrationPickFor(entry.id, flowId)))
+    navigator.push(EntryCatalogueRoute(key, query, migrateFor = MigrationPickFor(entry.id, flowId)))
     return true
 }

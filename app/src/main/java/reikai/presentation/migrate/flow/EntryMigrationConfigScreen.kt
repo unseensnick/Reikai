@@ -87,172 +87,175 @@ import tachiyomi.presentation.core.util.shouldExpandFAB
  * Continue leads to the migration list. The search options are asked for here too, before any row
  * exists, which is what keeps the list free of the machinery a mid-search change would need.
  */
-class EntryMigrationConfigScreen(
+class EntryMigrationConfigRoute(
     private val contentType: ContentType,
     private val entryIds: List<Long>,
-) : Screen(), MigrationFlowScreen {
+) : Screen(), MigrationFlowRoute {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val adapter = rememberMigrationAdapter(contentType)
-        val viewModel = assistedMetroViewModel<EntryMigrationConfigViewModel, EntryMigrationConfigViewModel.Factory> {
-            create(adapter = adapter, io = Dispatchers.IO)
-        }
-        val state by viewModel.state.collectAsState()
-        val listState = rememberLazyListState()
-        var showTuning by rememberSaveable { mutableStateOf(false) }
+    override fun Content() = EntryMigrationConfigScreen(contentType, entryIds)
+}
 
-        if (state.isLoading) {
-            LoadingScreen()
-            return
-        }
+@Composable
+fun EntryMigrationConfigScreen(contentType: ContentType, entryIds: List<Long>) {
+    val navigator = LocalNavigator.currentOrThrow
+    val adapter = rememberMigrationAdapter(contentType)
+    val viewModel = assistedMetroViewModel<EntryMigrationConfigViewModel, EntryMigrationConfigViewModel.Factory> {
+        create(adapter = adapter, io = Dispatchers.IO)
+    }
+    val state by viewModel.state.collectAsState()
+    val listState = rememberLazyListState()
+    var showTuning by rememberSaveable { mutableStateOf(false) }
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.action_migrate),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        AppBarActions(
-                            listOf(
-                                // Upstream's shape: the two whole-list actions are icons and only the
-                                // pinned filter is buried. Its third item, "select enabled sources",
-                                // has no meaning here: upstream lists disabled sources and filters
-                                // them out with it, while enabledSources() never offers one.
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
-                                    icon = MaterialSymbols.Rounded.SelectAll,
-                                    onClick = { viewModel.selectAll() },
-                                ),
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
-                                    icon = MaterialSymbols.Rounded.Deselect,
-                                    onClick = { viewModel.selectNone() },
-                                ),
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
-                                    icon = MaterialSymbols.Rounded.FilterList,
-                                    onClick = { showTuning = true },
-                                ),
-                                AppBar.OverflowAction(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectPinnedLabel),
-                                    onClick = { viewModel.selectPinned() },
-                                ),
+    if (state.isLoading) {
+        LoadingScreen()
+        return
+    }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.action_migrate),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    AppBarActions(
+                        listOf(
+                            // Upstream's shape: the two whole-list actions are icons and only the
+                            // pinned filter is buried. Its third item, "select enabled sources",
+                            // has no meaning here: upstream lists disabled sources and filters
+                            // them out with it, while enabledSources() never offers one.
+                            AppBar.Action(
+                                title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
+                                icon = MaterialSymbols.Rounded.SelectAll,
+                                onClick = { viewModel.selectAll() },
                             ),
+                            AppBar.Action(
+                                title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
+                                icon = MaterialSymbols.Rounded.Deselect,
+                                onClick = { viewModel.selectNone() },
+                            ),
+                            AppBar.Action(
+                                title = stringResource(MR.strings.migrationFlow_searchOptionsTitle),
+                                icon = MaterialSymbols.Rounded.FilterList,
+                                onClick = { showTuning = true },
+                            ),
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.migrationConfigScreen_selectPinnedLabel),
+                                onClick = { viewModel.selectPinned() },
+                            ),
+                        ),
+                    )
+                },
+            )
+        },
+        floatingActionButton = {
+            // Hidden rather than disabled on an empty selection: continuing would search every
+            // enabled source, which is not what an empty selection asks for.
+            if (state.selected.isNotEmpty()) {
+                SmallExtendedFloatingActionButton(
+                    text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
+                    icon = {
+                        Icon(
+                            imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward,
+                            contentDescription = null,
                         )
                     },
+                    expanded = listState.shouldExpandFAB(),
+                    onClick = {
+                        // One entry has nothing to accept in bulk and no progress worth a list,
+                        // so it goes straight to its results. The extra query travels with the
+                        // screen rather than through the adapter: it belongs to this run only,
+                        // and no preference should remember it for the next one.
+                        val extraQuery = state.tuning.extraQuery
+                        val next = entryIds.singleOrNull()
+                            ?.let { EntryMigrationSearchRoute(contentType, it, extraQuery) }
+                            ?: EntryMigrationListRoute(contentType, entryIds, extraQuery)
+                        // Replace, never push, as upstream does at this same point. Every step of
+                        // the flow replaces itself, so back from the results leaves the migration
+                        // entirely and returns to whatever opened it; changing the target sources
+                        // means entering Migrate again rather than stepping back.
+                        navigator.replace(next)
+                    },
                 )
-            },
-            floatingActionButton = {
-                // Hidden rather than disabled on an empty selection: continuing would search every
-                // enabled source, which is not what an empty selection asks for.
-                if (state.selected.isNotEmpty()) {
-                    SmallExtendedFloatingActionButton(
-                        text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
-                        icon = {
-                            Icon(
-                                imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward,
-                                contentDescription = null,
-                            )
-                        },
-                        expanded = listState.shouldExpandFAB(),
-                        onClick = {
-                            // One entry has nothing to accept in bulk and no progress worth a list,
-                            // so it goes straight to its results. The extra query travels with the
-                            // screen rather than through the adapter: it belongs to this run only,
-                            // and no preference should remember it for the next one.
-                            val extraQuery = state.tuning.extraQuery
-                            val next = entryIds.singleOrNull()
-                                ?.let { EntryMigrationSearchScreen(contentType, it, extraQuery) }
-                                ?: EntryMigrationListScreen(contentType, entryIds, extraQuery)
-                            // Replace, never push, as upstream does at this same point. Every step of
-                            // the flow replaces itself, so back from the results leaves the migration
-                            // entirely and returns to whatever opened it; changing the target sources
-                            // means entering Migrate again rather than stepping back.
-                            navigator.replace(next)
-                        },
+            }
+        },
+    ) { contentPadding ->
+        val reorderState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
+            viewModel.reorder(from.key, to.key)
+        }
+        // The language pill only earns its place when it disambiguates anything.
+        val showLanguage = (state.selected + state.available).distinctBy { it.lang }.size > 1
+        FastScrollLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            contentPadding = contentPadding,
+        ) {
+            if (state.selected.isNotEmpty()) {
+                item(key = "selected-header") {
+                    SectionHeader(stringResource(MR.strings.migrationConfigScreen_selectedHeader))
+                }
+                itemsIndexed(state.selected, key = { _, source -> source.key }) { index, source ->
+                    SourceItemContainer(
+                        firstItem = index == 0,
+                        lastItem = index == state.selected.size - 1,
+                        source = source,
+                        showLanguage = showLanguage,
+                        showsFormat = state.showsFormat,
+                        // Order only means something with more than one source in it.
+                        dragEnabled = state.selected.size > 1,
+                        state = reorderState,
+                        key = source.key,
+                        onClick = { viewModel.toggleSelection(source.key) },
                     )
                 }
-            },
-        ) { contentPadding ->
-            val reorderState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
-                viewModel.reorder(from.key, to.key)
             }
-            // The language pill only earns its place when it disambiguates anything.
-            val showLanguage = (state.selected + state.available).distinctBy { it.lang }.size > 1
-            FastScrollLazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = listState,
-                contentPadding = contentPadding,
-            ) {
-                if (state.selected.isNotEmpty()) {
-                    item(key = "selected-header") {
-                        SectionHeader(stringResource(MR.strings.migrationConfigScreen_selectedHeader))
-                    }
-                    itemsIndexed(state.selected, key = { _, source -> source.key }) { index, source ->
-                        SourceItemContainer(
-                            firstItem = index == 0,
-                            lastItem = index == state.selected.size - 1,
-                            source = source,
-                            showLanguage = showLanguage,
-                            showsFormat = state.showsFormat,
-                            // Order only means something with more than one source in it.
-                            dragEnabled = state.selected.size > 1,
-                            state = reorderState,
-                            key = source.key,
-                            onClick = { viewModel.toggleSelection(source.key) },
-                        )
-                    }
+            if (state.available.isNotEmpty()) {
+                item(key = "available-header") {
+                    SectionHeader(stringResource(MR.strings.migrationConfigScreen_availableHeader))
                 }
-                if (state.available.isNotEmpty()) {
-                    item(key = "available-header") {
-                        SectionHeader(stringResource(MR.strings.migrationConfigScreen_availableHeader))
-                    }
-                    itemsIndexed(state.available, key = { _, source -> "available-${source.key}" }) { index, source ->
-                        SourceItemContainer(
-                            firstItem = index == 0,
-                            lastItem = index == state.available.size - 1,
-                            source = source,
-                            showLanguage = showLanguage,
-                            showsFormat = state.showsFormat,
-                            dragEnabled = false,
-                            state = reorderState,
-                            key = "available-${source.key}",
-                            onClick = { viewModel.toggleSelection(source.key) },
-                        )
-                    }
+                itemsIndexed(state.available, key = { _, source -> "available-${source.key}" }) { index, source ->
+                    SourceItemContainer(
+                        firstItem = index == 0,
+                        lastItem = index == state.available.size - 1,
+                        source = source,
+                        showLanguage = showLanguage,
+                        showsFormat = state.showsFormat,
+                        dragEnabled = false,
+                        state = reorderState,
+                        key = "available-${source.key}",
+                        onClick = { viewModel.toggleSelection(source.key) },
+                    )
                 }
             }
         }
+    }
 
-        if (showTuning) {
-            // The query draft is hosted here rather than inside the sheet so a rotation neither
-            // loses it nor commits a half-typed one; only IME done and a real dismissal commit it.
-            var tuningQuery by rememberSaveable(state.tuning.extraQuery) {
-                mutableStateOf(state.tuning.extraQuery.orEmpty())
+    if (showTuning) {
+        // The query draft is hosted here rather than inside the sheet so a rotation neither
+        // loses it nor commits a half-typed one; only IME done and a real dismissal commit it.
+        var tuningQuery by rememberSaveable(state.tuning.extraQuery) {
+            mutableStateOf(state.tuning.extraQuery.orEmpty())
+        }
+        val commitQuery = {
+            val trimmed = tuningQuery.trim().takeIf(String::isNotBlank)
+            if (trimmed != state.tuning.extraQuery) {
+                viewModel.applyTuning(state.tuning.copy(extraQuery = trimmed))
             }
-            val commitQuery = {
-                val trimmed = tuningQuery.trim().takeIf(String::isNotBlank)
-                if (trimmed != state.tuning.extraQuery) {
-                    viewModel.applyTuning(state.tuning.copy(extraQuery = trimmed))
-                }
-            }
-            AdaptiveSheet(
-                onDismissRequest = {
-                    commitQuery()
-                    showTuning = false
-                },
-            ) {
-                MigrationTuningSheet(
-                    tuning = state.tuning,
-                    query = tuningQuery,
-                    onQueryChange = { tuningQuery = it },
-                    onCommitQuery = commitQuery,
-                    onApply = viewModel::applyTuning,
-                )
-            }
+        }
+        AdaptiveSheet(
+            onDismissRequest = {
+                commitQuery()
+                showTuning = false
+            },
+        ) {
+            MigrationTuningSheet(
+                tuning = state.tuning,
+                query = tuningQuery,
+                onQueryChange = { tuningQuery = it },
+                onCommitQuery = commitQuery,
+                onApply = viewModel::applyTuning,
+            )
         }
     }
 }

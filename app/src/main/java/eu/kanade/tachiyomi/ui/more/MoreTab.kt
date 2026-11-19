@@ -29,7 +29,7 @@ import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import exh.source.ExhPreferences
-import exh.ui.batchadd.BatchAddScreen
+import exh.ui.batchadd.BatchAddRoute
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -80,7 +80,7 @@ data object MoreTab : Tab {
             onClickDataAndStorage = { navigator.push(SettingsScreen(SettingsScreen.Destination.DataAndStorage)) },
             // RK -->
             showBatchAdd = viewModel.isHentaiEnabled,
-            onClickBatchAdd = { navigator.push(BatchAddScreen()) },
+            onClickBatchAdd = { navigator.push(BatchAddRoute()) },
             showStats = viewModel.showStats,
             // RK <--
             onClickSettings = { navigator.push(SettingsScreen()) },

@@ -41,47 +41,50 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /** Every row of one grouping, each opening the series it counts. */
-class StatsGroupScreen(private val dimension: StatsDimension) : Screen() {
+class StatsGroupRoute(private val dimension: StatsDimension) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<StatsGroupViewModel, StatsGroupViewModel.Factory> { create(dimension) }
-        StatsRefreshOnResume(viewModel::refresh)
-        val state by viewModel.state.collectAsState()
+    override fun Content() = StatsGroupScreen(dimension)
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(dimension.title),
-                    navigateUp = navigator::pop,
-                    actions = {
-                        val current = state
-                        if (dimension.isSortable && current != null) SortMenu(current.sort, viewModel::setSort)
-                    },
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { paddingValues ->
-            val current = state
-            if (current == null) {
-                LoadingScreen()
-                return@Scaffold
-            }
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(STATS_CARD_MIN_WIDTH),
-                contentPadding = PaddingValues(
-                    start = MaterialTheme.padding.medium,
-                    end = MaterialTheme.padding.medium,
-                    top = paddingValues.calculateTopPadding() + MaterialTheme.padding.small,
-                    bottom = paddingValues.calculateBottomPadding() + MaterialTheme.padding.medium,
-                ),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-            ) {
-                items(current.rows, key = { it.group.key.toString() }) { row ->
-                    StatsRowCard(row) { navigator.push(StatsSeriesScreen(it.group.key, it.name, current.contentType)) }
-                }
+@Composable
+fun StatsGroupScreen(dimension: StatsDimension) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = assistedMetroViewModel<StatsGroupViewModel, StatsGroupViewModel.Factory> { create(dimension) }
+    StatsRefreshOnResume(viewModel::refresh)
+    val state by viewModel.state.collectAsState()
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(dimension.title),
+                navigateUp = navigator::pop,
+                actions = {
+                    val current = state
+                    if (dimension.isSortable && current != null) SortMenu(current.sort, viewModel::setSort)
+                },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { paddingValues ->
+        val current = state
+        if (current == null) {
+            LoadingScreen()
+            return@Scaffold
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(STATS_CARD_MIN_WIDTH),
+            contentPadding = PaddingValues(
+                start = MaterialTheme.padding.medium,
+                end = MaterialTheme.padding.medium,
+                top = paddingValues.calculateTopPadding() + MaterialTheme.padding.small,
+                bottom = paddingValues.calculateBottomPadding() + MaterialTheme.padding.medium,
+            ),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        ) {
+            items(current.rows, key = { it.group.key.toString() }) { row ->
+                StatsRowCard(row) { navigator.push(StatsSeriesRoute(it.group.key, it.name, current.contentType)) }
             }
         }
     }

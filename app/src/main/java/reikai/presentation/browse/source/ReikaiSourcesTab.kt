@@ -12,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -36,13 +35,13 @@ import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntrySourceOptionsDialog
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.browseLanguageLabel
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.ContentWarningBadge
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.browse.sourceLanguageLabel
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
@@ -65,7 +64,7 @@ import tachiyomi.presentation.core.util.plus
  * builder is deleted (see the off-path manifest).
  */
 @Composable
-fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
+fun reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
     val mangaModel = metroViewModel<SourcesViewModel>()
@@ -90,7 +89,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                 icon = MaterialSymbols.Rounded.TravelExplore,
                 onClick = {
                     // One screen for both types; from Browse it opens on whatever the chip holds.
-                    navigator.push(EntryGlobalSearchScreen())
+                    navigator.push(EntryGlobalSearchRoute())
                 },
             ),
             // One filter screen for both types, opening on the chip it was reached from. Routing
@@ -98,7 +97,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
                 icon = MaterialSymbols.Rounded.FilterList,
-                onClick = { navigator.push(EntrySourcesFilterScreen(state.contentType)) },
+                onClick = { navigator.push(EntrySourcesFilterRoute(state.contentType)) },
             ),
         ),
         content = { contentPadding, snackbarHostState ->
@@ -125,7 +124,7 @@ fun Screen.reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent 
                         showLatest = state.showLatest,
                         contentPadding = contentPadding,
                         onClickItem = { row, latest ->
-                            navigator.push(EntryCatalogueScreen(row.key, startLatest = latest))
+                            navigator.push(EntryCatalogueRoute(row.key, startLatest = latest))
                         },
                         onClickPin = engine::togglePin,
                         onLongClickItem = engine::showDialog,

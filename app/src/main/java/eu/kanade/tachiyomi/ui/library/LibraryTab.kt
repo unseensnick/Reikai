@@ -80,7 +80,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
 import reikai.novel.export.NovelEpubExportWorker
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
@@ -97,16 +97,16 @@ import reikai.presentation.library.ManualOrderDrag
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.ReikaiLibraryHopperOverlay
 import reikai.presentation.library.TagFilterStrip
-import reikai.presentation.library.hidden.HiddenEntriesScreen // RK
+import reikai.presentation.library.hidden.HiddenEntriesRoute // RK
 import reikai.presentation.library.libraryToolbarTitle
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.sortLabelRes
-import reikai.presentation.library.updateerror.UpdateErrorsScreen
+import reikai.presentation.library.updateerror.UpdateErrorsRoute
 import reikai.presentation.library.visualLabel
-import reikai.presentation.local.LocalImportScreen
-import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
+import reikai.presentation.local.LocalImportRoute
+import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -242,7 +242,7 @@ data object LibraryTab : Tab {
         }
         // Shared by the no-results action and both library views.
         val onGlobalSearch = {
-            navigator.push(EntryGlobalSearchScreen(activeSearchQuery ?: "", scopedContentType = libraryContentType))
+            navigator.push(EntryGlobalSearchRoute(activeSearchQuery ?: "", scopedContentType = libraryContentType))
         }
         val onRangeSelect: (LibraryBucket, LibraryItem) -> Unit = { bucket, item ->
             engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
@@ -523,14 +523,14 @@ data object LibraryTab : Tab {
                             }
                             if (enabled) {
                                 // The errors screen already handles ALL with its own chip strip.
-                                { navigator.push(UpdateErrorsScreen(libraryContentType)) }
+                                { navigator.push(UpdateErrorsRoute(libraryContentType)) }
                             } else {
                                 null
                             }
                         },
-                        onClickHiddenEntries = { navigator.push(HiddenEntriesScreen(libraryContentType)) }, // RK
+                        onClickHiddenEntries = { navigator.push(HiddenEntriesRoute(libraryContentType)) }, // RK
                         onClickStats = { navigator.push(StatsScreen()) }.takeIf { statsInMenus }, // RK
-                        onClickImport = { navigator.push(LocalImportScreen()) }, // RK
+                        onClickImport = { navigator.push(LocalImportRoute()) }, // RK
                         searchQuery = activeSearchQuery,
                         onSearchQueryChange = onSearch,
                         // For scroll overlay when no tab
@@ -566,7 +566,7 @@ data object LibraryTab : Tab {
                         .takeIf { engine.canDownloadSelection(libraryContentType) },
                     onDeleteClicked = { engine.openDeleteDialog(libraryContentType) },
                     // RK: routed by what the selection holds; a mixed selection hides the action.
-                    onMigrateClicked = EntryMigrationSourcePickScreen.forSelection(activeSelection)?.let { screen ->
+                    onMigrateClicked = EntryMigrationSourcePickRoute.forSelection(activeSelection)?.let { screen ->
                         {
                             engine.clearSelection()
                             navigator.push(screen)
@@ -632,7 +632,7 @@ data object LibraryTab : Tab {
                             EmptyScreenAction(
                                 stringRes = MR.strings.label_hidden_entries,
                                 icon = MaterialSymbols.RoundedFilled.VisibilityOff,
-                                onClick = { navigator.push(HiddenEntriesScreen(libraryContentType)) },
+                                onClick = { navigator.push(HiddenEntriesRoute(libraryContentType)) },
                             ),
                         ),
                     )

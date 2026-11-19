@@ -110,90 +110,13 @@ import kotlin.time.Instant
  * A tracker that binds entries from a source it knows ([AutoBindTracker]) matches on a tap instead of
  * searching for those entries; [offerTrackers] decides the rows, for both types.
  */
-data class EntryTrackInfoDialogHomeScreen(
+data class EntryTrackInfoDialogHomeRoute(
     private val entry: EntryId,
     private val entryTitle: String,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val locale = LocalLocale.current
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(entry = entry)
-        }
-
-        val dateFormat = remember {
-            UiPreferences.dateFormat(
-                context.appGraph.uiPreferences.dateFormat.get(),
-                locale.platformLocale,
-            )
-        }
-        val state by viewModel.state.collectAsState()
-        var pendingAutoBind by remember { mutableStateOf<TrackItem?>(null) }
-
-        TrackInfoDialogHome(
-            trackItems = state.trackItems,
-            dateFormat = dateFormat,
-            onStatusClick = {
-                navigator.push(EntryTrackStatusSelectorScreen(it.track!!, it.tracker.id, entry))
-            },
-            onChapterClick = {
-                navigator.push(EntryTrackChapterSelectorScreen(it.track!!, it.tracker.id, entry))
-            },
-            onScoreClick = {
-                navigator.push(EntryTrackScoreSelectorScreen(it.track!!, it.tracker.id, entry))
-            },
-            onStartDateEdit = {
-                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = true, entry))
-            },
-            onEndDateEdit = {
-                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = false, entry))
-            },
-            onNewSearch = {
-                if (it.tracker.id in state.autoMatchTrackerIds) {
-                    if (it.tracker is ReplacingWriteTracker) pendingAutoBind = it else viewModel.registerAutoBind(it)
-                } else {
-                    navigator.push(
-                        EntryTrackerSearchScreen(
-                            entry = entry,
-                            initialQuery = it.track?.title ?: entryTitle,
-                            currentUrl = it.track?.remoteUrl,
-                            serviceId = it.tracker.id,
-                        ),
-                    )
-                }
-            },
-            onOpenInBrowser = { openTrackerInBrowser(context, it) },
-            onRemoved = {
-                navigator.push(EntryTrackerRemoveScreen(entry, it.track!!, it.tracker.id))
-            },
-            onCopyLink = { context.copyTrackerLink(it) },
-            onTogglePrivate = viewModel::togglePrivate,
-        )
-
-        pendingAutoBind?.let { item ->
-            ReplaceEntryConfirmDialog(
-                trackerName = item.tracker.name,
-                onConfirm = {
-                    pendingAutoBind = null
-                    viewModel.registerAutoBind(item)
-                },
-                onDismissRequest = { pendingAutoBind = null },
-            )
-        }
-    }
-
-    private fun openTrackerInBrowser(context: Context, trackItem: TrackItem) {
-        val url = trackItem.track?.remoteUrl ?: return
-        if (url.isNotBlank()) context.openInBrowser(url)
-    }
-
-    private fun Context.copyTrackerLink(trackItem: TrackItem) {
-        val url = trackItem.track?.remoteUrl ?: return
-        if (url.isNotBlank()) copyToClipboard(url, url)
-    }
+    override fun Content() = EntryTrackInfoDialogHomeScreen(entry, entryTitle)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -280,30 +203,95 @@ data class EntryTrackInfoDialogHomeScreen(
     }
 }
 
-data class EntryTrackStatusSelectorScreen(
+@Composable
+fun EntryTrackInfoDialogHomeScreen(entry: EntryId, entryTitle: String) {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val locale = LocalLocale.current
+    val viewModel =
+        assistedMetroViewModel<EntryTrackInfoDialogHomeRoute.Model, EntryTrackInfoDialogHomeRoute.Model.Factory> {
+            create(entry = entry)
+        }
+
+    val dateFormat = remember {
+        UiPreferences.dateFormat(
+            context.appGraph.uiPreferences.dateFormat.get(),
+            locale.platformLocale,
+        )
+    }
+    val state by viewModel.state.collectAsState()
+    var pendingAutoBind by remember { mutableStateOf<TrackItem?>(null) }
+
+    TrackInfoDialogHome(
+        trackItems = state.trackItems,
+        dateFormat = dateFormat,
+        onStatusClick = {
+            navigator.push(EntryTrackStatusSelectorRoute(it.track!!, it.tracker.id, entry))
+        },
+        onChapterClick = {
+            navigator.push(EntryTrackChapterSelectorRoute(it.track!!, it.tracker.id, entry))
+        },
+        onScoreClick = {
+            navigator.push(EntryTrackScoreSelectorRoute(it.track!!, it.tracker.id, entry))
+        },
+        onStartDateEdit = {
+            navigator.push(EntryTrackDateSelectorRoute(it.track!!, it.tracker.id, start = true, entry))
+        },
+        onEndDateEdit = {
+            navigator.push(EntryTrackDateSelectorRoute(it.track!!, it.tracker.id, start = false, entry))
+        },
+        onNewSearch = {
+            if (it.tracker.id in state.autoMatchTrackerIds) {
+                if (it.tracker is ReplacingWriteTracker) pendingAutoBind = it else viewModel.registerAutoBind(it)
+            } else {
+                navigator.push(
+                    EntryTrackerSearchRoute(
+                        entry = entry,
+                        initialQuery = it.track?.title ?: entryTitle,
+                        currentUrl = it.track?.remoteUrl,
+                        serviceId = it.tracker.id,
+                    ),
+                )
+            }
+        },
+        onOpenInBrowser = { openTrackerInBrowser(context, it) },
+        onRemoved = {
+            navigator.push(EntryTrackerRemoveRoute(entry, it.track!!, it.tracker.id))
+        },
+        onCopyLink = { context.copyTrackerLink(it) },
+        onTogglePrivate = viewModel::togglePrivate,
+    )
+
+    pendingAutoBind?.let { item ->
+        ReplaceEntryConfirmDialog(
+            trackerName = item.tracker.name,
+            onConfirm = {
+                pendingAutoBind = null
+                viewModel.registerAutoBind(item)
+            },
+            onDismissRequest = { pendingAutoBind = null },
+        )
+    }
+}
+
+private fun openTrackerInBrowser(context: Context, trackItem: TrackItem) {
+    val url = trackItem.track?.remoteUrl ?: return
+    if (url.isNotBlank()) context.openInBrowser(url)
+}
+
+private fun Context.copyTrackerLink(trackItem: TrackItem) {
+    val url = trackItem.track?.remoteUrl ?: return
+    if (url.isNotBlank()) copyToClipboard(url, url)
+}
+
+data class EntryTrackStatusSelectorRoute(
     private val track: Track,
     private val serviceId: Long,
     private val entry: EntryId,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, entry = entry)
-        }
-        val state by viewModel.state.collectAsState()
-        TrackStatusSelector(
-            selection = state.selection,
-            onSelectionChange = viewModel::setSelection,
-            selections = remember { viewModel.getSelections() },
-            onConfirm = {
-                viewModel.setStatus()
-                navigator.pop()
-            },
-            onDismissRequest = navigator::pop,
-        )
-    }
+    override fun Content() = EntryTrackStatusSelectorScreen(track, serviceId, entry)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -347,30 +335,34 @@ data class EntryTrackStatusSelectorScreen(
     }
 }
 
-data class EntryTrackChapterSelectorScreen(
+@Composable
+fun EntryTrackStatusSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel =
+        assistedMetroViewModel<EntryTrackStatusSelectorRoute.Model, EntryTrackStatusSelectorRoute.Model.Factory> {
+            create(track = track, trackerId = serviceId, entry = entry)
+        }
+    val state by viewModel.state.collectAsState()
+    TrackStatusSelector(
+        selection = state.selection,
+        onSelectionChange = viewModel::setSelection,
+        selections = remember { viewModel.getSelections() },
+        onConfirm = {
+            viewModel.setStatus()
+            navigator.pop()
+        },
+        onDismissRequest = navigator::pop,
+    )
+}
+
+data class EntryTrackChapterSelectorRoute(
     private val track: Track,
     private val serviceId: Long,
     private val entry: EntryId,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, entry = entry)
-        }
-        val state by viewModel.state.collectAsState()
-        TrackChapterSelector(
-            selection = state.selection,
-            onSelectionChange = viewModel::setSelection,
-            range = remember { viewModel.getRange() },
-            onConfirm = {
-                viewModel.setChapter()
-                navigator.pop()
-            },
-            onDismissRequest = navigator::pop,
-        )
-    }
+    override fun Content() = EntryTrackChapterSelectorScreen(track, serviceId, entry)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -414,30 +406,34 @@ data class EntryTrackChapterSelectorScreen(
     }
 }
 
-data class EntryTrackScoreSelectorScreen(
+@Composable
+fun EntryTrackChapterSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel =
+        assistedMetroViewModel<EntryTrackChapterSelectorRoute.Model, EntryTrackChapterSelectorRoute.Model.Factory> {
+            create(track = track, trackerId = serviceId, entry = entry)
+        }
+    val state by viewModel.state.collectAsState()
+    TrackChapterSelector(
+        selection = state.selection,
+        onSelectionChange = viewModel::setSelection,
+        range = remember { viewModel.getRange() },
+        onConfirm = {
+            viewModel.setChapter()
+            navigator.pop()
+        },
+        onDismissRequest = navigator::pop,
+    )
+}
+
+data class EntryTrackScoreSelectorRoute(
     private val track: Track,
     private val serviceId: Long,
     private val entry: EntryId,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, entry = entry)
-        }
-        val state by viewModel.state.collectAsState()
-        TrackScoreSelector(
-            selection = state.selection,
-            onSelectionChange = viewModel::setSelection,
-            selections = remember { viewModel.getSelections() },
-            onConfirm = {
-                viewModel.setScore()
-                navigator.pop()
-            },
-            onDismissRequest = navigator::pop,
-        )
-    }
+    override fun Content() = EntryTrackScoreSelectorScreen(track, serviceId, entry)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -480,80 +476,35 @@ data class EntryTrackScoreSelectorScreen(
     }
 }
 
-data class EntryTrackDateSelectorScreen(
+@Composable
+fun EntryTrackScoreSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel =
+        assistedMetroViewModel<EntryTrackScoreSelectorRoute.Model, EntryTrackScoreSelectorRoute.Model.Factory> {
+            create(track = track, trackerId = serviceId, entry = entry)
+        }
+    val state by viewModel.state.collectAsState()
+    TrackScoreSelector(
+        selection = state.selection,
+        onSelectionChange = viewModel::setSelection,
+        selections = remember { viewModel.getSelections() },
+        onConfirm = {
+            viewModel.setScore()
+            navigator.pop()
+        },
+        onDismissRequest = navigator::pop,
+    )
+}
+
+data class EntryTrackDateSelectorRoute(
     private val track: Track,
     private val serviceId: Long,
     private val start: Boolean,
     private val entry: EntryId,
 ) : Screen() {
 
-    @Transient
-    private val selectableDates = object : SelectableDates {
-        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-            val targetDate = Instant.fromEpochMilliseconds(utcTimeMillis).toLocalDateTime(TimeZone.UTC)
-
-            // Disallow future dates
-            if (targetDate > Clock.System.now().toLocalDateTime(TimeZone.UTC)) return false
-
-            val finishDate = track.finishDate?.toLocalDateTime(TimeZone.UTC)
-            val startDate = track.startDate?.toLocalDateTime(TimeZone.UTC)
-            return when {
-                // Disallow setting start date after finish date
-                start && finishDate != null -> {
-                    targetDate <= finishDate
-                }
-                // Disallow setting finish date before start date
-                !start && startDate != null -> {
-                    startDate <= targetDate
-                }
-                else -> true
-            }
-        }
-
-        override fun isSelectableYear(year: Int): Boolean {
-            // Disallow future years
-            if (year > Clock.System.now().toLocalDateTime(TimeZone.UTC).year) return false
-
-            val finishDate = track.finishDate?.toLocalDateTime(TimeZone.UTC)
-            val startDate = track.startDate?.toLocalDateTime(TimeZone.UTC)
-            return when {
-                // Disallow setting start year after finish year
-                start && finishDate != null -> {
-                    year <= finishDate.year
-                }
-                // Disallow setting finish year before start year
-                !start && startDate != null -> {
-                    startDate.year <= year
-                }
-                else -> true
-            }
-        }
-    }
-
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, start = start, entry = entry)
-        }
-
-        val canRemove = if (start) track.startDate != null else track.finishDate != null
-        TrackDateSelector(
-            title = if (start) {
-                stringResource(MR.strings.track_started_reading_date)
-            } else {
-                stringResource(MR.strings.track_finished_reading_date)
-            },
-            initialSelectedDateMillis = viewModel.initialSelection,
-            selectableDates = selectableDates,
-            onConfirm = {
-                viewModel.setDate(it)
-                navigator.pop()
-            },
-            onRemove = { viewModel.confirmRemoveDate(navigator) }.takeIf { canRemove },
-            onDismissRequest = navigator::pop,
-        )
-    }
+    override fun Content() = EntryTrackDateSelectorScreen(track, serviceId, start, entry)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -598,12 +549,81 @@ data class EntryTrackDateSelectorScreen(
         }
 
         fun confirmRemoveDate(navigator: Navigator) {
-            navigator.push(EntryTrackDateRemoverScreen(track, tracker.id, start, entry))
+            navigator.push(EntryTrackDateRemoverRoute(track, tracker.id, start, entry))
         }
     }
 }
 
-data class EntryTrackDateRemoverScreen(
+@Composable
+fun EntryTrackDateSelectorScreen(track: Track, serviceId: Long, start: Boolean, entry: EntryId) {
+    val navigator = LocalNavigator.currentOrThrow
+    val selectableDates = remember(track, start) { trackSelectableDates(track, start) }
+    val viewModel =
+        assistedMetroViewModel<EntryTrackDateSelectorRoute.Model, EntryTrackDateSelectorRoute.Model.Factory> {
+            create(track = track, trackerId = serviceId, start = start, entry = entry)
+        }
+
+    val canRemove = if (start) track.startDate != null else track.finishDate != null
+    TrackDateSelector(
+        title = if (start) {
+            stringResource(MR.strings.track_started_reading_date)
+        } else {
+            stringResource(MR.strings.track_finished_reading_date)
+        },
+        initialSelectedDateMillis = viewModel.initialSelection,
+        selectableDates = selectableDates,
+        onConfirm = {
+            viewModel.setDate(it)
+            navigator.pop()
+        },
+        onRemove = { viewModel.confirmRemoveDate(navigator) }.takeIf { canRemove },
+        onDismissRequest = navigator::pop,
+    )
+}
+
+private fun trackSelectableDates(track: Track, start: Boolean): SelectableDates = object : SelectableDates {
+    override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+        val targetDate = Instant.fromEpochMilliseconds(utcTimeMillis).toLocalDateTime(TimeZone.UTC)
+
+        // Disallow future dates
+        if (targetDate > Clock.System.now().toLocalDateTime(TimeZone.UTC)) return false
+
+        val finishDate = track.finishDate?.toLocalDateTime(TimeZone.UTC)
+        val startDate = track.startDate?.toLocalDateTime(TimeZone.UTC)
+        return when {
+            // Disallow setting start date after finish date
+            start && finishDate != null -> {
+                targetDate <= finishDate
+            }
+            // Disallow setting finish date before start date
+            !start && startDate != null -> {
+                startDate <= targetDate
+            }
+            else -> true
+        }
+    }
+
+    override fun isSelectableYear(year: Int): Boolean {
+        // Disallow future years
+        if (year > Clock.System.now().toLocalDateTime(TimeZone.UTC).year) return false
+
+        val finishDate = track.finishDate?.toLocalDateTime(TimeZone.UTC)
+        val startDate = track.startDate?.toLocalDateTime(TimeZone.UTC)
+        return when {
+            // Disallow setting start year after finish year
+            start && finishDate != null -> {
+                year <= finishDate.year
+            }
+            // Disallow setting finish year before start year
+            !start && startDate != null -> {
+                startDate.year <= year
+            }
+            else -> true
+        }
+    }
+}
+
+data class EntryTrackDateRemoverRoute(
     private val track: Track,
     private val serviceId: Long,
     private val start: Boolean,
@@ -611,54 +631,7 @@ data class EntryTrackDateRemoverScreen(
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(track = track, trackerId = serviceId, start = start, entry = entry)
-        }
-        AlertDialogContent(
-            modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
-            title = {
-                Text(
-                    text = stringResource(MR.strings.track_remove_date_conf_title),
-                    textAlign = TextAlign.Center,
-                )
-            },
-            text = {
-                val serviceName = viewModel.getServiceName()
-                Text(
-                    text = if (start) {
-                        stringResource(MR.strings.track_remove_start_date_conf_text, serviceName)
-                    } else {
-                        stringResource(MR.strings.track_remove_finish_date_conf_text, serviceName)
-                    },
-                )
-            },
-            buttons = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small, Alignment.End),
-                ) {
-                    TextButton(onClick = navigator::pop) {
-                        Text(text = stringResource(MR.strings.action_cancel))
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            viewModel.removeDate()
-                            navigator.popUntil { it is EntryTrackInfoDialogHomeScreen }
-                        },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                    ) {
-                        Text(text = stringResource(MR.strings.action_remove))
-                    }
-                }
-            },
-        )
-    }
+    override fun Content() = EntryTrackDateRemoverScreen(track, serviceId, start, entry)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -696,7 +669,57 @@ data class EntryTrackDateRemoverScreen(
     }
 }
 
-data class EntryTrackerSearchScreen(
+@Composable
+fun EntryTrackDateRemoverScreen(track: Track, serviceId: Long, start: Boolean, entry: EntryId) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = assistedMetroViewModel<EntryTrackDateRemoverRoute.Model, EntryTrackDateRemoverRoute.Model.Factory> {
+        create(track = track, trackerId = serviceId, start = start, entry = entry)
+    }
+    AlertDialogContent(
+        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
+        icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
+        title = {
+            Text(
+                text = stringResource(MR.strings.track_remove_date_conf_title),
+                textAlign = TextAlign.Center,
+            )
+        },
+        text = {
+            val serviceName = viewModel.getServiceName()
+            Text(
+                text = if (start) {
+                    stringResource(MR.strings.track_remove_start_date_conf_text, serviceName)
+                } else {
+                    stringResource(MR.strings.track_remove_finish_date_conf_text, serviceName)
+                },
+            )
+        },
+        buttons = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small, Alignment.End),
+            ) {
+                TextButton(onClick = navigator::pop) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+                FilledTonalButton(
+                    onClick = {
+                        viewModel.removeDate()
+                        navigator.popUntil { it is EntryTrackInfoDialogHomeRoute }
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Text(text = stringResource(MR.strings.action_remove))
+                }
+            }
+        },
+    )
+}
+
+data class EntryTrackerSearchRoute(
     private val entry: EntryId,
     private val initialQuery: String,
     private val currentUrl: String?,
@@ -704,53 +727,7 @@ data class EntryTrackerSearchScreen(
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(
-                entry = entry,
-                currentUrl = currentUrl,
-                initialQuery = initialQuery,
-                trackerId = serviceId,
-            )
-        }
-
-        val state by viewModel.state.collectAsState()
-
-        val textFieldState = rememberTextFieldState(initialQuery)
-        var pendingBind by remember { mutableStateOf<TrackSearch?>(null) }
-        TrackerSearch(
-            state = textFieldState,
-            onDispatchQuery = { viewModel.trackingSearch(textFieldState.text.toString()) },
-            queryResult = state.queryResult,
-            selected = state.selected,
-            onSelectedChange = viewModel::updateSelection,
-            onConfirmSelection = f@{ private: Boolean ->
-                val selected = state.selected ?: return@f
-                selected.private = private
-                if (viewModel.replacesRemoteEntry) {
-                    pendingBind = selected
-                } else {
-                    viewModel.registerTracking(selected)
-                    navigator.pop()
-                }
-            },
-            onDismissRequest = navigator::pop,
-            supportsPrivateTracking = viewModel.supportsPrivateTracking,
-        )
-
-        pendingBind?.let { selected ->
-            ReplaceEntryConfirmDialog(
-                trackerName = viewModel.trackerName,
-                onConfirm = {
-                    pendingBind = null
-                    viewModel.registerTracking(selected)
-                    navigator.pop()
-                },
-                onDismissRequest = { pendingBind = null },
-            )
-        }
-    }
+    override fun Content() = EntryTrackerSearchScreen(entry, initialQuery, currentUrl, serviceId)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -838,65 +815,63 @@ data class EntryTrackerSearchScreen(
     }
 }
 
-data class EntryTrackerRemoveScreen(
+@Composable
+fun EntryTrackerSearchScreen(entry: EntryId, initialQuery: String, currentUrl: String?, serviceId: Long) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = assistedMetroViewModel<EntryTrackerSearchRoute.Model, EntryTrackerSearchRoute.Model.Factory> {
+        create(
+            entry = entry,
+            currentUrl = currentUrl,
+            initialQuery = initialQuery,
+            trackerId = serviceId,
+        )
+    }
+
+    val state by viewModel.state.collectAsState()
+
+    val textFieldState = rememberTextFieldState(initialQuery)
+    var pendingBind by remember { mutableStateOf<TrackSearch?>(null) }
+    TrackerSearch(
+        state = textFieldState,
+        onDispatchQuery = { viewModel.trackingSearch(textFieldState.text.toString()) },
+        queryResult = state.queryResult,
+        selected = state.selected,
+        onSelectedChange = viewModel::updateSelection,
+        onConfirmSelection = f@{ private: Boolean ->
+            val selected = state.selected ?: return@f
+            selected.private = private
+            if (viewModel.replacesRemoteEntry) {
+                pendingBind = selected
+            } else {
+                viewModel.registerTracking(selected)
+                navigator.pop()
+            }
+        },
+        onDismissRequest = navigator::pop,
+        supportsPrivateTracking = viewModel.supportsPrivateTracking,
+    )
+
+    pendingBind?.let { selected ->
+        ReplaceEntryConfirmDialog(
+            trackerName = viewModel.trackerName,
+            onConfirm = {
+                pendingBind = null
+                viewModel.registerTracking(selected)
+                navigator.pop()
+            },
+            onDismissRequest = { pendingBind = null },
+        )
+    }
+}
+
+data class EntryTrackerRemoveRoute(
     private val entry: EntryId,
     private val track: Track,
     private val serviceId: Long,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(entry = entry, track = track, trackerId = serviceId)
-        }
-        val serviceName = viewModel.getName()
-        var removeRemoteTrack by remember { mutableStateOf(false) }
-        AlertDialogContent(
-            modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
-            title = {
-                Text(
-                    text = stringResource(MR.strings.track_delete_title, serviceName),
-                    textAlign = TextAlign.Center,
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
-                    Text(text = stringResource(MR.strings.track_delete_text, serviceName))
-                    if (viewModel.isDeletable()) {
-                        LabeledCheckbox(
-                            label = stringResource(MR.strings.track_delete_remote_text, serviceName),
-                            checked = removeRemoteTrack,
-                            onCheckedChange = { removeRemoteTrack = it },
-                        )
-                    }
-                }
-            },
-            buttons = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small, Alignment.End),
-                ) {
-                    TextButton(onClick = navigator::pop) {
-                        Text(text = stringResource(MR.strings.action_cancel))
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            viewModel.remove(alsoFromService = removeRemoteTrack)
-                            navigator.pop()
-                        },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                    ) {
-                        Text(text = stringResource(MR.strings.action_ok))
-                    }
-                }
-            },
-        )
-    }
+    override fun Content() = EntryTrackerRemoveScreen(entry, track, serviceId)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -928,6 +903,60 @@ data class EntryTrackerRemoveScreen(
         // removal starts.
         fun remove(alsoFromService: Boolean) = port.removeTrack(removal, tracker, track, alsoFromService)
     }
+}
+
+@Composable
+fun EntryTrackerRemoveScreen(entry: EntryId, track: Track, serviceId: Long) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = assistedMetroViewModel<EntryTrackerRemoveRoute.Model, EntryTrackerRemoveRoute.Model.Factory> {
+        create(entry = entry, track = track, trackerId = serviceId)
+    }
+    val serviceName = viewModel.getName()
+    var removeRemoteTrack by remember { mutableStateOf(false) }
+    AlertDialogContent(
+        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
+        icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
+        title = {
+            Text(
+                text = stringResource(MR.strings.track_delete_title, serviceName),
+                textAlign = TextAlign.Center,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+                Text(text = stringResource(MR.strings.track_delete_text, serviceName))
+                if (viewModel.isDeletable()) {
+                    LabeledCheckbox(
+                        label = stringResource(MR.strings.track_delete_remote_text, serviceName),
+                        checked = removeRemoteTrack,
+                        onCheckedChange = { removeRemoteTrack = it },
+                    )
+                }
+            }
+        },
+        buttons = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small, Alignment.End),
+            ) {
+                TextButton(onClick = navigator::pop) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+                FilledTonalButton(
+                    onClick = {
+                        viewModel.remove(alsoFromService = removeRemoteTrack)
+                        navigator.pop()
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Text(text = stringResource(MR.strings.action_ok))
+                }
+            }
+        },
+    )
 }
 
 /** Asked before binding a [ReplacingWriteTracker], since the bind's write clears what it does not carry. */

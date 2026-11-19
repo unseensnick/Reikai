@@ -45,22 +45,25 @@ import eu.kanade.presentation.more.settings.Preference as SettingsPreference
  * Which buttons one reader's bottom bar shows, and in what order. One screen serves both readers, each
  * editing its own buttons. The Settings gear is listed to be moved, never switched off.
  */
-data class ReaderBottomButtonsScreen(private val scope: ReaderBottomButton.Scope) : Screen() {
+data class ReaderBottomButtonsRoute(private val scope: ReaderBottomButton.Scope) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.pref_reader_bottom_buttons),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { paddingValues ->
-            ReaderBottomButtonsList(scope, contentPadding = paddingValues)
-        }
+    override fun Content() = ReaderBottomButtonsScreen(scope)
+}
+
+@Composable
+fun ReaderBottomButtonsScreen(scope: ReaderBottomButton.Scope) {
+    val navigator = LocalNavigator.currentOrThrow
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.pref_reader_bottom_buttons),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { paddingValues ->
+        ReaderBottomButtonsList(scope, contentPadding = paddingValues)
     }
 }
 
@@ -137,7 +140,7 @@ fun readerBottomButtonsPreference(
     return SettingsPreference.PreferenceItem.TextPreference(
         title = stringResource(MR.strings.pref_reader_bottom_buttons),
         subtitle = names.joinToString().ifEmpty { stringResource(MR.strings.none) },
-        onClick = { navigator.push(ReaderBottomButtonsScreen(scope)) },
+        onClick = { navigator.push(ReaderBottomButtonsRoute(scope)) },
     )
 }
 

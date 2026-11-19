@@ -20,7 +20,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
 import reikai.presentation.browse.feed.reikaiFeedTab
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
 import reikai.presentation.components.cachedAnimatedVector
@@ -43,7 +43,7 @@ data object BrowseTab : Tab {
         }
 
     override suspend fun onReselect(navigator: Navigator) {
-        navigator.push(EntryGlobalSearchScreen()) // RK: the shared manga + novel global search
+        navigator.push(EntryGlobalSearchRoute()) // RK: the shared manga + novel global search
     }
 
     // RK: the switch to Extensions is BrowseShowExtensionsEvent on the result bus, upstream's event

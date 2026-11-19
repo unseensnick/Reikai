@@ -42,68 +42,71 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 
 /** Each installed source's delay between downloaded chapters, manga and novels in one list. */
-class SourceDelaysScreen : Screen() {
+class SourceDelaysRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = metroViewModel<SourceDelaysViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
+    override fun Content() = SourceDelaysScreen()
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                SearchToolbar(
-                    titleContent = { AppBarTitle(stringResource(MR.strings.pref_source_delay)) },
-                    navigateUp = navigator::pop,
-                    searchQuery = state.query,
-                    onChangeSearchQuery = viewModel::setQuery,
-                    placeholderText = stringResource(MR.strings.pref_source_delay_search),
-                    scrollBehavior = scrollBehavior,
+@Composable
+fun SourceDelaysScreen() {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = metroViewModel<SourceDelaysViewModel>()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            SearchToolbar(
+                titleContent = { AppBarTitle(stringResource(MR.strings.pref_source_delay)) },
+                navigateUp = navigator::pop,
+                searchQuery = state.query,
+                onChangeSearchQuery = viewModel::setQuery,
+                placeholderText = stringResource(MR.strings.pref_source_delay_search),
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { contentPadding ->
+        Column(Modifier.padding(contentPadding)) {
+            ContentTypeFilterChips(selected = state.contentType, onSelect = viewModel::setContentType)
+            val sections = state.sections
+            when {
+                sections == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                sections.isEmpty -> EmptyScreen(
+                    stringRes = if (state.query.isNullOrBlank()) {
+                        MR.strings.pref_source_delay_empty
+                    } else {
+                        MR.strings.no_results_found
+                    },
                 )
-            },
-        ) { contentPadding ->
-            Column(Modifier.padding(contentPadding)) {
-                ContentTypeFilterChips(selected = state.contentType, onSelect = viewModel::setContentType)
-                val sections = state.sections
-                when {
-                    sections == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                    sections.isEmpty -> EmptyScreen(
-                        stringRes = if (state.query.isNullOrBlank()) {
-                            MR.strings.pref_source_delay_empty
-                        } else {
-                            MR.strings.no_results_found
-                        },
-                    )
-                    else -> {
-                        val listState = rememberChipListState(state.contentType)
-                        // A row let go into Own delay lands above the first row on screen; keep it in view.
-                        KeepListAtTop(listState, (sections.own + sections.manga + sections.novels).firstOrNull()?.key)
-                        LazyColumn(state = listState) {
-                            section(
-                                MR.strings.pref_source_delay_set,
-                                sections.own,
-                                state,
-                                viewModel::setDelay,
-                                viewModel::settle,
-                                onReset = viewModel::resetDelays,
-                            )
-                            section(
-                                ContentType.MANGA.labelRes,
-                                sections.manga,
-                                state,
-                                viewModel::setDelay,
-                                viewModel::settle,
-                            )
-                            section(
-                                ContentType.NOVELS.labelRes,
-                                sections.novels,
-                                state,
-                                viewModel::setDelay,
-                                viewModel::settle,
-                            )
-                        }
+                else -> {
+                    val listState = rememberChipListState(state.contentType)
+                    // A row let go into Own delay lands above the first row on screen; keep it in view.
+                    KeepListAtTop(listState, (sections.own + sections.manga + sections.novels).firstOrNull()?.key)
+                    LazyColumn(state = listState) {
+                        section(
+                            MR.strings.pref_source_delay_set,
+                            sections.own,
+                            state,
+                            viewModel::setDelay,
+                            viewModel::settle,
+                            onReset = viewModel::resetDelays,
+                        )
+                        section(
+                            ContentType.MANGA.labelRes,
+                            sections.manga,
+                            state,
+                            viewModel::setDelay,
+                            viewModel::settle,
+                        )
+                        section(
+                            ContentType.NOVELS.labelRes,
+                            sections.novels,
+                            state,
+                            viewModel::setDelay,
+                            viewModel::settle,
+                        )
                     }
                 }
             }

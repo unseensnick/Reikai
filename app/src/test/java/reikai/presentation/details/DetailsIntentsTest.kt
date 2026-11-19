@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
-import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.details.NovelRoute
 import tachiyomi.core.common.Constants
 import java.util.IdentityHashMap
 
@@ -69,7 +69,7 @@ class DetailsIntentsTest {
     fun `a novel intent opens the novel it was built for`() = runTest {
         val screen = novelDetailsIntent(context, 12L).novelDetailsScreen(novels)
 
-        (screen as? NovelScreen)?.novelId shouldBe 12L
+        (screen as? NovelRoute)?.novelId shouldBe 12L
     }
 
     // A pinned widget or a posted notification an older build wrote keeps its source and url.
@@ -77,7 +77,7 @@ class DetailsIntentsTest {
     fun `an older build's novel intent opens the saved novel it names`() = runTest {
         val screen = legacyNovelIntent("src", "/n/1").novelDetailsScreen(novels)
 
-        (screen as? NovelScreen)?.novelId shouldBe 4L
+        (screen as? NovelRoute)?.novelId shouldBe 4L
     }
 
     // MainActivity is exported, so any app can send one; opening it would fetch the url and save the novel.

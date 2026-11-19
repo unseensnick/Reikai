@@ -73,7 +73,7 @@ class LocalImportRestoreTest {
 
     private fun show() = restoration.setContent {
         ComposeTestHost(assistedFactories = mapOf(LocalImportViewModel.Factory::class to { factory })) {
-            Navigator(LocalImportScreen(listOf(file.toString()))) { navigator ->
+            Navigator(LocalImportRoute(listOf(file.toString()))) { navigator ->
                 CompositionLocalProvider(LocalViewModelStoreOwner provides owner) { navigator.lastItem.Content() }
             }
         }

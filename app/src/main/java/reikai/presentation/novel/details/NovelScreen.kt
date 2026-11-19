@@ -1,6 +1,7 @@
 package reikai.presentation.novel.details
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -14,6 +15,7 @@ import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
+import eu.kanade.presentation.util.LocalAssistUrl
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -52,7 +54,7 @@ import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
-import reikai.presentation.novel.search.NovelChapterSearchScreen
+import reikai.presentation.novel.search.NovelChapterSearchRoute
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`, pinned by [EntryDetailsContent]. Builds a
@@ -61,7 +63,7 @@ import reikai.presentation.novel.search.NovelChapterSearchScreen
  * reader, the page selector, chapter text search) and the per-type dialogs live here; the shared dialogs go through
  * [EntryDetailsDialogHost].
  */
-class NovelScreen(
+class NovelRoute(
     // Public so the migrate flow can identity-check the screen below it before replacing.
     val novelId: Long,
     // Opened from a source listing: starts the synopsis expanded, and closes when incognito ends.
@@ -74,116 +76,123 @@ class NovelScreen(
 
     @Composable
     override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val scope = rememberCoroutineScope()
-        val viewModel = assistedMetroViewModel<NovelDetailsViewModel, NovelDetailsViewModel.Factory> {
-            create(novelId = novelId, isFromSource = fromSource)
-        }
-        // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
-        val state by viewModel.state.collectAsStateWithLifecycle()
-        val coverViewModelFactory = remember { context.appGraph.novelCoverViewModelFactory }
-        val adapter = remember(viewModel) {
-            val graph = context.appGraph
-            val duplicates = DuplicateMarking(
-                ContentType.NOVELS,
-                graph.chapterCopyMarks,
-                graph.reikaiLibraryPreferences.showSkippedDuplicates,
-                graph.novelPreferences.readerSkipDuplicateChapters(),
-                viewModel.viewModelScope,
-                graph.appCoroutineScope,
-            )
-            NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
-        }
-        val settings = remember(viewModel) {
-            context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
-        }
-        val neutralState by adapter.state.collectAsStateWithLifecycle()
+        val setAssistUrl = remember { { url: String? -> assistUrl = url } }
+        CompositionLocalProvider(LocalAssistUrl provides setAssistUrl) { NovelScreen(novelId, fromSource) }
+    }
+}
 
-        when (val s = state) {
-            NovelDetailsState.Loading, NovelDetailsState.NotFound -> EntryDetailsNotLoaded(neutralState, navigator::pop)
-            is NovelDetailsState.Loaded -> TachiyomiTheme(
-                seedColor = s.seedColor.takeIf {
-                    viewModel.themeCoverBased
-                },
-            ) {
-                // The page WebView and Share open, so a merged novel offers the selected chip's.
-                LaunchedEffect(s.webPage) { assistUrl = s.webPage?.url }
+@Composable
+fun NovelScreen(novelId: Long, fromSource: Boolean) {
+    val navigator = LocalNavigator.currentOrThrow
+    val setAssistUrl = LocalAssistUrl.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val viewModel = assistedMetroViewModel<NovelDetailsViewModel, NovelDetailsViewModel.Factory> {
+        create(novelId = novelId, isFromSource = fromSource)
+    }
+    // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val coverViewModelFactory = remember { context.appGraph.novelCoverViewModelFactory }
+    val adapter = remember(viewModel) {
+        val graph = context.appGraph
+        val duplicates = DuplicateMarking(
+            ContentType.NOVELS,
+            graph.chapterCopyMarks,
+            graph.reikaiLibraryPreferences.showSkippedDuplicates,
+            graph.novelPreferences.readerSkipDuplicateChapters(),
+            viewModel.viewModelScope,
+            graph.appCoroutineScope,
+        )
+        NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
+    }
+    val settings = remember(viewModel) {
+        context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
+    }
+    val neutralState by adapter.state.collectAsStateWithLifecycle()
 
-                (neutralState as? EntryDetailsScreenState.Loaded)?.let { loaded ->
-                    EntryDetailsContent(
-                        behavior = adapter,
-                        state = loaded,
-                        snackbarHostState = viewModel.snackbarHostState,
-                        isTabletUi = isTabletUi(),
-                        chapterSwipeStartAction = s.chapterSwipeActions.start,
-                        chapterSwipeEndAction = s.chapterSwipeActions.end,
-                        nav = EntryDetailsNavigation(
-                            navigateUp = navigator::pop,
-                            onOpenChapter = { chapterId ->
-                                // Route to the chapter's own source (a unified-list row keeps its owning
-                                // novelId). The All chip opens group scope; a source chip opens source scope.
-                                // The model's state at the tap, so the lambda outlives an emission (as manga's).
-                                val live = viewModel.state.value as? NovelDetailsState.Loaded
-                                live?.let {
-                                    chapterToOpen(chapterId, it.chapters, it.resumeChapter, NovelChapter::id)
-                                }?.let { ch ->
-                                    context.startActivity(
-                                        ReaderActivity.newNovelIntent(
-                                            context = context,
-                                            novelId = ch.novelId,
-                                            chapterId = ch.id,
-                                            sourceScoped = live.selectedSourceNovelId != null,
-                                        ),
-                                    )
-                                }
-                            },
-                            // Not browsable for an uninstalled plugin, whose catalogue would open on nothing;
-                            // a genre then searches under the anchor's source.
-                            viewedSource = DetailsViewedSource(
-                                SourceKey.Novel(s.browsableSourceId ?: s.novel.source),
-                                browsable = s.browsableSourceId != null,
-                            ),
-                            onOpenFilterSettings = viewModel::showChapterSettingsDialog,
-                            onEditInterval = viewModel::showSetFetchIntervalDialog,
-                            onOpenPageSelector = viewModel::showPageSelectorDialog,
-                            // The scope a chapter tapped here opens in: the chip's source, else the group.
-                            onSearchText = {
-                                navigator.push(
-                                    NovelChapterSearchScreen(
-                                        novelId = s.selectedSourceNovelId ?: s.novel.id,
-                                        sourceScoped = s.selectedSourceNovelId != null,
+    when (val s = state) {
+        NovelDetailsState.Loading, NovelDetailsState.NotFound -> EntryDetailsNotLoaded(neutralState, navigator::pop)
+        is NovelDetailsState.Loaded -> TachiyomiTheme(
+            seedColor = s.seedColor.takeIf {
+                viewModel.themeCoverBased
+            },
+        ) {
+            // The page WebView and Share open, so a merged novel offers the selected chip's.
+            LaunchedEffect(s.webPage) { setAssistUrl(s.webPage?.url) }
+
+            (neutralState as? EntryDetailsScreenState.Loaded)?.let { loaded ->
+                EntryDetailsContent(
+                    behavior = adapter,
+                    state = loaded,
+                    snackbarHostState = viewModel.snackbarHostState,
+                    isTabletUi = isTabletUi(),
+                    chapterSwipeStartAction = s.chapterSwipeActions.start,
+                    chapterSwipeEndAction = s.chapterSwipeActions.end,
+                    nav = EntryDetailsNavigation(
+                        navigateUp = navigator::pop,
+                        onOpenChapter = { chapterId ->
+                            // Route to the chapter's own source (a unified-list row keeps its owning
+                            // novelId). The All chip opens group scope; a source chip opens source scope.
+                            // The model's state at the tap, so the lambda outlives an emission (as manga's).
+                            val live = viewModel.state.value as? NovelDetailsState.Loaded
+                            live?.let {
+                                chapterToOpen(chapterId, it.chapters, it.resumeChapter, NovelChapter::id)
+                            }?.let { ch ->
+                                context.startActivity(
+                                    ReaderActivity.newNovelIntent(
+                                        context = context,
+                                        novelId = ch.novelId,
+                                        chapterId = ch.id,
+                                        sourceScoped = live.selectedSourceNovelId != null,
                                     ),
                                 )
-                            },
-                            onWordCount = viewModel::showWordCountDialog,
-                            // A local novel's books are EPUB files on the device already.
-                            onExport = viewModel::showExportDialog.takeIf { !LocalNovelSource.isLocal(s.novel.source) },
-                            onOpenFolder = {
-                                scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) }
-                            },
-                            onOpenSourceSettings = viewModel::showSourceSettings
-                                .takeIf { s.sourceHasSettings },
+                            }
+                        },
+                        // Not browsable for an uninstalled plugin, whose catalogue would open on nothing;
+                        // a genre then searches under the anchor's source.
+                        viewedSource = DetailsViewedSource(
+                            SourceKey.Novel(s.browsableSourceId ?: s.novel.source),
+                            browsable = s.browsableSourceId != null,
                         ),
-                        settings = settings,
-                    )
-                } ?: EntryDetailsSkeleton() // until the first off-Main mapping lands
-
-                EntryDetailsDialogHost(
-                    s.toSharedDetailsDialog(viewModel.isUpdateIntervalEnabled),
-                    adapter,
-                    viewModel::dismissDialog,
+                        onOpenFilterSettings = viewModel::showChapterSettingsDialog,
+                        onEditInterval = viewModel::showSetFetchIntervalDialog,
+                        onOpenPageSelector = viewModel::showPageSelectorDialog,
+                        // The scope a chapter tapped here opens in: the chip's source, else the group.
+                        onSearchText = {
+                            navigator.push(
+                                NovelChapterSearchRoute(
+                                    novelId = s.selectedSourceNovelId ?: s.novel.id,
+                                    sourceScoped = s.selectedSourceNovelId != null,
+                                ),
+                            )
+                        },
+                        onWordCount = viewModel::showWordCountDialog,
+                        // A local novel's books are EPUB files on the device already.
+                        onExport = viewModel::showExportDialog.takeIf { !LocalNovelSource.isLocal(s.novel.source) },
+                        onOpenFolder = {
+                            scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) }
+                        },
+                        onOpenSourceSettings = viewModel::showSourceSettings
+                            .takeIf { s.sourceHasSettings },
+                    ),
+                    settings = settings,
                 )
-                NovelDetailsDialogs(s, viewModel)
-            }
+            } ?: EntryDetailsSkeleton() // until the first off-Main mapping lands
+
+            EntryDetailsDialogHost(
+                s.toSharedDetailsDialog(viewModel.isUpdateIntervalEnabled),
+                adapter,
+                viewModel::dismissDialog,
+            )
+            NovelDetailsDialogs(s, viewModel)
         }
     }
 }
 
 /** The novel dialogs that stay per-type (their data genuinely diverges); the shared ones go through
- *  [EntryDetailsDialogHost]. A `Screen` extension because the Migrate case calls [EntryMigrateFor]. */
+ *  [EntryDetailsDialogHost]. */
 @Composable
-private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: NovelDetailsViewModel) {
+private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: NovelDetailsViewModel) {
     val navigator = LocalNavigator.currentOrThrow
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> ChangeCategoryDialog(

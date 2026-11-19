@@ -24,7 +24,7 @@ import reikai.presentation.components.LocalShownContent
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.settings.categoryFilterPreference
 import reikai.presentation.settings.download.DownloadDelaySlider
-import reikai.presentation.settings.download.SourceDelaysScreen
+import reikai.presentation.settings.download.SourceDelaysRoute
 import reikai.presentation.settings.download.ownDelayCount
 import reikai.presentation.settings.download.sourceDelayRows
 import tachiyomi.domain.category.model.Category
@@ -242,7 +242,7 @@ object SettingsDownloadScreen : SearchableSettings {
                         0 -> stringResource(MR.strings.pref_source_delay_none)
                         else -> pluralStringResource(MR.plurals.pref_source_delay_count, count = setCount, setCount)
                     },
-                    onClick = { navigator.push(SourceDelaysScreen()) },
+                    onClick = { navigator.push(SourceDelaysRoute()) },
                 ),
             ),
         )

@@ -15,7 +15,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
@@ -33,7 +32,7 @@ import reikai.presentation.browse.MixedBulkSelection
 import reikai.presentation.browse.SearchResultSection
 import reikai.presentation.browse.catalogue.EntryBrowseListing
 import reikai.presentation.browse.catalogue.EntryBrowseRow
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.browse.rememberEntryGestures
@@ -51,7 +50,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * One screen for both content types, over the same row fill the global search uses.
  */
 @Composable
-fun Screen.reikaiFeedTab(): TabContent {
+fun reikaiFeedTab(): TabContent {
     val model = metroViewModel<FeedViewModel>()
     val state by model.state.collectAsStateWithLifecycle()
 
@@ -133,7 +132,7 @@ fun Screen.reikaiFeedTab(): TabContent {
 }
 
 @Composable
-private fun Screen.FeedContent(
+private fun FeedContent(
     state: FeedState,
     model: FeedViewModel,
     contentPadding: PaddingValues,
@@ -190,7 +189,7 @@ private fun Screen.FeedContent(
                         selectedKeys = selection.selectedKeys,
                         onClickSource = {
                             navigator.push(
-                                EntryCatalogueScreen(
+                                EntryCatalogueRoute(
                                     sourceKey = entry.row.key,
                                     // Where the row's own results came from, so opening it shows
                                     // more of the same rather than an unrelated listing.

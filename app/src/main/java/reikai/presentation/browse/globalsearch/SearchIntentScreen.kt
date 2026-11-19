@@ -17,7 +17,7 @@ suspend fun searchIntentScreen(
     when {
         filter.isNullOrEmpty() -> outsideSearchScreen(query)
         filter in novelPackages() -> DeepLinkScreen(query)
-        else -> EntryGlobalSearchScreen(query, filter, scopedContentType = ContentType.MANGA)
+        else -> EntryGlobalSearchRoute(query, filter, scopedContentType = ContentType.MANGA)
     }
 
 /**
@@ -26,4 +26,4 @@ suspend fun searchIntentScreen(
  * the chip and source filter you last left in Browse would hide results. Neither choice is remembered.
  */
 fun outsideSearchScreen(query: String): Screen =
-    EntryGlobalSearchScreen(query, scopedContentType = ContentType.ALL, sourceFilter = SearchSourceFilter.All)
+    EntryGlobalSearchRoute(query, scopedContentType = ContentType.ALL, sourceFilter = SearchSourceFilter.All)

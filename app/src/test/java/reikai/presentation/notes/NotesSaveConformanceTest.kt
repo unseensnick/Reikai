@@ -24,7 +24,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
-import reikai.presentation.novel.notes.NovelNotesScreen
+import reikai.presentation.novel.notes.NovelNotesRoute
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.UpdateMangaNotes
 import tachiyomi.domain.manga.model.Manga
@@ -78,7 +78,7 @@ class NotesSaveConformanceTest {
                 mockk<GetManga> { coEvery { await(1L) } returns Manga.create().copy(id = 1L, notes = INITIAL) },
                 mockk<UpdateMangaNotes> { coEvery { this@mockk(1L, any()) } answers { writes.add(secondArg()) } },
             )::updateNotes
-            Editor.NOVEL -> NovelNotesScreen.Model(
+            Editor.NOVEL -> NovelNotesRoute.Model(
                 1L,
                 appScope,
                 mockk<NovelRepository> {
@@ -86,7 +86,7 @@ class NotesSaveConformanceTest {
                     coEvery { update(any<NovelUpdate>()) } answers { writes.add(firstArg<NovelUpdate>().notes!!) }
                 },
             ).notes::update
-            Editor.VOLUME -> VolumeNotesScreen.Model(
+            Editor.VOLUME -> VolumeNotesRoute.Model(
                 ContentType.NOVELS,
                 SERIES,
                 BOOK,

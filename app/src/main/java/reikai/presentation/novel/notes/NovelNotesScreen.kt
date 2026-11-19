@@ -25,15 +25,10 @@ import reikai.presentation.notes.NotesEditor
  * Full-screen markdown notes editor for a novel, rendered through the shared [EntryNotesScreen] and edited through
  * [NotesEditor]. Saves surgically via a [NovelUpdate] patch.
  */
-class NovelNotesScreen(val novelId: Long) : Screen() {
+class NovelNotesRoute(val novelId: Long) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> { create(novelId = novelId) }
-
-        EntryNotesScreen(editor = viewModel.notes, subtitle = { it }, navigateUp = navigator::pop)
-    }
+    override fun Content() = NovelNotesScreen(novelId)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -58,4 +53,13 @@ class NovelNotesScreen(val novelId: Long) : Screen() {
             fun create(novelId: Long): Model
         }
     }
+}
+
+@Composable
+fun NovelNotesScreen(novelId: Long) {
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel =
+        assistedMetroViewModel<NovelNotesRoute.Model, NovelNotesRoute.Model.Factory> { create(novelId = novelId) }
+
+    EntryNotesScreen(editor = viewModel.notes, subtitle = { it }, navigateUp = navigator::pop)
 }

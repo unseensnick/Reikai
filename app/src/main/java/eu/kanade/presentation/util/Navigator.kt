@@ -35,6 +35,11 @@ interface AssistContentScreen {
     fun onProvideAssistUrl(): String?
 }
 
+// RK --> how a screen body reports its assist URL to the Screen that hosts it, the shape upstream's
+//        mihon.core.navigation.LocalAssistUrl has
+val LocalAssistUrl: ProvidableCompositionLocal<(String?) -> Unit> = staticCompositionLocalOf { {} }
+// RK <--
+
 @Composable
 fun DefaultNavigatorScreenTransition(
     navigator: Navigator,

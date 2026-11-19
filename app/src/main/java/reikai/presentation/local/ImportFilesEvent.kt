@@ -13,11 +13,11 @@ data class ImportFilesEvent(val uris: List<Uri>)
  * rather than being replaced, else a new one over the library.
  */
 fun Stack<Screen>.importFiles(files: List<Uri>, bus: ResultEventBus) {
-    if (items.any { it is LocalImportScreen }) {
-        popUntil { it is LocalImportScreen }
+    if (items.any { it is LocalImportRoute }) {
+        popUntil { it is LocalImportRoute }
         bus.sendResult(ImportFilesEvent(files))
     } else {
         popAll()
-        push(LocalImportScreen(files.map { it.toString() }))
+        push(LocalImportRoute(files.map { it.toString() }))
     }
 }

@@ -91,8 +91,8 @@ class DetailsRoutesGuardTest {
             Home(
                 "details pages",
                 setOf("DetailsRoutes.kt"),
-                Regex("""\b(MangaScreen|NovelScreen)\(|::(MangaScreen|NovelScreen)\b"""),
-                Regex("""\bclass (MangaScreen|NovelScreen)\("""),
+                Regex("""\b(MangaScreen|NovelRoute)\(|::(MangaScreen|NovelRoute)\b"""),
+                Regex("""\bclass (MangaScreen|NovelRoute)\("""),
             ),
             // The screen's own file keeps forNovel, the one builder the home calls for a novel source.
             Home(

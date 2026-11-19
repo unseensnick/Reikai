@@ -17,7 +17,6 @@ import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
-import eu.kanade.presentation.util.Screen
 import reikai.data.coil.withCoverFallbacks
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryCustomInfo
@@ -26,7 +25,7 @@ import reikai.domain.merge.DetailsRemoval
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.ManageMergeSourcesDialog
-import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
+import reikai.presentation.track.EntryTrackInfoDialogHomeRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -101,12 +100,12 @@ data class EntryManageSourceInfo(val id: Long, val sourceName: String, val chapt
 
 /**
  * Renders the shared details dialogs from the neutral [EntryDetailsDialog], driving every action through
- * [behavior]. A `Screen` extension because the cover viewer resolves a ViewModel (needs the Screen receiver).
+ * [behavior].
  * The caller also runs its own per-type dispatcher for the dialogs that stay type-specific; the two never
  * overlap (a shared dialog maps here and the caller's `when` skips it, and vice versa).
  */
 @Composable
-fun Screen.EntryDetailsDialogHost(
+fun EntryDetailsDialogHost(
     dialog: EntryDetailsDialog?,
     behavior: EntryDetailsBehavior,
     onDismissRequest: () -> Unit,
@@ -226,11 +225,11 @@ fun Screen.EntryDetailsDialogHost(
             // Remember the screen so the merge collectors' frequent recompositions don't rebuild it and reset
             // its navigator mid-write (the manga side hit an UpsertTrack JobCancellationException here).
             val trackScreen = remember(dialog.entry) {
-                EntryTrackInfoDialogHomeScreen(entry = dialog.entry, entryTitle = dialog.entryTitle)
+                EntryTrackInfoDialogHomeRoute(entry = dialog.entry, entryTitle = dialog.entryTitle)
             }
             NavigatorAdaptiveSheet(
                 screen = trackScreen,
-                enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
+                enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeRoute },
                 onDismissRequest = onDismissRequest,
             )
         }

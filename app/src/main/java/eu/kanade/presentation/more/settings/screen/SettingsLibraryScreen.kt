@@ -22,7 +22,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.task.TaskBannerPreferences
-import reikai.presentation.library.preferredsources.PreferredSourcesScreen
+import reikai.presentation.library.preferredsources.PreferredSourcesRoute
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.settings.categoryFilterPreference
 import reikai.presentation.settings.updateScheduleRows
@@ -169,7 +169,7 @@ object SettingsLibraryScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_preferred_sources),
                     subtitle = stringResource(MR.strings.pref_preferred_sources_summary),
-                    onClick = { navigator.push(PreferredSourcesScreen()) },
+                    onClick = { navigator.push(PreferredSourcesRoute()) },
                 ),
             ),
         )

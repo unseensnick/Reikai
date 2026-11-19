@@ -33,8 +33,8 @@ import mihon.app.di.appGraph
 import reikai.domain.category.seedRecentsSurfaceFromUpdates
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.stats.StatsShortcut
-import reikai.presentation.settings.appearance.CustomThemeColorScreen
-import reikai.presentation.settings.appearance.LauncherIconScreen
+import reikai.presentation.settings.appearance.CustomThemeColorRoute
+import reikai.presentation.settings.appearance.LauncherIconRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -109,7 +109,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_custom_theme_color),
                     subtitle = stringResource(MR.strings.pref_custom_theme_color_summary),
                     visible = appTheme == AppTheme.CUSTOM,
-                    onClick = { navigator.push(CustomThemeColorScreen()) },
+                    onClick = { navigator.push(CustomThemeColorRoute()) },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = uiPreferences.customThemeStyle,
@@ -146,7 +146,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_app_icon),
                     subtitle = stringResource(MR.strings.pref_app_icon_summary),
-                    onClick = { navigator.push(LauncherIconScreen()) },
+                    onClick = { navigator.push(LauncherIconRoute()) },
                 ),
                 // RK <--
             ),

@@ -19,10 +19,10 @@ import kotlinx.collections.immutable.persistentListOf
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Edit
 import reikai.presentation.details.detailsScreen
-import reikai.presentation.stats.details.StatsGroupScreen
-import reikai.presentation.stats.details.StatsMostReadScreen
-import reikai.presentation.stats.details.StatsReadingScreen
-import reikai.presentation.stats.details.StatsSeriesScreen
+import reikai.presentation.stats.details.StatsGroupRoute
+import reikai.presentation.stats.details.StatsMostReadRoute
+import reikai.presentation.stats.details.StatsReadingRoute
+import reikai.presentation.stats.details.StatsSeriesRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -107,12 +107,12 @@ fun StatsContent(navigateUp: (() -> Unit)?) {
             paddingValues = paddingValues,
             contentType = contentType,
             onContentTypeSelected = viewModel::setContentType,
-            onSeeAll = { navigator.push(StatsGroupScreen(it)) },
-            onOpenRow = { navigator.push(StatsSeriesScreen(it.group.key, it.name, contentType)) },
-            onOpenKey = { navigator.push(StatsSeriesScreen(it, null, contentType)) },
+            onSeeAll = { navigator.push(StatsGroupRoute(it)) },
+            onOpenRow = { navigator.push(StatsSeriesRoute(it.group.key, it.name, contentType)) },
+            onOpenKey = { navigator.push(StatsSeriesRoute(it, null, contentType)) },
             onOpenEntry = { navigator.push(it.detailsScreen()) },
-            onOpenReading = { navigator.push(StatsReadingScreen()) },
-            onOpenMostRead = { navigator.push(StatsMostReadScreen()) },
+            onOpenReading = { navigator.push(StatsReadingRoute()) },
+            onOpenMostRead = { navigator.push(StatsMostReadRoute()) },
             cardLayout = statsShownCards(cardLayout, hiddenCards, hiddenFigures),
             figures = figureLayout - hiddenFigures,
         )

@@ -60,100 +60,103 @@ import kotlin.math.roundToInt
  * theme and recreates the activity, as the theme picker does. From Kuukiyomi via Komikku.
  */
 // no ViewModel: two preference writes on tap, no async state.
-class CustomThemeColorScreen : Screen() {
+class CustomThemeColorRoute : Screen() {
 
     @Composable
-    override fun Content() {
-        val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
-        val uiPreferences = remember { context.appGraph.uiPreferences }
-        val initialColor = remember { Color(uiPreferences.customThemeSeed.get()) }
-        val controller = rememberColorPickerController()
-        val scope = rememberCoroutineScope()
-        val scrollState = rememberScrollState()
-        var selectedColor by remember { mutableStateOf(initialColor) }
-        val wheelBitmap = rememberWheelBitmap()
+    override fun Content() = CustomThemeColorScreen()
+}
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.pref_custom_theme_color),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-        ) { contentPadding ->
-            Column(
+@Composable
+fun CustomThemeColorScreen() {
+    val context = LocalContext.current
+    val navigator = LocalNavigator.currentOrThrow
+    val uiPreferences = remember { context.appGraph.uiPreferences }
+    val initialColor = remember { Color(uiPreferences.customThemeSeed.get()) }
+    val controller = rememberColorPickerController()
+    val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
+    var selectedColor by remember { mutableStateOf(initialColor) }
+    val wheelBitmap = rememberWheelBitmap()
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.pref_custom_theme_color),
+                navigateUp = navigator::pop,
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { contentPadding ->
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .padding(horizontal = MaterialTheme.padding.large)
+                .verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            HsvColorPicker(
                 modifier = Modifier
-                    .padding(contentPadding)
-                    .padding(horizontal = MaterialTheme.padding.large)
-                    .verticalScroll(scrollState),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .padding(vertical = MaterialTheme.padding.small)
+                    .size(300.dp),
+                controller = controller,
+                wheelImageBitmap = wheelBitmap,
+                initialColor = initialColor,
+                onColorChanged = { selectedColor = it.color },
+            )
+            BrightnessSlider(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(MaterialTheme.padding.small)
+                    .height(24.dp),
+                controller = controller,
+                borderRadius = 12.dp,
+                wheelImageBitmap = wheelBitmap,
+                initialColor = initialColor,
+            )
+            Row(
+                modifier = Modifier.padding(MaterialTheme.padding.small),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.large),
             ) {
-                HsvColorPicker(
-                    modifier = Modifier
-                        .padding(vertical = MaterialTheme.padding.small)
-                        .size(300.dp),
-                    controller = controller,
-                    wheelImageBitmap = wheelBitmap,
-                    initialColor = initialColor,
-                    onColorChanged = { selectedColor = it.color },
-                )
-                BrightnessSlider(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(MaterialTheme.padding.small)
-                        .height(24.dp),
-                    controller = controller,
-                    borderRadius = 12.dp,
-                    wheelImageBitmap = wheelBitmap,
-                    initialColor = initialColor,
-                )
-                Row(
-                    modifier = Modifier.padding(MaterialTheme.padding.small),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.large),
-                ) {
-                    ColorSwatch(initialColor) { AlphaTile(it, selectedColor = initialColor) }
-                    ColorSwatch(selectedColor) { AlphaTile(it, controller = controller) }
-                }
-                Button(
-                    onClick = {
-                        uiPreferences.customThemeSeed.set(selectedColor.toArgb())
-                        uiPreferences.appTheme.set(AppTheme.CUSTOM)
-                        (context as? Activity)?.let { ActivityCompat.recreate(it) }
-                    },
-                    modifier = Modifier
-                        .padding(vertical = MaterialTheme.padding.medium)
-                        .fillMaxWidth()
-                        .height(48.dp),
-                ) {
-                    Text(text = stringResource(MR.strings.action_apply))
-                }
+                ColorSwatch(initialColor) { AlphaTile(it, selectedColor = initialColor) }
+                ColorSwatch(selectedColor) { AlphaTile(it, controller = controller) }
+            }
+            Button(
+                onClick = {
+                    uiPreferences.customThemeSeed.set(selectedColor.toArgb())
+                    uiPreferences.appTheme.set(AppTheme.CUSTOM)
+                    (context as? Activity)?.let { ActivityCompat.recreate(it) }
+                },
+                modifier = Modifier
+                    .padding(vertical = MaterialTheme.padding.medium)
+                    .fillMaxWidth()
+                    .height(48.dp),
+            ) {
+                Text(text = stringResource(MR.strings.action_apply))
+            }
 
-                palettes.forEach { (title, colors) ->
-                    Text(
-                        text = stringResource(title),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(top = MaterialTheme.padding.medium),
-                    )
-                    FlowRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = MaterialTheme.padding.small),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        colors.forEach { color ->
-                            Box(
-                                modifier = Modifier
-                                    .background(color = color, shape = MaterialTheme.shapes.small)
-                                    .height(48.dp)
-                                    .aspectRatio(1f)
-                                    .clickable(role = Role.Button) {
-                                        controller.selectByColor(color, true)
-                                        scope.launch { scrollState.animateScrollTo(0) }
-                                    },
-                            )
-                        }
+            palettes.forEach { (title, colors) ->
+                Text(
+                    text = stringResource(title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = MaterialTheme.padding.medium),
+                )
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = MaterialTheme.padding.small),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    colors.forEach { color ->
+                        Box(
+                            modifier = Modifier
+                                .background(color = color, shape = MaterialTheme.shapes.small)
+                                .height(48.dp)
+                                .aspectRatio(1f)
+                                .clickable(role = Role.Button) {
+                                    controller.selectByColor(color, true)
+                                    scope.launch { scrollState.animateScrollTo(0) }
+                                },
+                        )
                     }
                 }
             }

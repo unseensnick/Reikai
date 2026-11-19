@@ -7,10 +7,10 @@ import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
-import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
-import reikai.presentation.novel.notes.NovelNotesScreen
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
+import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
+import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
+import reikai.presentation.novel.notes.NovelNotesRoute
 
 /** The viewed member's source, which a genre on the page searches and the header's source row browses. */
 data class DetailsViewedSource(
@@ -62,21 +62,21 @@ internal fun EntryDetailsNavigation.withSharedPushes(
 ): SharedDetailsPushes {
     val type = state.entryId.contentType
     return SharedDetailsPushes(
-        onGlobalSearch = { stack.push(EntryGlobalSearchScreen(it, scopedContentType = type)) },
+        onGlobalSearch = { stack.push(EntryGlobalSearchRoute(it, scopedContentType = type)) },
         onLibrarySearch = { stack.searchLibraryFromDetails(bus, it, type) },
         onTagSearch = { genre ->
             stack.searchGenreFromDetails(bus, genre, viewedSource.key, type, viewedSource.filterable)
         },
-        onBrowseSource = { stack.push(EntryCatalogueScreen(viewedSource.key)) }.takeIf { viewedSource.browsable },
+        onBrowseSource = { stack.push(EntryCatalogueRoute(viewedSource.key)) }.takeIf { viewedSource.browsable },
         onOpenTrackingSettings = { stack.push(SettingsScreen(SettingsScreen.Destination.Tracking)) },
         onEditNotes = {
             stack.push(
                 when (val viewed = EntryId.of(type, state.viewedEntryId)) {
                     is EntryId.Manga -> MangaNotesRoute(viewed.rawId)
-                    is EntryId.Novel -> NovelNotesScreen(viewed.rawId)
+                    is EntryId.Novel -> NovelNotesRoute(viewed.rawId)
                 },
             )
         },
-        onMigrate = { stack.push(EntryMigrationSourcePickScreen(type, listOf(state.entryId.rawId))) },
+        onMigrate = { stack.push(EntryMigrationSourcePickRoute(type, listOf(state.entryId.rawId))) },
     )
 }

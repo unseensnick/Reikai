@@ -21,7 +21,10 @@ data object StatsTab : Tab {
         )
 
     @Composable
-    override fun Content() {
-        StatsContent(navigateUp = null)
-    }
+    override fun Content() = StatsTab()
+}
+
+@Composable
+fun StatsTab() {
+    StatsContent(navigateUp = null)
 }

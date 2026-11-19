@@ -21,7 +21,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -47,7 +46,7 @@ import reikai.presentation.browse.components.NovelSourceIcon
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.rememberChipListState
-import reikai.presentation.migrate.flow.EntryMigrationFavoritesScreen
+import reikai.presentation.migrate.flow.EntryMigrationFavoritesRoute
 import tachiyomi.core.common.Constants
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
@@ -70,7 +69,7 @@ import tachiyomi.presentation.core.util.plus
  * replaced builder and screen are deleted (see the off-path manifest).
  */
 @Composable
-fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
+fun reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
     val uriHandler = LocalUriHandler.current
     val navigator = LocalNavigator.currentOrThrow
     val mangaModel = metroViewModel<MigrateSourceViewModel>()
@@ -110,7 +109,7 @@ fun Screen.reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabCo
                         contentPadding = contentPadding,
                         onClickItem = { row ->
                             navigator.push(
-                                EntryMigrationFavoritesScreen(row.key.contentType, row.key.rawId),
+                                EntryMigrationFavoritesRoute(row.key.contentType, row.key.rawId),
                             )
                         },
                         onToggleSortingMode = engine::toggleSortingMode,

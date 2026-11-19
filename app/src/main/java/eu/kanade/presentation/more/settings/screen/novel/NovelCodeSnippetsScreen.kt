@@ -34,32 +34,35 @@ import java.util.UUID
  * The WebView reader's CSS or JavaScript snippets. Novel-only and WebView-only by mechanism: the text
  * renderer has no stylesheet or script to add them to, and a manga page is an image.
  */
-data class NovelCodeSnippetsScreen(private val kind: NovelSnippetKind) : Screen() {
+data class NovelCodeSnippetsRoute(private val kind: NovelSnippetKind) : Screen() {
 
     @Composable
-    override fun Content() {
-        val viewModel = assistedMetroViewModel<NovelCodeSnippetsViewModel, NovelCodeSnippetsViewModel.Factory>(
-            key = kind.name,
-        ) {
-            create(kind)
-        }
-        NovelToggleList(
-            viewModel = viewModel,
-            title = stringResource(kind.titleRes),
-            emptyRes = MR.strings.information_empty_novel_snippets,
-            deleteConfirmationRes = MR.strings.novel_snippet_delete_confirmation,
-            summary = { snippet -> snippet.code.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty() },
-            summaryFontFamily = FontFamily.Monospace,
-            editDialog = { snippet ->
-                SnippetEditDialog(
-                    snippet = snippet,
-                    kind = kind,
-                    onDismissRequest = viewModel::dismissDialog,
-                    onSave = viewModel::save,
-                )
-            },
-        )
+    override fun Content() = NovelCodeSnippetsScreen(kind)
+}
+
+@Composable
+fun NovelCodeSnippetsScreen(kind: NovelSnippetKind) {
+    val viewModel = assistedMetroViewModel<NovelCodeSnippetsViewModel, NovelCodeSnippetsViewModel.Factory>(
+        key = kind.name,
+    ) {
+        create(kind)
     }
+    NovelToggleList(
+        viewModel = viewModel,
+        title = stringResource(kind.titleRes),
+        emptyRes = MR.strings.information_empty_novel_snippets,
+        deleteConfirmationRes = MR.strings.novel_snippet_delete_confirmation,
+        summary = { snippet -> snippet.code.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty() },
+        summaryFontFamily = FontFamily.Monospace,
+        editDialog = { snippet ->
+            SnippetEditDialog(
+                snippet = snippet,
+                kind = kind,
+                onDismissRequest = viewModel::dismissDialog,
+                onSave = viewModel::save,
+            )
+        },
+    )
 }
 
 private val NovelSnippetKind.titleRes

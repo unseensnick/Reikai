@@ -40,7 +40,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
-import reikai.presentation.novel.notes.NovelNotesScreen
+import reikai.presentation.novel.notes.NovelNotesRoute
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
@@ -129,8 +129,8 @@ class NotesRestoreTest(private val editor: Editor) {
     fun `a notes page whose series is gone closes`() {
         val gone = when (editor) {
             Editor.MANGA -> MangaNotesRoute(mangaId + 100)
-            Editor.NOVEL -> NovelNotesScreen(novelId + 100)
-            Editor.VOLUME -> VolumeNotesScreen(ContentType.NOVELS, "Gone", BOOK)
+            Editor.NOVEL -> NovelNotesRoute(novelId + 100)
+            Editor.VOLUME -> VolumeNotesRoute(ContentType.NOVELS, "Gone", BOOK)
         }
         host { Navigator(listOf(Below, gone)) }
 
@@ -147,8 +147,8 @@ class NotesRestoreTest(private val editor: Editor) {
 
     private fun screen(): Screen = when (editor) {
         Editor.MANGA -> MangaNotesRoute(mangaId)
-        Editor.NOVEL -> NovelNotesScreen(novelId)
-        Editor.VOLUME -> VolumeNotesScreen(ContentType.NOVELS, SERIES, BOOK)
+        Editor.NOVEL -> NovelNotesRoute(novelId)
+        Editor.VOLUME -> VolumeNotesRoute(ContentType.NOVELS, SERIES, BOOK)
     }
 
     private fun write(notes: String) = runTest {
@@ -180,15 +180,15 @@ class NotesRestoreTest(private val editor: Editor) {
                             MangaNotesViewModel(mangaId, appScope, GetManga(db.mangas), UpdateMangaNotes(db.mangas))
                     }
                 },
-                NovelNotesScreen.Model.Factory::class to {
-                    object : NovelNotesScreen.Model.Factory {
-                        override fun create(novelId: Long) = NovelNotesScreen.Model(novelId, appScope, novels)
+                NovelNotesRoute.Model.Factory::class to {
+                    object : NovelNotesRoute.Model.Factory {
+                        override fun create(novelId: Long) = NovelNotesRoute.Model(novelId, appScope, novels)
                     }
                 },
-                VolumeNotesScreen.Model.Factory::class to {
-                    object : VolumeNotesScreen.Model.Factory {
+                VolumeNotesRoute.Model.Factory::class to {
+                    object : VolumeNotesRoute.Model.Factory {
                         override fun create(type: ContentType, series: String, volumeKey: String) =
-                            VolumeNotesScreen.Model(
+                            VolumeNotesRoute.Model(
                                 type,
                                 series,
                                 volumeKey,

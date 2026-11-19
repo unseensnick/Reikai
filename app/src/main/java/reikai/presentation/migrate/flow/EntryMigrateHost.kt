@@ -8,7 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metro.AppScope
@@ -36,7 +35,7 @@ import tachiyomi.i18n.MR
  * commit from its dialog, which then finishes with no feedback.
  */
 @Composable
-fun Screen.EntryMigrateFor(
+fun EntryMigrateFor(
     contentType: ContentType,
     currentId: Long,
     targetId: Long,

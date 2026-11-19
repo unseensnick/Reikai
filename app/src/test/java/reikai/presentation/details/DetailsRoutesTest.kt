@@ -20,7 +20,7 @@ import reikai.novel.host.NovelItem
 import reikai.presentation.browse.mangaBrowseRow
 import reikai.presentation.browse.novelBrowseRow
 import reikai.presentation.novel.browse.NovelLibraryAdder
-import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.details.NovelRoute
 import tachiyomi.domain.manga.model.Manga
 
 class DetailsRoutesTest {
@@ -45,7 +45,7 @@ class DetailsRoutesTest {
 
     @Test
     fun `a novel id opens the novel page for that id`() {
-        val screen = EntryId.Novel(7L).detailsScreen() as NovelScreen
+        val screen = EntryId.Novel(7L).detailsScreen() as NovelRoute
 
         (screen.novelId to screen.fromSource) shouldBe (7L to false)
     }
@@ -61,7 +61,7 @@ class DetailsRoutesTest {
 
     @Test
     fun `a novel result is stored and then opened by its row id`() = runTest {
-        val screen = novelRow(listed).detailsScreen(SourceKey.Novel("plugin"), novels) as NovelScreen
+        val screen = novelRow(listed).detailsScreen(SourceKey.Novel("plugin"), novels) as NovelRoute
 
         (screen.novelId to screen.fromSource) shouldBe (9L to true)
     }
@@ -76,11 +76,11 @@ class DetailsRoutesTest {
     fun `a second tap while the first page is still being built opens nothing`() = runTest {
         val pushed = mutableListOf<Screen>()
         val opener = DetailsOpener(this, pushed::add, { novels }) {}
-        val first = NovelScreen(1L)
+        val first = NovelRoute(1L)
         val building = CompletableDeferred<Screen?>()
 
         opener.open { building.await() }
-        opener.open { NovelScreen(2L) }
+        opener.open { NovelRoute(2L) }
         building.complete(first)
         advanceUntilIdle()
 
@@ -115,9 +115,9 @@ class DetailsRoutesTest {
             arrayOf("manga page, its id", MangaScreen(1L), EntryId.Manga(1L), true),
             arrayOf("manga page, another id", MangaScreen(2L), EntryId.Manga(1L), false),
             arrayOf("manga page, a novel of the same id", MangaScreen(1L), EntryId.Novel(1L), false),
-            arrayOf("novel page, its id", NovelScreen(1L), EntryId.Novel(1L), true),
-            arrayOf("novel page, another id", NovelScreen(2L), EntryId.Novel(1L), false),
-            arrayOf("novel page, a manga of the same id", NovelScreen(1L), EntryId.Manga(1L), false),
+            arrayOf("novel page, its id", NovelRoute(1L), EntryId.Novel(1L), true),
+            arrayOf("novel page, another id", NovelRoute(2L), EntryId.Novel(1L), false),
+            arrayOf("novel page, a manga of the same id", NovelRoute(1L), EntryId.Manga(1L), false),
         )
     }
 }

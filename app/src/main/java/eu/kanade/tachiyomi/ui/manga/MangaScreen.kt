@@ -29,10 +29,10 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import exh.pagepreview.PagePreviewScreen
+import exh.pagepreview.PagePreviewRoute
 import exh.source.configurableSource
 import exh.source.getMainSource
-import exh.ui.metadata.MetadataViewScreen
+import exh.ui.metadata.MetadataViewRoute
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.domain.entry.EntryId
@@ -60,7 +60,7 @@ import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
+import reikai.presentation.recommendation.browse.RelatedMangasBrowseRoute
 import reikai.presentation.recommendation.relatedDestination
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
@@ -175,12 +175,12 @@ class MangaScreen(
                             }
                         },
                         onRelatedSeeAll = {
-                            navigator.push(RelatedMangasBrowseScreen(successState.manga.id, successState.manga.title))
+                            navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
                         },
                         // Recommendations moved to the overflow menu (Settings > Library > Recommendations):
                         // open the same browse grid "See all" uses. Null keeps it off when placed inline.
                         onRecommendations = {
-                            navigator.push(RelatedMangasBrowseScreen(successState.manga.id, successState.manga.title))
+                            navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
                         }.takeIf { viewModel.recommendationsInMenu },
                         onOpenPagePreview = { page ->
                             openPagePreview(
@@ -189,7 +189,7 @@ class MangaScreen(
                                 page,
                             )
                         },
-                        onMorePreviews = { navigator.push(PagePreviewScreen(successState.manga.id)) },
+                        onMorePreviews = { navigator.push(PagePreviewRoute(successState.manga.id)) },
                         onOpenFolder = { scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) } },
                         // The viewed source, as the metadata viewer resolves it, so a merged entry
                         // opens the settings of the source its chip is showing.
@@ -201,7 +201,7 @@ class MangaScreen(
                         // anchored on a non-metadata source.
                         onMetadataViewer = {
                             navigator.push(
-                                MetadataViewScreen(
+                                MetadataViewRoute(
                                     mangaId = successState.shownManga.id,
                                     sourceId = successState.shownSource.id,
                                     seedColor = successState.seedColor?.toArgb(),

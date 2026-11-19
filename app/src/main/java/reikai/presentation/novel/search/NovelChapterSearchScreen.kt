@@ -43,33 +43,13 @@ import java.util.regex.PatternSyntaxException
  * [sourceScoped] names, or [novelId]'s whole merge group. Novels only, since a manga chapter on disk is
  * images with no text to search. Ported from Tsundoku's entry chapter search.
  */
-class NovelChapterSearchScreen(
+class NovelChapterSearchRoute(
     private val novelId: Long,
     private val sourceScoped: Boolean,
 ) : Screen() {
 
     @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(novelId = novelId, sourceScoped = sourceScoped)
-        }
-        val state by viewModel.state.collectAsStateWithLifecycle()
-
-        NovelChapterSearchContent(
-            state = state,
-            navigateUp = navigator::pop,
-            onQueryChange = viewModel::updateQuery,
-            onSearch = viewModel::search,
-            onOptionsChange = viewModel::updateOptions,
-            onResultClick = { chapter ->
-                context.startActivity(
-                    ReaderActivity.newNovelIntent(context, chapter.novelId, chapter.id, sourceScoped),
-                )
-            },
-        )
-    }
+    override fun Content() = NovelChapterSearchScreen(novelId, sourceScoped)
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -212,4 +192,27 @@ class NovelChapterSearchScreen(
     ) {
         val totalMatches: Int get() = results.sumOf { it.matchCount }
     }
+}
+
+@Composable
+fun NovelChapterSearchScreen(novelId: Long, sourceScoped: Boolean) {
+    val navigator = LocalNavigator.currentOrThrow
+    val context = LocalContext.current
+    val viewModel = assistedMetroViewModel<NovelChapterSearchRoute.Model, NovelChapterSearchRoute.Model.Factory> {
+        create(novelId = novelId, sourceScoped = sourceScoped)
+    }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    NovelChapterSearchContent(
+        state = state,
+        navigateUp = navigator::pop,
+        onQueryChange = viewModel::updateQuery,
+        onSearch = viewModel::search,
+        onOptionsChange = viewModel::updateOptions,
+        onResultClick = { chapter ->
+            context.startActivity(
+                ReaderActivity.newNovelIntent(context, chapter.novelId, chapter.id, sourceScoped),
+            )
+        },
+    )
 }
