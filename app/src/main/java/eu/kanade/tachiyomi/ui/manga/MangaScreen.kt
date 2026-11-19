@@ -54,6 +54,7 @@ import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
+import reikai.presentation.details.EntryDetailsNotLoaded
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
@@ -100,25 +101,6 @@ class MangaScreen(
 
         val state by viewModel.state.collectAsStateWithLifecycle()
 
-        if (state is MangaViewModel.State.Loading) {
-            EntryDetailsSkeleton() // RK: the details page's shape while it loads, shared with novels
-            return
-        }
-
-        val successState = state as MangaViewModel.State.Success
-        // RK: the assistant link is the shown member's page, which the model resolves (EntryWebPage)
-        LaunchedEffect(successState.webPage) { assistUrl = successState.webPage?.url }
-
-        // RK: load the related-mangas carousel once the screen is open (idempotent per open).
-        LaunchedEffect(successState.manga.id) {
-            viewModel.loadRelatedMangas()
-        }
-
-        // RK: extract the cover's vibrant color to tint the screen, again when the cover changes.
-        LaunchedEffect(successState.manga.id, successState.manga.thumbnailUrl, successState.manga.coverLastModified) {
-            viewModel.updateSeedColor()
-        }
-
         // RK --> the shared details body renders through the manga adapter over the live model.
         val coverViewModelFactory = remember { context.appGraph.mangaCoverViewModelFactory }
         val adapter = remember(viewModel) {
@@ -138,6 +120,28 @@ class MangaScreen(
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
+        // The details page's shape while it loads, or its not-found page, shared with novels
+        if (state !is MangaViewModel.State.Success) {
+            EntryDetailsNotLoaded(neutralState, navigator::pop)
+            return
+        }
+        // RK <--
+
+        val successState = state as MangaViewModel.State.Success
+        // RK: the assistant link is the shown member's page, which the model resolves (EntryWebPage)
+        LaunchedEffect(successState.webPage) { assistUrl = successState.webPage?.url }
+
+        // RK: load the related-mangas carousel once the screen is open (idempotent per open).
+        LaunchedEffect(successState.manga.id) {
+            viewModel.loadRelatedMangas()
+        }
+
+        // RK: extract the cover's vibrant color to tint the screen, again when the cover changes.
+        LaunchedEffect(successState.manga.id, successState.manga.thumbnailUrl, successState.manga.coverLastModified) {
+            viewModel.updateSeedColor()
+        }
+
+        // RK --> the shared details body, over the adapter built above
         // RK: tint the details screen from the cover color
         TachiyomiTheme(seedColor = successState.seedColor.takeIf { viewModel.themeCoverBased }) {
             (neutralState as? EntryDetailsScreenState.Loaded)?.let { loaded ->

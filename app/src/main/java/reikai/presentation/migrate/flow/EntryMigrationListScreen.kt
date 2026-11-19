@@ -64,6 +64,7 @@ import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.Search
 import reikai.domain.library.ContentType
+import reikai.presentation.details.DetailsOpener
 import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import tachiyomi.i18n.MR
@@ -130,6 +131,8 @@ internal fun EntryMigrationList(
     viewModel: EntryMigrationListViewModel,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    // One for the screen: a row's own would be cancelled as it scrolls away, and would not hold off a tap on another.
+    val opener = rememberDetailsOpener()
 
     // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
     LaunchedEffect(state.isLoading) {
@@ -201,6 +204,7 @@ internal fun EntryMigrationList(
                         row = row,
                         busy = state.isBusy,
                         viewModel = viewModel,
+                        opener = opener,
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -263,10 +267,10 @@ private fun MigrationRow(
     row: MigratingEntryRow,
     busy: Boolean,
     viewModel: EntryMigrationListViewModel,
+    opener: DetailsOpener,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
-    val opener = rememberDetailsOpener()
     // Collected inside the item so one row settling recomposes that row, not the whole list.
     val search by row.search.collectAsState()
     val commit by row.commit.collectAsState()
@@ -328,7 +332,7 @@ private fun MigrationRow(
         // Gated on the rules, not on `expanded` alone: a row that can no longer take a target must
         // not keep a picker whose candidates are all dead taps.
         if (expanded && actions.canPick) {
-            OverridePicker(row = row, viewModel = viewModel)
+            OverridePicker(row = row, viewModel = viewModel, opener = opener)
         }
     }
 }
@@ -338,9 +342,9 @@ private fun MigrationRow(
 private fun OverridePicker(
     row: MigratingEntryRow,
     viewModel: EntryMigrationListViewModel,
+    opener: DetailsOpener,
 ) {
     val navigator = LocalNavigator.currentOrThrow
-    val opener = rememberDetailsOpener()
     val context = LocalContext.current
     val overrides by row.overrides.collectAsState()
     var query by rememberSaveable(row.entry.id.toString()) { mutableStateOf(row.entry.title) }

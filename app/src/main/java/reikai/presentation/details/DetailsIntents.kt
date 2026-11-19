@@ -25,8 +25,8 @@ fun novelDetailsIntent(context: Context, novelId: Long): Intent =
 /**
  * The screen a [novelDetailsIntent] opens, or null when it names no novel. An intent an older build
  * wrote (a pinned widget, a posted notification) carries the novel's source and url instead, read back
- * only to a novel this device has saved: MainActivity is exported, so any app can send one, and nothing
- * it sends may fetch from a source.
+ * only to a novel this device has saved: MainActivity is exported, so any app can send one, and no url
+ * it sends is ever fetched unless a row already holds it.
  */
 suspend fun Intent.novelDetailsScreen(novels: NovelRepository): Screen? {
     getLongExtra(Constants.NOVEL_EXTRA, -1L).takeIf { it > 0L }?.let { return EntryId.Novel(it).detailsScreen() }

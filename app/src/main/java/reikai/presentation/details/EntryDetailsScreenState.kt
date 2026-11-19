@@ -22,6 +22,9 @@ import kotlin.time.Instant
 sealed interface EntryDetailsScreenState {
     data object Loading : EntryDetailsScreenState
 
+    /** The page's id has no stored row: the entry was deleted after the link to it was made. */
+    data object NotFound : EntryDetailsScreenState
+
     @Immutable
     data class Loaded(
         val entryId: EntryId,

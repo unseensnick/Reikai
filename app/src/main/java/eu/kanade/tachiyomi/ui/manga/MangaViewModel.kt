@@ -394,8 +394,11 @@ class MangaViewModel(
     // RK --> upstream's defaultChapterFlagsJob, which also seeds what the first state must already show: the
     // merge group (so a merged series never shows its own source's list first), the refresh flag (which the
     // related carousel waits on) and the page-preview spinner. Every input of the state waits for it.
+    // Null when the id has no row (a deleted entry, a stale notification), which opens the shared not-found
+    // page where upstream's failed read takes the screen down.
     private val seed = viewModelScope.async(Dispatchers.IO) {
-        val manga = getMangaAndChapters.awaitManga(mangaId)
+        val manga = runCatchingCancellable { getMangaAndChapters.awaitManga(mangaId) }.getOrNull()
+            ?: return@async null
         // So an entry outside the library isn't shown with its old chapter settings first
         if (!manga.favorite) {
             setMangaDefaultChapterFlags.await(manga)
@@ -412,10 +415,9 @@ class MangaViewModel(
         FirstFetch(details = needRefreshInfo, chapters = needRefreshChapter)
     }
 
-    /** [flow] once [seed] has run, so no input reads the unseeded group or flags. */
+    /** [flow] once [seed] has run, so no input reads the unseeded group or flags; nothing for a missing row. */
     private fun <T> seeded(flow: Flow<T>): Flow<T> = flow {
-        seed.await()
-        emitAll(flow)
+        if (seed.await() != null) emitAll(flow)
     }
 
     // When the manga is part of a merge group, the chapter list is the aggregated union of every grouped
@@ -625,6 +627,8 @@ class MangaViewModel(
             it.chapterListItems
             it.missingChapterCount // RK
         }
+        // RK: a missing row's seeded inputs never emit, so it says so in place of the list
+        .let { loaded -> merge<State>(loaded, flow { if (seed.await() == null) emit(State.NotFound) }) }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope + subscriberGate, subscriberGate.whileSubscribed(5.seconds), State.Loading)
 
@@ -675,7 +679,7 @@ class MangaViewModel(
         viewModelScope.launch {
             // RK: decided by the seed, before the first state, rather than from the loaded state as upstream
             // does, so the refresh flag the first frame shows is already the right one
-            val fetch = seed.await()
+            val fetch = seed.await() ?: return@launch
             // Fetch info-chapters when needed
             if (fetch.details || fetch.chapters) {
                 fetchAllFromSource(
@@ -912,7 +916,8 @@ class MangaViewModel(
         if (!DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled) return
         viewModelScope.launchIO {
             // Only a gallery has a version chain; watching any other entry would hold its chapter query open for the
-            // model's whole life.
+            // model's whole life. A missing row has nothing to redirect.
+            seed.await() ?: return@launchIO
             if (!getMangaAndChapters.awaitManga(mangaId).isEhBasedManga()) return@launchIO
             val root = getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true)
                 .distinctUntilChanged()
@@ -2031,6 +2036,10 @@ class MangaViewModel(
     sealed interface State {
         @Immutable
         data object Loading : State
+
+        // RK: the id has no row; the shared details page draws it (EntryDetailsScreenState.NotFound)
+        @Immutable
+        data object NotFound : State
 
         @Immutable
         data class Success(

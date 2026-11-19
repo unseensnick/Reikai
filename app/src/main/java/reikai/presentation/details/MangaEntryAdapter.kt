@@ -56,6 +56,7 @@ class MangaEntryAdapter(
 
     private fun MangaViewModel.State.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
         MangaViewModel.State.Loading -> EntryDetailsScreenState.Loading
+        MangaViewModel.State.NotFound -> EntryDetailsScreenState.NotFound
         is MangaViewModel.State.Success -> toNeutralLoaded(marks)
     }
 

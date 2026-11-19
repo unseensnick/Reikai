@@ -63,6 +63,9 @@ class LocalImportTest(private val type: ContentType) {
 
     /** The series path each add stored and refreshed. */
     private val added = mutableListOf<String>()
+
+    /** Makes every store of a series throw, as a database write that fails would. */
+    private var storeFails = false
     private val seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() }
     private val organizer =
         LocalOrganizer(context, journal, mockk(), seriesLocks, CoroutineScope(Dispatchers.Unconfined))
@@ -75,7 +78,10 @@ class LocalImportTest(private val type: ContentType) {
             every { getLocalNovelsDirectory() } answers { storageRoot }
         },
         localNovels = mockk<LocalNovelSource> {
-            coEvery { parseNovel(any()) } answers { SourceNovel(firstArg<String>().also { added += it }) }
+            coEvery { parseNovel(any()) } answers {
+                check(!storeFails)
+                SourceNovel(firstArg<String>().also { added += it })
+            }
         },
         novelRepository = mockk<NovelRepository> {
             coEvery { insertOrGet(any()) } returns null
@@ -89,6 +95,7 @@ class LocalImportTest(private val type: ContentType) {
         mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Failed },
         networkToLocalManga = mockk {
             coEvery { this@mockk.invoke(any<Manga>()) } answers {
+                check(!storeFails)
                 added += firstArg<Manga>().url
                 Manga.create().copy(id = 7L)
             }
@@ -129,6 +136,16 @@ class LocalImportTest(private val type: ContentType) {
         val result = localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
 
         result.series.single().entryId shouldBe mapOf(ContentType.NOVELS to 7L)[type]
+    }
+
+    // Nothing was asked of the library, so a failed store leaves the files imported and reports no add.
+    @Test
+    fun `a series kept out of the library whose store fails is imported without a problem`() = runTest {
+        storeFails = true
+
+        val result = localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
+
+        (result.problems to result.series.single().entryId) shouldBe (emptyList<ImportProblem>() to null)
     }
 
     @Test

@@ -1,12 +1,10 @@
 package reikai.presentation.novel.details
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -14,7 +12,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
@@ -46,6 +43,7 @@ import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
+import reikai.presentation.details.EntryDetailsNotLoaded
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
@@ -61,9 +59,6 @@ import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.search.NovelChapterSearchScreen
-import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.screens.EmptyScreen
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`, pinned by [EntryDetailsContent]. Builds a
@@ -112,12 +107,7 @@ class NovelScreen(
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         when (val s = state) {
-            NovelDetailsState.Loading -> EntryDetailsSkeleton()
-            NovelDetailsState.NotFound -> Scaffold(
-                topBar = { AppBar(title = null, navigateUp = navigator::pop, scrollBehavior = it) },
-            ) { padding ->
-                EmptyScreen(MR.strings.details_not_found, modifier = Modifier.padding(padding))
-            }
+            NovelDetailsState.Loading, NovelDetailsState.NotFound -> EntryDetailsNotLoaded(neutralState, navigator::pop)
             is NovelDetailsState.Loaded -> TachiyomiTheme(
                 seedColor = s.seedColor.takeIf {
                     viewModel.themeCoverBased
