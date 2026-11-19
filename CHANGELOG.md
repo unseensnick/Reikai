@@ -387,6 +387,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A migration or an add to a group whose database write fails now reports the failure instead of showing success.** Before, the change was quietly undone.
 - **A migration that fails to carry tracker links or reading history now shows as failed, so Retry can finish it.**
 - **The Copy and Migrate buttons in the migration list no longer sit under the navigation bar.**
+- **Tapping a migration target twice while browsing a source no longer closes the migration list too.**
 
 ### Backup & restore
 

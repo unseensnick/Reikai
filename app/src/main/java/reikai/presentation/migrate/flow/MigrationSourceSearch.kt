@@ -138,9 +138,9 @@ sealed interface PendingPick {
  * Both screens that collect a pick can fail the same two ways, and a pick is taken as it arrives, so a
  * failure that returns quietly leaves the user staring at an unchanged screen.
  */
-suspend fun MigrationFlowAdapter.takePendingPick(pick: MigrationPick, entryId: EntryId): PendingPick? {
-    if (pick.entry != entryId) return null
-    val targetRawId = pick.targetRawId
+suspend fun MigrationFlowAdapter.takePendingPick(pick: MatchOverrideEvent, entryId: EntryId): PendingPick? {
+    if (pick.current != entryId) return null
+    val targetRawId = pick.target
     // An entry is never its own target: the engines refuse one at commit, so it is turned away here,
     // where the user can still be told why.
     if (targetRawId == entryId.rawId) return PendingPick.Rejected(PickOutcome.SameEntry)

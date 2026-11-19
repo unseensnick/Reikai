@@ -95,6 +95,9 @@ fun EntryMigrationSearchScreen(contentType: ContentType, entryId: Long, extraQue
     val state by viewModel.state.collectAsState()
     var query by rememberSaveable(state.entry?.title) { mutableStateOf(state.entry?.title.orEmpty()) }
 
+    // A deep pick is made on a screen pushed over this one, so it arrives once the entry is back.
+    MigrationPickEffect(flowId, viewModel, ready = !state.isLoading && state.entry != null, viewModel::takePick)
+
     if (state.isLoading) {
         LoadingScreen()
         return
@@ -106,9 +109,6 @@ fun EntryMigrationSearchScreen(contentType: ContentType, entryId: Long, extraQue
         EmptyScreen(stringRes = MR.strings.internal_error)
         return
     }
-
-    // A deep pick is made on a screen pushed over this one, so it arrives once the entry is back.
-    MigrationPickEffect(flowId, viewModel, viewModel::takePick)
 
     PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
 
@@ -332,7 +332,7 @@ class EntryMigrationSearchViewModel(
      * says nothing about its chapters, so it is resolved like a tapped result, under the same ticket
      * from read back to dialog, so a duplicate delivery is refused at either stage.
      */
-    fun takePick(browsed: MigrationPick) {
+    fun takePick(browsed: MatchOverrideEvent) {
         val entry = state.value.entry ?: return
         val ticket = picks.begin(Unit, browsed) ?: return
         viewModelScope.launch(io) {

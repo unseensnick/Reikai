@@ -2,15 +2,18 @@ package reikai.presentation.migrate.flow
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEffect
 import androidx.navigation3.runtime.result.ResultEventBus
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import reikai.domain.entry.EntryId
 import java.io.Serializable
 
-/** A target picked on a pushed browse screen for [entry], as the stored row [targetRawId]. */
-data class MigrationPick(val entry: EntryId, val targetRawId: Long)
+/** A target picked on a pushed browse screen for [current], as the stored row [target]; upstream's event, typed. */
+data class MatchOverrideEvent(val current: EntryId, val target: Long)
 
 /**
  * What a catalogue opened as a migration picker answers: the entry being migrated, and the flow that
@@ -22,22 +25,44 @@ data class MigrationPickFor(val entry: EntryId, val flowId: Long) : Serializable
 private fun migrationPickKey(flowId: Long) = "migrationPick:$flowId"
 
 fun ResultEventBus.sendMigrationPick(request: MigrationPickFor, targetRawId: Long) =
-    sendResult(migrationPickKey(request.flowId), MigrationPick(request.entry, targetRawId))
+    sendResult(migrationPickKey(request.flowId), MatchOverrideEvent(request.entry, targetRawId))
 
 /**
- * Receives the picks made for flow [flowId], in the asking screen only, so each key has one collector.
- * The key's buffered picks are dropped once [owner] is cleared, which happens as the screen leaves the
- * stack, so nothing waits on a key no screen will read again.
+ * Sends a target picked on the catalogue [migrateFor] opened to the screen that asked, then pops back to it, as
+ * upstream's migration search does. Only while that catalogue is on top: a second tap, or a novel pick landing
+ * as it leaves, would otherwise pop the asking screen too, past its exit guard.
  */
 @Composable
-fun MigrationPickEffect(flowId: Long, owner: ViewModel, onPick: (MigrationPick) -> Unit) {
+fun rememberMigrationPickReport(migrateFor: MigrationPickFor?): (target: Long) -> Unit {
+    val navigator = LocalNavigator.currentOrThrow
+    val bus = LocalResultEventBus.current
+    return remember(navigator, bus, migrateFor) {
+        // The catalogue drawing this, which is on top when it first composes.
+        val picker = navigator.lastItem
+        val report: (Long) -> Unit = report@{ target ->
+            if (migrateFor == null || navigator.lastItem !== picker) return@report
+            bus.sendMigrationPick(migrateFor, target)
+            navigator.popUntil { it is MigrationFlowRoute }
+        }
+        report
+    }
+}
+
+/**
+ * Receives the picks made for flow [flowId], in the asking screen only, so each key has one collector, once
+ * [ready]: a pick waits on the bus until then. The key's buffered picks are dropped once [owner] is cleared,
+ * which happens as the screen leaves the stack, so nothing waits on a key no screen will read again. Called
+ * before the screen's loading return, so the cleanup is registered however soon the screen leaves.
+ */
+@Composable
+fun MigrationPickEffect(flowId: Long, owner: ViewModel, ready: Boolean, onPick: (MatchOverrideEvent) -> Unit) {
     val bus = LocalResultEventBus.current
     val key = migrationPickKey(flowId)
-    ResultEffect<MigrationPick>(key, bus) { onPick(it) }
     LaunchedEffect(owner, key) {
         // Keyed, and added once: adding under a key that has one closes the old one at once.
         if (owner.getCloseable<AutoCloseable>(key) == null) owner.addCloseable(key) { bus.removeResult(key) }
     }
+    if (ready) ResultEffect<MatchOverrideEvent>(key, bus) { onPick(it) }
 }
 
 /**

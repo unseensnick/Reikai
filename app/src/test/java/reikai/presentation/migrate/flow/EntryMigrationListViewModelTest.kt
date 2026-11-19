@@ -176,7 +176,7 @@ class EntryMigrationListViewModelTest {
         )
         advanceUntilIdle()
 
-        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        val pick = MatchOverrideEvent(EntryId.Manga(1), target = 9L)
         model.takePick(pick)
         model.takePick(pick)
         advanceUntilIdle()
@@ -202,9 +202,9 @@ class EntryMigrationListViewModelTest {
             )
             advanceUntilIdle()
 
-            model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+            model.takePick(MatchOverrideEvent(EntryId.Manga(1), target = 8L))
             advanceUntilIdle()
-            model.takePick(MigrationPick(EntryId.Manga(2), targetRawId = 9L))
+            model.takePick(MatchOverrideEvent(EntryId.Manga(2), target = 9L))
             advanceUntilIdle()
 
             val second = model.state.value.rows.single { it.entry.id == EntryId.Manga(2) }
@@ -228,9 +228,9 @@ class EntryMigrationListViewModelTest {
         )
         advanceUntilIdle()
 
-        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+        model.takePick(MatchOverrideEvent(EntryId.Manga(1), target = 8L))
         advanceUntilIdle()
-        model.takePick(MigrationPick(EntryId.Manga(2), targetRawId = 9L))
+        model.takePick(MatchOverrideEvent(EntryId.Manga(2), target = 9L))
         advanceUntilIdle()
         firstResolve.complete(Unit)
         advanceUntilIdle()
@@ -256,9 +256,9 @@ class EntryMigrationListViewModelTest {
         )
         advanceUntilIdle()
 
-        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+        model.takePick(MatchOverrideEvent(EntryId.Manga(1), target = 8L))
         advanceUntilIdle()
-        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 9L))
+        model.takePick(MatchOverrideEvent(EntryId.Manga(1), target = 9L))
         advanceUntilIdle()
         firstResolve.complete(Unit)
         advanceUntilIdle()
@@ -285,7 +285,7 @@ class EntryMigrationListViewModelTest {
         )
         advanceUntilIdle()
 
-        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        val pick = MatchOverrideEvent(EntryId.Manga(1), target = 9L)
         model.takePick(pick)
         advanceUntilIdle()
         model.takePick(pick)

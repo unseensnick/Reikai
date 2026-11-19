@@ -152,13 +152,13 @@ internal fun EntryMigrationList(
     val guardExit = !state.finished && state.rows.isNotEmpty()
     BackHandler(enabled = guardExit) { viewModel.showExitConfirm() }
 
+    // A deep pick is made on a screen pushed over this one, so it arrives once the rows are back.
+    MigrationPickEffect(flowId, viewModel, ready = !state.isLoading, viewModel::takePick)
+
     if (state.isLoading) {
         LoadingScreen()
         return
     }
-
-    // A deep pick is made on a screen pushed over this one, so it arrives once the rows are back.
-    MigrationPickEffect(flowId, viewModel, viewModel::takePick)
 
     Scaffold(
         topBar = { scrollBehavior ->

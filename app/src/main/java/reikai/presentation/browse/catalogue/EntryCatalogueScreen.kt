@@ -32,7 +32,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEffect
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -71,7 +70,7 @@ import reikai.presentation.browse.source.preferencesScreen
 import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.local.LocalImportRoute
 import reikai.presentation.migrate.flow.MigrationPickFor
-import reikai.presentation.migrate.flow.sendMigrationPick
+import reikai.presentation.migrate.flow.rememberMigrationPickReport
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
@@ -170,7 +169,7 @@ private fun MangaCatalogue(
         create(sourceId = sourceId, listingQuery = mangaListingQuery(startLatest, initialQuery))
     }
     val bulk = metroViewModel<BulkFavoriteViewModel>()
-    val reportPick = rememberPickReport(migrateFor)
+    val reportPick = rememberMigrationPickReport(migrateFor)
     val adapter = remember(viewModel, bulk) {
         MangaBrowseAdapter(viewModel, bulk, migrateFor?.entry?.rawId, reportPick)
     }
@@ -230,7 +229,7 @@ private fun NovelCatalogue(
         create(sourceId = sourceId, initialQuery = initialQuery.orEmpty(), startLatest = startLatest)
     }
     val bulk = metroViewModel<NovelBulkFavoriteViewModel>()
-    val reportPick = rememberPickReport(migrateFor)
+    val reportPick = rememberMigrationPickReport(migrateFor)
     val adapter = remember(viewModel, bulk) {
         NovelBrowseAdapter(
             viewModel,
@@ -606,19 +605,6 @@ private fun SourceUnavailable(state: EntryBrowseScreenState, navigateUp: () -> U
                 ),
             )
             else -> Unit
-        }
-    }
-}
-
-/** A pick made here, sent to the migration screen that opened this one, which is then shown again. */
-@Composable
-private fun rememberPickReport(migrateFor: MigrationPickFor?): (targetId: Long) -> Unit {
-    val navigator = LocalNavigator.currentOrThrow
-    val bus = LocalResultEventBus.current
-    return remember(navigator, bus) {
-        { targetId ->
-            migrateFor?.let { bus.sendMigrationPick(it, targetId) }
-            navigator.pop()
         }
     }
 }

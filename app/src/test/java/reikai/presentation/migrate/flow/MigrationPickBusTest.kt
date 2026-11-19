@@ -64,6 +64,19 @@ class MigrationPickBusTest {
         received shouldBe listOf(PICK)
     }
 
+    // A second tap, or a novel pick landing as the catalogue leaves, must not pop the asking screen past its guard.
+    @Test
+    fun `a second pick from a catalogue already leaving neither sends nor pops`() {
+        act { navigator.push(Asking(FLOW)) }
+        act { navigator.push(Picker(MigrationPickFor(ENTRY, FLOW))) }
+        act {
+            report(PICK.target)
+            report(PICK.target + 1)
+        }
+
+        (navigator.items.map { it::class } to received) shouldBe (listOf(Root::class, Asking::class) to listOf(PICK))
+    }
+
     @Test
     fun `a pick made after process death reaches the restored asking screen`() {
         act { navigator.push(Asking(FLOW)) }
@@ -87,7 +100,18 @@ class MigrationPickBusTest {
     fun `a pick left unread when the flow is left is dropped`() {
         act { navigator.push(Asking(FLOW)) }
         act { navigator.push(Picker(MigrationPickFor(ENTRY, FLOW))) }
-        act { generation.bus.sendMigrationPick(MigrationPickFor(ENTRY, FLOW), PICK.targetRawId) }
+        act { generation.bus.sendMigrationPick(MigrationPickFor(ENTRY, FLOW), PICK.target) }
+        act { navigator.popUntilRoot() }
+        act { navigator.push(Asking(FLOW)) }
+
+        received shouldBe emptyList()
+    }
+
+    // The cleanup is registered while the screen still loads, so a flow left before its rows came back drops it too.
+    @Test
+    fun `a pick left unread by a flow left while loading is dropped`() {
+        act { navigator.push(Asking(FLOW, ready = false)) }
+        act { generation.bus.sendMigrationPick(MigrationPickFor(ENTRY, FLOW), PICK.target) }
         act { navigator.popUntilRoot() }
         act { navigator.push(Asking(FLOW)) }
 
@@ -96,7 +120,7 @@ class MigrationPickBusTest {
 
     private fun pickAndPop() = act {
         val picker = navigator.lastItem as Picker
-        generation.bus.sendMigrationPick(picker.migrateFor, PICK.targetRawId)
+        generation.bus.sendMigrationPick(picker.migrateFor, PICK.target)
         navigator.pop()
     }
 
@@ -122,23 +146,26 @@ class MigrationPickBusTest {
 
     class PickModel : ViewModel()
 
-    private class Asking(val flowId: Long) : Screen() {
+    private class Asking(val flowId: Long, val ready: Boolean = true) : Screen(), MigrationFlowRoute {
         @Composable
         override fun Content() {
-            MigrationPickEffect(flowId, viewModel { PickModel() }) { received += it }
+            MigrationPickEffect(flowId, viewModel { PickModel() }, ready) { received += it }
         }
     }
 
     private class Picker(val migrateFor: MigrationPickFor) : Screen() {
         @Composable
-        override fun Content() = Unit
+        override fun Content() {
+            report = rememberMigrationPickReport(migrateFor)
+        }
     }
 
     private companion object {
         const val FLOW = 9137L
         val ENTRY = EntryId.Novel(3L)
-        val PICK = MigrationPick(ENTRY, targetRawId = 55L)
-        val received = mutableListOf<MigrationPick>()
+        val PICK = MatchOverrideEvent(ENTRY, target = 55L)
+        val received = mutableListOf<MatchOverrideEvent>()
+        var report: (Long) -> Unit = {}
 
         fun Any.roundTrip(): Any {
             val bytes = ByteArrayOutputStream().also { ObjectOutputStream(it).use { out -> out.writeObject(this) } }

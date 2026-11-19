@@ -182,7 +182,7 @@ class EntryMigrationSearchViewModelTest {
         val model = model(adapter)
         advanceUntilIdle()
 
-        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 9L))
+        model.takePick(MatchOverrideEvent(EntryId.Manga(1), target = 9L))
         advanceUntilIdle()
 
         model.state.value.let { it.dialogTarget to it.pickOutcome } shouldBe (null to PickOutcome.NoChapters)
@@ -202,7 +202,7 @@ class EntryMigrationSearchViewModelTest {
         val model = model(adapter)
         advanceUntilIdle()
 
-        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        val pick = MatchOverrideEvent(EntryId.Manga(1), target = 9L)
         model.takePick(pick)
         model.takePick(pick)
         advanceUntilIdle()
@@ -226,7 +226,7 @@ class EntryMigrationSearchViewModelTest {
         val model = model(adapter)
         advanceUntilIdle()
 
-        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        val pick = MatchOverrideEvent(EntryId.Manga(1), target = 9L)
         model.takePick(pick)
         advanceUntilIdle()
         model.takePick(pick)
@@ -248,9 +248,9 @@ class EntryMigrationSearchViewModelTest {
         val model = model(adapter)
         advanceUntilIdle()
 
-        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 8L))
+        model.takePick(MatchOverrideEvent(EntryId.Manga(1), target = 8L))
         advanceUntilIdle()
-        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 9L))
+        model.takePick(MatchOverrideEvent(EntryId.Manga(1), target = 9L))
         advanceUntilIdle()
         firstRead.complete(Unit)
         advanceUntilIdle()

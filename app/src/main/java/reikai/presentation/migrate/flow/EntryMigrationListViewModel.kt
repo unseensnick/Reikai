@@ -381,8 +381,8 @@ class EntryMigrationListViewModel(
      * guards as any other pick apply, so a pick that arrives after the row migrated is dropped rather
      * than re-arming it.
      */
-    fun takePick(pick: MigrationPick) {
-        val row = rows.firstOrNull { it.entry.id == pick.entry } ?: return
+    fun takePick(pick: MatchOverrideEvent) {
+        val row = rows.firstOrNull { it.entry.id == pick.current } ?: return
         val ticket = picks.begin(row.entry.id, pick) ?: return
         viewModelScope.launch(io) {
             try {
