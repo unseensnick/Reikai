@@ -190,12 +190,7 @@ fun EntryDetailsContent(
     val shown = if (pickedVolume == null) listed else listed.headedBy(volumeFiles, volumeNotes)
     val pageNav = (
         pickedVolume?.let { picked ->
-            val label = volumeName(picked)
-            libraryNav.copy(
-                onEditNotes = {
-                    navigator.push(VolumeNotesScreen(type, picked.series, picked.key, label, volumeNotes))
-                },
-            )
+            libraryNav.copy(onEditNotes = { navigator.push(VolumeNotesScreen(type, picked.series, picked.key)) })
         } ?: libraryNav
         ).copy(onCoverClick = { behavior.showCoverDialog(pickedVolume) })
     val shownIds = remember(shown.chapters.items) {

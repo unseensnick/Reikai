@@ -197,10 +197,7 @@ class NovelScreen(
                                 navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                             },
                             // The viewed member's own notes, as shown above it: the chip's, the anchor's under All.
-                            onEditNotes = {
-                                val viewed = s.displayNovel
-                                navigator.push(NovelNotesScreen(viewed.id, viewed.title, viewed.notes))
-                            },
+                            onEditNotes = { navigator.push(NovelNotesScreen(s.displayNovel.id)) },
                             onOpenFilterSettings = viewModel::showChapterSettingsDialog,
                             onEditInterval = viewModel::showSetFetchIntervalDialog,
                             // Anchor-scoped like manga: migrating must re-home the series, not

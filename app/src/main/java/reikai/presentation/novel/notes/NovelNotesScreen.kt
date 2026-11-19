@@ -1,9 +1,6 @@
 package reikai.presentation.novel.notes
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -18,76 +15,47 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
 import reikai.presentation.notes.EntryNotesScreen
+import reikai.presentation.notes.NotesEditor
 
 /**
- * Full-screen markdown notes editor for a novel, the twin of
- * [eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen], pinned by the shared [EntryNotesScreen] it
- * renders through and by NotesSaveConformanceTest for the save. Saves surgically via a [NovelUpdate] patch. Constructor args are primitives so the Voyager
- * screen stays serializable across state-save.
+ * Full-screen markdown notes editor for a novel, rendered through the shared [EntryNotesScreen] and edited through
+ * [NotesEditor]. Saves surgically via a [NovelUpdate] patch.
  */
-class NovelNotesScreen(
-    private val novelId: Long,
-    private val novelTitle: String,
-    private val initialNotes: String,
-) : Screen() {
+class NovelNotesScreen(private val novelId: Long) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val viewModel = assistedMetroViewModel<Model, Model.Factory> { create(novelId = novelId) }
 
-        val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(novelId = novelId, initialNotes = initialNotes)
-        }
-        val state by viewModel.state.collectAsState()
-
-        EntryNotesScreen(
-            subtitle = novelTitle,
-            notes = state.notes,
-            navigateUp = navigator::pop,
-            onUpdate = viewModel::updateNotes,
-        )
+        EntryNotesScreen(editor = viewModel.notes, subtitle = { it }, navigateUp = navigator::pop)
     }
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val novelId: Long,
-        @Assisted initialNotes: String,
-        @AppCoroutineScope private val appScope: CoroutineScope,
-        private val novelRepository: NovelRepository,
+        @Assisted novelId: Long,
+        @AppCoroutineScope appScope: CoroutineScope,
+        novelRepository: NovelRepository,
     ) : ViewModel() {
 
-        val state: StateFlow<State>
-            field = MutableStateFlow<State>(State(initialNotes))
+        /** The novel's notes, headed by its title. */
+        val notes = NotesEditor(
+            viewModelScope,
+            appScope,
+            load = { novelRepository.getById(novelId)?.let { it.title to it.notes } },
+            write = { content -> novelRepository.update(NovelUpdate(novelId) { notes = content }) },
+        )
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(novelId: Long, initialNotes: String): Model
-        }
-
-        fun updateNotes(content: String) {
-            if (content == state.value.notes) return
-            state.update { it.copy(notes = content) }
-            // On Main so the debounced saves and the one on leaving are written in order, as manga's are
-            appScope.launch(Dispatchers.Main.immediate) {
-                novelRepository.update(NovelUpdate(novelId) { notes = content })
-            }
+            fun create(novelId: Long): Model
         }
     }
-
-    @Immutable
-    data class State(
-        val notes: String,
-    )
 }

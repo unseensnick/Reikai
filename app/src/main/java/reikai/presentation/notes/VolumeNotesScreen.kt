@@ -1,9 +1,8 @@
 package reikai.presentation.notes
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metro.AppScope
@@ -16,13 +15,21 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.library.ContentType
+import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelRepository
+import reikai.novel.local.LocalNovelSource
+import reikai.presentation.details.ChapterVolume
+import reikai.presentation.details.EntryChapterListItem
+import reikai.presentation.details.chipOf
+import reikai.presentation.details.mangaChapterVolume
+import reikai.presentation.details.novelChapterVolume
+import reikai.presentation.details.volumeName
+import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
+import tachiyomi.source.local.LocalSource
 
 /**
  * The notes of one volume of a local series, either content type, which its page shows while that volume's
@@ -32,24 +39,16 @@ class VolumeNotesScreen(
     private val type: ContentType,
     private val series: String,
     private val volumeKey: String,
-    private val volumeLabel: String,
-    private val initialNotes: String,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<Model, Model.Factory> {
-            create(type = type, series = series, volumeKey = volumeKey, initialNotes = initialNotes)
+            create(type = type, series = series, volumeKey = volumeKey)
         }
-        val notes by viewModel.notes.collectAsState()
 
-        EntryNotesScreen(
-            subtitle = volumeLabel,
-            notes = notes,
-            navigateUp = navigator::pop,
-            onUpdate = viewModel::updateNotes,
-        )
+        EntryNotesScreen(editor = viewModel.notes, subtitle = { volumeName(it) }, navigateUp = navigator::pop)
     }
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
@@ -58,26 +57,44 @@ class VolumeNotesScreen(
         @Assisted private val type: ContentType,
         @Assisted private val series: String,
         @Assisted private val volumeKey: String,
-        @Assisted initialNotes: String,
-        @AppCoroutineScope private val appScope: CoroutineScope,
+        @AppCoroutineScope appScope: CoroutineScope,
         private val volumes: LocalVolumeRepository,
+        private val getMangaByUrlAndSourceId: GetMangaByUrlAndSourceId,
+        private val getChaptersByMangaId: GetChaptersByMangaId,
+        private val novels: NovelRepository,
+        private val novelChapters: NovelChapterRepository,
     ) : ViewModel() {
 
-        val notes: StateFlow<String>
-            field = MutableStateFlow(initialNotes)
+        /** The volume's notes, headed by its chip; an empty note is a volume with none written yet. */
+        val notes = NotesEditor(
+            viewModelScope,
+            appScope,
+            load = ::load,
+            write = { content -> volumes.setNotes(type, series, volumeKey, content) },
+        )
+
+        private suspend fun load(): Pair<EntryChapterListItem.Volume, String>? {
+            val saved = volumes.loadedVolumes(type)
+            val chip = seriesVolumes()?.chipOf(series, volumeKey, saved, volumes.loadedLooseFiles()) ?: return null
+            return chip to saved[series]?.firstOrNull { it.key == volumeKey }?.notes.orEmpty()
+        }
+
+        // The series' stored chapters, as its details page reads them; null once the series is gone.
+        private suspend fun seriesVolumes(): List<ChapterVolume>? = when (type) {
+            ContentType.MANGA -> getMangaByUrlAndSourceId.await(series, LocalSource.ID)?.let { manga ->
+                getChaptersByMangaId.await(manga.id).mapNotNull { mangaChapterVolume(manga, it.url, it.name) }
+            }
+            ContentType.NOVELS -> novels.getByUrlAndSource(series, LocalNovelSource.ID)?.let { novel ->
+                novelChapters.getByNovelId(novel.id).mapNotNull { novelChapterVolume(novel.url, it.url, it.name) }
+            }
+            ContentType.ALL -> null
+        }
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(type: ContentType, series: String, volumeKey: String, initialNotes: String): Model
-        }
-
-        fun updateNotes(content: String) {
-            if (content == notes.value) return
-            notes.value = content
-            // On Main so the debounced saves and the one on leaving are written in order, as the series' are
-            appScope.launch(Dispatchers.Main.immediate) { volumes.setNotes(type, series, volumeKey, content) }
+            fun create(type: ContentType, series: String, volumeKey: String): Model
         }
     }
 }

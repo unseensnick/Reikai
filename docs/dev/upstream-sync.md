@@ -208,6 +208,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported |
 |---|---|---|---|
+| `f42d08a23` (unchanged) | `fix(notes): read notes by id so a restored page keeps the latest text` | 2026-11-19 | Upstream's load-by-id `MangaNotesViewModel` and its missing-manga pop (mihon c0d3aeaeb's `MangaNotesScreen.kt`), ported ahead of the held c0d3aeaeb; a Voyager `MangaNotesRoute` hosts it until that sync, and the file becomes verbatim then. |
 | `f42d08a23` (unchanged) | `chore: sync Mihon private extension uninstall prompt` | 2026-11-19 | Android 17-style uninstall prompt with icon and name, and the details page confirming a private uninstall (mihon 994a09539), ported ahead of the held c0d3aeaeb; LN plugins draw the same prompt through `UninstallPromptDialog`. |
 | `f42d08a23` | `chore: sync Mihon Metro 1.6.0` | 2026-11-19 | Metro 1.5.2 to 1.6.0 (mihon f42d08a23, mihonapp/mihon#4303); the graph compiles unchanged. |
 | `845f662a3` | (skipped) | 2026-11-19 | dependency-review-action 5.0.1 in upstream's `build.yml` (mihon 845f662a3, mihonapp/mihon#4308), N/A: Reikai's workflows have no dependency-review step. |

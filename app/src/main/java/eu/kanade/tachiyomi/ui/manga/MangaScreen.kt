@@ -31,7 +31,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
+import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import exh.pagepreview.PagePreviewScreen
@@ -169,7 +169,7 @@ class MangaScreen(
                             navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                         },
                         // The viewed member's own notes, as shown above it: the chip's, the anchor's under All.
-                        onEditNotes = { navigator.push(MangaNotesScreen(manga = successState.shownManga)) },
+                        onEditNotes = { navigator.push(MangaNotesRoute(successState.shownManga.id)) },
                         onOpenFilterSettings = viewModel::showSettingsDialog,
                         onMigrate = {
                             // Source picker first, so a merged manga can pick which source to migrate.

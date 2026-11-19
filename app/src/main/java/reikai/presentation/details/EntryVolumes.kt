@@ -324,17 +324,8 @@ fun List<EntryChapterListItem>.inVolumes(
     val headers = runs.volumeHeaders({ it.volume!! }, { it.id }, { it.read })
     val series = headers.first().series
     val shownByKey = headers.associateBy { it.key }
-    val all = every.mapNotNull { it.shown(loose, saved) }.filter { it.series == series }.distinctBy { it.key }
-        .map { shownByKey[it.key] ?: EntryChapterListItem.Volume(it.series, it.key, it.label, emptyList(), 0) }
-        .ifEmpty { headers }
-    val savedHere = saved[series]
-    val numbers = all.map { (it.label as? VolumeLabel.Number)?.number }
-    val chips = when {
-        // A series the user ordered follows their order, whatever the numbers say.
-        savedHere.orEmpty().any { it.position != null } -> all.inUserOrder({ it.key }, savedHere)
-        numbers.all { it != null } -> all.sortedBy { (it.label as VolumeLabel.Number).number }
-        else -> all
-    }
+    val all = every.volumesOf(series, saved, loose).map { shownByKey[it.key] ?: it.emptyChip() }.ifEmpty { headers }
+    val chips = all.inChipOrder(saved[series])
     // Numbered in chip order.
     val duplicates = chips.duplicateIndexByKey()
     fun EntryChapterListItem.Volume.numbered() = copy(duplicate = duplicates.getValue(key))
@@ -344,6 +335,42 @@ fun List<EntryChapterListItem>.inVolumes(
             listOf(header.numbered()) + run.second.map { it.copy(name = it.volume!!.titleOf(it.name)) }
         }
     return VolumeView(chips.map { it.numbered() }, shown, items)
+}
+
+/**
+ * The chip of volume [key] of [series] among the chapter volumes [this], named and numbered as the series' page
+ * shows it; null where the series lists no such volume. The volume notes page heads itself with it.
+ */
+fun List<ChapterVolume>.chipOf(
+    series: String,
+    key: String,
+    saved: Map<String, List<LocalVolume>>,
+    loose: Map<String, LooseFiles>,
+): EntryChapterListItem.Volume? {
+    val chips = volumesOf(series, saved, loose).map { it.emptyChip() }.inChipOrder(saved[series])
+    return chips.firstOrNull { it.key == key }?.copy(duplicate = chips.duplicateIndexByKey().getValue(key))
+}
+
+/** [series]' volumes among [this], each once, as its page heads them. */
+private fun List<ChapterVolume>.volumesOf(
+    series: String,
+    saved: Map<String, List<LocalVolume>>,
+    loose: Map<String, LooseFiles>,
+) = mapNotNull { it.shown(loose, saved) }.filter { it.series == series }.distinctBy { it.key }
+
+private fun ChapterVolume.emptyChip() = EntryChapterListItem.Volume(series, key, label, emptyList(), 0)
+
+/** [this] chips in the order their series shows them, given the volumes the user [saved] for it. */
+private fun List<EntryChapterListItem.Volume>.inChipOrder(
+    saved: List<LocalVolume>?,
+): List<EntryChapterListItem.Volume> {
+    val numbers = map { (it.label as? VolumeLabel.Number)?.number }
+    return when {
+        // A series the user ordered follows their order, whatever the numbers say.
+        saved.orEmpty().any { it.position != null } -> inUserOrder({ it.key }, saved)
+        numbers.all { it != null } -> sortedBy { (it.label as VolumeLabel.Number).number }
+        else -> this
+    }
 }
 
 /** A header per run of [volumeRuns], counting the run's [isRead] rows, for the details list and the reader's sheet. */

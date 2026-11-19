@@ -1,12 +1,12 @@
 package eu.kanade.presentation.manga
 
 import androidx.compose.runtime.Composable
-import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
+import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesViewModel
 import reikai.presentation.notes.EntryNotesScreen
 
 @Composable
 fun MangaNotesScreen(
-    state: MangaNotesScreen.State,
+    state: MangaNotesViewModel.State,
     navigateUp: () -> Unit,
     onUpdate: (String) -> Unit,
 ) {
