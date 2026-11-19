@@ -342,7 +342,7 @@ class EntryCatalogueScreen(
             // A migration pick outranks a selection.
             choose = loaded.capabilities.migrationPick?.let { pick -> { row: EntryBrowseRow -> pick.pick(row) {} } }
                 ?: behavior::toggleSelection.takeIf { loaded.selectionMode },
-            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(sourceKey, fromSource = true)) },
+            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(sourceKey)) },
             add = behavior::onRowLongClick,
         )
 

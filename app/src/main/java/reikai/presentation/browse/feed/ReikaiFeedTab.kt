@@ -175,7 +175,7 @@ private fun Screen.FeedContent(
                         choose = { result: EntryBrowseRow -> selection.toggle(result, entry.row.key) }
                             .takeIf { selection.selectionMode },
                         open = { result: EntryBrowseRow ->
-                            navigator.push(result.detailsScreen(entry.row.key, fromSource = true))
+                            navigator.push(result.detailsScreen(entry.row.key))
                         },
                         add = { result: EntryBrowseRow ->
                             result.startAdd(entry.row.key, model.mangaAddFlow, model.novelAddFlow)

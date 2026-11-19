@@ -33,10 +33,10 @@ fun novelDetailsAt(
     fromSource: Boolean = false,
 ): Screen = NovelScreen(sourceId, url, listingCover, fromSource)
 
-/** The details page a browse result of the source at [sourceKey] opens. */
-fun EntryBrowseRow.detailsScreen(sourceKey: SourceKey, fromSource: Boolean): Screen = when (sourceKey) {
-    is SourceKey.Manga -> EntryId.Manga(manga.id).detailsScreen(fromSource)
-    is SourceKey.Novel -> novelDetailsAt(sourceKey.id, item.path, item.cover, fromSource)
+/** The details page a browse result of the source at [sourceKey] opens, which is always from that source. */
+fun EntryBrowseRow.detailsScreen(sourceKey: SourceKey): Screen = when (sourceKey) {
+    is SourceKey.Manga -> EntryId.Manga(manga.id).detailsScreen(fromSource = true)
+    is SourceKey.Novel -> novelDetailsAt(sourceKey.id, item.path, item.cover, fromSource = true)
 }
 
 /**

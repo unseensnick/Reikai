@@ -64,7 +64,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
         val gestures = rememberEntryGestures(
             choose = adapter::toggleSelection.takeIf { bulkFavoriteState.selectionMode },
             open = { row: EntryBrowseRow ->
-                navigator.push(row.detailsScreen(SourceKey.Manga(sourceId), fromSource = true))
+                navigator.push(row.detailsScreen(SourceKey.Manga(sourceId)))
             },
             add = adapter::onRowLongClick,
         )

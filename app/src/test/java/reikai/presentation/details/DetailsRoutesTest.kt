@@ -51,7 +51,7 @@ class DetailsRoutesTest {
     fun `a manga result opens its stored manga as a listing opens it`() {
         val row = mangaBrowseRow(MutableStateFlow(Manga.create().copy(id = 5L, url = "/m/5") to null))
 
-        val screen = row.detailsScreen(SourceKey.Manga(1L), fromSource = true) as MangaScreen
+        val screen = row.detailsScreen(SourceKey.Manga(1L)) as MangaScreen
 
         (screen.mangaId to screen.fromSource) shouldBe (5L to true)
     }
@@ -60,7 +60,7 @@ class DetailsRoutesTest {
     fun `a novel result opens its path on the row's source as a listing opens it`() {
         val row = novelBrowseRow(NovelItem("Title", "/n/5", "cover"), "plugin", MutableStateFlow(FavoritedNovels.None))
 
-        val screen = row.detailsScreen(SourceKey.Novel("plugin"), fromSource = true) as NovelScreen
+        val screen = row.detailsScreen(SourceKey.Novel("plugin")) as NovelScreen
 
         Triple(screen.sourceId, screen.novelUrl, screen.fromSource) shouldBe Triple("plugin", "/n/5", true)
     }

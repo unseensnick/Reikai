@@ -101,7 +101,7 @@ class EntryGlobalSearchScreen(
                     is EntrySearchState.Loading -> return@LaunchedEffect
                     is EntrySearchState.Success ->
                         result.entries.singleOrNull()
-                            ?.let { navigator.replace(it.detailsScreen(only.key, fromSource = true)) }
+                            ?.let { navigator.replace(it.detailsScreen(only.key)) }
                             ?: run { showSingleLoadingScreen = false }
                     else -> showSingleLoadingScreen = false
                 }
@@ -174,7 +174,7 @@ class EntryGlobalSearchScreen(
                         choose = { entry: EntryBrowseRow -> selection.toggle(entry, row.key) }
                             .takeIf { selection.selectionMode },
                         open = { entry: EntryBrowseRow ->
-                            navigator.push(entry.detailsScreen(row.key, fromSource = true))
+                            navigator.push(entry.detailsScreen(row.key))
                         },
                         add = { entry: EntryBrowseRow ->
                             entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
