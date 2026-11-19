@@ -1,7 +1,7 @@
 package reikai.presentation.migrate.flow
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.ViewModel
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEffect
@@ -34,7 +34,7 @@ fun MigrationPickEffect(flowId: Long, owner: ViewModel, onPick: (MigrationPick) 
     val bus = LocalResultEventBus.current
     val key = migrationPickKey(flowId)
     ResultEffect<MigrationPick>(key, bus) { onPick(it) }
-    remember(owner, key) {
+    LaunchedEffect(owner, key) {
         // Keyed, and added once: adding under a key that has one closes the old one at once.
         if (owner.getCloseable<AutoCloseable>(key) == null) owner.addCloseable(key) { bus.removeResult(key) }
     }
