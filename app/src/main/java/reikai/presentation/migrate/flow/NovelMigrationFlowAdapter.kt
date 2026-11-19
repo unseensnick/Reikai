@@ -158,8 +158,10 @@ class NovelMigrationFlowAdapter(
     }
 
     override suspend fun loadEntries(ids: List<Long>): List<MigrationEntry> {
+        val customInfo = getEntryCustomInfo.awaitAll()
         return ids.mapNotNull { id ->
             val novel = novelRepository.getById(id) ?: return@mapNotNull null
+            val custom = customInfo[EntryId.Novel(id)]
             val summary = chapterRepository.getChapterSummaryByNovelId(id)
             MigrationEntry(
                 id = EntryId.Novel(id),
@@ -172,9 +174,12 @@ class NovelMigrationFlowAdapter(
                 payload = MigrationPayload.OfNovel(novel),
                 otherTitles = migrationOtherTitles(
                     novel.title,
-                    getEntryCustomInfo.await(EntryId.Novel(id)),
-                    mergeManager.computeRelatedIds(id).asList().mapNotNull { novelRepository.getById(it)?.title },
+                    custom,
+                    migrationMemberTitles(id, novel.title, mergeManager.computeRelatedIds(id)) {
+                        novelRepository.getById(it)?.title
+                    },
                 ),
+                hasCustomInfo = custom != null,
             )
         }
     }
@@ -353,7 +358,7 @@ class NovelMigrationFlowAdapter(
     }
 
     override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
-        val withCustomInfo = entries.filter { getEntryCustomInfo.await(it.id) != null }.mapTo(HashSet()) { it.id.rawId }
+        val withCustomInfo = entries.filter { it.hasCustomInfo }.mapTo(HashSet()) { it.id.rawId }
         return applicableFlagsOf(
             entries.mapNotNull { (it.payload as? MigrationPayload.OfNovel)?.novel },
             hasCustomCover = { it.hasCustomCover(coverCache) },

@@ -8,12 +8,16 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.test.runTest
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import org.junit.jupiter.api.Test
@@ -219,6 +223,44 @@ class MigrationAdapterConformanceTest {
         adapter.suggest(entry, probe.target, MigrationTuning()) shouldBe null
     }
 
+    // Loading reads each row once; the flags reuse what loading read
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an entry with Edit info offers to carry it`(probe: Probe) = runTest {
+        val adapter = probe.adapter(altTitles = listOf("Other"))
+
+        adapter.applicableFlags(adapter.loadEntries(listOf(ENTRY_ID))) shouldContain MigrationDataFlag.CUSTOM_INFO
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an entry without Edit info does not offer to carry it`(probe: Probe) = runTest {
+        val adapter = probe.adapter()
+
+        adapter.applicableFlags(adapter.loadEntries(listOf(ENTRY_ID))) shouldNotContain MigrationDataFlag.CUSTOM_INFO
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the flags read no Edit info of their own`(probe: Probe) = runTest {
+        val adapter = probe.adapter(altTitles = listOf("Other"))
+        val entries = adapter.loadEntries(listOf(ENTRY_ID))
+        val loaded = probe.reads.customInfo
+
+        adapter.applicableFlags(entries)
+
+        probe.reads.customInfo shouldBe loaded
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `loading a merged entry reads each member's row once`(probe: Probe) = runTest {
+        probe.adapter(siblingTitle = "Sibling").loadEntries(listOf(ENTRY_ID))
+
+        probe.reads.rows shouldBe 2
+    }
+
     companion object {
         const val ENTRY_ID = 1L
         const val PICK_ID = 2L
@@ -249,6 +291,9 @@ sealed interface Probe {
     val oldSource: String
     val target: String
 
+    /** What the adapter [adapter] last built has read. */
+    val reads: Reads
+
     fun adapter(
         listing: List<String> = emptyList(),
         chapters: Int = 1,
@@ -268,6 +313,8 @@ sealed interface Probe {
 object MangaProbe : Probe {
     override val oldSource = "1"
     override val target = "2"
+    override var reads = Reads()
+        private set
 
     override fun toString() = "manga"
 
@@ -314,6 +361,7 @@ object MangaProbe : Probe {
         altTitles: List<String> = emptyList(),
         siblingTitle: String? = null,
     ): MigrationFlowAdapter {
+        val reads = Reads().also { this.reads = it }
         val rows = mutableMapOf(stored.id to stored, picked.id to picked)
         siblingTitle?.let { rows[SIBLING_ID] = stored.copy(id = SIBLING_ID, url = "/sibling", title = it) }
         var synced = false
@@ -357,7 +405,12 @@ object MangaProbe : Probe {
                 coEvery { getOrStub(2L) } returns catalogue
             },
             sourcePreferences = SourcePreferences(InMemoryPreferenceStore()).apply { enabledLanguages.set(languages) },
-            getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } },
+            getManga = mockk<GetManga> {
+                coEvery { await(any<Long>()) } answers {
+                    reads.rows++
+                    rows[firstArg()]
+                }
+            },
             getChaptersByMangaId = mockk<GetChaptersByMangaId> {
                 coEvery { await(any(), any()) } answers {
                     List(if (synced) sourceChapters.size else chapters) {
@@ -396,7 +449,7 @@ object MangaProbe : Probe {
                     Result.failure(IOException("the probe stores no update"))
                 }
             },
-            getEntryCustomInfo = customInfo(EntryId.Manga(stored.id), altTitles),
+            getEntryCustomInfo = customInfo(EntryId.Manga(stored.id), altTitles, reads),
         )
     }
 
@@ -414,6 +467,8 @@ object MangaProbe : Probe {
 object NovelProbe : Probe {
     override val oldSource = "old"
     override val target = "target"
+    override var reads = Reads()
+        private set
 
     override fun toString() = "novels"
 
@@ -459,6 +514,7 @@ object NovelProbe : Probe {
         altTitles: List<String> = emptyList(),
         siblingTitle: String? = null,
     ): MigrationFlowAdapter {
+        val reads = Reads().also { this.reads = it }
         val rows = mutableMapOf(stored.id to stored, picked.id to picked)
         siblingTitle?.let { rows[SIBLING_ID] = stored.copy(id = SIBLING_ID, url = "/sibling", title = it) }
         var synced = false
@@ -498,7 +554,10 @@ object NovelProbe : Probe {
             sourcePreferences = mockk(),
             novelPreferences = mockk(),
             novelRepository = mockk<NovelRepository> {
-                coEvery { getById(any()) } answers { rows[firstArg()] }
+                coEvery { getById(any()) } answers {
+                    reads.rows++
+                    rows[firstArg()]
+                }
                 coEvery { getByUrlAndSource(any(), any()) } answers {
                     rows.values.firstOrNull { it.url == firstArg() && it.source == secondArg() }
                 }
@@ -528,7 +587,7 @@ object NovelProbe : Probe {
                 coEvery { computeRelatedIds(any()) } answers { relatedIds(firstArg(), siblingTitle) }
             },
             installer = mockk(relaxed = true),
-            getEntryCustomInfo = customInfo(EntryId.Novel(stored.id), altTitles),
+            getEntryCustomInfo = customInfo(EntryId.Novel(stored.id), altTitles, reads),
             syncRules = NovelChapterSyncRules(
                 NoChapterNumberOverrides,
                 InMemoryChapterCopyMarks(),
@@ -568,6 +627,14 @@ object NovelProbe : Probe {
 
 private const val SIBLING_ID = 3L
 
+/** Entry row reads and Edit info reads, counted at the repositories an adapter is built over. */
+class Reads {
+    var rows = 0
+    var customInfo = 0
+}
+
+private fun <T> Flow<T>.counted(reads: Reads): Flow<T> = onStart { reads.customInfo++ }
+
 /** The entry's merge group: itself and the sibling when there is one, as computeRelatedIds answers. */
 private fun relatedIds(id: Long, siblingTitle: String?): LongArray =
     if (siblingTitle != null && id == MigrationAdapterConformanceTest.ENTRY_ID) {
@@ -577,7 +644,7 @@ private fun relatedIds(id: Long, siblingTitle: String?): LongArray =
     }
 
 /** The real reader over stored rows: [owner] carries [altTitles] when there are any, nothing else does. */
-private fun customInfo(owner: EntryId, altTitles: List<String>): GetEntryCustomInfo {
+private fun customInfo(owner: EntryId, altTitles: List<String>, reads: Reads): GetEntryCustomInfo {
     val manga = listOfNotNull(
         (owner as? EntryId.Manga)?.takeIf { altTitles.isNotEmpty() }?.let {
             CustomMangaInfo(it.rawId, altTitles = altTitles)
@@ -589,16 +656,20 @@ private fun customInfo(owner: EntryId, altTitles: List<String>): GetEntryCustomI
         },
     )
     val mangaRepo = object : CustomMangaInfoRepository {
-        override fun getByMangaIdAsFlow(mangaId: Long) = flowOf(manga.firstOrNull { it.mangaId == mangaId })
-        override fun getAllAsFlow() = flowOf(manga)
-        override suspend fun getByMangaId(mangaId: Long) = manga.firstOrNull { it.mangaId == mangaId }
+        override fun getByMangaIdAsFlow(
+            mangaId: Long,
+        ) = flowOf(manga.firstOrNull { it.mangaId == mangaId }).counted(reads)
+        override fun getAllAsFlow() = flowOf(manga).counted(reads)
+        override suspend fun getByMangaId(mangaId: Long) = error("not read by migration")
         override suspend fun set(info: CustomMangaInfo) = error("read only")
         override suspend fun delete(mangaId: Long) = error("read only")
     }
     val novelRepo = object : CustomNovelInfoRepository {
-        override fun getByNovelIdAsFlow(novelId: Long) = flowOf(novels.firstOrNull { it.novelId == novelId })
-        override fun getAllAsFlow() = flowOf(novels)
-        override suspend fun getByNovelId(novelId: Long) = novels.firstOrNull { it.novelId == novelId }
+        override fun getByNovelIdAsFlow(
+            novelId: Long,
+        ) = flowOf(novels.firstOrNull { it.novelId == novelId }).counted(reads)
+        override fun getAllAsFlow() = flowOf(novels).counted(reads)
+        override suspend fun getByNovelId(novelId: Long) = error("not read by migration")
         override suspend fun set(info: CustomNovelInfo) = error("read only")
         override suspend fun delete(novelId: Long) = error("read only")
     }

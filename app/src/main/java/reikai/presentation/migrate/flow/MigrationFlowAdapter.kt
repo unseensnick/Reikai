@@ -71,6 +71,8 @@ data class MigrationEntry(
     val payload: MigrationPayload,
     /** The Edit info title, then the series' other titles ([migrationOtherTitles]): the auto search's fallback. */
     val otherTitles: List<String> = emptyList(),
+    /** The entry has an Edit info row, read with it so the Custom entry info option needs no read of its own. */
+    val hasCustomInfo: Boolean = false,
 )
 
 /**

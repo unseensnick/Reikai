@@ -29,3 +29,11 @@ fun migrationOtherTitles(ownTitle: String, custom: EntryCustomInfo?, memberTitle
     val main = custom?.title ?: ownTitle
     return listOf(main) + seriesAltTitles(main, memberTitles, custom?.altTitles.orEmpty())
 }
+
+/** Each title of [id]'s merge group in [relatedIds] order, its own row's [ownTitle] reused rather than read again. */
+suspend fun migrationMemberTitles(
+    id: Long,
+    ownTitle: String,
+    relatedIds: LongArray,
+    titleOf: suspend (Long) -> String?,
+): List<String> = relatedIds.asList().mapNotNull { if (it == id) ownTitle else titleOf(it) }

@@ -144,8 +144,10 @@ class MangaMigrationFlowAdapter(
     }
 
     override suspend fun loadEntries(ids: List<Long>): List<MigrationEntry> {
+        val customInfo = getEntryCustomInfo.awaitAll()
         return ids.mapNotNull { id ->
             val manga = getManga.await(id) ?: return@mapNotNull null
+            val custom = customInfo[EntryId.Manga(id)]
             val summary = getChapterSummaryByMangaId.await(id)
             MigrationEntry(
                 id = EntryId.Manga(id),
@@ -158,9 +160,12 @@ class MangaMigrationFlowAdapter(
                 payload = MigrationPayload.OfManga(manga),
                 otherTitles = migrationOtherTitles(
                     manga.title,
-                    getEntryCustomInfo.await(EntryId.Manga(id)),
-                    mergeManager.computeRelatedIds(id).asList().mapNotNull { getManga.await(it)?.title },
+                    custom,
+                    migrationMemberTitles(id, manga.title, mergeManager.computeRelatedIds(id)) {
+                        getManga.await(it)?.title
+                    },
                 ),
+                hasCustomInfo = custom != null,
             )
         }
     }
@@ -259,7 +264,7 @@ class MangaMigrationFlowAdapter(
     }
 
     override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
-        val withCustomInfo = entries.filter { getEntryCustomInfo.await(it.id) != null }.mapTo(HashSet()) { it.id.rawId }
+        val withCustomInfo = entries.filter { it.hasCustomInfo }.mapTo(HashSet()) { it.id.rawId }
         return applicableFlagsOf(
             entries.mapNotNull { (it.payload as? MigrationPayload.OfManga)?.manga },
             hasCustomCover = { it.hasCustomCover(coverCache) },
