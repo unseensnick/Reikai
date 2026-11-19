@@ -34,10 +34,13 @@ class HideSeries(
     /**
      * A replace migration keeps the series hidden: [from]'s hide is read before [swap] and written onto [to]
      * after it, since the target joining the library inside [swap] clears its group's hide
-     * (library_hidden.sq). Runs inside the caller's transaction, so the hide commits with the swap.
+     * (library_hidden.sq). A target in another series' group stays as that group is, since the swap shows a
+     * group it brings along. Runs inside the caller's transaction, so the hide commits with the swap.
      */
     suspend fun <T> keepAcrossSwap(from: EntryId, to: EntryId, replace: Boolean, swap: suspend () -> T): T {
-        val carry = replace && repository.isHidden(from.contentType, from.rawId)
+        val targetGroup = mergeManager(to).captureGroup(to.rawId).orderedMemberIds
+        val sameSeries = targetGroup.isEmpty() || from.rawId in targetGroup
+        val carry = replace && sameSeries && repository.isHidden(from.contentType, from.rawId)
         return swap().also { if (carry) hide(listOf(to)) }
     }
 

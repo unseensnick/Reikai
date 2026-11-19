@@ -141,17 +141,59 @@ class MigrateHiddenRealDbTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a replace migration onto a member of another series leaves that series visible`(engine: HideEngine) =
+        runTest {
+            engine.run {
+                hide(SOURCE)
+                group(TARGET, OTHER)
+                migrate(replace = true)
+
+                hidden() shouldBe emptyList()
+            }
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a replace migration of a hidden group onto a member of another series shows the joined group`(
+        engine: HideEngine,
+    ) = runTest {
+        engine.run {
+            group(SOURCE, SIBLING)
+            hideSeries.hide(listOf(entry(SIBLING)))
+            group(TARGET, OTHER)
+            migrate(replace = true)
+
+            hidden() shouldBe emptyList()
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a replace migration onto a removed member of its own group keeps the series hidden`(engine: HideEngine) =
+        runTest {
+            engine.run {
+                group(SOURCE, TARGET, SIBLING)
+                hideSeries.hide(listOf(entry(SIBLING)))
+                migrate(replace = true)
+
+                hidden() shouldBe listOf(TARGET, SIBLING)
+            }
+        }
+
     companion object {
         const val SOURCE = 1L
         const val TARGET = 2L
         const val SIBLING = 3L
+        const val OTHER = 4L
 
         @JvmStatic
         fun engines() = listOf(MangaHideEngine(), NovelHideEngine())
     }
 }
 
-/** One type's real migrate use case; [SOURCE] and [SIBLING] in the library, [TARGET] stored but not. */
+/** One type's real migrate use case; [SOURCE], [SIBLING] and [OTHER] in the library, [TARGET] stored but not. */
 abstract class HideEngine(private val type: ContentType) {
     private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
     protected lateinit var database: Database
@@ -169,6 +211,7 @@ abstract class HideEngine(private val type: ContentType) {
         seed(MigrateHiddenRealDbTest.SOURCE, favourite = true)
         seed(MigrateHiddenRealDbTest.TARGET, favourite = false)
         seed(MigrateHiddenRealDbTest.SIBLING, favourite = true)
+        seed(MigrateHiddenRealDbTest.OTHER, favourite = true)
         try {
             block()
         } finally {
