@@ -18,6 +18,7 @@ import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.seriesAltTitles
+import reikai.domain.library.tagKey
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.UndatedChapterDate
@@ -420,8 +421,8 @@ data class MangaGalleryCapability(
  * grouped chips (built from its own namespaced tags) cannot carry, so they show in a row of their own.
  */
 private fun tagsBeyond(tags: List<String>?, own: List<String>?): List<String> {
-    val owned = own.orEmpty().mapTo(HashSet(), ::tagIdentity)
-    return tags.orEmpty().filterNot { tagIdentity(it) in owned }
+    val owned = own.orEmpty().mapTo(HashSet(), ::tagKey)
+    return tags.orEmpty().filterNot { tagKey(it) in owned }
 }
 
 /** A details row for a manga chapter, read and bookmarked as the merge group answers for it. */

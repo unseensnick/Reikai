@@ -9,9 +9,9 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.category.orUncategorized
 import reikai.domain.entry.EntryId
+import reikai.domain.library.tagKey
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.recommendation.taste.TrackStatus
-import reikai.presentation.details.tagIdentity
 import java.io.Serializable
 import kotlin.math.roundToInt
 import kotlin.time.Instant
@@ -186,11 +186,11 @@ private fun List<StatsTitle>.titlesByGroup(
     timeZone: TimeZone,
 ): Map<StatsGroupKey, List<StatsTitle>> {
     // Two series can spell one tag apart, as two sources of one series can; the row takes the first spelling.
-    val tagSpelling = flatMap { it.genres }.reversed().associateBy(::tagIdentity)
+    val tagSpelling = flatMap { it.genres }.reversed().associateBy(::tagKey)
     return flatMap { title ->
         title.groupKeys(dimension, timeZone)
             .map { key ->
-                if (key is StatsGroupKey.Tag) StatsGroupKey.Tag(tagSpelling.getValue(tagIdentity(key.name))) else key
+                if (key is StatsGroupKey.Tag) StatsGroupKey.Tag(tagSpelling.getValue(tagKey(key.name))) else key
             }
             .distinct()
             .map { it to title }

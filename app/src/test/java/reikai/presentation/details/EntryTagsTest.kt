@@ -31,6 +31,12 @@ class EntryTagsTest {
     }
 
     @Test
+    fun `a tag differing from another only in its separators is not added again`() {
+        appendTags(listOf("Shoujo Ai"), listOf("Shoujo-ai", "Slice_of_Life")) shouldBe
+            listOf("Shoujo Ai", "Slice_of_Life")
+    }
+
+    @Test
     fun `a blank tag is dropped`() {
         appendTags(listOf("Drama"), listOf(" ")) shouldBe listOf("Drama")
     }

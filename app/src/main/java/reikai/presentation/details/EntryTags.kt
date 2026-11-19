@@ -2,19 +2,16 @@ package reikai.presentation.details
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import reikai.domain.library.tagKey
 import reikai.presentation.library.seriesGenres
-
-/** Two tags are one tag when they differ only in case or surrounding spaces, wherever tags are compared. */
-fun tagIdentity(tag: String): String = tag.trim().lowercase()
 
 /**
  * Every way the edit-info dialog adds tags (typed, filled from a tracker, collated from a merge's other
  * sources): the tags already there stay, since they may be the user's own, and the new ones are appended.
- * A tag matching another bar case or surrounding spaces is the same tag, and the spelling already on the
- * entry wins.
+ * A tag matching another by [tagKey] is the same tag, and the spelling already on the entry wins.
  */
 fun appendTags(current: List<String>, added: List<String>): List<String> =
-    (current + added).filter { it.isNotBlank() }.distinctBy(::tagIdentity)
+    (current + added).filter { it.isNotBlank() }.distinctBy(::tagKey)
 
 /** What the Add tag field holds, as tags: several may be typed at once, separated by commas. */
 fun typedTags(input: String): List<String> = input.split(",").map { it.trim() }.filter { it.isNotEmpty() }

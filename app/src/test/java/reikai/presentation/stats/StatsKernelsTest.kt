@@ -79,6 +79,13 @@ class StatsKernelsTest {
     }
 
     @Test
+    fun `tags that differ only in separators are one row`() {
+        listOf(title(genres = listOf("Shoujo Ai")), title(genres = listOf("Shoujo-ai")))
+            .groupsBy(StatsDimension.TAG, utc).map { it.key to it.count } shouldBe
+            listOf(StatsGroupKey.Tag("Shoujo Ai") to 2)
+    }
+
+    @Test
     fun `an entry filed nowhere is in the Default category`() {
         listOf(title(categoryIds = emptyList())).groupsBy(StatsDimension.CATEGORY, utc).map { it.key } shouldBe
             listOf(StatsGroupKey.Category(0L))

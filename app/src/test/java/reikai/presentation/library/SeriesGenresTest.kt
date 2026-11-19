@@ -33,6 +33,11 @@ class SeriesGenresTest {
     }
 
     @Test
+    fun `a tag two sources separate differently counts once, in its first spelling`() {
+        seriesGenres(null, listOf(listOf("Shoujo Ai"), listOf("Shoujo-ai", "shoujo_ai"))) shouldBe listOf("Shoujo Ai")
+    }
+
+    @Test
     fun `a blank tag is dropped`() {
         seriesGenres(null, listOf(listOf(" ", "Action"))) shouldBe listOf("Action")
     }

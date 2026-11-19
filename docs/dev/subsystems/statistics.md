@@ -14,7 +14,7 @@ Statistics summarises the library and the reader's reading for manga and novels 
 
 ### Groupings
 
-`groupsBy` (`StatsKernels.kt`) groups titles by a `StatsDimension` into `StatsGroup`s keyed by a typed `StatsGroupKey`, with count, chapters read and total, mean score and reading time. A title sits in one row per value it has, so source, tag, tracker and language rows can sum past the library. Tags group by `tagIdentity` (case and surrounding spaces), under the first spelling seen. `StatsLibrary.rows` names each key, orders the rows (score, length and year keep their own order; the rest follow `StatsSort`).
+`groupsBy` (`StatsKernels.kt`) groups titles by a `StatsDimension` into `StatsGroup`s keyed by a typed `StatsGroupKey`, with count, chapters read and total, mean score and reading time. A title sits in one row per value it has, so source, tag, tracker and language rows can sum past the library. Tags group by the library's `tagKey` (case, and runs of dashes, underscores and spaces), under the first spelling seen. `StatsLibrary.rows` names each key, orders the rows (score, length and year keep their own order; the rest follow `StatsSort`).
 
 ### A row's series
 
