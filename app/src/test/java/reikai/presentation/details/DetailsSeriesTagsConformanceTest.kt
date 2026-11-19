@@ -58,6 +58,7 @@ class DetailsSeriesTagsConformanceTest {
         val siblingTags: List<String> = SIBLING_TAGS,
         val customTags: List<String>? = null,
         val customTitle: String? = null,
+        val merged: Boolean = true,
     )
 
     class Opened(
@@ -137,6 +138,19 @@ class DetailsSeriesTagsConformanceTest {
         } shouldBe 2
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `an unmerged entry under an Edit info title lists its own source's title`(probe: Probe) = runTest {
+        probe.opened(this, Series(customTitle = "Mine", merged = false)) { opened ->
+            withContext(Dispatchers.Default) {
+                withTimeout(30_000) {
+                    opened.behavior.state.filterIsInstance<EntryDetailsScreenState.Loaded>()
+                        .first { it.details.header.title == "Mine" }
+                }
+            }.details.header.altTitles
+        } shouldBe listOf(ANCHOR_TITLE)
+    }
+
     @Test
     fun `a gallery anchor keeps its grouped chips and shows the other sources' tags in a row of their own`() =
         runTest {
@@ -156,6 +170,7 @@ class DetailsSeriesTagsConformanceTest {
         private const val SOURCE_EXTENSIONS_FILE = "eu.kanade.tachiyomi.source.SourceExtensionsKt"
         val ANCHOR_TAGS = listOf("Action", "Drama")
         val SIBLING_TAGS = listOf("drama", "Comedy")
+        const val ANCHOR_TITLE = "Anchor title"
         const val SIBLING_TITLE = "Sibling title"
 
         @JvmStatic
@@ -186,7 +201,7 @@ class DetailsSeriesTagsConformanceTest {
             val mangas = MangaRepositoryImpl(database)
             driver.seedManga(ANCHOR, chapterId = 10L, sourceId = ANCHOR_SOURCE)
             driver.seedManga(SIBLING, chapterId = 20L, sourceId = SIBLING_SOURCE)
-            mangas.retag(ANCHOR, series.anchorTags)
+            mangas.retag(ANCHOR, series.anchorTags, ANCHOR_TITLE)
             mangas.retag(SIBLING, series.siblingTags, SIBLING_TITLE)
             val sources = mockk<SourceManager>(relaxed = true) {
                 coEvery { getOrStub(any()) } answers { httpSource(firstArg<Long>()) }
@@ -196,7 +211,7 @@ class DetailsSeriesTagsConformanceTest {
                 ANCHOR,
                 mangas,
                 ChapterRepositoryImpl(database),
-                longArrayOf(ANCHOR, SIBLING),
+                if (series.merged) longArrayOf(ANCHOR, SIBLING) else longArrayOf(ANCHOR),
                 sourceManager = sources,
                 customInfo = if (series.customTags == null && series.customTitle == null) {
                     emptyMap()
@@ -261,7 +276,7 @@ class DetailsSeriesTagsConformanceTest {
 
         override suspend fun <T> opened(scope: TestScope, series: Series, block: suspend (Opened) -> T): T =
             NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
-                val anchor = harness.novel(harness.source("alpha"))
+                val anchor = harness.novel(harness.source("alpha"), title = ANCHOR_TITLE)
                 val sibling = harness.novel(harness.source("beta"), title = SIBLING_TITLE)
                 harness.updateNovel(anchor) { genre = series.anchorTags }
                 harness.updateNovel(sibling) { genre = series.siblingTags }
@@ -269,7 +284,7 @@ class DetailsSeriesTagsConformanceTest {
                     harness.customInfo[anchor] =
                         CustomNovelInfo(anchor, title = series.customTitle, genre = series.customTags)
                 }
-                harness.merge(anchor, sibling)
+                if (series.merged) harness.merge(anchor, sibling)
                 val model = harness.openDetails(anchor)
                 block(
                     Opened(

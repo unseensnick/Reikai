@@ -40,6 +40,13 @@ class LibraryAltTitlesSearchConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
+    fun `an unmerged entry under an Edit info title is found by its own source's title`(type: Type) = runTest {
+        type.matches(listOf("Kimetsu no Yaiba"), "kimetsu", customTitle = "Demon Slayer", merged = false) shouldBe
+            true
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
     fun `a title no source or stored row has does not find the card`(type: Type) = runTest {
         type.matches(listOf("Demon Slayer", "Kimetsu no Yaiba"), "naruto", stored = listOf("KnY")) shouldBe false
     }
@@ -57,12 +64,12 @@ class LibraryAltTitlesSearchConformanceTest {
     /** Each type builds the card through its own merge collapse, members ranked in the order given. */
     enum class Type {
         MANGA {
-            override suspend fun card(titles: List<String>): LibraryItem {
+            override suspend fun card(titles: List<String>, merged: Boolean): LibraryItem {
                 val items = titles.mapIndexed { i, title -> mangaRow(i.toLong(), title) }
                 val ids = items.map { it.id }
                 return MangaMergeCollapse.collapse(
                     items = items,
-                    membership = ids.associateWith { GROUP_ID },
+                    membership = if (merged) ids.associateWith { GROUP_ID } else emptyMap(),
                     mergingEnabled = true,
                     showMergeSourceIcons = false,
                     resolveSource = { mockk() },
@@ -72,14 +79,14 @@ class LibraryAltTitlesSearchConformanceTest {
             }
         },
         NOVEL {
-            override suspend fun card(titles: List<String>): LibraryItem {
+            override suspend fun card(titles: List<String>, merged: Boolean): LibraryItem {
                 val novels = titles.mapIndexed { i, title ->
                     Novel.create().copy(id = i.toLong(), source = "source$i", title = title)
                 }
                 val ids = novels.map { it.id }
                 return NovelMergeCollapse.collapse(
                     library = novels.map(::libraryNovel),
-                    membership = ids.associateWith { GROUP_ID },
+                    membership = if (merged) ids.associateWith { GROUP_ID } else emptyMap(),
                     mergingEnabled = true,
                     overrideRankings = mapOf(GROUP_ID to ids),
                 ).single().toLibraryRow(
@@ -93,12 +100,21 @@ class LibraryAltTitlesSearchConformanceTest {
         },
         ;
 
-        abstract suspend fun card(titles: List<String>): LibraryItem
+        abstract suspend fun card(titles: List<String>, merged: Boolean = true): LibraryItem
 
-        /** Whether [query] finds the card of a series whose sources carry [titles], with [stored] on its Edit info. */
-        suspend fun matches(titles: List<String>, query: String, stored: List<String> = emptyList()): Boolean {
-            val card = card(titles)
-            val overlay = mapOf(card.id to LibraryQueryOverlay(altTitles = stored))
+        /**
+         * Whether [query] finds the card of a series whose sources carry [titles], with [stored] and a
+         * [customTitle] on its Edit info; only a [merged] one groups its sources.
+         */
+        suspend fun matches(
+            titles: List<String>,
+            query: String,
+            stored: List<String> = emptyList(),
+            customTitle: String? = null,
+            merged: Boolean = true,
+        ): Boolean {
+            val card = card(titles, merged)
+            val overlay = mapOf(card.id to LibraryQueryOverlay(title = customTitle, altTitles = stored))
             return libraryQueryMatches(
                 QueryNode.from(query),
                 card,

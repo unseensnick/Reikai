@@ -144,14 +144,16 @@ fun EntryCustomInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist
 
 /**
  * The title search reads for each row that has other titles: the shown title, then [seriesAltTitles] over
- * a merged series' member titles and the stored ones, a line each. Rows with none are left out.
+ * the member titles (a standalone row is its own member) and the stored ones, a line each. Rows with none
+ * are left out.
  */
 internal fun List<LibraryItem>.searchTitles(overlay: Map<Long, LibraryQueryOverlay>): Map<Long, String> =
     buildMap {
         for (item in this@searchTitles) {
             val custom = overlay[item.id]
             val main = custom?.title ?: item.libraryManga.manga.title
-            val others = seriesAltTitles(main, item.memberTitles, custom?.altTitles.orEmpty())
+            val members = item.memberTitles.ifEmpty { listOf(item.libraryManga.manga.title) }
+            val others = seriesAltTitles(main, members, custom?.altTitles.orEmpty())
             if (others.isNotEmpty()) put(item.id, (listOf(main) + others).joinToString("\n"))
         }
     }
