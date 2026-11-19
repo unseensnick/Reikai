@@ -36,7 +36,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import eu.kanade.presentation.util.Screen
-import eu.kanade.presentation.util.isTabletUi
+import mihon.presentation.core.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseShowExtensionsEvent
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen

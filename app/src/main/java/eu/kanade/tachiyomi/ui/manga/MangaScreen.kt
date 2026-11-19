@@ -23,7 +23,7 @@ import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
-import eu.kanade.presentation.util.isTabletUi
+import mihon.presentation.core.util.isTabletUi
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource

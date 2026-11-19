@@ -246,6 +246,7 @@ dependencies {
     implementation(projects.core.archive)
     implementation(projects.core.common)
     implementation(projects.core.metro)
+    implementation(projects.core.navigation)
     implementation(projects.coreMetadata)
     implementation(projects.sourceApi)
     implementation(projects.sourceLocal)
@@ -315,8 +316,7 @@ dependencies {
     implementation(libs.androidx.profileInstaller)
 
     implementation(libs.bundles.androidx.lifecycle)
-    // RK: the result bus only, ahead of the navigation library itself
-    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.bundles.androidx.navigation3)
     implementation(libs.androidx.compose.runtimeRetain)
 
     // Job scheduling

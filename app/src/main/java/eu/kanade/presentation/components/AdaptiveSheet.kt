@@ -13,7 +13,7 @@ import cafe.adriel.voyager.core.lifecycle.DisposableEffectIgnoringConfiguration
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.presentation.util.ScreenTransition
-import eu.kanade.presentation.util.isTabletUi
+import mihon.presentation.core.util.isTabletUi
 import tachiyomi.presentation.core.components.AdaptiveSheet as AdaptiveSheetImpl
 
 @OptIn(InternalVoyagerApi::class)
