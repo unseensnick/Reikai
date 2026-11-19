@@ -630,7 +630,7 @@ data object LibraryTab : Tab {
                     )
                 }
                 // RK: every series the view would show is hidden, so say so and point to where they went
-                activeBuckets.isEmpty() && activeSearchQuery.isNullOrEmpty() && (assembled?.hiddenCount ?: 0) > 0 -> {
+                activeBuckets.isEmpty() && activeSearchQuery.isNullOrEmpty() && assembled?.isAllHidden == true -> {
                     EmptyScreen(
                         stringRes = MR.strings.information_library_all_hidden,
                         modifier = Modifier.padding(contentPadding),

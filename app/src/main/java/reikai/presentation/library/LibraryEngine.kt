@@ -284,7 +284,7 @@ class LibraryEngine(
             presentIds = presentIdsOf(assembledList),
             items = { bucket -> itemsByKey[bucket.key].orEmpty() },
             counts = { bucket -> if (showCounts) itemsByKey[bucket.key]?.size else null },
-            hiddenCount = hiddenRows.size,
+            isAllHidden = rows.isEmpty() && hiddenRows.isNotEmpty(),
         )
     }
 

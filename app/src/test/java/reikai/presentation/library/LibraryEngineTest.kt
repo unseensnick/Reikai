@@ -180,8 +180,30 @@ class LibraryEngineTest {
     }
 
     @Test
-    fun `the assembly counts the series it left out as hidden`() = runTest {
-        engineWithHides().assembled.first { it?.chip == ContentType.ALL }!!.hiddenCount shouldBe 2
+    fun `a view whose every series is hidden reads as all hidden, either type`() = runTest {
+        val manga = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11))))
+        val novels = provider(ContentType.NOVELS, rows = listOf(row(1, listOf(11)).copy(entryId = n1)))
+        val engine = engineOver(
+            listOf(manga, novels),
+            categories = listOf(Category(id = 11, name = "Reading", order = 0, flags = 0)),
+            hides = FakeLibraryHiddenRepository(setOf(m1, n1)),
+        ).also { it.setContentType(ContentType.ALL) }
+
+        engine.assembled.first { it?.chip == ContentType.ALL }!!.isAllHidden shouldBe true
+    }
+
+    @Test
+    fun `a view whose shown series sit in hidden categories is not all hidden`() = runTest {
+        val hiddenCategory = Category(id = 12, name = "Later", order = 1, flags = CATEGORY_HIDDEN_MASK)
+        val manga = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11)), row(2, listOf(12))))
+        val novels = provider(ContentType.NOVELS, rows = listOf(row(1, listOf(12)).copy(entryId = n1)))
+        val engine = engineOver(
+            listOf(manga, novels),
+            categories = listOf(Category(id = 11, name = "Reading", order = 0, flags = 0), hiddenCategory),
+            hides = FakeLibraryHiddenRepository(setOf(m1)),
+        ).also { it.setContentType(ContentType.ALL) }
+
+        engine.assembled.first { it?.chip == ContentType.ALL }!!.isAllHidden shouldBe false
     }
 
     @Test
