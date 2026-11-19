@@ -34,6 +34,7 @@ import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Drives a migration batch for one content type over [MigrationFlowAdapter].
@@ -54,7 +55,6 @@ class EntryMigrationListViewModel(
     // Assisted so a test can drive the driver and the commits on its own scheduler; the screen passes
     // Dispatchers.IO, which is what launchIO would have used.
     @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
-    private val pickHandoff: MigrationPickHandoff,
 ) : ViewModel() {
 
     val state: StateFlow<EntryMigrationListViewModel.State>
@@ -372,34 +372,40 @@ class EntryMigrationListViewModel(
         }
     }
 
+    /** Whether a deep pick is being applied; see [takePick]. */
+    private val takingPick = AtomicBoolean()
+
     /**
-     * Apply a target picked on a pushed browse screen, if one came back for a row here.
+     * Apply a target picked on a pushed browse screen to its row here, if it is still listed.
      *
-     * Called when the list returns to the foreground. The pick is a stored row already, so it wraps
-     * into a resolved candidate with no search; the same guards as any other pick apply, so a pick
-     * that arrives after the row migrated is dropped rather than re-arming it.
+     * The pick is a stored row already, so it wraps into a resolved candidate with no search; the same
+     * guards as any other pick apply, so a pick that arrives after the row migrated is dropped rather
+     * than re-arming it. A second pick while one is being applied is ignored, so a pick delivered twice
+     * is still one pick.
      */
-    fun collectPendingPick() {
-        val snapshot = rows
+    fun takePick(pick: MigrationPick) {
+        val row = rows.firstOrNull { it.entry.id == pick.entry } ?: return
+        if (!takingPick.compareAndSet(false, true)) return
         viewModelScope.launch(io) {
-            snapshot.forEach { row ->
-                val candidate = when (val pick = adapter.takePendingPick(pickHandoff, row.entry.id)) {
-                    null -> return@forEach
+            try {
+                val candidate = when (val read = adapter.takePendingPick(pick, row.entry.id)) {
+                    null -> return@launch
                     is PendingPick.Rejected -> {
-                        reportPick(pick.outcome)
-                        return@forEach
+                        reportPick(read.outcome)
+                        return@launch
                     }
-                    is PendingPick.Ready -> pick.candidate
+                    is PendingPick.Ready -> read.candidate
                 }
-                // The row may have left the list while storedCandidate was in flight; the pick was
-                // already consumed, so it lands on the LIVE row for the entry, not the snapshot it
-                // started from.
-                val live = rows.firstOrNull { it.entry.id == row.entry.id } ?: return@forEach
+                // The row may have left the list while storedCandidate was in flight, so the pick lands
+                // on the LIVE row for the entry, not the one it started from.
+                val live = rows.firstOrNull { it.entry.id == row.entry.id } ?: return@launch
                 // The same path a strip pick takes: a browsed candidate carries no counts until
                 // something asks, and it is exactly the pick upstream refuses when it has no
                 // chapters. Without the resolve the row read unknown forever and the
                 // chapter-shortfall warning could never fire on a deep pick.
                 acceptPicked(live, candidate)
+            } finally {
+                takingPick.set(false)
             }
         }
     }
@@ -733,12 +739,6 @@ class EntryMigrationListViewModel(
 
     /** Close an open dialog. Only a dialog: a commit is not something a dismissal may cancel. */
     fun dismissDialog() = state.update { it.copy(dialog = null) }
-
-    override fun onCleared() {
-        super.onCleared()
-        // An uncollected pick belongs to this migration only.
-        pickHandoff.clear()
-    }
 
     /**
      * What is actually running. The truth about the commit, and nothing else.

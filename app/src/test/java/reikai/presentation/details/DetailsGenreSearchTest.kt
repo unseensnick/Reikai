@@ -3,38 +3,22 @@ package reikai.presentation.details
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.stack.mutableStateStackOf
 import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.home.TabEvent
 import io.kotest.matchers.shouldBe
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.runs
-import io.mockk.unmockkObject
-import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
+import reikai.presentation.RecordingResultBus
+import reikai.presentation.browse.catalogue.BrowseSearchEvent
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
+import reikai.presentation.resultKey
 
 /** A genre tapped on a details page returns to its own source's catalogue, and never another's. */
 class DetailsGenreSearchTest {
 
     private val own = SourceKey.Manga(1L)
-
-    // HomeScreen's search channel has no buffer and nothing collects it here, so it is stubbed.
-    @BeforeEach
-    fun setUp() {
-        mockkObject(HomeScreen)
-        coEvery { HomeScreen.search(any(), any()) } just runs
-    }
-
-    @AfterEach
-    fun tearDown() {
-        unmockkObject(HomeScreen)
-    }
+    private val recorder = RecordingResultBus()
 
     @Test
     fun `the series' own catalogue is the target`() {
@@ -59,17 +43,47 @@ class DetailsGenreSearchTest {
     }
 
     @Test
-    fun `a library search walks back past a catalogue to the library and searches it`() = runTest {
+    fun `a library search walks back past a catalogue to the library and searches it`() {
         val stack = mutableStateStackOf(HomeScreen, EntryCatalogueScreen(own), mockk<Screen>(), minSize = 1)
-        stack.searchLibraryFromDetails("query", ContentType.NOVELS)
-        coVerify(exactly = 1) { HomeScreen.search("query", ContentType.NOVELS) }
+        stack.searchLibraryFromDetails(recorder.bus, "query", ContentType.NOVELS)
+
+        val search = TabEvent.Library(query = "query", contentType = ContentType.NOVELS)
+        (stack.lastItemOrNull to recorder.sent) shouldBe (HomeScreen to listOf(resultKey<TabEvent>() to search))
     }
 
     @Test
-    fun `a genre with no catalogue of its source behind it searches the library`() = runTest {
+    fun `a genre with no catalogue of its source behind it searches the library`() {
         val stack =
             mutableStateStackOf(HomeScreen, EntryCatalogueScreen(SourceKey.Manga(2L)), mockk<Screen>(), minSize = 1)
-        stack.searchGenreFromDetails("Action", own, ContentType.MANGA)
-        coVerify(exactly = 1) { HomeScreen.search("Action", ContentType.MANGA) }
+        stack.searchGenreFromDetails(recorder.bus, "Action", own, ContentType.MANGA)
+
+        recorder.sent shouldBe
+            listOf(resultKey<TabEvent>() to TabEvent.Library(query = "Action", contentType = ContentType.MANGA))
+    }
+
+    @Test
+    fun `a genre returns to its source's catalogue and searches it as a genre`() {
+        val catalogue = EntryCatalogueScreen(own)
+        val stack = mutableStateStackOf(HomeScreen, catalogue, mockk<Screen>(), minSize = 1)
+        stack.searchGenreFromDetails(recorder.bus, "Action", own, ContentType.MANGA)
+
+        (stack.lastItemOrNull to recorder.sent) shouldBe
+            (catalogue to listOf(resultKey<BrowseSearchEvent>() to BrowseSearchEvent("Action", genre = true)))
+    }
+
+    @Test
+    fun `a source with no filters searches the genre as text`() {
+        val stack = mutableStateStackOf(HomeScreen, EntryCatalogueScreen(own), mockk<Screen>(), minSize = 1)
+        stack.searchGenreFromDetails(recorder.bus, "Action", own, ContentType.MANGA, filterable = false)
+
+        recorder.sent shouldBe listOf(resultKey<BrowseSearchEvent>() to BrowseSearchEvent("Action", genre = false))
+    }
+
+    @Test
+    fun `nothing is sent when the library is not on the stack`() {
+        val stack = mutableStateStackOf(mockk<Screen>(), mockk<Screen>(), minSize = 1)
+        stack.searchLibraryFromDetails(recorder.bus, "query", ContentType.MANGA)
+
+        recorder.sent shouldBe emptyList()
     }
 }

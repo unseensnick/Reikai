@@ -74,6 +74,7 @@ import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import kotlin.random.Random
 
 /**
  * The shared migration list: one row per entry being migrated, with the batch commit at the bottom.
@@ -84,6 +85,8 @@ class EntryMigrationListScreen(
     private val entryIds: List<Long>,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
     private val extraQuery: String?,
+    /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. */
+    internal val flowId: Long = Random.nextLong(),
 ) : Screen(), MigrationFlowScreen {
 
     @Composable
@@ -117,7 +120,7 @@ class EntryMigrationListScreen(
             return
         }
 
-        EntryMigrationList(state = state, viewModel = viewModel)
+        EntryMigrationList(state = state, viewModel = viewModel, flowId = flowId)
     }
 }
 
@@ -129,15 +132,11 @@ class EntryMigrationListScreen(
 internal fun EntryMigrationList(
     state: EntryMigrationListViewModel.State,
     viewModel: EntryMigrationListViewModel,
+    flowId: Long,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     // One for the screen: a row's own would be cancelled as it scrolls away, and would not hold off a tap on another.
     val opener = rememberDetailsOpener()
-
-    // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
-    LaunchedEffect(state.isLoading) {
-        if (!state.isLoading) viewModel.collectPendingPick()
-    }
 
     PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
 
@@ -149,6 +148,9 @@ internal fun EntryMigrationList(
         LoadingScreen()
         return
     }
+
+    // A deep pick is made on a screen pushed over this one, so it arrives once the rows are back.
+    MigrationPickEffect(flowId, viewModel, viewModel::takePick)
 
     Scaffold(
         topBar = { scrollBehavior ->
@@ -205,6 +207,7 @@ internal fun EntryMigrationList(
                         busy = state.isBusy,
                         viewModel = viewModel,
                         opener = opener,
+                        flowId = flowId,
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -268,6 +271,7 @@ private fun MigrationRow(
     busy: Boolean,
     viewModel: EntryMigrationListViewModel,
     opener: DetailsOpener,
+    flowId: Long,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -332,7 +336,7 @@ private fun MigrationRow(
         // Gated on the rules, not on `expanded` alone: a row that can no longer take a target must
         // not keep a picker whose candidates are all dead taps.
         if (expanded && actions.canPick) {
-            OverridePicker(row = row, viewModel = viewModel, opener = opener)
+            OverridePicker(row = row, viewModel = viewModel, opener = opener, flowId = flowId)
         }
     }
 }
@@ -343,6 +347,7 @@ private fun OverridePicker(
     row: MigratingEntryRow,
     viewModel: EntryMigrationListViewModel,
     opener: DetailsOpener,
+    flowId: Long,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
@@ -383,7 +388,7 @@ private fun OverridePicker(
                         onPick = { viewModel.pick(row.entry.id, it) },
                         onPreview = { it.openDetails(opener) },
                         onBrowseSource = {
-                            if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
+                            if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query, flowId)) {
                                 context.toast(MR.strings.internal_error)
                             }
                         },

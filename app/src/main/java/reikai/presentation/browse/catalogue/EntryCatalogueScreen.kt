@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.navigation3.runtime.result.LocalResultEventBus
+import androidx.navigation3.runtime.result.ResultEffect
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -44,10 +46,6 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.follows.MangaDexFollowsScreen
 import exh.source.getMainSource
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.receiveAsFlow
-import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.FilterList
@@ -55,7 +53,6 @@ import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Verified
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.presentation.core.util.collectAsLazyPagingItems
-import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.local.LocalNovelSource
@@ -71,6 +68,8 @@ import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.source.preferencesScreen
 import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.local.LocalImportScreen
+import reikai.presentation.migrate.flow.MigrationPickFor
+import reikai.presentation.migrate.flow.sendMigrationPick
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
@@ -123,7 +122,7 @@ class EntryCatalogueScreen(
     /** Open on the source's Latest listing rather than Popular, for the Sources row's button. */
     private val startLatest: Boolean = false,
     /** Set when the screen was opened to choose what an entry migrates to. */
-    private val migrateForId: Long? = null,
+    internal val migrateFor: MigrationPickFor? = null,
     /** Open showing this saved search, for a feed row built on one. */
     private val savedSearchId: Long? = null,
 ) : Screen(), AssistContentScreen {
@@ -143,18 +142,13 @@ class EntryCatalogueScreen(
     @Composable
     private fun MangaCatalogue(sourceId: Long) {
         val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
         val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
             create(sourceId = sourceId, listingQuery = mangaListingQuery(startLatest, initialQuery))
         }
         val bulk = metroViewModel<BulkFavoriteViewModel>()
-        // The graph's app-scoped binding, so the pick lands in the same handoff the models read.
-        val pickHandoff = remember { context.appGraph.migrationPickHandoff }
+        val reportPick = rememberPickReport()
         val adapter = remember(viewModel, bulk) {
-            MangaBrowseAdapter(viewModel, bulk, migrateForId) { targetId ->
-                migrateForId?.let { pickHandoff.offer(EntryId.Manga(it), targetId) }
-                navigator.pop()
-            }
+            MangaBrowseAdapter(viewModel, bulk, migrateFor?.entry?.rawId, reportPick)
         }
         val modelState by viewModel.state.collectAsState()
         val source = modelState.source
@@ -203,14 +197,16 @@ class EntryCatalogueScreen(
             create(sourceId = sourceId, initialQuery = initialQuery.orEmpty(), startLatest = startLatest)
         }
         val bulk = metroViewModel<NovelBulkFavoriteViewModel>()
+        val reportPick = rememberPickReport()
         val adapter = remember(viewModel, bulk) {
             NovelBrowseAdapter(
                 viewModel,
                 bulk,
                 sourceId,
-                migrateForId,
+                migrateFor?.entry?.rawId,
                 onPickUnavailable = { context.toast(MR.strings.migrationFlow_pickUnavailable) },
-            ) { navigator.pop() }
+                onMigrationPicked = reportPick,
+            )
         }
         val modelState by viewModel.state.collectAsState()
         val source = modelState.source
@@ -301,13 +297,9 @@ class EntryCatalogueScreen(
             behavior.applySearch(search.query, search.filtersJson)
         }
 
-        LaunchedEffect(Unit) {
-            queryEvent.receiveAsFlow().collectLatest {
-                when (it) {
-                    is SearchType.Text -> behavior.search(it.txt)
-                    is SearchType.Genre -> behavior.searchGenre(it.txt)
-                }
-            }
+        // A search sent from a details page this screen sits under; see searchGenreFromDetails.
+        ResultEffect<BrowseSearchEvent> {
+            if (it.genre) behavior.searchGenre(it.query) else behavior.search(it.query)
         }
 
         val loaded = state as? EntryBrowseScreenState.Loaded
@@ -580,20 +572,22 @@ class EntryCatalogueScreen(
         }
     }
 
-    /** Search the catalogue this screen sits under, from the details page it opened. */
-    suspend fun search(query: String) = queryEvent.send(SearchType.Text(query))
-
-    suspend fun searchGenre(name: String) = queryEvent.send(SearchType.Genre(name))
-
-    companion object {
-        private val queryEvent = Channel<SearchType>()
-    }
-
-    private sealed class SearchType(val txt: String) {
-        class Text(txt: String) : SearchType(txt)
-        class Genre(txt: String) : SearchType(txt)
+    /** A pick made here, sent to the migration screen that opened this one, which is then shown again. */
+    @Composable
+    private fun rememberPickReport(): (targetId: Long) -> Unit {
+        val navigator = LocalNavigator.currentOrThrow
+        val bus = LocalResultEventBus.current
+        return remember(navigator, bus) {
+            { targetId ->
+                migrateFor?.let { bus.sendMigrationPick(it, targetId) }
+                navigator.pop()
+            }
+        }
     }
 }
+
+/** Search the catalogue as text, or as a genre matched to its filters when [genre]. Upstream's shape. */
+data class BrowseSearchEvent(val query: String, val genre: Boolean = false)
 
 /** The two saved-search dialogs the catalogue raises itself, neither of which any model owns. */
 private sealed interface SavedSearchDialog {

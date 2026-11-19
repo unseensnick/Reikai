@@ -55,6 +55,8 @@ import androidx.interpolator.view.animation.LinearOutSlowInInterpolator
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation3.runtime.result.LocalResultEventBus
+import androidx.navigation3.runtime.result.ResultEventBus
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.NavigatorDisposeBehavior
@@ -77,6 +79,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.home.TabEvent
 import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
@@ -106,6 +109,7 @@ import mihon.domain.database.repository.DatabaseRepository
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import reikai.data.task.AppTaskProgress
 import reikai.data.task.banner
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
@@ -119,9 +123,9 @@ import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.details.novelDetailsScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
-import reikai.presentation.local.ImportHandOff
-import reikai.presentation.local.LocalImportScreen
+import reikai.presentation.local.importFiles
 import reikai.presentation.local.importedFiles
+import reikai.presentation.navigation.retainAppResultEventBus
 import reikai.util.isHandedOver
 import reikai.util.isLauncherIntent
 import reikai.util.toOwnTask
@@ -166,8 +170,6 @@ class MainActivity : BaseActivity() {
 
     // RK: a novel shortcut opens only a novel saved here
     @Inject private lateinit var novelRepository: NovelRepository
-
-    @Inject private lateinit var importHandOff: ImportHandOff // RK
 
     @Inject private lateinit var chapterCache: ChapterCache
 
@@ -273,6 +275,8 @@ class MainActivity : BaseActivity() {
             }
 
             val shownContent by reikaiLibraryPreferences.shownContent.collectAsState() // RK
+            // RK: retained rather than remembered, so a result sent just before a rotation still arrives
+            val resultEventBus = retainAppResultEventBus()
 
             Navigator(
                 screen = HomeScreen,
@@ -283,7 +287,7 @@ class MainActivity : BaseActivity() {
 
                     if (isLaunch) {
                         // Set start screen
-                        handleIntentAction(intent, navigator)
+                        handleIntentAction(intent, navigator, resultEventBus) // RK
 
                         // Reset Incognito Mode on relaunch
                         preferences.incognitoMode.set(false)
@@ -311,8 +315,11 @@ class MainActivity : BaseActivity() {
                 ) { contentPadding ->
                     // Consume insets already used by app state banners
                     Box {
-                        // RK: the Show setting, for the chips and type labels on every screen
-                        CompositionLocalProvider(LocalShownContent provides shownContent) {
+                        // RK: the Show setting, for the chips and type labels on every screen, and the result bus
+                        CompositionLocalProvider(
+                            LocalShownContent provides shownContent,
+                            LocalResultEventBus provides resultEventBus,
+                        ) {
                             // Shows current screen
                             DefaultNavigatorScreenTransition(
                                 navigator = navigator,
@@ -350,7 +357,7 @@ class MainActivity : BaseActivity() {
                         .launchIn(this)
                 }
 
-                HandleOnNewIntent(context = context, navigator = navigator)
+                HandleOnNewIntent(context = context, navigator = navigator, resultEventBus = resultEventBus) // RK
 
                 if (!isBenchmarkBuildType) {
                     if (isLaunch) CheckForUpdates()
@@ -402,7 +409,7 @@ class MainActivity : BaseActivity() {
     }
 
     @Composable
-    private fun HandleOnNewIntent(context: Context, navigator: Navigator) {
+    private fun HandleOnNewIntent(context: Context, navigator: Navigator, resultEventBus: ResultEventBus) { // RK
         LaunchedEffect(Unit) {
             callbackFlow {
                 val componentActivity = context as ComponentActivity
@@ -410,7 +417,7 @@ class MainActivity : BaseActivity() {
                 componentActivity.addOnNewIntentListener(consumer)
                 awaitClose { componentActivity.removeOnNewIntentListener(consumer) }
             }
-                .collectLatest { handleIntentAction(it, navigator) }
+                .collectLatest { handleIntentAction(it, navigator, resultEventBus) } // RK
         }
     }
 
@@ -522,7 +529,11 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    private fun handleIntentAction(intent: Intent, navigator: Navigator): Boolean {
+    private fun handleIntentAction(
+        intent: Intent,
+        navigator: Navigator,
+        resultEventBus: ResultEventBus, // RK
+    ): Boolean {
         val notificationId = intent.getIntExtra("notificationId", -1)
         if (notificationId > -1) {
             NotificationReceiver.dismissNotification(
@@ -537,24 +548,18 @@ class MainActivity : BaseActivity() {
         // the picks of one already open rather than replacing it
         val imported = importedFiles(intent, contentResolver)
         if (imported.isNotEmpty()) {
-            if (navigator.items.any { it is LocalImportScreen }) {
-                navigator.popUntil { it is LocalImportScreen }
-                importHandOff.send(imported)
-            } else {
-                navigator.popUntilRoot()
-                navigator.push(LocalImportScreen(imported.map { it.toString() }))
-            }
+            navigator.importFiles(imported, resultEventBus)
             ready = true
             return true
         }
         // RK <--
 
         val tabToOpen = when (intent.action) {
-            Constants.SHORTCUT_LIBRARY -> HomeScreen.Tab.Library()
+            Constants.SHORTCUT_LIBRARY -> TabEvent.Library()
             Constants.SHORTCUT_MANGA -> {
                 val idToOpen = intent.extras?.getLong(Constants.MANGA_EXTRA) ?: return false
                 navigator.popUntilRoot()
-                HomeScreen.Tab.Library(idToOpen)
+                TabEvent.Library(EntryId.Manga(idToOpen)) // RK
             }
             // RK: open a novel's details, as built by novelDetailsIntent (or an older build's, read only)
             Constants.SHORTCUT_NOVEL -> {
@@ -576,13 +581,13 @@ class MainActivity : BaseActivity() {
                 navigator.push(UpdateErrorsScreen(contentType))
                 null
             }
-            Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Updates
-            Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
-            Constants.SHORTCUT_SOURCES -> HomeScreen.Tab.Browse(false)
-            Constants.SHORTCUT_EXTENSIONS -> HomeScreen.Tab.Browse(true)
+            Constants.SHORTCUT_UPDATES -> TabEvent.Updates
+            Constants.SHORTCUT_HISTORY -> TabEvent.History
+            Constants.SHORTCUT_SOURCES -> TabEvent.Browse(false)
+            Constants.SHORTCUT_EXTENSIONS -> TabEvent.Browse(true)
             Constants.SHORTCUT_DOWNLOADS -> {
                 navigator.popUntilRoot()
-                HomeScreen.Tab.More(toDownloads = true)
+                TabEvent.More(toDownloads = true)
             }
             Intent.ACTION_APPLICATION_PREFERENCES -> {
                 navigator.popUntilRoot()
@@ -638,7 +643,7 @@ class MainActivity : BaseActivity() {
         }
 
         if (tabToOpen != null) {
-            lifecycleScope.launch { HomeScreen.openTab(tabToOpen) }
+            resultEventBus.sendResult<TabEvent>(tabToOpen) // RK
         }
 
         ready = true

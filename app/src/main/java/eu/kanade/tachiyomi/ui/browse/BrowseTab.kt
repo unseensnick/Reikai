@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.result.ResultEffect
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
@@ -16,10 +17,6 @@ import eu.kanade.presentation.util.rememberAnimatedVectorPainter
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
 import reikai.presentation.browse.feed.reikaiFeedTab
@@ -49,11 +46,7 @@ data object BrowseTab : Tab {
         navigator.push(EntryGlobalSearchScreen()) // RK: the shared manga + novel global search
     }
 
-    private val switchToExtensionTabChannel = Channel<Unit>(1, BufferOverflow.DROP_OLDEST)
-
-    fun showExtension() {
-        switchToExtensionTabChannel.trySend(Unit)
-    }
+    // RK: the switch to Extensions is BrowseShowExtensionsEvent on the result bus, upstream's event
 
     @Composable
     override fun Content() {
@@ -99,13 +92,12 @@ data object BrowseTab : Tab {
         // RK: derived, not the literal 1 upstream uses: the Feed tab can sit ahead of Extensions,
         //     and can be turned off again, so the index moves under this at runtime.
         val extensionsPage = tabs.indexOfFirst { it.titleRes == MR.strings.label_extensions }
-        LaunchedEffect(extensionsPage) {
-            switchToExtensionTabChannel.receiveAsFlow()
-                .collectLatest { state.scrollToPage(extensionsPage) }
-        }
+        ResultEffect<BrowseShowExtensionsEvent> { state.scrollToPage(extensionsPage) } // RK
 
         LaunchedEffect(Unit) {
             (context as? MainActivity)?.ready = true
         }
     }
 }
+
+data object BrowseShowExtensionsEvent // RK

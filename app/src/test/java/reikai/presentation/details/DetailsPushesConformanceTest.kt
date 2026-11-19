@@ -4,31 +4,23 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.stack.Stack
 import cafe.adriel.voyager.core.stack.mutableStateStackOf
 import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.home.TabEvent
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.runs
-import io.mockk.unmockkObject
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
+import reikai.presentation.RecordingResultBus
+import reikai.presentation.browse.catalogue.BrowseSearchEvent
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
+import reikai.presentation.resultKey
 
 /** The details page's neutral pushes land on the same destination for a manga and a novel. */
 class DetailsPushesConformanceTest {
@@ -38,17 +30,7 @@ class DetailsPushesConformanceTest {
         override fun toString() = anchor.contentType.name
     }
 
-    // HomeScreen's search channel has no buffer and nothing collects it here, so it is stubbed.
-    @BeforeEach
-    fun setUp() {
-        mockkObject(HomeScreen)
-        coEvery { HomeScreen.search(any(), any()) } just runs
-    }
-
-    @AfterEach
-    fun tearDown() {
-        unmockkObject(HomeScreen)
-    }
+    private val recorder = RecordingResultBus()
 
     @ParameterizedTest
     @MethodSource("cases")
@@ -63,23 +45,19 @@ class DetailsPushesConformanceTest {
     @MethodSource("cases")
     fun `a library search searches the library for the entry's type`(case: Case) = pushes(case) { nav, _ ->
         nav.onLibrarySearch("query")
-        advanceUntilIdle()
 
-        coVerify(exactly = 1) { HomeScreen.search("query", case.anchor.contentType) }
+        recorder.sent shouldBe listOf(resultKey<TabEvent>() to librarySearch("query", case))
     }
 
     @ParameterizedTest
     @MethodSource("cases")
     fun `a genre returns to the viewed source's catalogue`(case: Case) {
-        val catalogue = mockk<EntryCatalogueScreen> {
-            every { sourceKey } returns case.source
-            coEvery { searchGenre(any()) } just runs
-        }
-        pushes(case, catalogue) { nav, _ ->
+        val catalogue = EntryCatalogueScreen(case.source)
+        pushes(case, catalogue) { nav, stack ->
             nav.onTagSearch("Action")
-            advanceUntilIdle()
 
-            coVerify(exactly = 1) { catalogue.searchGenre("Action") }
+            (stack.lastItemOrNull to recorder.sent) shouldBe
+                (catalogue to listOf(resultKey<BrowseSearchEvent>() to BrowseSearchEvent("Action", genre = true)))
         }
     }
 
@@ -88,9 +66,8 @@ class DetailsPushesConformanceTest {
     fun `a genre with no catalogue behind it searches the library for the entry's type`(case: Case) =
         pushes(case) { nav, _ ->
             nav.onTagSearch("Action")
-            advanceUntilIdle()
 
-            coVerify(exactly = 1) { HomeScreen.search("Action", case.anchor.contentType) }
+            recorder.sent shouldBe listOf(resultKey<TabEvent>() to librarySearch("Action", case))
         }
 
     @ParameterizedTest
@@ -141,17 +118,24 @@ class DetailsPushesConformanceTest {
         case: Case,
         vararg below: Screen,
         browsable: Boolean = true,
-        test: suspend TestScope.(SharedDetailsPushes, Stack<Screen>) -> Unit,
-    ) = runTest {
+        test: (SharedDetailsPushes, Stack<Screen>) -> Unit,
+    ) {
         val stack = mutableStateStackOf(HomeScreen, *below, mockk<Screen>(), minSize = 1)
         val nav = EntryDetailsNavigation(
             navigateUp = {},
             onOpenChapter = {},
             viewedSource = DetailsViewedSource(case.source, browsable = browsable),
             onOpenFilterSettings = {},
-        ).withSharedPushes(loadedDetails().copy(entryId = case.anchor, viewedEntryId = case.viewed), stack, this)
+        ).withSharedPushes(
+            loadedDetails().copy(entryId = case.anchor, viewedEntryId = case.viewed),
+            stack,
+            recorder.bus,
+        )
         test(nav, stack)
     }
+
+    private fun librarySearch(query: String, case: Case) =
+        TabEvent.Library(query = query, contentType = case.anchor.contentType)
 
     companion object {
         @JvmStatic

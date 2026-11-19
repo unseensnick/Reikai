@@ -51,6 +51,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.result.ResultEffect
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
@@ -101,6 +102,7 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
             viewModel.add(uris)
         }
         val pick = { picker.launch(LocalImport.MIME_TYPES) }
+        ResultEffect<ImportFilesEvent> { viewModel.add(it.uris) }
         var renaming by remember { mutableStateOf<ImportGroup?>(null) }
         var adding by remember { mutableStateOf<ImportGroup?>(null) }
 

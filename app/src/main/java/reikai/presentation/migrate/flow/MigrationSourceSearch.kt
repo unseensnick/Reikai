@@ -132,17 +132,15 @@ sealed interface PendingPick {
 }
 
 /**
- * Take the deep pick waiting for [entryId] and read it back into a candidate, or say why it cannot
- * be applied. Null when there is no pick for this entry.
+ * Read a deep [pick] back into a candidate for [entryId], or say why it cannot be applied. Null when
+ * the pick is for another entry.
  *
- * Both screens that collect a pick can fail the same two ways, and the handoff clears on read, so a
+ * Both screens that collect a pick can fail the same two ways, and a pick is taken as it arrives, so a
  * failure that returns quietly leaves the user staring at an unchanged screen.
  */
-suspend fun MigrationFlowAdapter.takePendingPick(
-    handoff: MigrationPickHandoff,
-    entryId: EntryId,
-): PendingPick? {
-    val targetRawId = handoff.take(entryId) ?: return null
+suspend fun MigrationFlowAdapter.takePendingPick(pick: MigrationPick, entryId: EntryId): PendingPick? {
+    if (pick.entry != entryId) return null
+    val targetRawId = pick.targetRawId
     // An entry is never its own target: the engines refuse one at commit, so it is turned away here,
     // where the user can still be told why.
     if (targetRawId == entryId.rawId) return PendingPick.Rejected(PickOutcome.SameEntry)

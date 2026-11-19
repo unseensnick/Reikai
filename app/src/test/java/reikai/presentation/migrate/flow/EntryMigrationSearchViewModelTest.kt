@@ -36,11 +36,9 @@ class EntryMigrationSearchViewModelTest {
     private fun model(
         adapter: FakeMigrationFlowAdapter = FakeMigrationFlowAdapter(listOf(migrationEntry(1))),
         extraQuery: String? = null,
-        pickHandoff: MigrationPickHandoff = MigrationPickHandoff(),
     ) = EntryMigrationSearchViewModel(
         entryId = 1L,
         adapter = adapter,
-        pickHandoff = pickHandoff,
         sourcePreferences = sourcePreferences,
         extraQuery = extraQuery,
         io = dispatcher,
@@ -176,19 +174,40 @@ class EntryMigrationSearchViewModelTest {
 
     @Test
     fun `a browsed pick with no chapters is refused before the dialog`() = runTest(dispatcher.scheduler) {
-        val handoff = MigrationPickHandoff().apply { offer(EntryId.Manga(1), targetRawId = 9L) }
         val adapter = FakeMigrationFlowAdapter(
             listOf(migrationEntry(1)),
             suggestionLatestChapter = null,
             storedIds = setOf(9L),
         )
-        val model = model(adapter, pickHandoff = handoff)
+        val model = model(adapter)
         advanceUntilIdle()
 
-        model.collectPendingPick()
+        model.takePick(MigrationPick(EntryId.Manga(1), targetRawId = 9L))
         advanceUntilIdle()
 
         model.state.value.let { it.dialogTarget to it.pickOutcome } shouldBe (null to PickOutcome.NoChapters)
+    }
+
+    @Test
+    fun `a browsed pick delivered twice is taken once`() = runTest(dispatcher.scheduler) {
+        var resolves = 0
+        val adapter = FakeMigrationFlowAdapter(
+            listOf(migrationEntry(1)),
+            storedIds = setOf(9L),
+            onResolve = {
+                resolves++
+                ResolvedTarget(it, syncedNow = true)
+            },
+        )
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        model.takePick(pick)
+        model.takePick(pick)
+        advanceUntilIdle()
+
+        resolves shouldBe 1
     }
 
     @Test

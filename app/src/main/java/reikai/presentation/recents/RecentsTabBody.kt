@@ -8,9 +8,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.result.LocalResultEventBus
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
-import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.home.ShowBottomNavEvent
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.coroutines.flow.collectLatest
 import reikai.presentation.history.NovelHistoryViewModel
@@ -40,8 +41,9 @@ internal fun Screen.RecentsTabBody(
     )
 
     val selectionEmpty = engine.selection.collectAsState().value.isEmpty()
+    val bus = LocalResultEventBus.current
     LaunchedEffect(selectionEmpty) {
-        HomeScreen.showBottomNav(selectionEmpty)
+        bus.sendResult(ShowBottomNavEvent(selectionEmpty))
     }
 
     val loaded = engine.rendered.collectAsStateWithLifecycle().value?.loading == false

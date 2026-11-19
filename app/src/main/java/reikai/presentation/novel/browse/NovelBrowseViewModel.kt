@@ -30,7 +30,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
 import mihon.core.metro.AppCoroutineScope
-import reikai.domain.entry.EntryId
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
@@ -48,7 +47,6 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.catalogue.BrowseColumns
 import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
-import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -74,7 +72,6 @@ class NovelBrowseViewModel(
     private val novelRepository: NovelRepository,
     private val libraryAdder: NovelLibraryAdder,
     // Where a migration-target pick is left for the screen that asked for it.
-    private val pickHandoff: MigrationPickHandoff,
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
     private val sourcePreferences: SourcePreferences,
     private val getIncognitoState: GetIncognitoState,
@@ -277,22 +274,21 @@ class NovelBrowseViewModel(
     val addFlow = NovelAddFlow(libraryAdder, viewModelScope, appScope)
 
     /**
-     * Report [item] back as the migration target for the novel with id [entryRawId], then run
-     * [onPicked] (which pops back to the migration screen waiting for it).
+     * Store [item] as a migration target and hand its row id to [onPicked], which reports it back to
+     * the migration screen waiting for it and pops.
      *
      * The row is stored first, unfavorited, because a migration target has to be something the
      * library can point at; the migrate step does the rest. A row that cannot be stored runs
      * [onUnavailable] instead and stays here, so the reader can pick another result.
      */
-    fun pickAsMigrationTarget(item: NovelItem, entryRawId: Long, onPicked: () -> Unit, onUnavailable: () -> Unit) {
+    fun pickAsMigrationTarget(item: NovelItem, onPicked: (targetRawId: Long) -> Unit, onUnavailable: () -> Unit) {
         viewModelScope.launchIO {
             val stored = libraryAdder.materialize(item, sourceId)
             if (stored == null) {
                 withUIContext { onUnavailable() }
                 return@launchIO
             }
-            pickHandoff.offer(EntryId.Novel(entryRawId), stored.id)
-            withUIContext { onPicked() }
+            withUIContext { onPicked(stored.id) }
         }
     }
 

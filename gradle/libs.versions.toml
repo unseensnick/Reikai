@@ -17,6 +17,7 @@ androidx-interpolator = "1.0.0"
 androidx-lifecycle = "2.11.0"
 androidx-media = "1.7.0"
 androidx-navigationEvent = "1.2.0"
+androidx-navigation3 = "1.2.1" # RK: the result bus, ahead of the navigation sync
 androidx-paging = "3.5.3"
 androidx-palette = "1.0.0"
 androidx-preference = "1.2.1"
@@ -104,6 +105,7 @@ androidx-compose-material3NavSuite = { module = "androidx.compose.material3:mate
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-runtime = { module = "androidx.compose.runtime:runtime" }
 androidx-compose-runtimeAnnotation = { module = "androidx.compose.runtime:runtime-annotation" }
+androidx-compose-runtimeRetain = { module = "androidx.compose.runtime:runtime-retain" } # RK: retain, for the result bus
 androidx-compose-uiTooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-uiToolingPreview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-uiUtil = { module = "androidx.compose.ui:ui-util" }
@@ -122,6 +124,7 @@ androidx-lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmode
 androidx-lifecycle-viewmodelCompose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
 androidx-media = { module = "androidx.media:media", version.ref = "androidx-media" }
 androidx-navigationEvent = { module = "androidx.navigationevent:navigationevent", version.ref = "androidx-navigationEvent" }
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "androidx-navigation3" } # RK
 androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "androidx-paging" }
 androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "androidx-paging" }
 androidx-palette = { module = "androidx.palette:palette-ktx", version.ref = "androidx-palette" }

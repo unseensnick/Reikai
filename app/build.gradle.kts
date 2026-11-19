@@ -315,6 +315,9 @@ dependencies {
     implementation(libs.androidx.profileInstaller)
 
     implementation(libs.bundles.androidx.lifecycle)
+    // RK: the result bus only, ahead of the navigation library itself
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.compose.runtimeRetain)
 
     // Job scheduling
     implementation(libs.androidx.work)

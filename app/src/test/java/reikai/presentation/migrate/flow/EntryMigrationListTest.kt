@@ -37,7 +37,6 @@ class EntryMigrationListTest {
     private val model = EntryMigrationListViewModel(
         entryIds = entries.map { it.id.rawId },
         adapter = FakeMigrationFlowAdapter(entries),
-        pickHandoff = MigrationPickHandoff(),
         io = Dispatchers.Unconfined,
     )
 
@@ -87,7 +86,7 @@ class EntryMigrationListTest {
         @Composable
         override fun Content() {
             val state by model.state.collectAsState()
-            EntryMigrationList(state = state, viewModel = model)
+            EntryMigrationList(state = state, viewModel = model, flowId = 1L)
         }
     }
 }

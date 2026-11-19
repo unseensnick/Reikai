@@ -37,7 +37,8 @@ class NovelBrowseAdapter(
     private val sourceId: String,
     migrateForId: Long? = null,
     private val onPickUnavailable: () -> Unit = {},
-    private val onMigrationPicked: () -> Unit = {},
+    /** Report the picked target's stored row back, which the screen sends to the asking flow and pops. */
+    private val onMigrationPicked: (targetId: Long) -> Unit = {},
 ) : EntryBrowseBehavior {
 
     private val savedSearchFilters = NovelSavedSearchFilters()
@@ -47,10 +48,9 @@ class NovelBrowseAdapter(
             MigrationPickCapability(id) { row, onPicked ->
                 model.pickAsMigrationTarget(
                     row.item,
-                    id,
-                    onPicked = {
+                    onPicked = { targetId ->
                         onPicked()
-                        onMigrationPicked()
+                        onMigrationPicked(targetId)
                     },
                     onUnavailable = onPickUnavailable,
                 )

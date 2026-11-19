@@ -1,11 +1,10 @@
 package reikai.presentation.details
 
+import androidx.navigation3.runtime.result.ResultEventBus
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.stack.Stack
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
@@ -59,14 +58,14 @@ internal data class DetailsPageNav(
 internal fun EntryDetailsNavigation.withSharedPushes(
     state: EntryDetailsScreenState.Loaded,
     stack: Stack<Screen>,
-    scope: CoroutineScope,
+    bus: ResultEventBus,
 ): SharedDetailsPushes {
     val type = state.entryId.contentType
     return SharedDetailsPushes(
         onGlobalSearch = { stack.push(EntryGlobalSearchScreen(it, scopedContentType = type)) },
-        onLibrarySearch = { scope.launch { stack.searchLibraryFromDetails(it, type) } },
+        onLibrarySearch = { stack.searchLibraryFromDetails(bus, it, type) },
         onTagSearch = { genre ->
-            scope.launch { stack.searchGenreFromDetails(genre, viewedSource.key, type, viewedSource.filterable) }
+            stack.searchGenreFromDetails(bus, genre, viewedSource.key, type, viewedSource.filterable)
         },
         onBrowseSource = { stack.push(EntryCatalogueScreen(viewedSource.key)) }.takeIf { viewedSource.browsable },
         onOpenTrackingSettings = { stack.push(SettingsScreen(SettingsScreen.Destination.Tracking)) },

@@ -48,7 +48,6 @@ class EntryMigrationListViewModelTest {
         EntryMigrationListViewModel(
             entryIds = entries.map { it.id.rawId },
             adapter = FakeMigrationFlowAdapter(entries, failFor, blockOn),
-            pickHandoff = MigrationPickHandoff(),
             extraQuery = extraQuery,
             io = dispatcher,
         )
@@ -71,7 +70,6 @@ class EntryMigrationListViewModelTest {
         EntryMigrationListViewModel(
             entryIds = listOf(1L),
             adapter = adapter,
-            pickHandoff = MigrationPickHandoff(),
             extraQuery = "vol 2",
             io = dispatcher,
         )
@@ -91,7 +89,6 @@ class EntryMigrationListViewModelTest {
         EntryMigrationListViewModel(
             entryIds = listOf(1L),
             adapter = adapter,
-            pickHandoff = MigrationPickHandoff(),
             extraQuery = null,
             io = dispatcher,
         )
@@ -131,7 +128,6 @@ class EntryMigrationListViewModelTest {
             val model = EntryMigrationListViewModel(
                 entryIds = listOf(1L),
                 adapter = adapter,
-                pickHandoff = MigrationPickHandoff(),
                 io = dispatcher,
             )
             advanceUntilIdle()
@@ -153,7 +149,6 @@ class EntryMigrationListViewModelTest {
         val model = EntryMigrationListViewModel(
             entryIds = listOf(1L),
             adapter = adapter,
-            pickHandoff = MigrationPickHandoff(),
             io = dispatcher,
         )
         advanceUntilIdle()
@@ -165,12 +160,36 @@ class EntryMigrationListViewModelTest {
     }
 
     @Test
+    fun `a browsed pick delivered twice is taken once`() = runTest(dispatcher.scheduler) {
+        var resolves = 0
+        val model = EntryMigrationListViewModel(
+            entryIds = listOf(1L),
+            adapter = FakeMigrationFlowAdapter(
+                listOf(entry(1)),
+                storedIds = setOf(9L),
+                onResolve = {
+                    resolves++
+                    ResolvedTarget(it, syncedNow = true)
+                },
+            ),
+            io = dispatcher,
+        )
+        advanceUntilIdle()
+
+        val pick = MigrationPick(EntryId.Manga(1), targetRawId = 9L)
+        model.takePick(pick)
+        model.takePick(pick)
+        advanceUntilIdle()
+
+        resolves shouldBe 1
+    }
+
+    @Test
     fun `a manual search on a row sends the extra query with it`() = runTest(dispatcher.scheduler) {
         val adapter = FakeMigrationFlowAdapter(listOf(entry(1)))
         val model = EntryMigrationListViewModel(
             entryIds = listOf(1L),
             adapter = adapter,
-            pickHandoff = MigrationPickHandoff(),
             extraQuery = "vol 2",
             io = dispatcher,
         )
@@ -195,7 +214,6 @@ class EntryMigrationListViewModelTest {
                     matchless = setOf(EntryId.Manga(2)),
                     tuning = MigrationTuning(hideUnmatched = true),
                 ),
-                pickHandoff = MigrationPickHandoff(),
                 io = dispatcher,
             )
             advanceUntilIdle()
@@ -222,7 +240,6 @@ class EntryMigrationListViewModelTest {
                     // The entry itself is at 1.0, so the target is not ahead of it.
                     peekLatestChapter = 1.0,
                 ),
-                pickHandoff = MigrationPickHandoff(),
                 io = dispatcher,
             )
 
@@ -463,7 +480,6 @@ class EntryMigrationListViewModelTest {
         val model = EntryMigrationListViewModel(
             entryIds = entries.map { it.id.rawId },
             adapter = adapter,
-            pickHandoff = MigrationPickHandoff(),
             io = dispatcher,
         )
         advanceUntilIdle()

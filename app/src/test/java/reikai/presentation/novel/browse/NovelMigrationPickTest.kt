@@ -16,11 +16,10 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import reikai.domain.entry.EntryId
 import reikai.domain.novel.FavoritedNovels
+import reikai.domain.novel.model.Novel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
-import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -33,8 +32,6 @@ class NovelMigrationPickTest {
 
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
-
-    private val handoff = MigrationPickHandoff()
 
     @Test
     fun `a pick that cannot be stored is reported`() = runTest {
@@ -55,22 +52,24 @@ class NovelMigrationPickTest {
     }
 
     @Test
-    fun `a pick that cannot be stored hands nothing to the migration screen`() = runTest {
-        pick(onPicked = {}, onUnavailable = {})
+    fun `a stored pick reports the row it was stored as`() = runTest {
+        var picked: Long? = null
 
-        handoff.take(EntryId.Novel(ENTRY_ID)) shouldBe null
+        pick(onPicked = { picked = it }, onUnavailable = {}, stored = mockk { every { id } returns STORED_ID })
+
+        picked shouldBe STORED_ID
     }
 
     /** Picks, then waits for the pick's own work only: the model also runs collectors that never end. */
-    private suspend fun pick(onPicked: () -> Unit, onUnavailable: () -> Unit) {
-        val model = model()
+    private suspend fun pick(onPicked: (Long) -> Unit, onUnavailable: () -> Unit, stored: Novel? = null) {
+        val model = model(stored)
         val scope = model.viewModelScope.coroutineContext.job
         val running = scope.children.toSet()
-        model.pickAsMigrationTarget(ITEM, ENTRY_ID, onPicked, onUnavailable)
+        model.pickAsMigrationTarget(ITEM, onPicked, onUnavailable)
         (scope.children.toSet() - running).forEach { it.join() }
     }
 
-    private fun model(): NovelBrowseViewModel {
+    private fun model(stored: Novel?): NovelBrowseViewModel {
         val store = EmittingPreferenceStore()
         return NovelBrowseViewModel(
             appScope = testAppScope(),
@@ -82,8 +81,7 @@ class NovelMigrationPickTest {
             novelRepository = mockk(relaxed = true) {
                 every { getFavoritedKeysAsFlow() } returns flowOf(FavoritedNovels.None)
             },
-            libraryAdder = mockk(relaxed = true) { coEvery { materialize(any(), any()) } returns null },
-            pickHandoff = handoff,
+            libraryAdder = mockk(relaxed = true) { coEvery { materialize(any(), any()) } returns stored },
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
             sourcePreferences = SourcePreferences(store),
             getIncognitoState = mockk(relaxed = true),
@@ -93,7 +91,7 @@ class NovelMigrationPickTest {
 
     private companion object {
         const val SOURCE_ID = "src"
-        const val ENTRY_ID = 7L
+        const val STORED_ID = 7L
         val ITEM = NovelItem(name = "a novel", path = "/a-novel", cover = null)
     }
 }

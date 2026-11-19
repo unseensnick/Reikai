@@ -51,7 +51,6 @@ import reikai.presentation.details.VolumePicking
 import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.migrate.flow.MigrationAdapters
-import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.recents.MangaRecentsAdapter
@@ -128,7 +127,6 @@ interface ReikaiGraph {
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager
     val novelFontManager: NovelFontManager
-    val migrationPickHandoff: MigrationPickHandoff
     val unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager // the receiver reports widgets placed
 
     // The two details adapters build their cover model for whichever entry the source chip is showing,

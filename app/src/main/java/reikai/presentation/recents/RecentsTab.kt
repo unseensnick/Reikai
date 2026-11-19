@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation3.runtime.result.ResultEffect
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -16,7 +17,6 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -35,17 +35,6 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
     private val snackbarHostState = SnackbarHostState()
 
     private val reselectEvent = Channel<Unit>()
-
-    /**
-     * Buffered, so a launcher shortcut can name a mode before this tab has ever been composed: the
-     * value waits for the first collector instead of being dropped, and a newer one replaces it.
-     */
-    private val showModeEvent = Channel<RecentsMode>(1, BufferOverflow.DROP_OLDEST)
-
-    /** Opens this tab on [mode], for the Updates and History shortcuts while this tab replaces both. */
-    fun showMode(mode: RecentsMode) {
-        showModeEvent.trySend(mode)
-    }
 
     override val options: TabOptions
         @Composable
@@ -94,9 +83,7 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
 
         HistoryFeedErrors(mangaHistory, novelHistory, snackbarHostState)
 
-        LaunchedEffect(Unit) {
-            showModeEvent.receiveAsFlow().collectLatest(engine::setMode)
-        }
+        ResultEffect<RecentsModeEvent> { engine.setMode(it.mode) }
 
         LaunchedEffect(Unit) {
             reselectEvent.receiveAsFlow().collectLatest {
@@ -111,3 +98,9 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
         }
     }
 }
+
+/**
+ * Opens the combined tab on [mode], for the Updates and History shortcuts while it replaces both. The bus
+ * buffers it, so a shortcut can name a mode before the tab has ever been composed.
+ */
+data class RecentsModeEvent(val mode: RecentsMode)

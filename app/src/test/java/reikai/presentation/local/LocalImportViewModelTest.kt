@@ -60,7 +60,6 @@ class LocalImportViewModelTest {
         novelAdder = mockk<NovelLibraryAdder>(),
         mangaAdder = mangaAdder,
         appScope = testAppScope(),
-        handOff = ImportHandOff(),
     )
 
     @BeforeEach
@@ -117,21 +116,12 @@ class LocalImportViewModelTest {
     }
 
     @Test
-    fun `files handed over while the screen is open join its picks`() = runTest {
-        val handOff = ImportHandOff()
-        val model = LocalImportViewModel(
-            initialUris = emptyList(),
-            localImport = localImport,
-            combineLocalVolumes = mockk(),
-            novelAdder = mockk(),
-            mangaAdder = mangaAdder,
-            appScope = testAppScope(),
-            handOff = handOff,
-        )
+    fun `files added while the screen is open join its picks`() = runTest {
+        val model = model()
         model.add(listOf(first))
         model.state.first { !it.isReading }
 
-        handOff.send(listOf(second))
+        model.add(listOf(second))
         val after = model.state.first { it.groups.size == 2 }
         model.viewModelScope.cancel()
 

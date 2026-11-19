@@ -13,7 +13,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,7 +56,9 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.random.Random
 
 /**
  * Migrating a single entry: search the chosen sources and pick the target directly.
@@ -71,6 +72,8 @@ class EntryMigrationSearchScreen(
     private val entryId: Long,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
     private val extraQuery: String?,
+    /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. */
+    internal val flowId: Long = Random.nextLong(),
 ) : Screen(), MigrationFlowScreen {
 
     @Composable
@@ -102,10 +105,8 @@ class EntryMigrationSearchScreen(
             return
         }
 
-        // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
-        LaunchedEffect(state.isLoading) {
-            if (!state.isLoading) viewModel.collectPendingPick()
-        }
+        // A deep pick is made on a screen pushed over this one, so it arrives once the entry is back.
+        MigrationPickEffect(flowId, viewModel, viewModel::takePick)
 
         PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
 
@@ -172,7 +173,7 @@ class EntryMigrationSearchScreen(
                         onPick = viewModel::pick,
                         onPreview = { it.openDetails(opener) },
                         onBrowseSource = {
-                            if (!openDeepPicker(navigator, entry, section.sourceKey, query)) {
+                            if (!openDeepPicker(navigator, entry, section.sourceKey, query, flowId)) {
                                 context.toast(MR.strings.internal_error)
                             }
                         },
@@ -237,7 +238,6 @@ class EntryMigrationSearchViewModel(
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
     @Assisted private val extraQuery: String? = null,
     @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
-    private val pickHandoff: MigrationPickHandoff,
     private val sourcePreferences: SourcePreferences,
 ) : ViewModel() {
 
@@ -302,12 +302,6 @@ class EntryMigrationSearchViewModel(
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        // An uncollected pick belongs to this migration only.
-        pickHandoff.clear()
-    }
-
     /**
      * Take a picked target through [resolvePick]: open the migrate dialog on it, or say why it was
      * refused. The dialog is held in model state, not the composition, so a rotation mid-migrate
@@ -335,18 +329,26 @@ class EntryMigrationSearchViewModel(
         sourcePreferences.globalSearchFilterState.toggle()
     }
 
+    /** Whether a deep pick is being read back; see [takePick]. */
+    private val takingPick = AtomicBoolean()
+
     /**
-     * Take a target picked on a pushed browse screen, if one came back for this entry. Called when
-     * the screen returns to the foreground. The pick is a stored row, which says nothing about its
-     * chapters, so it goes through [pick] like a tapped result.
+     * Take a target picked on a pushed browse screen for this entry. The pick is a stored row, which
+     * says nothing about its chapters, so it goes through [pick] like a tapped result. A second pick
+     * while one is being read back is ignored, so a pick delivered twice is still one pick.
      */
-    fun collectPendingPick() {
+    fun takePick(browsed: MigrationPick) {
         val entry = state.value.entry ?: return
+        if (!takingPick.compareAndSet(false, true)) return
         viewModelScope.launch(io) {
-            when (val pick = adapter.takePendingPick(pickHandoff, entry.id)) {
-                null -> return@launch
-                is PendingPick.Ready -> pick(pick.candidate)
-                is PendingPick.Rejected -> state.update { it.copy(pickOutcome = pick.outcome) }
+            try {
+                when (val read = adapter.takePendingPick(browsed, entry.id)) {
+                    null -> return@launch
+                    is PendingPick.Ready -> pick(read.candidate)
+                    is PendingPick.Rejected -> state.update { it.copy(pickOutcome = read.outcome) }
+                }
+            } finally {
+                takingPick.set(false)
             }
         }
     }

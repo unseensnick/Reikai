@@ -28,28 +28,33 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
+import androidx.navigation3.runtime.result.LocalResultEventBus
+import androidx.navigation3.runtime.result.ResultEffect
+import androidx.navigation3.runtime.result.ResultEventBus
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.ui.browse.BrowseShowExtensionsEvent
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
+import eu.kanade.tachiyomi.ui.library.LibrarySearchEvent
 import eu.kanade.tachiyomi.ui.library.LibraryTab
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.MoreTab
 import eu.kanade.tachiyomi.ui.updates.UpdatesTab
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.stats.StatsShortcut
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.recents.RecentsMode
+import reikai.presentation.recents.RecentsModeEvent
 import reikai.presentation.recents.RecentsTab
 import reikai.presentation.recents.ShowsUpdatesBadge
 import reikai.presentation.stats.StatsTab
@@ -62,11 +67,8 @@ import eu.kanade.presentation.util.Tab as NavTab
 
 object HomeScreen : Screen() {
 
-    // RK: carries the content type beside the query, so a search sent from a series lands on that
-    //     series' own chip rather than whichever one the library happens to be showing.
-    private val librarySearchEvent = Channel<Pair<String, ContentType>>()
-    private val openTabEvent = Channel<Tab>()
-    private val showBottomNavEvent = Channel<Boolean>()
+    // RK: the search, tab and bottom nav channels are TabEvent, LibrarySearchEvent and
+    //     ShowBottomNavEvent on the result bus, upstream's events.
 
     @Suppress("ConstPropertyName")
     private const val TabFadeDuration = 200
@@ -76,8 +78,7 @@ object HomeScreen : Screen() {
 
     // RK --> the tab set is a value now, not a constant: one setting replaces Updates and History
     // with a single Recents tab holding both, another adds a Statistics tab. Both off by default, so
-    // this is the upstream list until someone asks for otherwise. `NavTab` is the navigable kind,
-    // aliased because this file's own `Tab` is the sealed intent declared at the bottom.
+    // this is the upstream list until someone asks for otherwise. `NavTab` is the navigable kind.
     private fun tabs(combinedRecents: Boolean, statsTab: Boolean): List<NavTab> = listOfNotNull(
         LibraryTab,
         RecentsTab.takeIf { combinedRecents },
@@ -88,9 +89,27 @@ object HomeScreen : Screen() {
         MoreTab,
     )
 
-    /** The tab a recents intent opens, told which mode it meant so the combined tab can honour it. */
-    private fun recentsTarget(combinedRecents: Boolean, mode: RecentsMode): NavTab = when {
-        combinedRecents -> RecentsTab.also { it.showMode(mode) }
+    /**
+     * The tab [event] opens, sending on what it asks of that tab. A recents intent tells the combined
+     * tab which mode it meant, and only when that tab is in the set, since nothing else reads it.
+     */
+    internal fun tabFor(event: TabEvent, combinedRecents: Boolean, bus: ResultEventBus): NavTab = when (event) {
+        is TabEvent.Library -> {
+            // The query carries its content type, so it lands on that series' own chip.
+            if (event.query != null) bus.sendResult(LibrarySearchEvent(event.query, event.contentType))
+            LibraryTab
+        }
+        TabEvent.Updates -> recentsTarget(combinedRecents, RecentsMode.UPDATES, bus)
+        TabEvent.History -> recentsTarget(combinedRecents, RecentsMode.HISTORY, bus)
+        is TabEvent.Browse -> {
+            if (event.toExtensions) bus.sendResult(BrowseShowExtensionsEvent)
+            BrowseTab
+        }
+        is TabEvent.More -> MoreTab
+    }
+
+    private fun recentsTarget(combinedRecents: Boolean, mode: RecentsMode, bus: ResultEventBus): NavTab = when {
+        combinedRecents -> RecentsTab.also { bus.sendResult(RecentsModeEvent(mode)) }
         mode == RecentsMode.HISTORY -> HistoryTab
         else -> UpdatesTab
     }
@@ -113,6 +132,7 @@ object HomeScreen : Screen() {
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
+        val resultEventBus = LocalResultEventBus.current // RK
         // RK: read here rather than per bar, so both bars and the fixup below agree within a frame.
         val combinedRecents by remember { context.appGraph.uiPreferences.combinedRecentsTab }.collectAsState()
         val statsTab = remember { context.appGraph.uiPreferences.statsShortcut }.collectAsState().value ==
@@ -138,14 +158,16 @@ object HomeScreen : Screen() {
                 val navigationSuiteState = rememberNavigationSuiteScaffoldState()
                 LaunchedEffect(navigationSuiteState, tabletUi) {
                     if (tabletUi) navigationSuiteState.show()
-                    showBottomNavEvent.receiveAsFlow().collectLatest { show ->
-                        if (tabletUi || show) {
-                            navigationSuiteState.show()
-                        } else {
-                            navigationSuiteState.hide()
-                        }
+                }
+                // RK -->
+                ResultEffect<ShowBottomNavEvent> {
+                    if (tabletUi || it.visible) {
+                        navigationSuiteState.show()
+                    } else {
+                        navigationSuiteState.hide()
                     }
                 }
+                // RK <--
 
                 NavigationSuiteScaffold(
                     navigationSuiteType = navigationSuiteType,
@@ -180,40 +202,18 @@ object HomeScreen : Screen() {
 
             BackHandler(enabled = tabNavigator.current != LibraryTab, onBack = goToLibraryTab)
 
-            LaunchedEffect(Unit) {
-                launch {
-                    // RK: the query carries its content type, see librarySearchEvent
-                    librarySearchEvent.receiveAsFlow().collectLatest { (query, contentType) ->
-                        goToLibraryTab()
-                        LibraryTab.search(query, contentType)
-                    }
-                }
-                launch {
-                    openTabEvent.receiveAsFlow().collectLatest {
-                        tabNavigator.current = when (it) {
-                            is Tab.Library -> LibraryTab
-                            // RK: the two recents intents keep their meaning and change their target.
-                            // With one tab holding both, they open it on the matching mode instead.
-                            Tab.Updates -> recentsTarget(combinedRecents, RecentsMode.UPDATES)
-                            Tab.History -> recentsTarget(combinedRecents, RecentsMode.HISTORY)
-                            is Tab.Browse -> {
-                                if (it.toExtensions) {
-                                    BrowseTab.showExtension()
-                                }
-                                BrowseTab
-                            }
-                            is Tab.More -> MoreTab
-                        }
+            // RK -->
+            ResultEffect<TabEvent> {
+                tabNavigator.current = tabFor(it, combinedRecents, resultEventBus)
 
-                        if (it is Tab.Library && it.mangaIdToOpen != null) {
-                            navigator.push(MangaScreen(it.mangaIdToOpen))
-                        }
-                        if (it is Tab.More && it.toDownloads) {
-                            navigator.push(DownloadQueueScreen)
-                        }
-                    }
+                if (it is TabEvent.Library && it.entryToOpen != null) {
+                    navigator.push(it.entryToOpen.detailsScreen())
+                }
+                if (it is TabEvent.More && it.toDownloads) {
+                    navigator.push(DownloadQueueScreen)
                 }
             }
+            // RK <--
         }
     }
 
@@ -312,23 +312,22 @@ object HomeScreen : Screen() {
         }
     }
 
-    suspend fun search(query: String, contentType: ContentType) { // RK: the type, see librarySearchEvent
-        librarySearchEvent.send(query to contentType)
-    }
-
-    suspend fun openTab(tab: Tab) {
-        openTabEvent.send(tab)
-    }
-
-    suspend fun showBottomNav(show: Boolean) {
-        showBottomNavEvent.send(show)
-    }
-
-    sealed interface Tab {
-        data class Library(val mangaIdToOpen: Long? = null) : Tab
-        data object Updates : Tab
-        data object History : Tab
-        data class Browse(val toExtensions: Boolean = false) : Tab
-        data class More(val toDownloads: Boolean) : Tab
-    }
+    // RK: search, openTab and showBottomNav are TabEvent and ShowBottomNavEvent below, on the result bus
 }
+
+// RK --> upstream's events, which reach Home over the result bus in place of HomeScreen's channels
+sealed interface TabEvent {
+    /** Opens [entryToOpen] of either type over the library, or searches it for [query] on [contentType]'s chip. */
+    data class Library(
+        val entryToOpen: EntryId? = null,
+        val query: String? = null,
+        val contentType: ContentType = ContentType.ALL,
+    ) : TabEvent
+    data object Updates : TabEvent
+    data object History : TabEvent
+    data class Browse(val toExtensions: Boolean = false) : TabEvent
+    data class More(val toDownloads: Boolean) : TabEvent
+}
+
+data class ShowBottomNavEvent(val visible: Boolean)
+// RK <--

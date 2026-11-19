@@ -1,10 +1,13 @@
 package reikai.presentation.details
 
+import androidx.navigation3.runtime.result.ResultEventBus
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.stack.Stack
 import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.home.TabEvent
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
+import reikai.presentation.browse.catalogue.BrowseSearchEvent
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 
 /**
@@ -13,7 +16,8 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
  * that source's catalogue qualifies, since another would search a genre name it may not offer.
  * [filterable] false searches the catalogue as text, for a source with no filters to match.
  */
-suspend fun Stack<Screen>.searchGenreFromDetails(
+fun Stack<Screen>.searchGenreFromDetails(
+    bus: ResultEventBus,
     genre: String,
     source: SourceKey,
     contentType: ContentType,
@@ -22,25 +26,27 @@ suspend fun Stack<Screen>.searchGenreFromDetails(
     val catalogue = items.catalogueOf(source)
     if (catalogue != null) {
         popUntil { it === catalogue }
-        if (filterable) catalogue.searchGenre(genre) else catalogue.search(genre)
+        bus.sendResult(BrowseSearchEvent(genre, genre = filterable))
         return
     }
-    searchLibraryFromDetails(genre, contentType)
+    searchLibraryFromDetails(bus, genre, contentType)
 }
 
 /**
- * Walks back to the library before searching it for [contentType]: its search channel has no
- * buffer, so a send while the library is off-screen never arrives.
+ * Walks back to the library before searching it for [contentType], past any catalogue on the way, so
+ * the search always reaches the library and is shown there.
  */
-suspend fun Stack<Screen>.searchLibraryFromDetails(query: String, contentType: ContentType) {
-    popUntil { it is HomeScreen }
-    (lastItemOrNull as? HomeScreen)?.search(query, contentType)
-}
+fun Stack<Screen>.searchLibraryFromDetails(bus: ResultEventBus, query: String, contentType: ContentType) =
+    showHome(bus, TabEvent.Library(query = query, contentType = contentType))
 
 /** Walks back to the library tab, after a details page changed its filter. */
-suspend fun Stack<Screen>.showLibraryFromDetails() {
+fun Stack<Screen>.showLibraryFromDetails(bus: ResultEventBus) = showHome(bus, TabEvent.Library())
+
+// Sent only once Home is on top: it is the event's one reader, and a send it never collects would sit
+// on the bus for the next time Home shows.
+private fun Stack<Screen>.showHome(bus: ResultEventBus, event: TabEvent) {
     popUntil { it is HomeScreen }
-    (lastItemOrNull as? HomeScreen)?.openTab(HomeScreen.Tab.Library())
+    if (lastItemOrNull is HomeScreen) bus.sendResult<TabEvent>(event)
 }
 
 /** The nearest catalogue of [source] on the stack, never another source's. */

@@ -14,7 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
@@ -45,7 +44,6 @@ class LocalImportViewModel(
     private val novelAdder: NovelLibraryAdder,
     private val mangaAdder: MangaLibraryAdder,
     @AppCoroutineScope private val appScope: CoroutineScope,
-    handOff: ImportHandOff,
 ) : ViewModel() {
 
     val state: StateFlow<State>
@@ -53,7 +51,6 @@ class LocalImportViewModel(
 
     init {
         if (initialUris.isNotEmpty()) add(initialUris.map(Uri::parse))
-        viewModelScope.launch { handOff.files.collect(::add) }
     }
 
     fun add(uris: List<Uri>) {

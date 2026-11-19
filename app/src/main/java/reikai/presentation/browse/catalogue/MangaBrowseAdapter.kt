@@ -36,7 +36,7 @@ class MangaBrowseAdapter(
     private val model: BrowseSourceViewModel,
     private val bulk: BulkFavoriteViewModel,
     migrateForId: Long? = null,
-    /** Report the picked target back, which the screen turns into a handoff and a pop. */
+    /** Report the picked target back, which the screen sends to the asking flow and pops. */
     onPickTarget: (targetId: Long) -> Unit = {},
 ) : EntryBrowseBehavior {
 

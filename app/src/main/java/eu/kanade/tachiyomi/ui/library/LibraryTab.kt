@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.result.LocalResultEventBus
+import androidx.navigation3.runtime.result.ResultEffect
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -58,7 +60,7 @@ import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.home.ShowBottomNavEvent
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
@@ -143,6 +145,7 @@ data object LibraryTab : Tab {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
+        val resultBus = LocalResultEventBus.current // RK
 
         val viewModel = metroViewModel<LibraryViewModel>()
         val settingsViewModel = metroViewModel<LibrarySettingsViewModel>()
@@ -879,7 +882,7 @@ data object LibraryTab : Tab {
         // RK: keyed on the engine's dialog, so a novel dialog re-asserts the bottom nav the same way a
         // manga one always has.
         LaunchedEffect(activeSelectionMode, libraryDialog) {
-            HomeScreen.showBottomNav(!activeSelectionMode)
+            resultBus.sendResult(ShowBottomNavEvent(!activeSelectionMode))
         }
 
         LaunchedEffect(mangaLibState.isLoading) {
@@ -891,29 +894,23 @@ data object LibraryTab : Tab {
         // Lets startup be measured up to the library, not just its loading screen
         ReportDrawnWhen { !activeIsLoading } // RK: whichever content type the chip shows
 
+        // RK: through the seam, so a search sent from another screen lands on the library of its type.
+        ResultEffect<LibrarySearchEvent> { engine.searchFrom(it.contentType, it.query) }
+
         LaunchedEffect(Unit) {
-            // RK: through the seam, so a search sent from another screen lands on the library of its type.
-            // The settings collector reads the chip from its flow rather than the captured composition
-            // value, because this effect keys on Unit and would otherwise hold the chip's first value.
-            launch {
-                queryEvent.receiveAsFlow().collect { (query, requested) ->
-                    engine.searchFrom(requested, query) // RK
-                }
-            }
-            launch {
-                requestSettingsSheetEvent.receiveAsFlow()
-                    .collectLatest { engine.openSettingsDialog(engine.contentType.value) }
-            }
+            // RK: reads the chip from its flow rather than the captured composition value, because
+            // this effect keys on Unit and would otherwise hold the chip's first value.
+            requestSettingsSheetEvent.receiveAsFlow()
+                .collectLatest { engine.openSettingsDialog(engine.contentType.value) }
         }
     }
 
-    // For invoking search from other screen
-    // RK: carries the content type, so the search lands on the series' own chip.
-    private val queryEvent = Channel<Pair<String, ContentType>>()
-    suspend fun search(query: String, contentType: ContentType) =
-        queryEvent.send(query to contentType)
+    // RK: the search from other screens is LibrarySearchEvent on the result bus, below
 
     // For opening settings sheet in LibraryController
     private val requestSettingsSheetEvent = Channel<Unit>()
     private suspend fun requestOpenSettingsSheet() = requestSettingsSheetEvent.send(Unit)
 }
+
+// RK: carries the content type, so a search sent from a series lands on that series' own chip.
+data class LibrarySearchEvent(val query: String, val contentType: ContentType)

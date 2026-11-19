@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.result.LocalResultEventBus
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.manga.components.ChapterHeader
@@ -135,7 +136,8 @@ fun EntryDetailsContent(
     val context = LocalContext.current
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     val navigator = LocalNavigator.currentOrThrow
-    val shared = nav.withSharedPushes(state, navigator, scope)
+    val bus = LocalResultEventBus.current
+    val shared = nav.withSharedPushes(state, navigator, bus)
     var onlyCopies by rememberSaveable { mutableStateOf(false) }
     val copies = CopiesFilter(on = onlyCopies && !state.chapters.duplicates?.copies.isNullOrEmpty()) {
         onlyCopies = !onlyCopies
@@ -175,7 +177,7 @@ fun EntryDetailsContent(
         } ?: shared,
         onFilterLibraryByTag = { tag, show ->
             settings.filterLibraryByTag(tag, show)
-            scope.launch { navigator.showLibraryFromDetails() }
+            navigator.showLibraryFromDetails(bus)
         },
         onCoverClick = { behavior.showCoverDialog(pickedVolume) },
     ).forState(state)

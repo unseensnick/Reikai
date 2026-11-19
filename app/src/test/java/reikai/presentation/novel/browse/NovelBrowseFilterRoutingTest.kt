@@ -29,7 +29,6 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.catalogue.NovelBrowseAdapter
-import reikai.presentation.migrate.flow.MigrationPickHandoff
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -217,7 +216,6 @@ class NovelBrowseFilterRoutingTest {
                 every { getFavoritedKeysAsFlow() } returns flowOf(FavoritedNovels.None)
             },
             libraryAdder = mockk(relaxed = true),
-            pickHandoff = MigrationPickHandoff(),
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
             sourcePreferences = SourcePreferences(store),
             getIncognitoState = mockk(relaxed = true),
