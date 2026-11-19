@@ -11,6 +11,7 @@ import reikai.domain.category.orUncategorized
 import reikai.domain.entry.EntryId
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.recommendation.taste.TrackStatus
+import reikai.presentation.details.tagIdentity
 import java.io.Serializable
 import kotlin.math.roundToInt
 import kotlin.time.Instant
@@ -184,12 +185,12 @@ private fun List<StatsTitle>.titlesByGroup(
     dimension: StatsDimension,
     timeZone: TimeZone,
 ): Map<StatsGroupKey, List<StatsTitle>> {
-    // Tags differ in case from source to source; library search matches them ignoring it, so rows do too.
-    val tagSpelling = flatMap { it.genres }.map { it.trim() }.reversed().associateBy { it.lowercase() }
+    // Two series can spell one tag apart, as two sources of one series can; the row takes the first spelling.
+    val tagSpelling = flatMap { it.genres }.reversed().associateBy(::tagIdentity)
     return flatMap { title ->
         title.groupKeys(dimension, timeZone)
             .map { key ->
-                if (key is StatsGroupKey.Tag) StatsGroupKey.Tag(tagSpelling.getValue(key.name.lowercase())) else key
+                if (key is StatsGroupKey.Tag) StatsGroupKey.Tag(tagSpelling.getValue(tagIdentity(key.name))) else key
             }
             .distinct()
             .map { it to title }
@@ -208,7 +209,7 @@ private fun StatsTitle.groupKeys(dimension: StatsDimension, timeZone: TimeZone):
         StatsDimension.SOURCE -> sources.map { StatsGroupKey.Source(it.key, it.name) }
         // An entry filed nowhere sits in the Default category, id 0.
         StatsDimension.CATEGORY -> categoryIds.orUncategorized().distinct().map { StatsGroupKey.Category(it) }
-        StatsDimension.TAG -> genres.map { StatsGroupKey.Tag(it.trim()) }
+        StatsDimension.TAG -> genres.map { StatsGroupKey.Tag(it) }
         StatsDimension.LANGUAGE -> sources.map { StatsGroupKey.Language(it.language) }.distinct()
         StatsDimension.START_YEAR -> listOf(StatsGroupKey.StartYear(startedAt?.toLocalDateTime(timeZone)?.year))
         // An untracked series has no tracking status, so it sits in no row, as the chart leaves it out.

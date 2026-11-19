@@ -58,7 +58,8 @@ suspend fun <S> LibraryItem.stampMergedGroup(
             .withGroupCounts(counts),
         relatedMangaIds = members.map { it.id },
         memberSources = members.map { it.query }.distinct(),
-        memberGenres = members.flatMap { it.genre.orEmpty() }.distinct(),
+        // Raw: seriesGenres folds them, and the adult rule reads every source's exact tags.
+        memberGenres = members.flatMap { it.genre.orEmpty() },
         memberNotes = members.map { it.notes }.filter { it.isNotBlank() }.distinct(),
         coverFallbacks = coverFallbacks,
         badges = badges.copy(

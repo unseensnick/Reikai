@@ -3,6 +3,7 @@ package reikai.presentation.details
 import androidx.compose.runtime.Immutable
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.manga.components.SearchMetadataChips
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.source.Source
@@ -59,6 +60,13 @@ class MangaEntryAdapter(
     private fun MangaViewModel.State.Success.toNeutralLoaded(marks: CopyMarks?): EntryDetailsScreenState.Loaded {
         // Header, description, tags and the gallery chips all read this one entry; actions keep the raw `manga`.
         val shown = shownManga(manga, siblingChip(), customInfo, chipCustomInfo)
+        val tags = shownTags(
+            wholeGroup = headerNamesWholeGroup(mergeSources.size, selectedSourceMangaId),
+            shown = shown.genre,
+            custom = customInfo?.genre,
+            anchor = manga.genre,
+            members = mergedMangaById.values.map { it.genre },
+        )
         // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
         val showInlineRelated = !model.recommendationsInMenu && (relatedLoading || relatedItems.isNotEmpty())
         return EntryDetailsScreenState.Loaded(
@@ -82,7 +90,7 @@ class MangaEntryAdapter(
                 nextUpdate = intervalManga.expectedNextUpdate,
                 isUserIntervalMode = intervalManga.fetchInterval < 0,
                 description = shown.description,
-                tags = shown.genre,
+                tags = tags,
                 notes = shown.notes,
                 // Expand by default for EH/EXH galleries (tags are the content, no description).
                 descriptionDefaultExpanded = isFromSource || isMetadataSource,
@@ -134,6 +142,7 @@ class MangaEntryAdapter(
                 mangaGallery = MangaGalleryCapability(
                     sourceId = shownSource.id,
                     rawGenre = shown.genre,
+                    otherTags = tagsBeyond(tags, shown.genre),
                     metadata = galleryMetadata,
                     tagQuery = shownSource.getMainSource<MetadataSource<*, *>>()?.let { it::tagSearchQuery },
                 ),
@@ -386,7 +395,8 @@ data class MangaRelatedCarouselCapability(
  * A manga's namespaced-tag + gallery inputs. Present for every manga; the grouped tag chips build from
  * [rawGenre] (an adult source stores genre as "namespace:tag") even before [metadata] loads, and the
  * gallery-info card renders only once [metadata] is non-null. Both produce nothing for a normal manga.
- * [tagQuery] is the viewed metadata source's own tag grammar, null for any other source.
+ * [tagQuery] is the viewed metadata source's own tag grammar, null for any other source. [otherTags]
+ * are the series' tags [rawGenre] lacks, kept out of it, since the grouped chips need every tag namespaced.
  */
 @Immutable
 data class MangaGalleryCapability(
@@ -394,7 +404,19 @@ data class MangaGalleryCapability(
     val rawGenre: List<String>?,
     val metadata: RaisedSearchMetadata?,
     val tagQuery: ((namespace: String, tag: String) -> String)?,
-)
+    val otherTags: List<String>,
+) {
+    fun chips(): SearchMetadataChips? = SearchMetadataChips(metadata, sourceId, rawGenre, tagQuery, otherTags)
+}
+
+/**
+ * The page's [tags] the viewed entry's [own] lack: under All, the other sources' tags, which a gallery's
+ * grouped chips (built from its own namespaced tags) cannot carry, so they show in a row of their own.
+ */
+private fun tagsBeyond(tags: List<String>?, own: List<String>?): List<String> {
+    val owned = own.orEmpty().mapTo(HashSet(), ::tagIdentity)
+    return tags.orEmpty().filterNot { tagIdentity(it) in owned }
+}
 
 /** A details row for a manga chapter, read and bookmarked as the merge group answers for it. */
 internal fun ChapterList.Item.toEntryChapter(sourceName: String?, numberHinted: Boolean) = EntryChapterListItem.Chapter(

@@ -413,11 +413,37 @@ class NovelDetailsViewModel(
         source.webPageOf(id, url)
     }
 
-    // Kept apart from the rows, so a plugin lookup or a page address landing after the page shows marks it
-    // without a rebuild.
-    private val sourcedChapterList = combine(chapterList, anchorSource, webPages.pages) { list, lookup, _ ->
-        list?.withSource(lookup)
+    // Every member's own row under All, watched so a sibling's new tags or title reach the page with no
+    // chapter change. Kept out of unifiedChapters, whose rebuild re-reads the stitch.
+    private val groupMembers: Flow<List<Novel>> = mergeGroup.state
+        .map { group -> if (group.ids.size > 1 && group.selected == null) group.ids.toList() else emptyList() }
+        .distinctUntilChanged()
+        .flatMapLatest { ids ->
+            if (ids.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                combine(ids.map(novelRepo::getByIdAsFlow)) { rows -> rows.filterNotNull() }
+            }
+        }
+
+    // Kept apart from the rows, so a plugin lookup, a page address or a member's row landing after the page
+    // shows marks it without a rebuild.
+    private val sourcedChapterList = combine(chapterList, anchorSource, webPages.pages, groupMembers) {
+            list,
+            lookup,
+            _,
+            members,
+        ->
+        list?.withSource(lookup)?.withMembers(members)
     }
+
+    /** Under All, the group's members as [groupMembers] reads them, and whose folder Open folder opens. */
+    private fun NovelDetailsState.Loaded.withMembers(members: List<Novel>): NovelDetailsState.Loaded =
+        if (members.isEmpty()) {
+            this
+        } else {
+            copy(groupNovels = members, downloadFolderOwner = downloadFolderOwnerOf(null, members, novel))
+        }
 
     /** The live queue's states. Only the active ones (queued/downloading/error) live here; a finished download
      *  is read from [NovelDetailsState.Loaded.downloadedChapterIds] (disk-derived) instead. */
@@ -659,7 +685,6 @@ class NovelDetailsViewModel(
             val stitch = mergedChapterProvider.stitchOf(anchor.id)
             val ordered = mergedChapterProvider.merged(pooled, stitch)
             val flags = group.novelRowFlags(pooled, ordered, stitch)
-            val members = related.toList().mapNotNull { id -> if (id == anchor.id) anchor else novelRepo.getById(id) }
             // The chips resolve the plugins before this list is rebuilt for them, so the map is current here.
             val installed = siblingSources.value
             buildLoaded(
@@ -670,7 +695,8 @@ class NovelDetailsViewModel(
                 emptyList(),
                 0,
                 flags.downloadedIds,
-                downloadFolderOwnerOf(null, members, anchor),
+                // Filled in with the members (withMembers), which are watched apart from the chapters.
+                null,
                 flags.marks,
                 // Off each source's own list: [ordered] is restamped and keeps one copy per chapter.
                 pooled.numberHints(),
@@ -679,7 +705,6 @@ class NovelDetailsViewModel(
                 downloadTargets = DownloadTargets.of(group.mergeScope, pooled, ordered, stitch, { it.id }) {
                     it.novelId in installed
                 },
-                groupNovels = members,
             )
         }
     }
@@ -1877,7 +1902,7 @@ sealed interface NovelDetailsState {
         val servedNovel: Novel? = null,
         /** The copy each row's download fetches; only the All view moves one off a missing plugin. */
         val downloadTargets: DownloadTargets = DownloadTargets.OWN,
-        /** Every library member of a merged series in group order, on the All view only; empty otherwise. */
+        /** Every member of a merged series in group order, watched live, on the All view only; empty otherwise. */
         val groupNovels: List<Novel> = emptyList(),
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,

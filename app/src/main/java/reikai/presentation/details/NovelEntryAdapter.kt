@@ -79,6 +79,13 @@ class NovelEntryAdapter(
     private fun NovelDetailsState.Loaded.toNeutralLoaded(marks: CopyMarks?): EntryDetailsScreenState.Loaded {
         val sibling = displayNovel.takeIf { it.id != novel.id }
         val display = shownNovel(novel, sibling, customInfo, chipCustomInfo)
+        val tags = shownTags(
+            wholeGroup = headerNamesWholeGroup(mergeSources.size, selectedSourceNovelId),
+            shown = display.genre,
+            custom = customInfo?.genre,
+            anchor = novel.genre,
+            members = groupNovels.map { it.genre },
+        )
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Novel(novel.id),
             viewedEntryId = displayNovel.id,
@@ -96,7 +103,7 @@ class NovelEntryAdapter(
                 nextUpdate = intervalNovel.expectedNextUpdate(),
                 isUserIntervalMode = intervalNovel.fetchInterval < 0,
                 description = display.description,
-                tags = display.genre,
+                tags = tags,
                 notes = display.notes,
                 descriptionDefaultExpanded = model.isFromSource,
             ),

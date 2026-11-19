@@ -2,6 +2,10 @@ package reikai.presentation.details
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import reikai.presentation.library.seriesGenres
+
+/** Two tags are one tag when they differ only in case or surrounding spaces, wherever tags are compared. */
+fun tagIdentity(tag: String): String = tag.trim().lowercase()
 
 /**
  * Every way the edit-info dialog adds tags (typed, filled from a tracker, collated from a merge's other
@@ -10,17 +14,17 @@ import androidx.compose.ui.geometry.Rect
  * entry wins.
  */
 fun appendTags(current: List<String>, added: List<String>): List<String> =
-    (current + added).filter { it.isNotBlank() }.distinctBy { it.trim().lowercase() }
+    (current + added).filter { it.isNotBlank() }.distinctBy(::tagIdentity)
 
 /** What the Add tag field holds, as tags: several may be typed at once, separated by commas. */
 fun typedTags(input: String): List<String> = input.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
 /**
- * Every tag a merged series' sources carry, for Collate tags; null for an entry that is not merged, which
- * hides the action rather than offering one that adds nothing.
+ * Every tag a merged series' sources carry, as the library reads them, for Collate tags; null for an entry
+ * that is not merged, which hides the action rather than offering one that adds nothing.
  */
 suspend fun groupSourceTags(groupIds: LongArray, tagsOf: suspend (Long) -> List<String>?): List<String>? =
-    if (groupIds.size <= 1) null else groupIds.flatMap { tagsOf(it).orEmpty() }
+    if (groupIds.size <= 1) null else seriesGenres(null, groupIds.map { tagsOf(it) })
 
 /**
  * Where a dragged tag dropped at [point] goes, given each chip's bounds in order. A drop on a chip takes

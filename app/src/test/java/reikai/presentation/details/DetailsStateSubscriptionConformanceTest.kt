@@ -45,6 +45,7 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.MangaRepository
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
@@ -60,7 +61,15 @@ class DetailsStateSubscriptionConformanceTest {
     /** A details model opened on one stored entry with one unread chapter and nothing collecting its state. */
     interface Probe {
         suspend fun opened(scope: TestScope, dispatcher: TestDispatcher, block: suspend (Opened) -> Unit)
+
+        /** The details model of a two-source series under All, its state collected until [Merged.leave]. */
+        suspend fun openedMerged(scope: TestScope, dispatcher: TestDispatcher, block: suspend (Merged) -> Unit)
     }
+
+    class Merged(
+        val siblingRowQueries: () -> Int,
+        val leave: suspend () -> Unit,
+    )
 
     class Opened(
         val state: StateFlow<*>,
@@ -143,6 +152,27 @@ class DetailsStateSubscriptionConformanceTest {
             }
         }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `under All a sibling's row is watched once`(probe: Probe) = runTest(dispatcher) {
+        probe.openedMerged(this, dispatcher) { merged ->
+            advanceUntilIdle()
+
+            merged.siblingRowQueries() shouldBe 1
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `leaving the screen closes the sibling's row query`(probe: Probe) = runTest(dispatcher) {
+        probe.openedMerged(this, dispatcher) { merged ->
+            advanceUntilIdle()
+            merged.leave()
+
+            merged.siblingRowQueries() shouldBe 0
+        }
+    }
+
     /** Collects the state until it has loaded, stops, then lets [afterMs] of virtual time pass. */
     private suspend fun TestScope.collectThenLeave(opened: Opened, afterMs: Long) {
         val collector: Job = launch { opened.state.collect {} }
@@ -195,6 +225,53 @@ class DetailsStateSubscriptionConformanceTest {
             }
         }
 
+        override suspend fun openedMerged(
+            scope: TestScope,
+            dispatcher: TestDispatcher,
+            block: suspend (Merged) -> Unit,
+        ) {
+            val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+            Database.Schema.create(driver).await()
+            val database = DatabaseBindings.providesDatabase(driver)
+            val mangas = CountingMangas(MangaRepositoryImpl(database), watched = SIBLING_ID)
+            driver.seedManga(MANGA_ID, chapterId = CHAPTER_ID)
+            driver.seedManga(SIBLING_ID, chapterId = SIBLING_CHAPTER_ID, sourceId = 2L)
+            val store = ViewModelStore()
+            val leave: suspend () -> Unit = {
+                store.clear()
+                scope.advanceUntilIdle()
+            }
+            try {
+                val model = mangaDetailsModel(
+                    MANGA_ID,
+                    mangas,
+                    ChapterRepositoryImpl(database),
+                    longArrayOf(MANGA_ID, SIBLING_ID),
+                ) {
+                    every { Dispatchers.Default } returns dispatcher
+                }.also { store.put("manga", it) }
+                scope.backgroundScope.launch { model.state.collect {} }
+                block(Merged(siblingRowQueries = mangas.active::get, leave = leave))
+            } finally {
+                leave()
+                driver.close()
+            }
+        }
+
+        /** Counts live collectors of [watched]'s row flow. */
+        private class CountingMangas(
+            private val delegate: MangaRepository,
+            private val watched: Long,
+        ) : MangaRepository by delegate {
+            val active = AtomicInteger()
+
+            override fun getMangaByIdAsFlow(id: Long): Flow<Manga> {
+                val flow = delegate.getMangaByIdAsFlow(id)
+                if (id != watched) return flow
+                return flow.onStart { active.incrementAndGet() }.onCompletion { active.decrementAndGet() }
+            }
+        }
+
         /** Counts live collectors of [watched]'s chapter flow, the query the details list holds open. */
         private class CountingChapters(
             private val delegate: ChapterRepository,
@@ -215,6 +292,8 @@ class DetailsStateSubscriptionConformanceTest {
         private companion object {
             const val MANGA_ID = 1L
             const val CHAPTER_ID = 10L
+            const val SIBLING_ID = 2L
+            const val SIBLING_CHAPTER_ID = 20L
         }
     }
 
@@ -239,5 +318,17 @@ class DetailsStateSubscriptionConformanceTest {
                     ),
                 )
             }
+
+        override suspend fun openedMerged(
+            scope: TestScope,
+            dispatcher: TestDispatcher,
+            block: suspend (Merged) -> Unit,
+        ) = NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+            val novel = harness.novel(harness.source("alpha"))
+            val sibling = harness.novel(harness.source("beta"))
+            harness.merge(novel, sibling)
+            harness.openDetails(novel)
+            block(Merged(siblingRowQueries = { harness.novelRowQueries(sibling) }, leave = harness::leaveModels))
+        }
     }
 }

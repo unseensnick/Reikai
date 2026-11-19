@@ -7,6 +7,7 @@ import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.TagAliases
+import reikai.presentation.details.tagIdentity
 import reikai.util.isAdultEntry
 import tachiyomi.domain.track.model.Track
 
@@ -105,12 +106,15 @@ fun libraryItemQueryFields(
 )
 
 /**
- * A series' tags as search and Statistics read them: its Edit info tags when set, else every source's
- * tags of a merged series, so a tag row counts exactly the series its `tag:` search finds. Group by tag
- * passes no Edit info, since grouping reads source values.
+ * A series' tags, the one rule the library's filter, search and grouping, Statistics, Collate tags and the
+ * details page's All view read: its Edit info tags when set, even empty, else every source's tags of a
+ * merged series in [memberGenres] order (the shown or leading source first), each once by [tagIdentity]
+ * in its first spelling, so a tag row counts exactly the series its `tag:` search finds. Group by tag
+ * and Collate tags pass no Edit info, since they read source values.
  */
 fun seriesGenres(custom: List<String>?, memberGenres: List<List<String>?>): List<String> =
-    custom ?: memberGenres.flatMap { it.orEmpty() }.distinctBy { it.lowercase() }
+    custom ?: memberGenres.flatMap { it.orEmpty() }.map { it.trim() }.filter { it.isNotEmpty() }
+        .distinctBy(::tagIdentity)
 
 /** This row's tags as [seriesGenres] reads them, with [custom] its Edit info tags. */
 fun LibraryItem.seriesTags(custom: List<String>?): List<String> =

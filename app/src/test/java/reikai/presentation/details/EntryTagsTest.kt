@@ -53,6 +53,13 @@ class EntryTagsTest {
     }
 
     @Test
+    fun `a tag two sources spell in different case is collated once`() = runTest {
+        val tags = mapOf(1L to listOf("Action"), 2L to listOf("action", "Drama"))
+
+        groupSourceTags(longArrayOf(1, 2)) { tags[it] } shouldBe listOf("Action", "Drama")
+    }
+
+    @Test
     fun `a drop on a chip takes its place`() {
         tagDropIndex(ROW_OF_TWO, Offset(150f, 10f)) shouldBe 1
     }

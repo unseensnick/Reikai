@@ -44,7 +44,6 @@ import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.PagePreviews
-import eu.kanade.presentation.manga.components.SearchMetadataChips
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -791,7 +790,7 @@ private fun LazyListScope.entryInfoBlock(
         onEditNotes = nav.onEditNotes,
         descriptionImages = descriptionImages,
         // Namespaced, grouped tag chips for the active source's gallery metadata (or its namespaced genre).
-        searchMetadataChips = gallery?.let { SearchMetadataChips(it.metadata, it.sourceId, it.rawGenre, it.tagQuery) },
+        searchMetadataChips = gallery?.chips(),
         // Per-source gallery-info card above the description, once the metadata object has loaded.
         aboveDescription = gallery?.metadata?.let { meta ->
             {

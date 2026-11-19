@@ -48,6 +48,7 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 
@@ -75,6 +76,7 @@ internal fun mangaDetailsModel(
     removeMangaFromLibrary: RemoveMangaFromLibrary = mockk(relaxed = true),
     sourceContacts: SourceContacts = SourceContacts { 0L },
     localSeriesRelink: LocalSeriesRelink = mockk(),
+    customInfo: Map<Long, CustomMangaInfo> = emptyMap(),
     beforeModel: () -> Unit = {},
 ): MangaViewModel {
     // Built ahead of the hook: recording a coEvery reads Dispatchers.Default, which undoes a static stub of it
@@ -143,7 +145,9 @@ internal fun mangaDetailsModel(
         uiPreferences = UiPreferences(prefs),
         getFlatMetadataById = getFlatMetadataById,
         getPagePreviews = mockk(relaxed = true),
-        getCustomMangaInfo = mockk<GetCustomMangaInfo> { every { subscribe(any()) } returns flowOf(null) },
+        getCustomMangaInfo = mockk<GetCustomMangaInfo> {
+            every { subscribe(any()) } answers { flowOf(customInfo[firstArg()]) }
+        },
         setCustomMangaInfo = mockk(relaxed = true),
         sourceManager = sourceManager,
         exhPreferences = mockk(relaxed = true),

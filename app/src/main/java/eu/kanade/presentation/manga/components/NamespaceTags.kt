@@ -44,13 +44,21 @@ value class SearchMetadataChips(
     val tags: Map<String, List<DisplayTag>>,
 ) {
     companion object {
-        /** [tagQuery] is the viewed metadata source's own tag grammar; without one a chip searches the bare name. */
+        /**
+         * [tagQuery] is the viewed metadata source's own tag grammar; without one a chip searches the bare
+         * name. [otherTags] (a merged series' other sources' tags) join the un-namespaced row, never [genre].
+         */
         operator fun invoke(
             meta: RaisedSearchMetadata?,
             sourceId: Long,
             genre: List<String>?,
             tagQuery: ((namespace: String, tag: String) -> String)?,
+            otherTags: List<String>,
         ): SearchMetadataChips? {
+            fun Map<String, List<DisplayTag>>.withOtherTags(): SearchMetadataChips {
+                val others = otherTags.map { DisplayTag(namespace = null, text = it, search = it, border = null) }
+                return SearchMetadataChips(if (others.isEmpty()) this else this + ("" to get("").orEmpty() + others))
+            }
             fun search(namespace: String?, name: String): String {
                 val parsed = if (namespace.isNullOrEmpty()) SourceTagsUtil.parseTag(name) else null
                 val tagNamespace = parsed?.namespace ?: namespace?.takeIf { it.isNotEmpty() } ?: return name
@@ -76,7 +84,7 @@ value class SearchMetadataChips(
                         )
                     }
                     .groupBy { it.namespace.orEmpty() }
-                return if (grouped.isEmpty()) null else SearchMetadataChips(grouped)
+                return if (grouped.isEmpty()) null else grouped.withOtherTags()
             }
             // Before the metadata object is loaded, fall back to the namespaced genre strings
             // ("namespace: tag") so the grouped chips render from the first frame instead of flashing
@@ -94,7 +102,7 @@ value class SearchMetadataChips(
                         border = null,
                     )
                 }.groupBy { it.namespace.orEmpty() }
-                return SearchMetadataChips(grouped)
+                return grouped.withOtherTags()
             }
             return null
         }

@@ -27,6 +27,21 @@ class SeriesGenresTest {
         seriesGenres(null, listOf(listOf("Action"), listOf("action", "Drama"))) shouldBe listOf("Action", "Drama")
     }
 
+    @Test
+    fun `a tag two sources space differently counts once, without the spaces`() {
+        seriesGenres(null, listOf(listOf("Action "), listOf(" action", "Drama"))) shouldBe listOf("Action", "Drama")
+    }
+
+    @Test
+    fun `a blank tag is dropped`() {
+        seriesGenres(null, listOf(listOf(" ", "Action"))) shouldBe listOf("Action")
+    }
+
+    @Test
+    fun `empty Edit info tags still replace every source's own`() {
+        seriesGenres(emptyList(), listOf(listOf("Action"))) shouldBe emptyList()
+    }
+
     private fun matches(row: LibraryItem, query: String, overlay: Map<Long, LibraryQueryOverlay> = emptyMap()) =
         libraryQueryMatches(QueryNode.from(query), row, libraryItemQueryFields(sourceKey = { "1" }, overlay = overlay))
 

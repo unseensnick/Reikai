@@ -65,6 +65,7 @@ import reikai.domain.novel.NovelGroupStitcher
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
@@ -76,6 +77,7 @@ import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.interactor.UpsertNovelHistory
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
@@ -106,6 +108,7 @@ import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.domain.library.service.LibraryPreferences
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -361,6 +364,21 @@ class NovelReaderViewModelHarness private constructor(
             onStart { chapterQueries.incrementAndGet() }.onCompletion { chapterQueries.decrementAndGet() }
     }
 
+    /** Each novel's Edit info overlay, as details screens opened after a write read it. */
+    val customInfo = mutableMapOf<Long, CustomNovelInfo>()
+
+    private val novelRowQueries = ConcurrentHashMap<Long, AtomicInteger>()
+
+    /** Live collectors of [novelId]'s row query that details screens hold open. */
+    fun novelRowQueries(novelId: Long): Int = novelRowQueries[novelId]?.get() ?: 0
+
+    private val detailsNovels = object : NovelRepository by novelRepo {
+        override fun getByIdAsFlow(id: Long) = novelRepo.getByIdAsFlow(id).let { rows ->
+            val count = novelRowQueries.getOrPut(id) { AtomicInteger() }
+            rows.onStart { count.incrementAndGet() }.onCompletion { count.decrementAndGet() }
+        }
+    }
+
     /** Groups [novelIds] into one merged novel, as the merge dialog does. */
     suspend fun merge(vararg novelIds: Long) {
         groups.createGroup(ContentType.NOVELS, novelIds.toList())
@@ -531,7 +549,7 @@ class NovelReaderViewModelHarness private constructor(
             novelUrl = url,
             listingCover = null,
             isFromSource = false,
-            novelRepo = novelRepo,
+            novelRepo = detailsNovels,
             coverCache = mockk(relaxed = true),
             resetEntryInfo = mockk(relaxed = true),
             setNovelChapterFlags = SetNovelChapterFlags(novelRepo, novelPreferences),
@@ -557,7 +575,9 @@ class NovelReaderViewModelHarness private constructor(
             localSeriesRelink = mockk { coEvery { offerAfterFailure(any(), any(), false) } returns null },
             editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
-            getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },
+            getCustomNovelInfo = mockk(relaxed = true) {
+                every { subscribe(any()) } answers { flowOf(customInfo[firstArg()]) }
+            },
             setCustomNovelInfo = mockk(relaxed = true),
             getNovelTracks = mockk(relaxed = true),
             refreshNovelTracks = mockk(relaxed = true),
@@ -606,8 +626,14 @@ class NovelReaderViewModelHarness private constructor(
         close()
     }
 
+    /** Clears every model it opened, as leaving the screen does, and waits for their work to stop. */
+    suspend fun leaveModels() {
+        viewModels.clear()
+        modelJobs.joinAll()
+    }
+
     /**
-     * Clears every model it opened, as leaving the screen does, and waits for their work to stop before
+     * Clears every model it opened, as [leaveModels] does, and waits for their work to stop before
      * releasing the database and clock. A details model works on the real IO dispatcher, and a query
      * of its still running against a closed database throws into whichever test is running by then.
      */
@@ -615,9 +641,8 @@ class NovelReaderViewModelHarness private constructor(
         cacheScope.cancel() // Its save loop waits for writes for as long as it lives
         diskProbeGate?.open()
         pluginLoadGate.complete(Unit)
-        viewModels.clear()
         withContext(NonCancellable) {
-            modelJobs.joinAll()
+            leaveModels()
             // After the models, since a model's last held position is written onto the app scope as it ends
             appScope.coroutineContext.job.children.toList().joinAll()
         }

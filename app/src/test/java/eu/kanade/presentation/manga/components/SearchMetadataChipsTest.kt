@@ -6,7 +6,8 @@ import org.junit.jupiter.api.Test
 class SearchMetadataChipsTest {
 
     private fun searches(tagQuery: ((String, String) -> String)?) =
-        SearchMetadataChips(null, 1L, listOf("tag: big breasts"), tagQuery)!!.tags.values.flatten().map { it.search }
+        SearchMetadataChips(null, 1L, listOf("tag: big breasts"), tagQuery, otherTags = emptyList())!!
+            .tags.values.flatten().map { it.search }
 
     @Test
     fun `a chip from a source with no tag grammar searches the bare name`() {
