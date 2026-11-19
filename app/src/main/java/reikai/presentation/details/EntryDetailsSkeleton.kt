@@ -37,8 +37,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * The details page's shape while it loads, for both content types: cover, titles, the action row, a
- * description and chapter rows, in place of a spinner. A novel opened from Browse stays here for its
- * whole first fetch, so the page takes the shape it is about to have rather than jumping into it.
+ * description and chapter rows, in place of a spinner, until the page's stored row is read, so the page
+ * takes the shape it is about to have rather than jumping into it.
  */
 @Composable
 fun EntryDetailsSkeleton(modifier: Modifier = Modifier) {
