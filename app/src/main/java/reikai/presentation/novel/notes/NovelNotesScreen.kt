@@ -25,7 +25,7 @@ import reikai.presentation.notes.NotesEditor
  * Full-screen markdown notes editor for a novel, rendered through the shared [EntryNotesScreen] and edited through
  * [NotesEditor]. Saves surgically via a [NovelUpdate] patch.
  */
-class NovelNotesScreen(private val novelId: Long) : Screen() {
+class NovelNotesScreen(val novelId: Long) : Screen() {
 
     @Composable
     override fun Content() {

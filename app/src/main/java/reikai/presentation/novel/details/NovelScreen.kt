@@ -16,10 +16,8 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
-import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.novel.expectedNextUpdate
@@ -33,11 +31,11 @@ import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.source.SourceKey
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSettings
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.source.preferencesScreen
 import reikai.presentation.details.DetailsSettings
+import reikai.presentation.details.DetailsViewedSource
 import reikai.presentation.details.DuplicateMarking
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
@@ -52,19 +50,15 @@ import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.detailsScreen
 import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
-import reikai.presentation.details.searchGenreFromDetails
-import reikai.presentation.details.searchLibraryFromDetails
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
-import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.search.NovelChapterSearchScreen
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`, pinned by [EntryDetailsContent]. Builds a
  * [NovelEntryAdapter] over the novel model and delegates the whole body to the shared content, so a
  * details change is written once and reaches both content types. Only novel-specific navigation (the
- * reader, notes, the page selector) and the per-type dialogs live here; the shared dialogs go through
+ * reader, the page selector, chapter text search) and the per-type dialogs live here; the shared dialogs go through
  * [EntryDetailsDialogHost].
  */
 class NovelScreen(
@@ -144,37 +138,14 @@ class NovelScreen(
                                     )
                                 }
                             },
-                            onGlobalSearch = {
-                                navigator.push(EntryGlobalSearchScreen(it, scopedContentType = ContentType.NOVELS))
-                            },
-                            onLibrarySearch = { query ->
-                                scope.launch { navigator.searchLibraryFromDetails(query, ContentType.NOVELS) }
-                            },
-                            // Null for an uninstalled plugin, whose catalogue would open on nothing.
-                            onBrowseSource = s.browsableSourceId?.let { id ->
-                                { navigator.push(EntryCatalogueScreen(SourceKey.Novel(id))) }
-                            },
-                            onTagSearch = { genre ->
-                                scope.launch {
-                                    navigator.searchGenreFromDetails(
-                                        genre,
-                                        SourceKey.Novel(s.browsableSourceId ?: s.novel.source),
-                                        ContentType.NOVELS,
-                                    )
-                                }
-                            },
-                            onOpenTrackingSettings = {
-                                navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
-                            },
-                            // The viewed member's own notes, as shown above it: the chip's, the anchor's under All.
-                            onEditNotes = { navigator.push(NovelNotesScreen(s.displayNovel.id)) },
+                            // Not browsable for an uninstalled plugin, whose catalogue would open on nothing;
+                            // a genre then searches under the anchor's source.
+                            viewedSource = DetailsViewedSource(
+                                SourceKey.Novel(s.browsableSourceId ?: s.novel.source),
+                                browsable = s.browsableSourceId != null,
+                            ),
                             onOpenFilterSettings = viewModel::showChapterSettingsDialog,
                             onEditInterval = viewModel::showSetFetchIntervalDialog,
-                            // Anchor-scoped like manga: migrating must re-home the series, not
-                            // whichever source chip happens to be selected.
-                            onMigrate = {
-                                navigator.push(EntryMigrationSourcePickScreen(ContentType.NOVELS, listOf(s.novel.id)))
-                            },
                             onOpenPageSelector = viewModel::showPageSelectorDialog,
                             // The scope a chapter tapped here opens in: the chip's source, else the group.
                             onSearchText = {
@@ -250,7 +221,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             // A screen of its own rather than a sheet, so the dialog only hands over to it.
             is NovelSettings.PreferenceScreen -> LaunchedEffect(dialog) {
                 viewModel.dismissDialog()
-                navigator.push(SourcePreferencesScreen.forNovel(dialog.source.id))
+                navigator.push(SourceKey.Novel(dialog.source.id).preferencesScreen())
             }
             null -> {}
         }

@@ -39,7 +39,6 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.all.MangaDex
-import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.util.system.toast
@@ -69,6 +68,7 @@ import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.PendingBulkCategoryDialog
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.rememberEntryGestures
+import reikai.presentation.browse.source.preferencesScreen
 import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.novel.browse.NovelBrowseViewModel
@@ -176,7 +176,7 @@ class EntryCatalogueScreen(
         Catalogue(
             behavior = adapter,
             bulk = bulk,
-            onOpenSettings = { navigator.push(SourcePreferencesScreen(sourceId)) },
+            onOpenSettings = { navigator.push(sourceKey.preferencesScreen()) },
             isLocal = isLocal,
         ) { onDismiss ->
             SourceFilterDialog(
@@ -221,7 +221,7 @@ class EntryCatalogueScreen(
             // A preference screen is a screen of its own; the LNReader schema is a sheet over this one.
             onOpenSettings = {
                 when (source?.settings) {
-                    is NovelSettings.PreferenceScreen -> navigator.push(SourcePreferencesScreen.forNovel(sourceId))
+                    is NovelSettings.PreferenceScreen -> navigator.push(sourceKey.preferencesScreen())
                     else -> viewModel.openSettingsSheet()
                 }
             },

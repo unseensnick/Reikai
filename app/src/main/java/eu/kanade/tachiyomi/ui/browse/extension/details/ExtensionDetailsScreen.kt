@@ -16,7 +16,9 @@ import eu.kanade.presentation.browse.PrivateExtensionUninstallDialog
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.extension.model.Extension // RK
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
+import reikai.domain.source.SourceKey // RK
 import reikai.novel.source.novelSourceId // RK
+import reikai.presentation.browse.source.preferencesScreen // RK
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -50,16 +52,8 @@ data class ExtensionDetailsScreen(
                     // RK: a block, so a novel app's source opens its own settings screen
                     onClickSourcePreferences = {
                         // RK --> a novel app's source is looked up by its text id
-                        val novelId = state.extension.kind.novelSourceId(it)
-                        navigator.push(
-                            if (novelId !=
-                                null
-                            ) {
-                                SourcePreferencesScreen.forNovel(novelId)
-                            } else {
-                                SourcePreferencesScreen(it)
-                            },
-                        )
+                        val key = state.extension.kind.novelSourceId(it)?.let(SourceKey::Novel) ?: SourceKey.Manga(it)
+                        navigator.push(key.preferencesScreen())
                         // RK <--
                     },
                     onClickEnableAll = { viewModel.toggleSources(true) },

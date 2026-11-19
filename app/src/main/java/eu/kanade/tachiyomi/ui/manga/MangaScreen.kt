@@ -14,7 +14,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.domain.manga.model.hasCustomCover
@@ -25,15 +24,11 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
-import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
-import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import exh.pagepreview.PagePreviewScreen
 import exh.source.configurableSource
 import exh.source.getMainSource
@@ -44,11 +39,11 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo // RK
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
-import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
-import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.browse.source.preferencesScreen
 import reikai.presentation.details.DetailsSettings // RK
+import reikai.presentation.details.DetailsViewedSource
 import reikai.presentation.details.DuplicateMarking // RK
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
@@ -63,11 +58,8 @@ import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.detailsScreen
 import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
-import reikai.presentation.details.searchGenreFromDetails
-import reikai.presentation.details.searchLibraryFromDetails
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
-import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
 import reikai.presentation.recommendation.relatedDestination
 import tachiyomi.domain.chapter.model.Chapter
@@ -165,23 +157,16 @@ class MangaScreen(
                                 }
                             }
                         },
-                        onGlobalSearch = { scope.launch { performSearch(navigator, it, global = true) } },
-                        // The viewed source, since the tags on screen are the selected chip's.
-                        onTagSearch = { genre ->
-                            scope.launch { performGenreSearch(navigator, genre, successState.shownSource) }
-                        },
-                        onOpenTrackingSettings = {
-                            navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
-                        },
-                        // The viewed member's own notes, as shown above it: the chip's, the anchor's under All.
-                        onEditNotes = { navigator.push(MangaNotesRoute(successState.shownManga.id)) },
-                        onOpenFilterSettings = viewModel::showSettingsDialog,
-                        onMigrate = {
-                            // Source picker first, so a merged manga can pick which source to migrate.
-                            navigator.push(
-                                EntryMigrationSourcePickScreen(ContentType.MANGA, listOf(successState.manga.id)),
+                        // The viewed source, since the tags on screen are the selected chip's. A stub has no
+                        // catalogue to browse, and a source with no filters searches a genre as text.
+                        viewedSource = successState.shownSource.let { source ->
+                            DetailsViewedSource(
+                                SourceKey.Manga(source.id),
+                                browsable = !source.isLocalOrStub(),
+                                filterable = source is HttpSource,
                             )
                         },
+                        onOpenFilterSettings = viewModel::showSettingsDialog,
                         onEditInterval = viewModel::showSetFetchIntervalDialog,
                         onRelatedClick = { candidate ->
                             scope.launch {
@@ -205,20 +190,12 @@ class MangaScreen(
                             )
                         },
                         onMorePreviews = { navigator.push(PagePreviewScreen(successState.manga.id)) },
-                        onLibrarySearch = { query ->
-                            scope.launch { performSearch(navigator, query, global = false) }
-                        },
-                        // The viewed source, and null on a stub: there is no catalogue to open for an
-                        // extension that is not installed.
-                        onBrowseSource = successState.shownSource
-                            .takeIf { !it.isLocalOrStub() }
-                            ?.let { source -> { navigator.push(EntryCatalogueScreen(SourceKey.Manga(source.id))) } },
                         onOpenFolder = { scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) } },
                         // The viewed source, as the metadata viewer resolves it, so a merged entry
                         // opens the settings of the source its chip is showing.
                         onOpenSourceSettings = successState.shownSource
                             .takeIf { it.configurableSource() != null }
-                            ?.let { source -> { navigator.push(SourcePreferencesScreen(source.id)) } },
+                            ?.let { source -> { navigator.push(SourceKey.Manga(source.id).preferencesScreen()) } },
                         // Gallery metadata viewer, only for adult/metadata sources; follows the viewed source
                         // (the selected chip), so enhanced-MangaDex "More info" shows even when the merge is
                         // anchored on a non-metadata source.
@@ -334,40 +311,8 @@ class MangaScreen(
 
     // RK: getMangaUrl, openMangaInWebView and shareManga moved to EntryWebPage, shared with novels
 
-    /**
-     * Perform a search using the provided query.
-     *
-     * @param query the search query to the parent controller
-     */
-    // RK --> Walks the back stack rather than looking one screen back, which is upstream's shape: a
-    //        details screen reached from history, updates, a deep link or a related hop has no library
-    //        directly behind it, so the search silently did nothing. It walks past any catalogue so it
-    //        always lands on the library, and carries this entry's content type, because the library
-    //        searches whichever type chip is open. A catalogue is only a genre's target, see below.
-    private suspend fun performSearch(navigator: Navigator, query: String, global: Boolean) {
-        if (global) {
-            navigator.push(EntryGlobalSearchScreen(query, scopedContentType = ContentType.MANGA))
-            return
-        }
-
-        navigator.searchLibraryFromDetails(query, ContentType.MANGA)
-    }
-    // RK <--
-
-    /**
-     * Performs a genre search using the provided genre name.
-     *
-     * @param genreName the search genre to the parent controller
-     */
-    // RK: the walk novels share, which only returns to this source's own catalogue.
-    private suspend fun performGenreSearch(navigator: Navigator, genreName: String, source: Source) {
-        navigator.searchGenreFromDetails(
-            genreName,
-            SourceKey.Manga(source.id),
-            ContentType.MANGA,
-            filterable = source is HttpSource,
-        )
-    }
+    // RK: performSearch and performGenreSearch moved to the shared details body (withSharedPushes), which
+    // walks the back stack to the library or the viewed source's catalogue for both types.
 
     // RK: copyMangaUrl moved to EntryWebPage (rememberEntryWebActions), which cannot throw
 }

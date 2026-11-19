@@ -6,6 +6,7 @@ import io.mockk.verify
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DownloadTargets
+import reikai.domain.source.SourceKey
 import reikai.presentation.components.UndatedChapterDate
 
 /** The library-only actions and the Tracking tap, decided once by the shared body for both types. */
@@ -19,14 +20,11 @@ class EntryDetailsLibraryActionsTest {
     private val nav = EntryDetailsNavigation(
         navigateUp = {},
         onOpenChapter = {},
-        onGlobalSearch = {},
-        onTagSearch = {},
+        viewedSource = DetailsViewedSource(SourceKey.Manga(1L), browsable = true),
         onOpenTrackingSettings = { trackingSettingsOpened = true },
-        onEditNotes = {},
         onOpenFilterSettings = {},
         onMigrate = migrate,
         onEditInterval = editInterval,
-        onLibrarySearch = {},
     )
 
     @Test

@@ -2,27 +2,33 @@ package reikai.presentation.details
 
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import kotlin.math.abs
 
 /**
- * A details page is built only in DetailsRoutes.kt, so a change to how one is addressed lands once for
- * both types. Scans every file under reikai/ and exh/ whole, a Mihon file with a `RK: whole file` header
- * whole, and the Reikai lines of every other file the way scripts/rk-fence-report.ps1 reads them: an
- * island, the statement under a note, and the up-to-five-line hunk a trailing marker fences (the lines
- * around it up to a blank line). Upstream's own lines are left alone. A Reikai-owned file outside
- * reikai/ and exh/ carries no marker, so it is not covered.
+ * A details page and a source's settings screen are each built in one home ([homes]), so a change to how
+ * one is addressed lands once for both types. Scans every file under reikai/ and exh/ whole, a Mihon file
+ * with a `RK: whole file` header whole, and the Reikai lines of every other file the way
+ * scripts/rk-fence-report.ps1 reads them: an island, the statement under a note, and the up-to-five-line
+ * hunk a trailing marker fences (the lines around it up to a blank line). Upstream's own lines are left
+ * alone. A Reikai-owned file outside reikai/ and exh/ carries no marker, so it is not covered.
  */
 class DetailsRoutesGuardTest {
 
-    @Test
-    fun `details screens are constructed only in DetailsRoutes`() {
+    class Home(val name: String, val files: Set<String>, val construction: Regex, val declaration: Regex) {
+        override fun toString() = name
+    }
+
+    @ParameterizedTest
+    @MethodSource("homes")
+    fun `a screen is constructed only in its home`(home: Home) {
         // Unit tests run from the module directory, so the source tree resolves relative to it.
         val root = File("src/main/java")
         root.isDirectory shouldBe true
         val files = root.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" && it.name != "DetailsRoutes.kt" }
+            .filter { it.isFile && it.extension == "kt" && it.name !in home.files }
             .toList()
         files.shouldNotBeEmpty()
 
@@ -32,7 +38,10 @@ class DetailsRoutesGuardTest {
             val ours = path.startsWith("reikai/") || path.startsWith("exh/") ||
                 lines.take(3).any { WHOLE_FILE.containsMatchIn(it) }
             scannedLines(lines, ours)
-                .filter { (_, line) -> CONSTRUCTION.containsMatchIn(line) && !DECLARATION.containsMatchIn(line) }
+                .filter { (_, line) ->
+                    home.construction.containsMatchIn(line) &&
+                        !home.declaration.containsMatchIn(line)
+                }
                 .map { (number, line) -> "$path:$number: ${line.trim()}" }
         }
 
@@ -76,14 +85,28 @@ class DetailsRoutesGuardTest {
 
     private fun isComment(line: String) = line.trimStart().startsWith("//")
 
-    private companion object {
-        val CONSTRUCTION = Regex("""\b(MangaScreen|NovelScreen)\(|::(MangaScreen|NovelScreen)\b""")
-        val DECLARATION = Regex("""\bclass (MangaScreen|NovelScreen)\(""")
+    companion object {
+        @JvmStatic
+        fun homes() = listOf(
+            Home(
+                "details pages",
+                setOf("DetailsRoutes.kt"),
+                Regex("""\b(MangaScreen|NovelScreen)\(|::(MangaScreen|NovelScreen)\b"""),
+                Regex("""\bclass (MangaScreen|NovelScreen)\("""),
+            ),
+            // The screen's own file keeps forNovel, the one builder the home calls for a novel source.
+            Home(
+                "source settings",
+                setOf("SourcePreferencesScreens.kt", "SourcePreferencesScreen.kt"),
+                Regex("""\bSourcePreferencesScreen(\(|\.forNovel\b)|::SourcePreferencesScreen\b"""),
+                Regex("""\bclass SourcePreferencesScreen\("""),
+            ),
+        )
 
-        val WHOLE_FILE = Regex("""^\s*//\s*\bRK: whole file""")
-        val ISLAND_OPEN = Regex("""^\s*//\s*\bRK\s*-->""")
-        val ISLAND_CLOSE = Regex("""^\s*//\s*\bRK\s*<--""")
-        val NOTE = Regex("""^\s*//\s*\bRK:""")
-        val TRAILING_MARKER = Regex("""\S.*//\s*\bRK\b""")
+        private val WHOLE_FILE = Regex("""^\s*//\s*\bRK: whole file""")
+        private val ISLAND_OPEN = Regex("""^\s*//\s*\bRK\s*-->""")
+        private val ISLAND_CLOSE = Regex("""^\s*//\s*\bRK\s*<--""")
+        private val NOTE = Regex("""^\s*//\s*\bRK:""")
+        private val TRAILING_MARKER = Regex("""\S.*//\s*\bRK\b""")
     }
 }

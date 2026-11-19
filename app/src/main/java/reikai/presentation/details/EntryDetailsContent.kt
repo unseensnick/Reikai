@@ -80,23 +80,27 @@ private const val HIDDEN_CHAPTER_ALPHA = 0.4f
  * Navigation and per-type actions the shared details body cannot express through [EntryDetailsBehavior]:
  * opening the reader, the per-type filter-settings sheet, and the manga-only capability taps (related
  * cards, page previews, gallery viewer). Each screen builds one and passes it in; a manga-only slot's
- * callback is simply absent for novels. The web actions are the body's own, from [EntryWebPage].
+ * callback is simply absent for novels. The web actions are the body's own, from [EntryWebPage], and so
+ * are the pushes both types make alike ([withSharedPushes]), over [viewedSource].
  */
 data class EntryDetailsNavigation(
     val navigateUp: () -> Unit,
     val onOpenChapter: (chapterId: Long) -> Unit,
-    /** Header title / author / artist tap: a global search, scoped to this entry's type. */
-    val onGlobalSearch: (query: String) -> Unit,
-    val onTagSearch: (String) -> Unit,
+    val viewedSource: DetailsViewedSource,
+    /** Header title / author / artist tap: a global search, scoped to this entry's type; filled by the shared body. */
+    val onGlobalSearch: (query: String) -> Unit = {},
+    /** A genre tap; filled by the shared body. */
+    val onTagSearch: (String) -> Unit = {},
     /** A tag's Show only / Hide this tag, which set the library's tag filter; filled by the shared body. */
     val onFilterLibraryByTag: ((tag: String, show: Boolean) -> Unit)? = null,
     /** The header cover's tap, which opens the cover on screen, a picked volume's own; filled by the shared body. */
     val onCoverClick: () -> Unit = {},
-    /** The Tracking tap with no tracker logged in; with one, the body opens the track sheet itself. */
-    val onOpenTrackingSettings: () -> Unit,
-    val onEditNotes: () -> Unit,
+    /** The Tracking tap with no tracker logged in; with one, the body opens the track sheet itself. Filled
+     *  by the shared body, as [onEditNotes] is. */
+    val onOpenTrackingSettings: () -> Unit = {},
+    val onEditNotes: () -> Unit = {},
     val onOpenFilterSettings: () -> Unit,
-    /** Library entries only: the body drops it for an entry outside the library ([forState]). */
+    /** Library entries only: filled by the shared body, which drops it outside the library ([forState]). */
     val onMigrate: (() -> Unit)? = null,
     /** Smart update's interval editor; the body drops it outside the library ([forState]), and null
      *  leaves the button doing nothing. */
@@ -122,9 +126,9 @@ data class EntryDetailsNavigation(
     /** Hands the viewed source's download folder to a file manager. */
     val onOpenFolder: (() -> Unit)? = null,
     /** Header long-press: search the library, forced to this entry's type. The source row passes a
-     *  `srcid:` query for its source rather than the name it shows. */
-    val onLibrarySearch: (query: String) -> Unit,
-    /** Header source row: browse that source. Null on a stub, where there is nothing to browse. */
+     *  `srcid:` query for its source rather than the name it shows. Filled by the shared body. */
+    val onLibrarySearch: (query: String) -> Unit = {},
+    /** Header source row: browse that source; filled by the shared body, null when nothing can be browsed. */
     val onBrowseSource: (() -> Unit)? = null,
 )
 
@@ -150,7 +154,7 @@ fun EntryDetailsContent(
     val context = LocalContext.current
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     val navigator = LocalNavigator.currentOrThrow
-    val libraryNav = nav.forState(state).copy(
+    val libraryNav = nav.withSharedPushes(state, navigator, scope).forState(state).copy(
         onFilterLibraryByTag = { tag, show ->
             settings.filterLibraryByTag(tag, show)
             scope.launch { navigator.showLibraryFromDetails() }

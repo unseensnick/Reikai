@@ -30,6 +30,7 @@ import org.robolectric.RobolectricTestRunner
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.DownloadTargets
+import reikai.domain.source.SourceKey
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.components.UndatedChapterDate
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -54,12 +55,8 @@ internal class DetailsContentHost(
             nav = EntryDetailsNavigation(
                 navigateUp = {},
                 onOpenChapter = {},
-                onGlobalSearch = {},
-                onTagSearch = {},
+                viewedSource = DetailsViewedSource(SourceKey.Manga(1L), browsable = true),
                 onOpenFilterSettings = {},
-                onOpenTrackingSettings = {},
-                onEditNotes = {},
-                onLibrarySearch = {},
             ),
             settings = DetailsSettings(
                 UiPreferences(store),
