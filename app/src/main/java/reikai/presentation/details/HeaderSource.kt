@@ -56,3 +56,13 @@ fun shownNovel(anchor: Novel, sibling: Novel?, anchorInfo: CustomNovelInfo?, sib
  */
 fun <T> unifiedViewMember(anchor: T, group: List<T>, isInstalled: (T) -> Boolean): T =
     if (isInstalled(anchor)) anchor else group.firstOrNull(isInstalled) ?: anchor
+
+/**
+ * The members whose raw titles the header lists as other titles: every one of a merged [group] under
+ * All, the [viewed] member under a source chip, none for a standalone entry.
+ */
+fun <T> altTitleMembers(sourceCount: Int, selectedSource: Long?, group: List<T>, viewed: T): List<T> = when {
+    sourceCount <= 1 -> emptyList()
+    selectedSource == null -> group
+    else -> listOf(viewed)
+}

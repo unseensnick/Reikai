@@ -46,7 +46,10 @@ import tachiyomi.domain.manga.model.MangaRemoteUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 
-/** A merged series' details page under All shows the series' tags as the library reads them, for both types. */
+/**
+ * A merged series' details page under All shows the series' tags as the library reads them, for both types,
+ * and its header's other titles are the raw titles of the sources the view stands for.
+ */
 class DetailsSeriesTagsConformanceTest {
 
     /** A two-source series, the anchor and one sibling, as the details page of the anchor opens it. */
@@ -54,6 +57,7 @@ class DetailsSeriesTagsConformanceTest {
         val anchorTags: List<String> = ANCHOR_TAGS,
         val siblingTags: List<String> = SIBLING_TAGS,
         val customTags: List<String>? = null,
+        val customTitle: String? = null,
     )
 
     class Opened(
@@ -115,6 +119,24 @@ class DetailsSeriesTagsConformanceTest {
         } shouldBe listOf("Action", "Drama", "Horror")
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a source chip under an Edit info title lists that source's own title`(probe: Probe) = runTest {
+        probe.opened(this, Series(customTitle = "Mine")) {
+            it.settled(it.sibling, it.selectSibling).details.header.altTitles
+        } shouldBe listOf(SIBLING_TITLE)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `All under an Edit info title lists every source's own title`(probe: Probe) = runTest {
+        probe.opened(this, Series(customTitle = "Mine")) {
+            it.settled(it.anchor) { state ->
+                SIBLING_TITLE in state.details.header.altTitles
+            }.details.header.altTitles.size
+        } shouldBe 2
+    }
+
     @Test
     fun `a gallery anchor keeps its grouped chips and shows the other sources' tags in a row of their own`() =
         runTest {
@@ -134,6 +156,7 @@ class DetailsSeriesTagsConformanceTest {
         private const val SOURCE_EXTENSIONS_FILE = "eu.kanade.tachiyomi.source.SourceExtensionsKt"
         val ANCHOR_TAGS = listOf("Action", "Drama")
         val SIBLING_TAGS = listOf("drama", "Comedy")
+        const val SIBLING_TITLE = "Sibling title"
 
         @JvmStatic
         fun probes() = listOf(MangaProbe(), NovelProbe())
@@ -164,7 +187,7 @@ class DetailsSeriesTagsConformanceTest {
             driver.seedManga(ANCHOR, chapterId = 10L, sourceId = ANCHOR_SOURCE)
             driver.seedManga(SIBLING, chapterId = 20L, sourceId = SIBLING_SOURCE)
             mangas.retag(ANCHOR, series.anchorTags)
-            mangas.retag(SIBLING, series.siblingTags)
+            mangas.retag(SIBLING, series.siblingTags, SIBLING_TITLE)
             val sources = mockk<SourceManager>(relaxed = true) {
                 coEvery { getOrStub(any()) } answers { httpSource(firstArg<Long>()) }
             }
@@ -175,7 +198,11 @@ class DetailsSeriesTagsConformanceTest {
                 ChapterRepositoryImpl(database),
                 longArrayOf(ANCHOR, SIBLING),
                 sourceManager = sources,
-                customInfo = series.customTags?.let { mapOf(ANCHOR to CustomMangaInfo(ANCHOR, genre = it)) }.orEmpty(),
+                customInfo = if (series.customTags == null && series.customTitle == null) {
+                    emptyMap()
+                } else {
+                    mapOf(ANCHOR to CustomMangaInfo(ANCHOR, title = series.customTitle, genre = series.customTags))
+                },
             ).also { store.put("manga", it) }
             return try {
                 block(
@@ -195,13 +222,13 @@ class DetailsSeriesTagsConformanceTest {
             }
         }
 
-        /** Stores [tags] as [id]'s source tags, as a details refresh writes them. */
-        private suspend fun MangaRepository.retag(id: Long, tags: List<String>) {
+        /** Stores [tags] (and a [title]) as [id]'s source values, as a details refresh writes them. */
+        private suspend fun MangaRepository.retag(id: Long, tags: List<String>, title: String? = null) {
             val manga = getMangaById(id)
             updateRemote(
                 MangaRemoteUpdate(
                     id = id,
-                    title = manga.title,
+                    title = title ?: manga.title,
                     author = manga.author,
                     artist = manga.artist,
                     description = manga.description,
@@ -235,10 +262,13 @@ class DetailsSeriesTagsConformanceTest {
         override suspend fun <T> opened(scope: TestScope, series: Series, block: suspend (Opened) -> T): T =
             NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
                 val anchor = harness.novel(harness.source("alpha"))
-                val sibling = harness.novel(harness.source("beta"))
+                val sibling = harness.novel(harness.source("beta"), title = SIBLING_TITLE)
                 harness.updateNovel(anchor) { genre = series.anchorTags }
                 harness.updateNovel(sibling) { genre = series.siblingTags }
-                series.customTags?.let { harness.customInfo[anchor] = CustomNovelInfo(anchor, genre = it) }
+                if (series.customTags != null || series.customTitle != null) {
+                    harness.customInfo[anchor] =
+                        CustomNovelInfo(anchor, title = series.customTitle, genre = series.customTags)
+                }
                 harness.merge(anchor, sibling)
                 val model = harness.openDetails(anchor)
                 block(

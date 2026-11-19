@@ -87,7 +87,13 @@ class MangaEntryAdapter(
                     },
                     altTitles = seriesAltTitles(
                         shown.title,
-                        mergedMangaById.values.map { it.title },
+                        altTitleMembers(
+                            mergeSources.size,
+                            selectedSourceMangaId,
+                            mergedMangaById.values.toList(),
+                            shownManga,
+                        )
+                            .map { it.title },
                         customInfo?.altTitles.orEmpty(),
                     ),
                 ),

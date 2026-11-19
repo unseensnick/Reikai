@@ -99,7 +99,7 @@ class NovelEntryAdapter(
                     coverFallbacks = coverFallbacks(novel.id, groupNovels) { it.id },
                     altTitles = seriesAltTitles(
                         display.title,
-                        groupNovels.map {
+                        altTitleMembers(mergeSources.size, selectedSourceNovelId, groupNovels, displayNovel).map {
                             it.title
                         },
                         customInfo?.altTitles.orEmpty(),
