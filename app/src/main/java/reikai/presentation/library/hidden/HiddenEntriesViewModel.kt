@@ -12,17 +12,23 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.PreferenceMutableState
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
@@ -33,10 +39,15 @@ import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.library.within
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetNovelTracks
+import reikai.domain.novel.model.NovelTrack
+import reikai.domain.novel.track.toUiTrack
+import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.gridColumns
 import reikai.presentation.library.gridDisplayMode
 import reikai.presentation.library.isHiddenFromLibrary
+import reikai.presentation.library.meansOf
 import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
 import reikai.presentation.selection.EntrySelection
@@ -45,7 +56,9 @@ import reikai.presentation.stats.sortedForDisplay
 import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.track.interactor.GetTracksPerManga
 
 /**
  * The series hidden from the library view, both content types switched by the All / Manga / Novels chip,
@@ -62,6 +75,9 @@ class HiddenEntriesViewModel(
     private val hideSeries: HideSeries,
     private val novelRepository: NovelRepository,
     private val libraryPreferences: LibraryPreferences,
+    private val getTracksPerManga: GetTracksPerManga,
+    private val getNovelTracks: GetNovelTracks,
+    private val trackerManager: TrackerManager,
     // An unhide must land even when the screen closes right after it.
     @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -81,13 +97,29 @@ class HiddenEntriesViewModel(
         combine(mangaLibraryRows.rows, novelLibraryRows.rows) { manga, novels -> manga + novels.items },
         hideSeries.subscribeAll(),
         getEntryCustomInfo.subscribeAll(),
-        libraryPreferences.sortingMode.changes(),
-        libraryPreferences.randomSortSeed.changes(),
-    ) { rows, hidden, customInfo, sort, seed ->
-        val fields = mixedLibraryItemSortFields { null }
-        val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, seed.toLong(), fields)
-        rows.filter { isHiddenFromLibrary(it, hidden) }.sortedForDisplay(comparator, customInfo)
+        sorting(),
+    ) { rows, hidden, customInfo, sorting ->
+        hiddenRowsInOrder(rows, hidden, customInfo, sorting.sort, sorting.seed, sorting.tracks)
     }.flowOn(Dispatchers.Default)
+
+    // Tracks are read only under the tracker-score sort, the one sort that needs them.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun sorting(): Flow<Sorting> = libraryPreferences.sortingMode.changes().flatMapLatest { sort ->
+        val tracks = if (sort.type == LibrarySort.Type.TrackerMean) {
+            combine(
+                getTracksPerManga.subscribe(),
+                getNovelTracks.subscribeAll(),
+                trackerManager.loggedInTrackersFlow(),
+            ) { manga, novels, trackers ->
+                EntryTracks(manga, novels.mapValues { (_, tracks) -> tracks.map(NovelTrack::toUiTrack) }, trackers)
+            }
+        } else {
+            flowOf(null)
+        }
+        combine(libraryPreferences.randomSortSeed.changes(), tracks) { seed, tracks ->
+            Sorting(sort, seed.toLong(), tracks)
+        }
+    }
 
     // A series unhidden or removed leaves the selection with its row.
     private val shownRows = combine(hiddenRows, chip, reikaiLibraryPreferences.shownContent.changes()) {
@@ -136,6 +168,24 @@ class HiddenEntriesViewModel(
     fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
         libraryPreferences.gridColumns(viewModelScope, isLandscape)
 }
+
+/** The hidden rows of [rows] in the library's global sort; [tracks] is null unless the sort scores by tracker. */
+internal fun hiddenRowsInOrder(
+    rows: List<LibraryItem>,
+    hidden: Set<EntryId>,
+    customInfo: Map<EntryId, EntryCustomInfo>,
+    sort: LibrarySort,
+    seed: Long,
+    tracks: EntryTracks?,
+): List<LibraryItem> {
+    val shown = rows.filter { isHiddenFromLibrary(it, hidden) }
+    val means = tracks?.meansOf(shown).orEmpty()
+    val fields = mixedLibraryItemSortFields { means[it.entryId] }
+    val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, seed, fields)
+    return shown.sortedForDisplay(comparator, customInfo)
+}
+
+private class Sorting(val sort: LibrarySort, val seed: Long, val tracks: EntryTracks?)
 
 private class ShownRows(val type: ContentType, val rows: List<LibraryItem>)
 

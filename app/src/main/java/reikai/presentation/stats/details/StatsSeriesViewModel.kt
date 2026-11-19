@@ -35,11 +35,11 @@ import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.novel.NovelRepository
+import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.gridColumns
 import reikai.presentation.library.gridDisplayMode
-import reikai.presentation.library.libraryTrackerMeans
-import reikai.presentation.library.memberIds
+import reikai.presentation.library.meansOf
 import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
 import reikai.presentation.stats.ReadState
@@ -119,7 +119,10 @@ class StatsSeriesViewModel(
         readState,
     ) { loaded, sort, seed, readState ->
         // Lazy, so only the tracker-score sort pays for the means, as in the library.
-        val means = lazy { loaded.library.trackerMeans(loaded.rows) }
+        val means = lazy {
+            EntryTracks(loaded.library.mangaTracks, loaded.library.novelTracks, loaded.library.loggedInTrackers)
+                .meansOf(loaded.rows)
+        }
         val fields = mixedLibraryItemSortFields { item -> means.value[item.entryId] }
         val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, seed.toLong(), fields)
         StatsSeriesState(
@@ -166,13 +169,4 @@ class StatsSeriesViewModel(
         val readStates: Map<EntryId, ReadState>,
         val summary: StatsRow?,
     )
-
-    // Each type's means keyed by its own row ids, as each library provider computes them.
-    private fun StatsLibrary.trackerMeans(rows: List<LibraryItem>): Map<EntryId, Double> {
-        val trackers = loggedInTrackers.associateBy { it.id }
-        val (mangaRows, novelRows) = rows.partition { it.entryId is EntryId.Manga }
-        val manga = libraryTrackerMeans(mangaRows.associate { it.id to it.memberIds() }, mangaTracks, trackers)
-        val novels = libraryTrackerMeans(novelRows.associate { it.id to it.memberIds() }, novelTracks, trackers)
-        return manga.mapKeys { EntryId.Manga(it.key) } + novels.mapKeys { EntryId.Novel(it.key) }
-    }
 }

@@ -3,6 +3,8 @@ package reikai.presentation.library
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId
 import reikai.domain.track.canonicalTracksPerTracker
 import tachiyomi.domain.track.model.Track
 
@@ -33,6 +35,26 @@ fun libraryTrackerMean(
         .mapNotNull { trackers[it.trackerId]?.get10PointScore(it)?.takeIf { s -> s > 0.0 } }
         .takeIf { it.isNotEmpty() }
         ?.average()
+
+/** Both content types' tracks by entry id, novel tracks as the shared [Track], and the logged-in trackers. */
+class EntryTracks(
+    val manga: Map<Long, List<Track>>,
+    val novels: Map<Long, List<Track>>,
+    val trackers: List<Tracker>,
+)
+
+/**
+ * [libraryTrackerMeans] over rows of both content types, for a list that mixes them (Statistics, Hidden
+ * entries). Keyed by [EntryId], since a manga row and a novel row can share an id; each reads its own tracks.
+ */
+fun EntryTracks.meansOf(rows: List<LibraryItem>): Map<EntryId, Double> {
+    val byId = trackers.associateBy { it.id }
+    val (mangaRows, novelRows) = rows.partition { it.entryId is EntryId.Manga }
+    return libraryTrackerMeans(mangaRows.associate { it.id to it.memberIds() }, manga, byId)
+        .mapKeys { EntryId.Manga(it.key) } +
+        libraryTrackerMeans(novelRows.associate { it.id to it.memberIds() }, novels, byId)
+            .mapKeys { EntryId.Novel(it.key) }
+}
 
 /** The names of a row's trackers among [trackers], the logged-in ones, across its merged group. */
 fun libraryTrackerNames(memberIds: List<Long>, tracksById: Map<Long, List<Track>>, trackers: Map<Long, Tracker>) =
