@@ -31,9 +31,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import eu.kanade.presentation.browse.ExtensionUninstallConfirmation
 import eu.kanade.presentation.browse.InfoDivider
 import eu.kanade.presentation.browse.InfoText
+import eu.kanade.presentation.browse.UninstallPromptDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
@@ -216,9 +216,10 @@ private fun NovelPluginDetails(
     }
 
     if (confirmUninstall) {
-        ExtensionUninstallConfirmation(
-            extensionName = plugin.name,
-            onClickConfirm = onUninstall,
+        UninstallPromptDialog(
+            name = plugin.name,
+            icon = { NovelSourceIcon(plugin.iconUrl) },
+            onConfirm = onUninstall,
             onDismissRequest = { confirmUninstall = false },
         )
     }

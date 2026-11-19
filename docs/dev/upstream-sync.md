@@ -191,6 +191,9 @@ Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer doe
 
 Upstream work above the base that needs a hand-merge or a decision before it lands. A syncer skips a held commit (per [How to sync](#how-to-sync)) and ports independent later commits around it; delete an entry once the ledger records it.
 
+- **mihon c0d3aeaeb (mihonapp/mihon#3984), Voyager replaced with Navigation 3.** 83 files, every screen moving from a Voyager `Screen` to a route on `mihon.core.navigation`, sixteen of them off-path manifested files whose changes land in their Reikai twins; Reikai's own screens are all Voyager too. Held for a dedicated pass, since it moves the navigation every Reikai screen and screen-conventions.md are built on.
+- **mihon f64d82b94, the shared WebView screen in `WebViewActivity`.** It routes the activity through Navigation 3's `AppNavGraph`, so it waits for c0d3aeaeb and lands in the same pass.
+
 ## The website is synced separately
 
 This file covers the Android app. The docs site is its own repository with its own upstream
@@ -205,6 +208,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported |
 |---|---|---|---|
+| `f42d08a23` (unchanged) | `chore: sync Mihon private extension uninstall prompt` | 2026-11-19 | Android 17-style uninstall prompt with icon and name, and the details page confirming a private uninstall (mihon 994a09539), ported ahead of the held c0d3aeaeb; LN plugins draw the same prompt through `UninstallPromptDialog`. |
 | `f42d08a23` | `chore: sync Mihon Metro 1.6.0` | 2026-11-19 | Metro 1.5.2 to 1.6.0 (mihon f42d08a23, mihonapp/mihon#4303); the graph compiles unchanged. |
 | `845f662a3` | (skipped) | 2026-11-19 | dependency-review-action 5.0.1 in upstream's `build.yml` (mihon 845f662a3, mihonapp/mihon#4308), N/A: Reikai's workflows have no dependency-review step. |
 | `4823ba69c` | `chore: sync Mihon ubuntu-26.04 runners` | 2026-11-15 | Every workflow job pinned to ubuntu-26.04 instead of ubuntu-latest (mihon 71cd94a31, mihonapp/mihon#3986), below the base but missed by its sync; the CI gradle.properties comment names the image too. |

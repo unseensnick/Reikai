@@ -33,8 +33,9 @@ import eu.kanade.presentation.browse.ExtensionInstallErrorDialog
 import eu.kanade.presentation.browse.ExtensionItem
 import eu.kanade.presentation.browse.ExtensionNotLoadedDialog
 import eu.kanade.presentation.browse.ExtensionTrustDialog
-import eu.kanade.presentation.browse.ExtensionUninstallConfirmation
 import eu.kanade.presentation.browse.NotLoadedDialog
+import eu.kanade.presentation.browse.PrivateExtensionUninstallDialog
+import eu.kanade.presentation.browse.UninstallPromptDialog
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
@@ -394,9 +395,9 @@ private fun ExtensionsList(
     }
 
     privateExtensionToUninstall?.let { extension ->
-        ExtensionUninstallConfirmation(
-            extensionName = extension.name,
-            onClickConfirm = { extensionsViewModel.uninstallExtension(extension) },
+        PrivateExtensionUninstallDialog(
+            extension = extension,
+            onConfirm = { extensionsViewModel.uninstallExtension(extension) },
             onDismissRequest = { privateExtensionToUninstall = null },
         )
     }
@@ -404,9 +405,10 @@ private fun ExtensionsList(
     // A plugin is not a package the system can remove, so its long press is confirmed here, the
     // way a privately installed manga extension is.
     pluginToUninstall?.let { plugin ->
-        ExtensionUninstallConfirmation(
-            extensionName = plugin.name,
-            onClickConfirm = { lnModel.uninstall(plugin) },
+        UninstallPromptDialog(
+            name = plugin.name,
+            icon = { NovelSourceIcon(plugin.iconUrl) },
+            onConfirm = { lnModel.uninstall(plugin) },
             onDismissRequest = { pluginToUninstall = null },
         )
     }

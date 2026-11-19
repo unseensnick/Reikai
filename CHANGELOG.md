@@ -314,6 +314,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Changed
 
 - **Extension settings now use the app's own look (from Mihon).**
+- **Uninstalling a private extension or a light-novel plugin now asks in a prompt showing its icon and name, from its own page too (from Mihon).**
 - **Browse -> Filter now lists manga and novel languages and sources in one order, switched-off ones last.**
 - **Novel screens open sooner after a restart when many novel plugins are installed.**
 

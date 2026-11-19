@@ -7,13 +7,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.presentation.browse.components.ExtensionIcon
@@ -473,36 +478,80 @@ fun ExtensionTrustDialog(
     )
 }
 
-// RK: moved here from the deleted ExtensionsTab.kt, beside the other extension dialog, so both stay
-//     upstream-tracked in one place. See the off-path manifest.
+// RK --> the body is UninstallPromptDialog below, which LN plugins also call, so both look alike
+
+/**
+ * Confirms uninstalling a privately installed extension, laid out like the system package installer's prompt.
+ */
 @Composable
-fun ExtensionUninstallConfirmation(
-    extensionName: String,
-    onClickConfirm: () -> Unit,
+fun PrivateExtensionUninstallDialog(
+    extension: Extension,
+    onConfirm: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    UninstallPromptDialog(
+        name = extension.name,
+        icon = {
+            ExtensionIcon(
+                extension = extension,
+                modifier = Modifier.size(40.dp),
+            )
+        },
+        onConfirm = onConfirm,
+        onDismissRequest = onDismissRequest,
+    )
+}
+
+@Composable
+fun UninstallPromptDialog(
+    name: String,
+    icon: @Composable () -> Unit,
+    onConfirm: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     AlertDialog(
+        modifier = Modifier
+            .padding(horizontal = 32.dp)
+            .fillMaxWidth(),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         title = {
-            Text(text = stringResource(MR.strings.ext_confirm_remove))
+            Text(text = stringResource(MR.strings.ext_confirm_uninstall))
         },
         text = {
-            Text(text = stringResource(MR.strings.remove_private_extension_message, extensionName))
+            Row(
+                modifier = Modifier.padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                icon()
+                Text(
+                    text = name,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
-                    onClickConfirm()
+                    onConfirm()
                     onDismissRequest()
                 },
             ) {
-                Text(text = stringResource(MR.strings.ext_remove))
+                Text(text = stringResource(MR.strings.ext_uninstall))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
+            OutlinedButton(
+                onClick = onDismissRequest,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ),
+            ) {
                 Text(text = stringResource(MR.strings.action_cancel))
             }
         },
         onDismissRequest = onDismissRequest,
     )
 }
+// RK <--

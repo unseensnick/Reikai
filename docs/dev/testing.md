@@ -165,6 +165,7 @@ A screen not listed here can stop rendering, or lose a button's wiring, with the
 | Migration commit bar | `MigrationCommitBarTest` | the Migrate button clears the navigation bar |
 | Browse long-press dialogs | `EntryAddDialogsTest` | remove, categories, add anyway and group add reach the flow, for manga and novels |
 | Browse sources filter | `SourcesFilterContentTest` | hiding novels on the Novels chip shows the manga half |
+| Extension uninstall prompt | `UninstallPromptDialogTest` | a private extension's and an LN plugin's prompt name what they uninstall, and only Uninstall uninstalls |
 | Local catalogue | `CatalogueLocalSourceTest` | an empty listing offers Import and the guide, no retry; a refresh runs on resume |
 | Saved search chips | `SavedSearchChipTest` | a tap applies, a long press offers deletion |
 | Recents selection bar | `RecentsToolbarTest` | select all, inverse and cancel reach their handlers |
