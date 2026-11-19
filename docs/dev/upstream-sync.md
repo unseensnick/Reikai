@@ -205,6 +205,8 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported |
 |---|---|---|---|
+| `f42d08a23` | `chore: sync Mihon Metro 1.6.0` | 2026-11-19 | Metro 1.5.2 to 1.6.0 (mihon f42d08a23, mihonapp/mihon#4303); the graph compiles unchanged. |
+| `845f662a3` | (skipped) | 2026-11-19 | dependency-review-action 5.0.1 in upstream's `build.yml` (mihon 845f662a3, mihonapp/mihon#4308), N/A: Reikai's workflows have no dependency-review step. |
 | `4823ba69c` | `chore: sync Mihon ubuntu-26.04 runners` | 2026-11-15 | Every workflow job pinned to ubuntu-26.04 instead of ubuntu-latest (mihon 71cd94a31, mihonapp/mihon#3986), below the base but missed by its sync; the CI gradle.properties comment names the image too. |
 | `4823ba69c` | `chore: sync Mihon setup-java 6.3.0` | 2026-11-14 | actions/setup-java v6.2.0 to v6.3.0 (mihon 4823ba69c, mihonapp/mihon#4296), in Reikai's shared setup-build action. |
 | `0c888b010` | `chore: sync Mihon dependency bumps` | 2026-11-12 | google-services 4.6.0 (mihon 867c26578, mihonapp/mihon#4282), firebase-bom 35.2.0 (mihon 8503547b8, mihonapp/mihon#4281), kotlinx.serialization 1.13.0 (mihon be582036e, mihonapp/mihon#4288), kotest-assertions-core 6.2.7 (mihon 0c888b010, mihonapp/mihon#4287); none pinned differently in Reikai. |
