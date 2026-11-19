@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -17,9 +16,9 @@ import eu.kanade.presentation.more.stats.StatsScreenContent
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.tachiyomi.ui.stats.StatsViewModel
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Edit
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.details.StatsGroupScreen
 import reikai.presentation.stats.details.StatsMostReadScreen
 import reikai.presentation.stats.details.StatsReadingScreen
@@ -33,7 +32,6 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 @Composable
 fun StatsContent(navigateUp: (() -> Unit)?) {
     val navigator = LocalNavigator.currentOrThrow
-    val scope = rememberCoroutineScope()
 
     val viewModel = metroViewModel<StatsViewModel>()
     // As a tab the model lives all session, so it reloads whenever Statistics comes back on screen.
@@ -112,7 +110,7 @@ fun StatsContent(navigateUp: (() -> Unit)?) {
             onSeeAll = { navigator.push(StatsGroupScreen(it)) },
             onOpenRow = { navigator.push(StatsSeriesScreen(it.group.key, it.name, contentType)) },
             onOpenKey = { navigator.push(StatsSeriesScreen(it, null, contentType)) },
-            onOpenEntry = { scope.launch { viewModel.detailsScreen(it)?.let(navigator::push) } },
+            onOpenEntry = { navigator.push(it.detailsScreen()) },
             onOpenReading = { navigator.push(StatsReadingScreen()) },
             onOpenMostRead = { navigator.push(StatsMostReadScreen()) },
             cardLayout = statsShownCards(cardLayout, hiddenCards, hiddenFigures),

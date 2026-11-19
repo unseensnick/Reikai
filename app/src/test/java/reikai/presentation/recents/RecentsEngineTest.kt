@@ -2,7 +2,6 @@ package reikai.presentation.recents
 
 import android.content.Intent
 import androidx.compose.runtime.snapshots.Snapshot
-import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -1951,6 +1950,4 @@ private class FakeRecentsProvider(
         refreshed = true
         return refreshStarts
     }
-
-    override suspend fun detailsScreen(entry: EntryId): Screen? = null
 }

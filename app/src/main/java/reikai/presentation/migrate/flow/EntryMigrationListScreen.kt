@@ -64,6 +64,7 @@ import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.Search
 import reikai.domain.library.ContentType
+import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -265,6 +266,7 @@ private fun MigrationRow(
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    val opener = rememberDetailsOpener()
     // Collected inside the item so one row settling recomposes that row, not the whole list.
     val search by row.search.collectAsState()
     val commit by row.commit.collectAsState()
@@ -309,7 +311,7 @@ private fun MigrationRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable { target.openDetails(navigator) },
+                        modifier = Modifier.clickable { target.openDetails(opener) },
                     )
                 }
                 RowStatusLine(row = row, status = status, viewModel = viewModel)
@@ -338,6 +340,7 @@ private fun OverridePicker(
     viewModel: EntryMigrationListViewModel,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    val opener = rememberDetailsOpener()
     val context = LocalContext.current
     val overrides by row.overrides.collectAsState()
     var query by rememberSaveable(row.entry.id.toString()) { mutableStateOf(row.entry.title) }
@@ -374,7 +377,7 @@ private fun OverridePicker(
                         showsFormat = showsFormat,
                         isCurrentSource = strip.sourceKey == row.entry.sourceKey,
                         onPick = { viewModel.pick(row.entry.id, it) },
-                        onPreview = { it.openDetails(navigator) },
+                        onPreview = { it.openDetails(opener) },
                         onBrowseSource = {
                             if (!openDeepPicker(navigator, row.entry, strip.sourceKey, query)) {
                                 context.toast(MR.strings.internal_error)

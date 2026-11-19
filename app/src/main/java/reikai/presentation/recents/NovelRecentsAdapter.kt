@@ -2,7 +2,6 @@ package reikai.presentation.recents
 
 import android.content.Context
 import android.content.Intent
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
@@ -52,7 +51,6 @@ import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
-import reikai.presentation.details.detailsScreen
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.updates.NovelUpdatesItem
@@ -288,10 +286,6 @@ class NovelRecentsAdapter(
     // Straight to the job, as the manga adapter goes and for the same two reasons.
     override suspend fun refresh(): Boolean = NovelUpdateWorker.startNow(application.workManager)
 
-    override suspend fun detailsScreen(entry: EntryId): Screen? =
-        (entry as? EntryId.Novel)?.detailsScreen(novelRepository)
-
-    // No lookup, unlike detailsScreen: the novel reader is keyed by id, not by source and url.
     override fun open(item: RecentsItem, chapter: ChapterRef): Intent = ReaderActivity.newNovelIntent(
         application,
         item.entryId.rawId,

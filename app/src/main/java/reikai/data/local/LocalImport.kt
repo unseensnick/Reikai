@@ -342,9 +342,10 @@ class LocalImport(
             if (made) folder.deleteIfEmpty(context)
             return null
         }
-        val entryId = if (addToLibrary) {
-            runCatchingCancellable { add(group.type, series, categoryIds) }
-                .onFailure { problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
+        // A novel is stored either way, since its details page opens by row id; manga stores one only on an add.
+        val entryId = if (addToLibrary || group.type == ContentType.NOVELS) {
+            runCatchingCancellable { add(group.type, series, addToLibrary, categoryIds) }
+                .onFailure { if (addToLibrary) problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
                 .getOrNull()
         } else {
             null
@@ -353,37 +354,39 @@ class LocalImport(
         return ImportedSeries(group.key, group.type, if (made) group.title else series, series, entryId)
     }
 
-    /** Stores the series the folder [path] now holds, fills in its chapters and favorites it. */
-    private suspend fun add(type: ContentType, path: String, categoryIds: List<Long>): Long? = when (type) {
-        ContentType.NOVELS -> {
-            val parsed = localNovels.parseNovel(path)
-            val novel = insertOpenedNovel(
-                parsed,
-                LocalNovelSource.ID,
-                novelRepository,
-                novelChapterRepository,
-                libraryPreferences,
-                syncRules,
-            )
-            val item = NovelItem(parsed.name ?: path, path, parsed.cover)
-            if (novelAdder.addToBatch(item, LocalNovelSource.ID, categoryIds) == AddOutcome.Failed) {
-                throw NotAddedException()
-            }
-            novel?.id ?: novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)?.id
-        }
-        else -> {
-            val stored =
-                networkToLocalManga(
-                    SManga.create().apply {
-                        url = path
-                        title = path
-                    }.toDomainManga(LocalSource.ID),
+    /** Stores the series the folder [path] now holds, fills in its chapters and, with [favorite], favorites it. */
+    private suspend fun add(type: ContentType, path: String, favorite: Boolean, categoryIds: List<Long>): Long? =
+        when (type) {
+            ContentType.NOVELS -> {
+                val parsed = localNovels.parseNovel(path)
+                val novel = insertOpenedNovel(
+                    parsed,
+                    LocalNovelSource.ID,
+                    novelRepository,
+                    novelChapterRepository,
+                    libraryPreferences,
+                    syncRules,
                 )
-            updateMangaFromRemote(stored, fetchDetails = true, fetchChapters = true, manualFetch = true).getOrThrow()
-            if (mangaAdder.addToBatch(stored.id, categoryIds) == AddOutcome.Failed) throw NotAddedException()
-            stored.id
+                val item = NovelItem(parsed.name ?: path, path, parsed.cover)
+                if (favorite && novelAdder.addToBatch(item, LocalNovelSource.ID, categoryIds) == AddOutcome.Failed) {
+                    throw NotAddedException()
+                }
+                novel?.id ?: novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)?.id
+            }
+            else -> {
+                val stored =
+                    networkToLocalManga(
+                        SManga.create().apply {
+                            url = path
+                            title = path
+                        }.toDomainManga(LocalSource.ID),
+                    )
+                updateMangaFromRemote(stored, fetchDetails = true, fetchChapters = true, manualFetch = true)
+                    .getOrThrow()
+                if (mangaAdder.addToBatch(stored.id, categoryIds) == AddOutcome.Failed) throw NotAddedException()
+                stored.id
+            }
         }
-    }
 
     /** "<series> - Vol. N.epub", N the book's own number or else its place in the series. */
     private fun bookName(series: String, file: ImportFile, place: Int): String {

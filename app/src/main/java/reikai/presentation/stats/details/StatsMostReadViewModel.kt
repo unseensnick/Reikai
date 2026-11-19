@@ -2,7 +2,6 @@ package reikai.presentation.stats.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -17,11 +16,9 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
-import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.StatsLibrarySource
 import reikai.presentation.stats.StatsReload
 import reikai.presentation.stats.statsCovers
@@ -60,6 +57,4 @@ class StatsMostReadViewModel(
 
     /** Called each time the screen comes back on screen, so it shows the library as it is now. */
     fun refresh() = library.reload()
-
-    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 }

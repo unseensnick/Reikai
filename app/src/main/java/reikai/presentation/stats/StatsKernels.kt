@@ -98,22 +98,41 @@ enum class StatsDimension { STATUS, SCORE, LENGTH, TRACKER, SOURCE, CATEGORY, TA
 
 /**
  * One details row's identity; a null value is the "none" row (unscored, untracked, unknown). Serializable
- * because the row's series list is a screen that takes one.
+ * (Java for the Voyager screen the row's series list is, kotlinx for its route) because that screen takes one.
  */
+@kotlinx.serialization.Serializable
 sealed interface StatsGroupKey : Serializable {
+    @kotlinx.serialization.Serializable
     data class Status(val code: Long) : StatsGroupKey
+
+    @kotlinx.serialization.Serializable
     data class Score(val bar: Int?) : StatsGroupKey
 
     // Two ends rather than a LongRange, which cannot be saved with a screen.
+    @kotlinx.serialization.Serializable
     data class Length(val first: Long, val last: Long) : StatsGroupKey {
         val chapters: LongRange get() = first..last
     }
+
+    @kotlinx.serialization.Serializable
     data class Tracker(val trackerId: Long?) : StatsGroupKey
+
+    @kotlinx.serialization.Serializable
     data class Source(val key: String, val name: String) : StatsGroupKey
+
+    @kotlinx.serialization.Serializable
     data class Category(val id: Long) : StatsGroupKey
+
+    @kotlinx.serialization.Serializable
     data class Tag(val name: String) : StatsGroupKey
+
+    @kotlinx.serialization.Serializable
     data class Language(val code: String) : StatsGroupKey
+
+    @kotlinx.serialization.Serializable
     data class StartYear(val year: Int?) : StatsGroupKey
+
+    @kotlinx.serialization.Serializable
     data class TrackingStatus(val status: TrackStatus) : StatsGroupKey
 }
 

@@ -84,7 +84,6 @@ import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.reportVolumeMove
 import reikai.presentation.details.detailsScreen
-import reikai.presentation.details.novelDetailsAt
 import reikai.presentation.library.CombineVolumesDialog // RK
 import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
@@ -387,16 +386,8 @@ data object LibraryTab : Tab {
         // RK <--
 
         // RK: open an entry on its own details screen, routed by the ROW's content type rather than the
-        // active chip. Navigation stays per-type (each type has its own screen), but the decision no
-        // longer depends on ambient UI state, so a mixed list routes every row correctly.
-        val openEntry: (EntryId) -> Unit = { entryId ->
-            when (entryId) {
-                is EntryId.Novel -> novelModel.state.value.routeFor(entryId.rawId)?.let {
-                    navigator.push(novelDetailsAt(it.source, it.url))
-                }
-                is EntryId.Manga -> navigator.push(entryId.detailsScreen())
-            }
-        }
+        // active chip, so a mixed list routes every row correctly.
+        val openEntry: (EntryId) -> Unit = { entryId -> navigator.push(entryId.detailsScreen()) }
 
         // RK: open a random entry, from the section on screen or from the whole library. The entry comes
         // back neutral and opens through the same routing every other row uses, so the two callers can't
@@ -861,14 +852,16 @@ data object LibraryTab : Tab {
                         val message = context.stringResource(MR.strings.local_volumes_combined, kept.title)
                         // The kept series' screen, where its volumes show, opens on Organize files' preview with
                         // the Undo, since leaving this screen ends its own snackbar.
-                        val opened = organize && move.result is LocalMoveResult.Moved &&
+                        if (organize && move.result is LocalMoveResult.Moved) {
                             graph.volumePicking.organizeOn(
                                 EntryId.of(dialog.type, kept.id),
                                 move,
                                 message,
                                 navigator::push,
                             )
-                        if (!opened) snackbarHostState.reportVolumeMove(context, move, message)
+                        } else {
+                            snackbarHostState.reportVolumeMove(context, move, message)
+                        }
                     }
                 },
             )

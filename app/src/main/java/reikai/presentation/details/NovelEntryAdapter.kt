@@ -73,7 +73,8 @@ class NovelEntryAdapter(
 
     private fun NovelDetailsState.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
         NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
-        is NovelDetailsState.Failed -> EntryDetailsScreenState.Failed(message)
+        // The screen draws its not-found page itself, from the model's own state.
+        NovelDetailsState.NotFound -> EntryDetailsScreenState.Loading
         is NovelDetailsState.Loaded -> toNeutralLoaded(marks)
     }
 

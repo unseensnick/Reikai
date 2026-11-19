@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
@@ -55,29 +54,38 @@ class NovelDetailsFetchTest {
     }
 
     @Test
-    fun `a novel opened from browsing is stored outside the library and shown`() = runTest {
-        val (loaded, stored) = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+    fun `a novel opened from browsing fills in its stored row and stays outside the library`() = runTest {
+        val loaded = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val source = harness.source("alpha")
             source.details = { SourceNovel(path = NEW_URL, name = "New", chapters = listOf(ChapterItem("One", "/1"))) }
-            val model = harness.openDetails("alpha", NEW_URL)
-            model.awaitLoaded { it.chapters.size == 1 } to harness.storedNovel("alpha", NEW_URL)
+            harness.openListing("alpha", NEW_URL).awaitLoaded { it.chapters.size == 1 && it.novel.title == "New" }
         }
 
-        (loaded.novel.id to loaded.novel.favorite) shouldBe (stored?.id to false)
+        (loaded.novel.title to loaded.novel.favorite) shouldBe ("New" to false)
     }
 
     @Test
-    fun `a novel opened from browsing whose plugin is not installed fails to load`() = runTest {
+    fun `a novel id with no stored row shows the not-found page`() = runTest {
         val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
-            harness.openDetails("gone", NEW_URL).awaitState { it is NovelDetailsState.Failed }
+            harness.openDetails(MISSING_ID).awaitState { it == NovelDetailsState.NotFound }
         }
 
-        state.shouldBeInstanceOf<NovelDetailsState.Failed>()
+        state shouldBe NovelDetailsState.NotFound
     }
 
     @Test
-    fun `a novel whose plugin threw while loading offers to load it again`() = runTest {
-        val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+    fun `a novel opened from browsing whose plugin is not installed shows its row with the source missing`() =
+        runTest {
+            val loaded = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+                harness.openListing("gone", NEW_URL).awaitLoaded { it.sourceState == EntrySourceState.Missing }
+            }
+
+            loaded.novel.url shouldBe NEW_URL
+        }
+
+    @Test
+    fun `pulling to refresh a novel whose plugin threw while loading loads the plugin again`() = runTest {
+        val loaded = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             harness.pluginFailures.value = mapOf(
                 "https://example.org/gone.js" to LnPluginLoadFailure(
                     url = "https://example.org/gone.js",
@@ -90,10 +98,17 @@ class NovelDetailsFetchTest {
                     reason = LnPluginLoadFailure.Reason.Failed("ReferenceError: x", "trace"),
                 ),
             )
-            harness.openDetails("gone", NEW_URL).awaitState { it is NovelDetailsState.Failed }
+            harness.onPluginRetry = { id ->
+                harness.source(id).details =
+                    { SourceNovel(path = NEW_URL, chapters = listOf(ChapterItem("One", "/1"))) }
+            }
+            val model = harness.openListing("gone", NEW_URL)
+            model.awaitLoaded { it.sourceState == EntrySourceState.Missing }
+            model.refresh()
+            model.awaitLoaded { it.chapters.size == 1 }
         }
 
-        (state as NovelDetailsState.Failed).retryable shouldBe true
+        loaded.chapters.map { it.url } shouldBe listOf("/1")
     }
 
     /** The update names the failed load for the same novel, so a pull to refresh must not call it not installed. */
@@ -124,20 +139,10 @@ class NovelDetailsFetchTest {
     }
 
     @Test
-    fun `a novel opened from browsing whose source cannot answer shows why`() = runTest {
-        val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
-            harness.source("alpha").details = { throw IOException("no connection") }
-            harness.openDetails("alpha", NEW_URL).awaitState { it is NovelDetailsState.Failed }
-        }
-
-        state shouldBe NovelDetailsState.Failed("no connection")
-    }
-
-    @Test
     fun `a novel opened from browsing whose source lists no chapters says so`() = runTest {
         val shown = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             harness.source("alpha").details = { SourceNovel(path = NEW_URL, name = "New") }
-            harness.openDetails("alpha", NEW_URL).snackbarWithin(10_000)
+            harness.openListing("alpha", NEW_URL).snackbarWithin(10_000)
         }
 
         (shown != null) shouldBe true
@@ -233,7 +238,7 @@ class NovelDetailsFetchTest {
                 null
             }
             source.details = { SourceNovel(path = NEW_URL, name = "New", totalPages = 4) }
-            val model = harness.openDetails("alpha", NEW_URL)
+            val model = harness.openListing("alpha", NEW_URL)
             try {
                 withContext(Dispatchers.Default) {
                     withTimeoutOrNull(10_000) {
@@ -253,7 +258,7 @@ class NovelDetailsFetchTest {
         val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val source = harness.source("alpha")
             source.details = { SourceNovel(path = NEW_URL, name = "New", totalPages = 4) }
-            harness.openDetails("alpha", NEW_URL).awaitLoaded { it.pages.size == 4 }
+            harness.openListing("alpha", NEW_URL).awaitLoaded { it.pages.size == 4 }
             withContext(Dispatchers.Default) {
                 withTimeout(10_000) { while ("1" !in source.pagesAsked) delay(20) }
                 withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.size < 2) delay(20) }
@@ -427,7 +432,7 @@ class NovelDetailsFetchTest {
     }
 
     @Test
-    fun `a stored novel whose plugin is gone shows its chapters and never fails`() = runTest {
+    fun `a stored novel whose plugin is gone shows its chapters and never reads as not found`() = runTest {
         val seen = CopyOnWriteArrayList<NovelDetailsState>()
         val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val gate = harness.holdPluginLoads()
@@ -440,7 +445,7 @@ class NovelDetailsFetchTest {
             model.awaitLoaded { it.sourceState == EntrySourceState.Missing }.also { watcher.cancel() }
         }
 
-        (state.chapters.size to seen.none { it is NovelDetailsState.Failed }) shouldBe (1 to true)
+        (state.chapters.size to seen.none { it == NovelDetailsState.NotFound }) shouldBe (1 to true)
     }
 
     /** A novel spanning two pages, the first stored and the second not yet fetched, shown once its source resolved. */
@@ -479,6 +484,7 @@ class NovelDetailsFetchTest {
 
     private companion object {
         const val NEW_URL = "/novel/new"
+        const val MISSING_ID = 999L
         const val TINT = 0xFF336699.toInt()
         const val OTHER_TINT = 0xFF993366.toInt()
 

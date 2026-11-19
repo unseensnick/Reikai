@@ -5,7 +5,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -566,10 +565,6 @@ class RecentsEngine(
      * reduced, so one type already running cannot short-circuit the other type's start.
      */
     suspend fun refresh(): Boolean = activeProviders().map { it.refresh() }.any { it }
-
-    /** The details screen for a row, resolved by the provider that owns the entry. */
-    suspend fun detailsScreen(entry: EntryId): Screen? =
-        providersByType[entry.contentType]?.detailsScreen(entry)
 
     /**
      * How a tap on [item] opens its chapter in [mode], or null when there is nothing left to open. One

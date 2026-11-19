@@ -48,6 +48,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.InMemoryChapterCopyMarks
@@ -210,6 +211,8 @@ class NovelReaderViewModelHarness private constructor(
         every { queueState } returns MutableStateFlow(emptyList())
         every { getChapterText(any(), any()) } answers { downloaded[secondArg<NovelChapter>().id] }
         every { deleteChapters(any()) } answers { deletedAfterRead += firstArg<List<NovelChapter>>().map { it.id } }
+        // A renamed novel's row is written through its folder move, as the real manager does.
+        coEvery { renameNovel(any(), any(), any()) } coAnswers { thirdArg<suspend () -> Boolean>()() }
     }
 
     /** The chapters a mark read removed the download of, with "Remove after marked as read" on. */
@@ -524,20 +527,16 @@ class NovelReaderViewModelHarness private constructor(
         ).also(::track)
     }
 
-    /**
-     * The novel details screen of [novelId], over the same database and merge machinery. It launches on
-     * the real IO dispatcher rather than [dispatcher], so a test waits on its state in real time.
-     */
-    suspend fun openDetails(novelId: Long, shown: Boolean = true): NovelDetailsViewModel {
-        val novel = novelRepo.getById(novelId)!!
-        return openDetails(novel.source, novel.url, shown)
-    }
+    /** The details screen of [url] on [sourceId] opened from Browse, which stores its listing row first. */
+    suspend fun openListing(sourceId: String, url: String): NovelDetailsViewModel =
+        openDetails(novelRepo.insertOrGet(NovelItem("Listed", url, null).toNovel(sourceId))!!.id)
 
     /**
-     * The details screen of [url] on [sourceId], which need not be stored yet, as when opened from Browse.
-     * While [shown], its state is collected for as long as the model lives, as a screen showing it collects it.
+     * The novel details screen of [novelId], over the same database and merge machinery. It launches on
+     * the real IO dispatcher rather than [dispatcher], so a test waits on its state in real time. While
+     * [shown], its state is collected for as long as the model lives, as a screen showing it collects it.
      */
-    fun openDetails(sourceId: String, url: String, shown: Boolean = true): NovelDetailsViewModel {
+    fun openDetails(novelId: Long, shown: Boolean = true): NovelDetailsViewModel {
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences, onMerged = {}) {}
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
@@ -545,9 +544,7 @@ class NovelReaderViewModelHarness private constructor(
             NovelMergedChapterProvider(mergeManager, ReconcileMergedChapters(units, setOf(stitcher)))
         return NovelDetailsViewModel(
             appScope = appScope,
-            sourceId = sourceId,
-            novelUrl = url,
-            listingCover = null,
+            novelId = novelId,
             isFromSource = false,
             novelRepo = detailsNovels,
             coverCache = mockk(relaxed = true),

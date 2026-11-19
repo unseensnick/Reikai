@@ -82,6 +82,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Settings -> Advanced -> Show duplicate chapters the reader skips marks each copy on a series' chapter list.** Tap the count under the chapter header to list only the copies.
 - **A chapter the duplicate rule gets wrong can be marked Never skip, or grouped with its copies by hand, while duplicates are shown.** Settings -> Advanced -> Export duplicate marks saves them as a file for a report.
 
+#### Changed
+
+- **A novel opened from Browse whose first load fails now shows its details page with the reason, and pulling down tries again, as manga does.** A shared novel link that cannot be loaded now goes to search instead of an error page.
+
 #### Fixed
 
 - **Notes no longer lose your latest text when Android closes the app in the background while the notes are open.**
@@ -90,7 +94,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A tag typed in Edit info no longer doubles one that differs only in capitals.**
 - **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
-- **A novel whose plugin failed to load now gives the real reason when you open it, a chapter or a library update, with Retry on its details page, instead of not installed.**
+- **A novel whose plugin failed to load now gives the real reason when you refresh its details page, open a chapter or run a library update, instead of not installed.**
 - **Swiping a novel chapter read or bookmarked while selecting now ends the selection, as on manga.**
 - **A novel page that fails to load in the page selector now says why, and picking it again retries it.**
 - **A partly read novel chapter's percent now follows the app's language.**

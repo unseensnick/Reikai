@@ -38,7 +38,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -58,7 +57,6 @@ import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalSeriesRelink
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelStatusCode
-import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.syncChaptersWithNovelSource
@@ -121,7 +119,6 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelTrack
-import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.effectiveBookmarkedFilter
@@ -138,8 +135,6 @@ import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.reader.ChapterListFilters
 import reikai.domain.reader.novelChapterListFilters
-import reikai.domain.source.healedCover
-import reikai.domain.source.keptCover
 import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.TrackedChapterNumber
 import reikai.domain.track.autobind.AutoBindTrackers
@@ -154,7 +149,7 @@ import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.download.toDownloadState
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.install.LnPluginInstaller
-import reikai.novel.install.describing
+import reikai.novel.install.RunSources
 import reikai.novel.install.unreachable
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
@@ -212,10 +207,7 @@ import kotlin.time.Duration.Companion.seconds
 @AssistedInject
 class NovelDetailsViewModel(
     @AppCoroutineScope private val appScope: CoroutineScope,
-    /** A novel source id is a plugin string, so this is Reikai's shape rather than upstream's Long. */
-    @Assisted private val sourceId: String,
-    @Assisted private val novelUrl: String,
-    @Assisted private val listingCover: String?,
+    @Assisted private val novelId: Long,
     @Assisted val isFromSource: Boolean,
     private val novelRepo: NovelRepository,
     private val coverCache: CoverCache,
@@ -269,12 +261,7 @@ class NovelDetailsViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(
-            sourceId: String,
-            novelUrl: String,
-            listingCover: String?,
-            isFromSource: Boolean,
-        ): NovelDetailsViewModel
+        fun create(novelId: Long, isFromSource: Boolean): NovelDetailsViewModel
     }
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
@@ -289,8 +276,8 @@ class NovelDetailsViewModel(
 
     private val resolvedSource: NovelSource? get() = (anchorSource.value as? SourceLookup.Resolved)?.source
 
-    /** Why the opened novel could not load. Shown only while there is no stored novel to show instead. */
-    private val failure = MutableStateFlow<NovelDetailsState.Failed?>(null)
+    /** Whether the opened id has no row, which shows a not-found page while nothing else can show. */
+    private val notFound = MutableStateFlow(false)
 
     private var refreshJob: Job? = null
     private var seededCover: NovelCover? = null
@@ -314,15 +301,12 @@ class NovelDetailsViewModel(
     // they write, so a range anchor the list dropped stays dropped.
     private val chapterSelection = MutableStateFlow(SelectionState<Long>())
 
-    // Found by the address the screen opened with, then followed by id: renaming a local series' files
-    // changes its address, and the screen stays on it.
-    private val storedAnchor: Flow<Novel?> = flow {
-        val found = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
-            .onEach { if (it == null) emit(null) }
-            .filterNotNull()
-            .first()
-        emitAll(novelRepo.getByIdAsFlow(found.id))
-    }
+    /** The opened novel's source, which a row never changes; read by the hidden-chapter key. */
+    @Volatile
+    private var anchorSourceId = ""
+
+    private val storedAnchor: Flow<Novel?> =
+        novelRepo.getByIdAsFlow(novelId).onEach { stored -> stored?.let { anchorSourceId = it.source } }
 
     /**
      * Shared merge read/observe wiring: the group ids, the selected source chip, the membership observer,
@@ -482,8 +466,8 @@ class NovelDetailsViewModel(
         sourcedChapterList,
         combine(downloadStates, trackingButton, combine(customInfo, chipCustomInfo, ::Pair), ::Triple),
         combine(chapterSelection, dialog, isRefreshing, isPageLoading, seedColor, ::Overlay),
-        failure,
-    ) { list, (downloads, tracking, info), overlay, failure ->
+        notFound,
+    ) { list, (downloads, tracking, info), overlay, notFound ->
         list?.copy(
             downloadStates = downloads,
             trackingCount = tracking.count,
@@ -496,7 +480,7 @@ class NovelDetailsViewModel(
             isPageLoading = overlay.isPageLoading,
             seedColor = overlay.seedColor,
         )
-            ?: failure
+            ?: NovelDetailsState.NotFound.takeIf { notFound }
             ?: NovelDetailsState.Loading
     }
         .flowOn(Dispatchers.IO)
@@ -505,70 +489,33 @@ class NovelDetailsViewModel(
     init {
         // Eager, unlike the state: the merge verbs read the group synchronously.
         mergeGroup.observe(viewModelScope)
-        resolveSource()
-        healPlaceholderCover()
+        viewModelScope.launchIO {
+            val opened = novelRepo.getById(novelId)
+            if (opened == null) notFound.value = true else resolveSource(opened.source)
+        }
+    }
+
+    /** Looks the opened novel's plugin up, then makes the first fetch when it has no chapters stored. */
+    private suspend fun resolveSource(sourceId: String) {
+        runCatchingCancellable { installer.ensureLoaded() }
+        val lookup = sourceManager.get(sourceId)?.let(SourceLookup::Resolved) ?: SourceLookup.Missing
+        anchorSource.value = lookup
+        if (lookup is SourceLookup.Resolved) firstFetch(lookup.source)
     }
 
     /**
-     * A row stored with no cover or a placeholder takes the cover of the listing that opened it, once it
-     * exists: a details page can serve a placeholder where its listing served the cover.
+     * Fetches a novel with no stored chapters (a listing opened from browsing), once. Decided from the
+     * stored rows, not the shown ones, so a filter hiding every chapter does not fetch again. A failure
+     * goes in a snackbar under the stored row, as manga's first fetch does, and a pull to refresh retries.
      */
-    private fun healPlaceholderCover() {
-        if (keptCover(null, listingCover) == null) return
-        viewModelScope.launchIO {
-            val stored = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId).filterNotNull().first()
-            healedCover(stored.thumbnailUrl, listingCover)?.let {
-                novelRepo.update(NovelUpdate(stored.id) { thumbnailUrl = it })
+    private suspend fun firstFetch(source: NovelSource) {
+        val stored = novelRepo.getById(novelId) ?: return
+        if (chapterRepo.getByNovelId(stored.id).isNotEmpty()) return
+        runCatchingCancellable { fetchAndSync(source, stored) }
+            .onFailure { e ->
+                val message = with(context) { e.refreshFailureMessage() }
+                withUIContext { snackbarHostState.showSnackbar(message) }
             }
-        }
-    }
-
-    /** Loads a plugin that threw while loading again, through the screen's loading state. */
-    fun retryLoad() {
-        failure.value = null
-        resolveSource { installer.retryLoad(sourceId) }
-    }
-
-    /** Looks the opened novel's plugin up, then makes the first fetch when nothing is stored to show. */
-    private fun resolveSource(load: suspend () -> Unit = installer::ensureLoaded) {
-        viewModelScope.launchIO {
-            runCatchingCancellable { load() }
-            val lookup = sourceManager.get(sourceId)?.let(SourceLookup::Resolved) ?: SourceLookup.Missing
-            anchorSource.value = lookup
-            firstFetch(lookup)
-        }
-    }
-
-    /**
-     * Fetches a novel with no stored row (opened from browsing) or no stored chapters, once. Decided from the
-     * stored rows, not the shown ones, so a filter hiding every chapter does not fetch again.
-     */
-    private suspend fun firstFetch(lookup: SourceLookup) {
-        val stored = novelRepo.getByUrlAndSource(novelUrl, sourceId)
-        when (lookup) {
-            SourceLookup.Pending -> Unit
-            // A plugin that is installed but threw while loading says why and can be loaded again, as the
-            // catalogue does; one that is really gone reads "not installed".
-            SourceLookup.Missing -> if (stored == null) {
-                failure.value = installer.failures.value.describing(sourceId, context)
-                    ?.let { NovelDetailsState.Failed(it, retryable = true) }
-                    ?: NovelDetailsState.Failed(
-                        context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
-                    )
-            }
-            is SourceLookup.Resolved -> if (stored == null || chapterRepo.getByNovelId(stored.id).isEmpty()) {
-                runCatchingCancellable { fetchAndSync(lookup.source, stored) }
-                    .onFailure { e ->
-                        val message = with(context) { e.refreshFailureMessage() }
-                        // A stored row still shows, so the reason goes in a snackbar, as manga's first fetch does.
-                        if (novelRepo.getByUrlAndSource(novelUrl, sourceId) == null) {
-                            failure.value = NovelDetailsState.Failed(message)
-                        } else {
-                            withUIContext { snackbarHostState.showSnackbar(message) }
-                        }
-                    }
-            }
-        }
     }
 
     /**
@@ -913,35 +860,14 @@ class NovelDetailsViewModel(
     }
 
     /** parseNovel + persist the source's metadata + sync the first page's chapters, then
-     *  predict the next update. The reactive flow then re-emits the updated novel/chapter list. A novel
-     *  opened from Browse is inserted non-favorite. Throws [NoChaptersException] once stored when an
-     *  unpaged source lists no chapter, as manga's first fetch does. */
-    private suspend fun fetchAndSync(src: NovelSource, existing: Novel?) {
-        val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
-        if (existing == null) {
-            insertOpenedNovel(
-                sourceNovel,
-                src.id,
-                novelRepo,
-                chapterRepo,
-                libraryPreferences,
-                syncRules,
-                downloadManager,
-            )
-        } else {
-            val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
-            val target =
-                storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager, coverCache)
-            syncOpenedChapters(
-                sourceNovel,
-                target,
-                novelRepo,
-                chapterRepo,
-                libraryPreferences,
-                syncRules,
-                downloadManager,
-            )
-        }
+     *  predict the next update. The reactive flow then re-emits the updated novel/chapter list. Throws
+     *  [NoChaptersException] once stored when an unpaged source lists no chapter, as manga's first fetch
+     *  does. */
+    private suspend fun fetchAndSync(src: NovelSource, existing: Novel) {
+        val sourceNovel = src.parseNovel(existing.url)
+        val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
+        val target = storeRefreshedNovel(existing, parsed, novelRepo, libraryPreferences, downloadManager, coverCache)
+        syncOpenedChapters(sourceNovel, target, novelRepo, chapterRepo, libraryPreferences, syncRules, downloadManager)
         if (sourceNovel.chapters.isNullOrEmpty() && sourceNovel.totalPages <= 1) throw NoChaptersException()
     }
 
@@ -1115,7 +1041,10 @@ class NovelDetailsViewModel(
                 val firstError = refreshMergeGroup(
                     anchor = {
                         runCatchingCancellable {
-                            val src = resolvedSource ?: sourceManager.get(loaded.novel.source)
+                            // A plugin that threw while loading is loaded again, as a reader Retry does.
+                            val src = resolvedSource
+                                ?: RunSources(installer, sourceManager).get(loaded.novel.source)
+                                    ?.also { anchorSource.value = SourceLookup.Resolved(it) }
                                 ?: throw installer.failures.value.unreachable(loaded.novel.source, context)
                             refreshNovel(src, loaded.novel, toDownload, viewedPage)
                         }
@@ -1434,7 +1363,7 @@ class NovelDetailsViewModel(
 
     /** A merged chapter is keyed by its own novel's stored source, an unmerged one by the anchor's. */
     private fun hiddenKey(chapter: NovelChapter): String =
-        chapter.hiddenKey(memberSources) ?: hiddenChapterKey(sourceId, chapter.url)
+        chapter.hiddenKey(memberSources) ?: hiddenChapterKey(anchorSourceId, chapter.url)
 
     private fun List<NovelChapter>.numberHints(): Map<Long, ChapterNumberHint.Hint> {
         val hidden = hiddenChaptersPref.get()
@@ -1832,8 +1761,8 @@ private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) =
 sealed interface NovelDetailsState {
     data object Loading : NovelDetailsState
 
-    /** [retryable] when loading the source again can fix it: a plugin that threw while loading. */
-    data class Failed(val message: String, val retryable: Boolean = false) : NovelDetailsState
+    /** The opened id has no row: the novel was removed since the page was opened from it. */
+    data object NotFound : NovelDetailsState
 
     @Immutable
     data class Loaded(

@@ -50,6 +50,7 @@ import kotlinx.coroutines.sync.Semaphore
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.SOURCE_SEARCH_CONCURRENCY
 import reikai.presentation.browse.globalsearch.SearchSourceFilter
+import reikai.presentation.details.rememberDetailsOpener
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -75,6 +76,7 @@ class EntryMigrationSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val opener = rememberDetailsOpener()
         val context = LocalContext.current
         val adapter = rememberMigrationAdapter(contentType)
         val viewModel = assistedMetroViewModel<EntryMigrationSearchViewModel, EntryMigrationSearchViewModel.Factory> {
@@ -168,7 +170,7 @@ class EntryMigrationSearchScreen(
                         showsFormat = showsFormat,
                         isCurrentSource = section.sourceKey == entry.sourceKey,
                         onPick = viewModel::pick,
-                        onPreview = { it.openDetails(navigator) },
+                        onPreview = { it.openDetails(opener) },
                         onBrowseSource = {
                             if (!openDeepPicker(navigator, entry, section.sourceKey, query)) {
                                 context.toast(MR.strings.internal_error)
@@ -193,7 +195,7 @@ class EntryMigrationSearchScreen(
                 // and the entry is the one the user already knows.
                 onShowEntry = {
                     viewModel.dismissDialog()
-                    target.openDetails(navigator)
+                    target.openDetails(opener)
                 },
                 onFinished = { replaced, resolved ->
                     viewModel.dismissDialog()

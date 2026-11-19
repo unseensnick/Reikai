@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.withIOContext
@@ -16,22 +17,21 @@ fun mangaDetailsIntent(context: Context, mangaId: Long): Intent =
         .setAction(Constants.SHORTCUT_MANGA)
         .putExtra(Constants.MANGA_EXTRA, mangaId)
 
-// By source and url rather than row id, since that is what the novel screen is pushed with.
-fun novelDetailsIntent(context: Context, source: String, url: String): Intent =
+fun novelDetailsIntent(context: Context, novelId: Long): Intent =
     Intent(context, MainActivity::class.java)
         .setAction(Constants.SHORTCUT_NOVEL)
-        .putExtra(Constants.NOVEL_SOURCE_EXTRA, source)
-        .putExtra(Constants.NOVEL_URL_EXTRA, url)
+        .putExtra(Constants.NOVEL_EXTRA, novelId)
 
 /**
- * The screen a [novelDetailsIntent] opens, or null when either extra is missing or names a novel this
- * device has not saved. MainActivity is exported, so any app can send one, and a novel page opened on an
- * unsaved url fetches it from the source and saves it; Mihon's manga shortcut carries a row id for the same
- * reason.
+ * The screen a [novelDetailsIntent] opens, or null when it names no novel. An intent an older build
+ * wrote (a pinned widget, a posted notification) carries the novel's source and url instead, read back
+ * only to a novel this device has saved: MainActivity is exported, so any app can send one, and nothing
+ * it sends may fetch from a source.
  */
 suspend fun Intent.novelDetailsScreen(novels: NovelRepository): Screen? {
+    getLongExtra(Constants.NOVEL_EXTRA, -1L).takeIf { it > 0L }?.let { return EntryId.Novel(it).detailsScreen() }
     val source = getStringExtra(Constants.NOVEL_SOURCE_EXTRA) ?: return null
     val url = getStringExtra(Constants.NOVEL_URL_EXTRA) ?: return null
-    withIOContext { novels.getByUrlAndSource(url, source) } ?: return null
-    return novelDetailsAt(source, url)
+    val stored = withIOContext { novels.getByUrlAndSource(url, source) } ?: return null
+    return EntryId.Novel(stored.id).detailsScreen()
 }

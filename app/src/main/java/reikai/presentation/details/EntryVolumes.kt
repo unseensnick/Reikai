@@ -35,7 +35,6 @@ import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
 import reikai.domain.local.localVolumeKey
-import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localChapterUnit
 import tachiyomi.core.common.util.lang.launchIO
@@ -147,7 +146,6 @@ class VolumePicking(
     private val files: VolumeFiles,
     private val combine: CombineLocalVolumes,
     private val relink: LocalSeriesRelink,
-    private val novelRepository: NovelRepository,
     @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
     suspend fun library(type: ContentType): List<CombinableSeries> = combine.library(type)
@@ -265,21 +263,16 @@ class VolumePicking(
 
     /**
      * Opens [entry]'s screen on Organize files' preview, through [push], offering [move]'s Undo there: leaving this
-     * screen ends its own snackbar. False when no screen opens, so the caller reports the move where it is.
+     * screen ends its own snackbar.
      */
-    suspend fun organizeOn(entry: EntryId, move: LocalVolumeMove, message: String, push: (Screen) -> Unit): Boolean {
-        val screen = detailsScreen(entry) ?: return false
+    fun organizeOn(entry: EntryId, move: LocalVolumeMove, message: String, push: (Screen) -> Unit) {
         requestOrganize(entry, undo = VolumeMoveUndo(move, message))
-        push(screen)
-        return true
+        push(entry.detailsScreen())
     }
 
     /** The Organize files requests for [entry], each taken once. */
     fun organizeRequests(entry: EntryId): Flow<OrganizeRequest> = organizeRequests.mapNotNull { it[entry] }
         .onEach { taken -> organizeRequests.update { if (it[entry] === taken) it - entry else it } }
-
-    /** The details screen of [entry], which a split or a library combine opens to organize it. */
-    suspend fun detailsScreen(entry: EntryId): Screen? = entry.detailsScreen(novelRepository)
 }
 
 /**

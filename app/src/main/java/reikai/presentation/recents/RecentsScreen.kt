@@ -80,6 +80,7 @@ import reikai.presentation.components.KeepListAtTop
 import reikai.presentation.components.LibraryUpdatePullRefresh
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.readProgressLabel
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.selection.chapterSelectionOffers
 import reikai.presentation.updates.EntryUpdatesRow
@@ -184,12 +185,7 @@ fun Screen.RecentsScreen(
         }
     }
 
-    fun openDetails(entry: EntryId) {
-        scope.launchIO {
-            val screen = engine.detailsScreen(entry) ?: return@launchIO
-            withUIContext { navigator.push(screen) }
-        }
-    }
+    fun openDetails(entry: EntryId) = navigator.push(entry.detailsScreen())
 
     fun clearHistory() {
         scope.launchIO {

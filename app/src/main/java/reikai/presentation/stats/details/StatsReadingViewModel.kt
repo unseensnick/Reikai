@@ -3,7 +3,6 @@ package reikai.presentation.stats.details
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -27,7 +26,6 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
-import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.ReadingBar
 import reikai.presentation.stats.ReadingPeriod
 import reikai.presentation.stats.ReadingWindow
@@ -114,8 +112,6 @@ class StatsReadingViewModel(
     }
 
     fun move(forward: Boolean) = view.update { View(it.window.shifted(forward, today), selected = null) }
-
-    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 
     private data class View(val window: ReadingWindow, val selected: LocalDate?)
 }

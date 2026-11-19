@@ -20,7 +20,8 @@ object Constants {
 
     const val MANGA_EXTRA = "manga"
 
-    // RK: deep-link a per-novel update notification into its details (NovelScreen needs source + url)
+    // RK: open a novel's details by row id; the source and url are what an older build wrote, still read
+    const val NOVEL_EXTRA = "novel_id"
     const val NOVEL_SOURCE_EXTRA = "novel_source"
     const val NOVEL_URL_EXTRA = "novel_url"
 

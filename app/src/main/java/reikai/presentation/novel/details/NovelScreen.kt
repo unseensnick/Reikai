@@ -25,8 +25,6 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -53,8 +51,8 @@ import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.chapterToOpen
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.details.editInfoDialog
-import reikai.presentation.details.novelDetailsAt
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
@@ -66,7 +64,6 @@ import reikai.presentation.novel.search.NovelChapterSearchScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.EmptyScreen
-import tachiyomi.presentation.core.screens.EmptyScreenAction
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`, pinned by [EntryDetailsContent]. Builds a
@@ -77,10 +74,7 @@ import tachiyomi.presentation.core.screens.EmptyScreenAction
  */
 class NovelScreen(
     // Public so the migrate flow can identity-check the screen below it before replacing.
-    val sourceId: String,
-    val novelUrl: String,
-    // The cover a listing showed, which stands in for a placeholder the details page gives.
-    private val listingCover: String? = null,
+    val novelId: Long,
     // Opened from a source listing: starts the synopsis expanded, and closes when incognito ends.
     val fromSource: Boolean = false,
 ) : Screen(), AssistContentScreen {
@@ -95,7 +89,7 @@ class NovelScreen(
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val viewModel = assistedMetroViewModel<NovelDetailsViewModel, NovelDetailsViewModel.Factory> {
-            create(sourceId = sourceId, novelUrl = novelUrl, listingCover = listingCover, isFromSource = fromSource)
+            create(novelId = novelId, isFromSource = fromSource)
         }
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
         val state by viewModel.state.collectAsStateWithLifecycle()
@@ -119,24 +113,10 @@ class NovelScreen(
 
         when (val s = state) {
             NovelDetailsState.Loading -> EntryDetailsSkeleton()
-            is NovelDetailsState.Failed -> Scaffold(
+            NovelDetailsState.NotFound -> Scaffold(
                 topBar = { AppBar(title = null, navigateUp = navigator::pop, scrollBehavior = it) },
             ) { padding ->
-                EmptyScreen(
-                    message = s.message,
-                    modifier = Modifier.padding(padding),
-                    actions = if (s.retryable) {
-                        listOf(
-                            EmptyScreenAction(
-                                MR.strings.action_retry,
-                                MaterialSymbols.Rounded.Refresh,
-                                viewModel::retryLoad,
-                            ),
-                        )
-                    } else {
-                        null
-                    },
-                )
+                EmptyScreen(MR.strings.details_not_found, modifier = Modifier.padding(padding))
             }
             is NovelDetailsState.Loaded -> TachiyomiTheme(
                 seedColor = s.seedColor.takeIf {
@@ -188,7 +168,7 @@ class NovelScreen(
                                 scope.launch {
                                     navigator.searchGenreFromDetails(
                                         genre,
-                                        SourceKey.Novel(s.browsableSourceId ?: sourceId),
+                                        SourceKey.Novel(s.browsableSourceId ?: s.novel.source),
                                         ContentType.NOVELS,
                                     )
                                 }
@@ -217,7 +197,7 @@ class NovelScreen(
                             },
                             onWordCount = viewModel::showWordCountDialog,
                             // A local novel's books are EPUB files on the device already.
-                            onExport = viewModel::showExportDialog.takeIf { !LocalNovelSource.isLocal(sourceId) },
+                            onExport = viewModel::showExportDialog.takeIf { !LocalNovelSource.isLocal(s.novel.source) },
                             onOpenFolder = {
                                 scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) }
                             },
@@ -256,7 +236,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             card = NovelWithChapterCount::toDuplicateCard,
             onDismissRequest = viewModel::dismissDialog,
             onConfirm = viewModel::addFavoriteAnyway,
-            onOpen = { navigator.push(novelDetailsAt(it.novel.source, it.novel.url)) },
+            onOpen = { navigator.push(EntryId.Novel(it.novel.id).detailsScreen()) },
             onMigrate = { viewModel.startMigrate(it.novel.id) },
             onAddToGroup = viewModel::addToExistingGroup,
         )

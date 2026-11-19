@@ -34,7 +34,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,7 +52,6 @@ import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
-import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -62,6 +60,7 @@ import kotlinx.datetime.toLocalDateTime
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowBack
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.BarUnit
 import reikai.presentation.stats.ReadingBar
 import reikai.presentation.stats.ReadingPeriod
@@ -92,7 +91,6 @@ class StatsReadingScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = metroViewModel<StatsReadingViewModel>()
         StatsRefreshOnResume(viewModel::refresh)
-        val scope = rememberCoroutineScope()
         val state by viewModel.state.collectAsState()
         var pickingRange by rememberSaveable { mutableStateOf(false) }
 
@@ -153,7 +151,7 @@ class StatsReadingScreen : Screen() {
                             max = READING_MAX_WIDTH,
                         ).padding(horizontal = MaterialTheme.padding.medium),
                     ) {
-                        scope.launch { viewModel.detailsScreen(title.entryId)?.let(navigator::push) }
+                        navigator.push(title.entryId.detailsScreen())
                     }
                 }
             }

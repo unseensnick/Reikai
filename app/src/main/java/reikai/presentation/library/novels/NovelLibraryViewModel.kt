@@ -298,13 +298,6 @@ class NovelLibraryViewModel(
         // Bucketing, category order and sorting all moved to LibraryEngine's shared assembly, which sees
         // both content types. This model stops at the filtered rows, its split point.
 
-        // Item id -> (source, url) so LibraryTab can open the (representative) novel. Over the displayed
-        // rows, so the hopper's random actions pick from what is actually on screen.
-        val routes = items.mapNotNull { item ->
-            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            item.id to NovelRoute(novel.source, novel.url)
-        }.toMap()
-
         return State(
             isLoading = false,
             searchQuery = query,
@@ -315,7 +308,6 @@ class NovelLibraryViewModel(
             tracksByRep = tracksByRep,
             favoritesById = byId,
             customInfo = overlay,
-            novelRoutes = routes,
             showContinueButton = showContinue,
         )
     }
@@ -457,7 +449,6 @@ class NovelLibraryViewModel(
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */
         private val customInfo: Map<Long, CustomNovelInfo> = emptyMap(),
-        private val novelRoutes: Map<Long, NovelRoute> = emptyMap(),
     ) {
         /** Identity of [customInfo], so a display-overlay edit is not conflated away downstream. */
         val overlayKey: Any get() = customInfo
@@ -490,10 +481,5 @@ class NovelLibraryViewModel(
          * [withCustomInfo].
          */
         fun withOverlay(item: LibraryItem): LibraryItem = item.withCustomInfo(customInfo[item.id])
-
-        /** (source, url) for the item id, to open the novel details screen. */
-        fun routeFor(itemId: Long): NovelRoute? = novelRoutes[itemId]
     }
-
-    data class NovelRoute(val source: String, val url: String)
 }

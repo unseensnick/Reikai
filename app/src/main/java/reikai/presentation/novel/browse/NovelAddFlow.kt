@@ -1,6 +1,7 @@
 package reikai.presentation.novel.browse
 
 import kotlinx.coroutines.CoroutineScope
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.host.NovelItem
@@ -11,7 +12,7 @@ import reikai.presentation.browse.EntryAddFlow
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.step
 import reikai.presentation.browse.toAddDuplicate
-import reikai.presentation.details.novelDetailsAt
+import reikai.presentation.details.detailsScreen
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 
@@ -70,12 +71,7 @@ class NovelAddFlow(
             ?: AddStep.Failed
     }
 
-    // A novel is addressed by source and path, which only the raised dialog's duplicates still know.
-    override fun duplicateScreen(entryId: Long) = (raised as? NovelBrowseDialog.AddDuplicate)
-        ?.prompt
-        ?.duplicates
-        ?.firstOrNull { it.novel.id == entryId }
-        ?.let { novelDetailsAt(it.novel.source, it.novel.url) }
+    override fun duplicateScreen(entryId: Long) = EntryId.Novel(entryId).detailsScreen()
 
     override fun NovelBrowseDialog.toNeutral(): EntryAddDialog = when (this) {
         is NovelBrowseDialog.RemoveNovel -> EntryAddDialog.Remove(item.name)

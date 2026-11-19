@@ -27,7 +27,7 @@ import tachiyomi.domain.source.service.SourceManager
 class DeepLinkViewModelTest {
 
     private val manga = Manga.create().copy(id = 1L)
-    private val novel = NovelLinkTarget.Novel("plugin", "novel/1")
+    private val novel = NovelLinkTarget.Novel(5L)
 
     private val mangaLinks = mockk<ResolveMangaLink> {
         coEvery { bySearch(any()) } returns null
@@ -95,7 +95,7 @@ class DeepLinkViewModelTest {
         coEvery { novelLinks.byHook(LINK) } returns novel
         coEvery { mangaLinks.byStoredRow(LINK) } returns manga
 
-        resolved() shouldBe DeepLinkViewModel.State.NovelResult("plugin", "novel/1")
+        resolved() shouldBe DeepLinkViewModel.State.NovelResult(5L)
     }
 
     @Test
@@ -111,7 +111,7 @@ class DeepLinkViewModelTest {
         coEvery { novelLinks.byStoredRow(LINK) } returns novel
         coEvery { mangaLinks.byGuess(LINK) } returns manga
 
-        resolved() shouldBe DeepLinkViewModel.State.NovelResult("plugin", "novel/1")
+        resolved() shouldBe DeepLinkViewModel.State.NovelResult(5L)
     }
 
     @Test
@@ -126,7 +126,7 @@ class DeepLinkViewModelTest {
     fun `a novel guess opens when nothing else answers`() = runTest {
         coEvery { novelLinks.byGuess(LINK) } returns novel
 
-        resolved() shouldBe DeepLinkViewModel.State.NovelResult("plugin", "novel/1")
+        resolved() shouldBe DeepLinkViewModel.State.NovelResult(5L)
     }
 
     @Test

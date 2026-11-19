@@ -88,6 +88,9 @@ class ResolveNovelLinkTest {
         novelDownloadManager = { downloads },
     )
 
+    // The target naming the row stored at [url]; read after the call under test, which stores it.
+    private suspend fun storedAt(url: String) = NovelLinkTarget.Novel(novels.getByUrlAndSource(url, "a")!!.id)
+
     private suspend fun stored(url: String, sourceId: String = "a"): Novel {
         val id = novels.insert(
             Novel.create().copy(
@@ -101,10 +104,26 @@ class ResolveNovelLinkTest {
     }
 
     @Test
-    fun `a source that reads its own links names the novel`() = runTest {
+    fun `a source that reads its own links stores the novel and names its row`() = runTest {
         val hooked = FakeSource("a", readLink = { NovelLink.Novel("/hooked") })
 
-        resolver(hooked).byHook(LINK) shouldBe NovelLinkTarget.Novel("a", "/hooked")
+        resolver(hooked).byHook(LINK) shouldBe storedAt("/hooked")
+    }
+
+    @Test
+    fun `a novel link a source reads opens its stored row without asking the source`() = runTest {
+        val novel = stored("/hooked")
+        val hooked = FakeSource("a", readLink = { NovelLink.Novel("/hooked") }, parse = { error("not asked") })
+
+        resolver(hooked).byHook(LINK) shouldBe NovelLinkTarget.Novel(novel.id)
+    }
+
+    // The next tiers still get their turn, and nothing opens a page that never loaded.
+    @Test
+    fun `a novel link a source reads but cannot fetch answers nothing`() = runTest {
+        val hooked = FakeSource("a", readLink = { NovelLink.Novel("/hooked") }, parse = { error("offline") })
+
+        resolver(hooked).byHook(LINK) shouldBe null
     }
 
     @Test
@@ -159,17 +178,17 @@ class ResolveNovelLinkTest {
 
     @Test
     fun `a stored row opens without asking the source`() = runTest {
-        stored("/novel/1")
+        val novel = stored("/novel/1")
         val source = FakeSource("a", parse = { error("not asked") })
 
-        resolver(source).byStoredRow(LINK) shouldBe NovelLinkTarget.Novel("a", "/novel/1")
+        resolver(source).byStoredRow(LINK) shouldBe NovelLinkTarget.Novel(novel.id)
     }
 
     @Test
     fun `a stored row with the other trailing slash opens`() = runTest {
-        stored("novel/1/")
+        val novel = stored("novel/1/")
 
-        resolver(FakeSource("a")).byStoredRow(LINK) shouldBe NovelLinkTarget.Novel("a", "novel/1/")
+        resolver(FakeSource("a")).byStoredRow(LINK) shouldBe NovelLinkTarget.Novel(novel.id)
     }
 
     @Test
@@ -181,7 +200,7 @@ class ResolveNovelLinkTest {
 
     @Test
     fun `a guess that parses to a novel opens it`() = runTest {
-        resolver(FakeSource("a")).byGuess(LINK) shouldBe NovelLinkTarget.Novel("a", "novel/1")
+        resolver(FakeSource("a")).byGuess(LINK) shouldBe storedAt("novel/1")
     }
 
     @Test
@@ -196,7 +215,7 @@ class ResolveNovelLinkTest {
     fun `a guess on a site that also joins a leading slash is stored as the source spells its paths`() = runTest {
         val source = FakeSource("a", chapterPath = "/novel/1/c1.html")
 
-        resolver(source).byGuess(LINK) shouldBe NovelLinkTarget.Novel("a", "/novel/1")
+        resolver(source).byGuess(LINK) shouldBe storedAt("/novel/1")
     }
 
     @Test
@@ -215,7 +234,7 @@ class ResolveNovelLinkTest {
             parse = { SourceNovel(it, name = named(it), chapters = emptyList(), totalPages = 3) },
         )
 
-        resolver(source).byGuess(LINK) shouldBe NovelLinkTarget.Novel("a", "/novel/1")
+        resolver(source).byGuess(LINK) shouldBe storedAt("/novel/1")
     }
 
     @Test
@@ -296,7 +315,7 @@ class ResolveNovelLinkTest {
             },
         )
 
-        resolver(source).byGuess(LINK) shouldBe NovelLinkTarget.Novel("a", "novel/1")
+        resolver(source).byGuess(LINK) shouldBe storedAt("novel/1")
     }
 
     @Test

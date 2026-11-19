@@ -39,7 +39,7 @@ import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.rememberDetailsOpener
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.i18n.stringResource
@@ -140,6 +140,7 @@ private fun Screen.FeedContent(
     selection: MixedBulkSelection,
 ) {
     val navigator = LocalNavigator.currentOrThrow
+    val opener = rememberDetailsOpener()
 
     // Held by hand rather than derived from the rows: the rows only turn to loading a frame after the
     // gesture ends, by which time the indicator has already retracted. Cleared once they settle, with
@@ -174,9 +175,7 @@ private fun Screen.FeedContent(
                     val gestures = rememberEntryGestures(
                         choose = { result: EntryBrowseRow -> selection.toggle(result, entry.row.key) }
                             .takeIf { selection.selectionMode },
-                        open = { result: EntryBrowseRow ->
-                            navigator.push(result.detailsScreen(entry.row.key))
-                        },
+                        open = { result: EntryBrowseRow -> opener.open(result, entry.row.key) },
                         add = { result: EntryBrowseRow ->
                             result.startAdd(entry.row.key, model.mangaAddFlow, model.novelAddFlow)
                         },

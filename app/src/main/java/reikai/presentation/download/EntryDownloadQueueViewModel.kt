@@ -3,7 +3,6 @@ package reikai.presentation.download
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -170,9 +169,6 @@ class EntryDownloadQueueViewModel(
     fun moveChapterToBottom(type: ContentType, chapterId: Long) {
         viewModelScope.launch { providers[type]?.moveChapterToBottom(chapterId) }
     }
-
-    suspend fun detailsScreen(card: EntryDownloadCardUi): Screen? =
-        providers[card.contentType]?.detailsScreen(card.seriesId)
 
     private suspend fun EntryDownloadCardUi.withChapterName(): EntryDownloadCardUi {
         val chapterId = currentChapterId ?: return this

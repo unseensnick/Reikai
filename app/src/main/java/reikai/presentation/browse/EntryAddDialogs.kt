@@ -47,7 +47,7 @@ fun Screen.EntryAddDialogs(flow: EntryAddFlow<*>) {
             toUi = { it },
             onDismissRequest = flow::dismiss,
             onConfirm = flow::confirmAddDuplicate,
-            onOpen = { card -> flow.duplicateScreen(card.id)?.let(navigator::push) },
+            onOpen = { card -> navigator.push(flow.duplicateScreen(card.id)) },
             onMigrate = { flow.startMigrate(it.id) },
             groupIdByEntryId = current.groupIdByEntryId,
             onAddToGroup = flow::addToGroup.takeIf { current.suggestGroup },

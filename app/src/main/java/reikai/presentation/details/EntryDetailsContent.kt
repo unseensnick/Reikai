@@ -345,10 +345,10 @@ fun EntryDetailsContent(
                         behavior.refresh()
                         val message = context.stringResource(MR.strings.local_volume_split_out, title)
                         // The new series' own screen, where its volumes show, opens on the preview with the Undo.
-                        val opened = move.created?.takeIf { organize }?.let { created ->
+                        val created = move.created?.takeIf { organize }
+                        if (created != null) {
                             behavior.volumePicking.organizeOn(EntryId.of(type, created), move, message, navigator::push)
-                        } == true
-                        if (!opened) {
+                        } else {
                             snackbarHostState.reportVolumeMove(context, move, message)
                             behavior.refresh()
                         }

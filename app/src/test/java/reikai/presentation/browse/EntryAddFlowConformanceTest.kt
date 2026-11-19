@@ -321,8 +321,8 @@ class NovelAddFlowProbe : AddFlowProbe() {
     override fun entryId() = stored(entry)!!.id
     override fun entryCategories() = library.filed[entryId()]
 
-    override fun openedDuplicate(duplicateId: Long) = (flow.duplicateScreen(duplicateId) as? NovelScreen)?.novelUrl
-    override val expectedDuplicate: Any = DUPLICATE_PATH
+    override fun openedDuplicate(duplicateId: Long) = (flow.duplicateScreen(duplicateId) as? NovelScreen)?.novelId
+    override val expectedDuplicate: Any = DUPLICATE
 
     private companion object {
         const val ENTRY = 1L

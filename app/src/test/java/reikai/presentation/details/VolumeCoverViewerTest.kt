@@ -58,7 +58,6 @@ class VolumeCoverViewerTest {
             files,
             mockk(relaxed = true),
             mockk(relaxed = true),
-            mockk(),
             CoroutineScope(Dispatchers.Unconfined),
         )
     }

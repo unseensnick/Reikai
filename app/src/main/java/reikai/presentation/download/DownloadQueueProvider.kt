@@ -1,6 +1,5 @@
 package reikai.presentation.download
 
-import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.library.ContentType
@@ -18,8 +17,6 @@ interface DownloadQueueProvider {
 
     /** Names of a series' queued chapters, by chapter id. */
     suspend fun chapterNames(seriesId: Long, chapterIds: Collection<Long>): Map<Long, String>
-
-    suspend fun detailsScreen(seriesId: Long): Screen?
 
     /** Download whole series in this order; a series not named keeps its place after them. */
     suspend fun reorderSeries(seriesIdsInOrder: List<Long>)

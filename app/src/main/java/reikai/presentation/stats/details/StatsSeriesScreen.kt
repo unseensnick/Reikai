@@ -27,6 +27,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.library.LibraryItemsLayout
 import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsRefreshOnResume
@@ -107,7 +108,7 @@ class StatsSeriesScreen(
                         contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding()),
                         selection = emptySet(),
                         onClick = { item ->
-                            scope.launch { viewModel.detailsScreen(item.entryId)?.let(navigator::push) }
+                            navigator.push(item.entryId.detailsScreen())
                         },
                         onLongClick = {},
                         onClickContinueReading = onContinueReading.takeIf { showContinueReading },

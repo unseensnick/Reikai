@@ -13,8 +13,9 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import reikai.domain.entry.EntryId
 import reikai.presentation.browse.globalsearch.outsideSearchScreen
-import reikai.presentation.details.novelDetailsAt
+import reikai.presentation.details.detailsScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -70,7 +71,7 @@ class DeepLinkScreen(
                 // RK -->
                 is DeepLinkViewModel.State.NovelResult -> {
                     val result = state as DeepLinkViewModel.State.NovelResult
-                    navigator.replace(novelDetailsAt(result.sourceId, result.url, fromSource = true))
+                    navigator.replace(EntryId.Novel(result.novelId).detailsScreen(fromSource = true))
                 }
                 is DeepLinkViewModel.State.NovelChapterResult -> {
                     val result = state as DeepLinkViewModel.State.NovelChapterResult

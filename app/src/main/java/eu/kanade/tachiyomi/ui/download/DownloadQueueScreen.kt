@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,12 +37,12 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
+import reikai.domain.entry.EntryId
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.download.DownloadQueueSortSheet
 import reikai.presentation.download.EntryDownloadCardList
 import reikai.presentation.download.EntryDownloadQueueViewModel
 import reikai.presentation.download.EntryDownloadSeriesSheet
-import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -60,7 +59,6 @@ object DownloadQueueScreen : Screen() {
         val state by screenModel.state.collectAsStateWithLifecycle()
         val queueState by screenModel.queueState.collectAsStateWithLifecycle()
         val sheet by screenModel.sheet.collectAsStateWithLifecycle()
-        val scope = rememberCoroutineScope()
         val isRunning = queueState is DownloadQueueState.Downloading
         // Pending chapters across both content types, the count the pause button and the More row read
         val downloadCount = when (val queue = queueState) {
@@ -189,13 +187,8 @@ object DownloadQueueScreen : Screen() {
                 EntryDownloadSeriesSheet(
                     sheet = opened,
                     onShowEntry = {
-                        scope.launchIO {
-                            val screen = screenModel.detailsScreen(opened.card) ?: return@launchIO
-                            withUIContext {
-                                screenModel.closeSeries()
-                                navigator.push(screen)
-                            }
-                        }
+                        screenModel.closeSeries()
+                        navigator.push(EntryId.of(opened.card.contentType, opened.card.seriesId).detailsScreen())
                     },
                     onDownloadNow = { screenModel.downloadNow(opened.card.contentType, it) },
                     onMoveToBottom = { screenModel.moveChapterToBottom(opened.card.contentType, it) },

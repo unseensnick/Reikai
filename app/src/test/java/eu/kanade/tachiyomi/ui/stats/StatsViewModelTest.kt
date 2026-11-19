@@ -48,7 +48,6 @@ class StatsViewModelTest {
             sourcePreferences = ReikaiSourcePreferences(store),
             novelDownloadManager = { mockk<NovelDownloadManager>() },
             statsLibraryLoader = { load() },
-            novelRepository = mockk(),
         ),
     )
 

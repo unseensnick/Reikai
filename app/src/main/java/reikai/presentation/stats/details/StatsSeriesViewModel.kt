@@ -5,7 +5,6 @@ import android.content.Intent
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -34,8 +33,6 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
-import reikai.domain.novel.NovelRepository
-import reikai.presentation.details.detailsScreen
 import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.gridColumns
@@ -78,7 +75,6 @@ class StatsSeriesViewModel(
     private val mangaLibraryRows: MangaLibraryRows,
     private val novelLibraryRows: NovelLibraryRows,
     getEntryCustomInfo: GetEntryCustomInfo,
-    private val novelRepository: NovelRepository,
     private val libraryPreferences: LibraryPreferences,
 ) : ViewModel() {
 
@@ -151,8 +147,6 @@ class StatsSeriesViewModel(
 
     fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
         libraryPreferences.gridColumns(viewModelScope, isLandscape)
-
-    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 
     /** The reader at the row's next chapter, as the library's continue-reading opens it; null when none. */
     suspend fun resumeIntent(context: Context, item: LibraryItem): Intent? = when (item.entryId) {

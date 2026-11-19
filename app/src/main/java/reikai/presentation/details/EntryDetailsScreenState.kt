@@ -22,8 +22,6 @@ import kotlin.time.Instant
 sealed interface EntryDetailsScreenState {
     data object Loading : EntryDetailsScreenState
 
-    data class Failed(val message: String) : EntryDetailsScreenState
-
     @Immutable
     data class Loaded(
         val entryId: EntryId,

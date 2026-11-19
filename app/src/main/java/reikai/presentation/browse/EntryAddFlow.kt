@@ -95,8 +95,8 @@ abstract class EntryAddFlow<D : Any>(
     /** Migrate the duplicate [duplicateId] onto the entry the dialog was raised for. */
     abstract fun startMigrate(duplicateId: Long)
 
-    /** The details screen a duplicate card opens, or null for an id the raised dialog did not list. */
-    abstract fun duplicateScreen(entryId: Long): Screen?
+    /** The details screen a duplicate card opens. */
+    abstract fun duplicateScreen(entryId: Long): Screen
 
     protected abstract fun D.toNeutral(): EntryAddDialog
 

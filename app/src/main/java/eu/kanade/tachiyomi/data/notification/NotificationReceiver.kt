@@ -558,12 +558,11 @@ class NotificationReceiver : BroadcastReceiver() {
             novelDownloaderPendingBroadcast(context, ACTION_CANCEL_NOVEL_DOWNLOAD)
 
         /**
-         * A novel's details, which open by source and url rather than by row id as a manga's do. Opening
-         * them clears the novel's new-chapters notice, as opening a manga does: every caller shares one
-         * PendingIntent per novel, since extras are not part of its identity.
+         * A novel's details. Opening them clears the novel's new-chapters notice, as opening a manga does:
+         * every caller shares one PendingIntent per novel, since extras are not part of its identity.
          */
         internal fun openNovelPendingActivity(context: Context, novel: Novel): PendingIntent {
-            val intent = novelDetailsIntent(context, novel.source, novel.url).apply {
+            val intent = novelDetailsIntent(context, novel.id).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra("notificationId", NovelNewChaptersNotice.id(novel.id))
                 putExtra("groupId", NovelNewChaptersNotice.SUMMARY_ID)

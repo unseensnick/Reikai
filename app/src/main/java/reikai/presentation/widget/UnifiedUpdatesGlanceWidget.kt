@@ -213,7 +213,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
         }
 
     private fun novelIntent(context: Context, row: NovelUpdateWithRelations) =
-        novelDetailsIntent(context, row.source, row.novelUrl).apply {
+        novelDetailsIntent(context, row.novelId).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             // Distinct PendingIntents, namespaced so a novel id never collides with a manga id.

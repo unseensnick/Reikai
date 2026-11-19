@@ -1,6 +1,5 @@
 package reikai.presentation.download
 
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.Downloader
@@ -12,9 +11,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import reikai.domain.download.parallelSourcesFor
 import reikai.domain.download.queuedDownloadChanges
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
-import reikai.presentation.details.detailsScreen
 import tachiyomi.domain.download.service.DownloadPreferences
 
 /** The manga downloader under the download queue, over Mihon's [DownloadManager]. */
@@ -49,8 +46,6 @@ class MangaDownloadQueueProvider(
         downloadManager.queueState.value
             .filter { it.manga.id == seriesId }
             .associate { it.chapter.id to it.chapter.name }
-
-    override suspend fun detailsScreen(seriesId: Long): Screen = EntryId.Manga(seriesId).detailsScreen()
 
     override suspend fun cancelChapter(chapterId: Long) {
         downloadManager.getQueuedDownloadOrNull(chapterId)?.let { downloadManager.cancelQueuedDownloads(listOf(it)) }

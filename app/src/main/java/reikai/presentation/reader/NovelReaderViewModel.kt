@@ -481,12 +481,9 @@ class NovelReaderViewModel(
     @Volatile
     private var isAdultEntry = true
 
-    /** How the opened novel's details screen is reached, for the app bar's title tap. Its source and
-     *  url rather than its row id, since the screen is pushed with those. */
-    data class DetailsRoute(val source: String, val url: String)
-
-    internal val detailsRoute: StateFlow<DetailsRoute?>
-        field = MutableStateFlow<DetailsRoute?>(null)
+    /** The opened novel's id once its row loads, which the app bar's title tap opens the details of. */
+    internal val detailsNovelId: StateFlow<Long?>
+        field = MutableStateFlow<Long?>(null)
 
     /** The opened novel's cover, which tints the chrome. Null until the row loads, and for no cover. */
     internal val cover: StateFlow<NovelCover?>
@@ -874,7 +871,7 @@ class NovelReaderViewModel(
             novel?.let {
                 entryTitle.value = it.title
                 isAdultEntry = it.id in adultChecker.adultNovelIdsAmong(listOf(it))
-                detailsRoute.value = DetailsRoute(it.source, it.url)
+                detailsNovelId.value = it.id
                 cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let(it::asNovelCover)
             }
         }

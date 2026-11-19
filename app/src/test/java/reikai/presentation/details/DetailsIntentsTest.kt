@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.Novel
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.Constants
 import java.util.IdentityHashMap
@@ -27,10 +28,11 @@ class DetailsIntentsTest {
     private val context = mockk<Context>()
     private val bundles = IdentityHashMap<Intent, MutableMap<String, Any?>>()
 
-    // Only "/n/1" on "src" is saved on this device.
+    // Only "/n/1" on "src" is saved on this device, as id 4. Strict, so anything past the lookup (an insert, a
+    // fetch through a stored source) fails the test.
     private val novels = mockk<NovelRepository> {
         coEvery { getByUrlAndSource(any(), any()) } returns null
-        coEvery { getByUrlAndSource("/n/1", "src") } returns mockk()
+        coEvery { getByUrlAndSource("/n/1", "src") } returns Novel.create().copy(id = 4L, source = "src", url = "/n/1")
     }
 
     @BeforeEach
@@ -64,16 +66,24 @@ class DetailsIntentsTest {
     }
 
     @Test
-    fun `a novel intent opens the saved novel it was built for`() = runTest {
-        val screen = novelDetailsIntent(context, "src", "/n/1").novelDetailsScreen(novels)
+    fun `a novel intent opens the novel it was built for`() = runTest {
+        val screen = novelDetailsIntent(context, 12L).novelDetailsScreen(novels)
 
-        (screen as? NovelScreen)?.let { it.sourceId to it.novelUrl } shouldBe ("src" to "/n/1")
+        (screen as? NovelScreen)?.novelId shouldBe 12L
+    }
+
+    // A pinned widget or a posted notification an older build wrote keeps its source and url.
+    @Test
+    fun `an older build's novel intent opens the saved novel it names`() = runTest {
+        val screen = legacyNovelIntent("src", "/n/1").novelDetailsScreen(novels)
+
+        (screen as? NovelScreen)?.novelId shouldBe 4L
     }
 
     // MainActivity is exported, so any app can send one; opening it would fetch the url and save the novel.
     @Test
-    fun `a novel intent for a novel this device never saved opens nothing`() = runTest {
-        novelDetailsIntent(context, "src", "/n/2").novelDetailsScreen(novels).shouldBeNull()
+    fun `an older build's novel intent for a novel this device never saved opens nothing`() = runTest {
+        legacyNovelIntent("src", "/n/2").novelDetailsScreen(novels).shouldBeNull()
     }
 
     @Test
@@ -82,6 +92,11 @@ class DetailsIntentsTest {
 
         intent.novelDetailsScreen(novels).shouldBeNull()
     }
+
+    private fun legacyNovelIntent(source: String, url: String) = Intent()
+        .setAction(Constants.SHORTCUT_NOVEL)
+        .putExtra(Constants.NOVEL_SOURCE_EXTRA, source)
+        .putExtra(Constants.NOVEL_URL_EXTRA, url)
 
     @Test
     fun `a manga intent carries the manga action and id MainActivity reads`() {

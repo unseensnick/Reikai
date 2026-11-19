@@ -6,19 +6,22 @@ import java.io.Serializable
 /**
  * Neutral identity for a content entry the shared content layer drives, so shared behaviour and UI can
  * point at an entry without branching on manga-vs-novel. The sealed shape makes a mismatched (type, id)
- * impossible to construct and gives an exhaustive `when`; Serializable because Voyager screens carry it.
+ * impossible to construct and gives an exhaustive `when`. Java- and kotlinx-serializable for screens and routes.
  *
  * [rawId] is the entry's own positive row id in its own table (a manga id or a novel id). The two id
  * spaces are disjoint only by this wrapper, never by sign, so never compare raw ids across types.
  */
+@kotlinx.serialization.Serializable
 sealed interface EntryId : Serializable {
     val rawId: Long
     val contentType: ContentType
 
+    @kotlinx.serialization.Serializable
     data class Manga(override val rawId: Long) : EntryId {
         override val contentType: ContentType get() = ContentType.MANGA
     }
 
+    @kotlinx.serialization.Serializable
     data class Novel(override val rawId: Long) : EntryId {
         override val contentType: ContentType get() = ContentType.NOVELS
     }

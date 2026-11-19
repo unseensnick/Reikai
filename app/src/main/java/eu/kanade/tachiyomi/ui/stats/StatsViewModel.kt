@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.stats
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -22,19 +21,16 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.inGlobalUpdate
 import reikai.domain.library.includes
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.local.LocalNovelSource
-import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.OVERVIEW_GROUPINGS
 import reikai.presentation.stats.StatsCardKind
 import reikai.presentation.stats.StatsFigureKind
@@ -70,7 +66,6 @@ class StatsViewModel(
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelDownloadManager: () -> NovelDownloadManager,
     private val statsLibraryLoader: StatsLibrarySource,
-    private val novelRepository: NovelRepository,
     // RK <--
 ) : ViewModel() {
 
@@ -119,8 +114,6 @@ class StatsViewModel(
         sourcePreferences.statsFigureOrder.delete()
         sourcePreferences.statsHiddenFigures.delete()
     }
-
-    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
     // RK <--
 
     // RK --> both content types loaded on each refresh, then folded per selected type on chip change.

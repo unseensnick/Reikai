@@ -3,7 +3,6 @@ package reikai.presentation.library.hidden
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -38,11 +37,9 @@ import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.library.within
-import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.track.toUiTrack
-import reikai.presentation.details.detailsScreen
 import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.gridColumns
@@ -73,7 +70,6 @@ class HiddenEntriesViewModel(
     getEntryCustomInfo: GetEntryCustomInfo,
     reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val hideSeries: HideSeries,
-    private val novelRepository: NovelRepository,
     private val libraryPreferences: LibraryPreferences,
     private val getTracksPerManga: GetTracksPerManga,
     private val getNovelTracks: GetNovelTracks,
@@ -160,8 +156,6 @@ class HiddenEntriesViewModel(
         clearSelection()
         if (ids.isNotEmpty()) appScope.launchIO { hideSeries.unhide(ids) }
     }
-
-    suspend fun detailsScreen(entryId: EntryId): Screen? = entryId.detailsScreen(novelRepository)
 
     fun displayMode(): PreferenceMutableState<LibraryDisplayMode> = libraryPreferences.gridDisplayMode(viewModelScope)
 

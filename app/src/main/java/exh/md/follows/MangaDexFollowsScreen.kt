@@ -29,7 +29,7 @@ import reikai.presentation.browse.catalogue.EntryBrowseScreenState
 import reikai.presentation.browse.catalogue.MangaBrowseAdapter
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.rememberEntryGestures
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.rememberDetailsOpener
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -45,6 +45,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val opener = rememberDetailsOpener()
         val viewModel = assistedMetroViewModel<MangaDexFollowsViewModel, MangaDexFollowsViewModel.Factory> {
             create(sourceId = sourceId)
         }
@@ -63,9 +64,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
         }
         val gestures = rememberEntryGestures(
             choose = adapter::toggleSelection.takeIf { bulkFavoriteState.selectionMode },
-            open = { row: EntryBrowseRow ->
-                navigator.push(row.detailsScreen(SourceKey.Manga(sourceId)))
-            },
+            open = { row: EntryBrowseRow -> opener.open(row, SourceKey.Manga(sourceId)) },
             add = adapter::onRowLongClick,
         )
 

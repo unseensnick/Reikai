@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -23,12 +22,12 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.roundedfilled.Visibility
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.library.LibraryItemsLayout
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
@@ -45,7 +44,6 @@ class HiddenEntriesScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val scope = rememberCoroutineScope()
         val viewModel = assistedMetroViewModel<HiddenEntriesViewModel, HiddenEntriesViewModel.Factory> {
             create(initialContentType = initialContentType)
         }
@@ -65,7 +63,7 @@ class HiddenEntriesScreen(
             onSelectContentType = viewModel::setContentType,
             onClick = { item ->
                 if (current.selection.isEmpty()) {
-                    scope.launch { viewModel.detailsScreen(item.entryId)?.let(navigator::push) }
+                    navigator.push(item.entryId.detailsScreen())
                 } else {
                     viewModel.toggleSelection(item.entryId)
                 }

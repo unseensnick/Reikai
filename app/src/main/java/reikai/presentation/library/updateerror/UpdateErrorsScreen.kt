@@ -45,7 +45,6 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.rememberChipListState
 import reikai.presentation.details.detailsScreen
-import reikai.presentation.details.novelDetailsAt
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -193,7 +192,7 @@ class UpdateErrorsScreen(
                                             is UpdateErrorEntry.Manga ->
                                                 navigator.push(EntryId.Manga(entry.error.mangaId).detailsScreen())
                                             is UpdateErrorEntry.Novel ->
-                                                navigator.push(novelDetailsAt(entry.error.source, entry.error.novelUrl))
+                                                navigator.push(EntryId.Novel(entry.error.novelId).detailsScreen())
                                         }
                                     }
                                 },

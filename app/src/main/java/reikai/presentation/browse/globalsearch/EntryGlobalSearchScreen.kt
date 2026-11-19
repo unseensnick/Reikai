@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -18,6 +19,7 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
+import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
@@ -33,6 +35,7 @@ import reikai.presentation.components.HeaderTabRow
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.rememberChipListState
 import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -65,6 +68,9 @@ class EntryGlobalSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val opener = rememberDetailsOpener()
+        val context = LocalContext.current
+        val novels = remember { context.appGraph.novelLibraryAdder }
 
         val mangaModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
             create(initialExtensionFilter = extensionFilter)
@@ -101,7 +107,8 @@ class EntryGlobalSearchScreen(
                     is EntrySearchState.Loading -> return@LaunchedEffect
                     is EntrySearchState.Success ->
                         result.entries.singleOrNull()
-                            ?.let { navigator.replace(it.detailsScreen(only.key)) }
+                            ?.detailsScreen(only.key, novels)
+                            ?.let(navigator::replace)
                             ?: run { showSingleLoadingScreen = false }
                     else -> showSingleLoadingScreen = false
                 }
@@ -173,9 +180,7 @@ class EntryGlobalSearchScreen(
                     val gestures = rememberEntryGestures(
                         choose = { entry: EntryBrowseRow -> selection.toggle(entry, row.key) }
                             .takeIf { selection.selectionMode },
-                        open = { entry: EntryBrowseRow ->
-                            navigator.push(entry.detailsScreen(row.key))
-                        },
+                        open = { entry: EntryBrowseRow -> opener.open(entry, row.key) },
                         add = { entry: EntryBrowseRow ->
                             entry.startAdd(row.key, mangaModel.addFlow, novelModel.addFlow)
                         },

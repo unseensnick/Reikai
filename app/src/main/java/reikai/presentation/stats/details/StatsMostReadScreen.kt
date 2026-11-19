@@ -8,7 +8,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -16,7 +15,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
-import kotlinx.coroutines.launch
+import reikai.presentation.details.detailsScreen
 import reikai.presentation.stats.StatsCoverTitleLine
 import reikai.presentation.stats.StatsRefreshOnResume
 import tachiyomi.i18n.MR
@@ -34,7 +33,6 @@ class StatsMostReadScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = metroViewModel<StatsMostReadViewModel>()
         StatsRefreshOnResume(viewModel::refresh)
-        val scope = rememberCoroutineScope()
         val titles by viewModel.titles.collectAsState()
 
         Scaffold(
@@ -63,7 +61,7 @@ class StatsMostReadScreen : Screen() {
                                 max = READING_MAX_WIDTH,
                             ).padding(horizontal = MaterialTheme.padding.medium),
                         ) {
-                            scope.launch { viewModel.detailsScreen(title.entryId)?.let(navigator::push) }
+                            navigator.push(title.entryId.detailsScreen())
                         }
                     }
                 }

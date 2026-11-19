@@ -67,7 +67,7 @@ class DeepLinkViewModel(
     }
 
     private fun NovelLinkTarget.toState(): State = when (this) {
-        is NovelLinkTarget.Novel -> State.NovelResult(sourceId, url)
+        is NovelLinkTarget.Novel -> State.NovelResult(novelId)
         is NovelLinkTarget.Chapter -> State.NovelChapterResult(novelId, chapterId)
     }
 
@@ -122,7 +122,7 @@ class DeepLinkViewModel(
 
         // RK -->
         @Immutable
-        data class NovelResult(val sourceId: String, val url: String) : State
+        data class NovelResult(val novelId: Long) : State
 
         @Immutable
         data class NovelChapterResult(val novelId: Long, val chapterId: Long) : State

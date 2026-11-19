@@ -52,6 +52,7 @@ import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.migrate.flow.MigrationAdapters
 import reikai.presentation.migrate.flow.MigrationPickHandoff
+import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.presentation.recents.MangaRecentsAdapter
 import reikai.presentation.recents.NovelRecentsAdapter
@@ -102,6 +103,7 @@ interface ReikaiGraph {
     // at construction, so every read has to build a fresh one.
     val galleryAdder: GalleryAdder
     val novelPreferences: NovelPreferences
+    val novelLibraryAdder: NovelLibraryAdder // a tap on a listed novel stores its row to open it
     val mangaPreferences: MangaPreferences // the Downloads settings read the manga delays
     val resetEntryViewerFlags: ResetEntryViewerFlags
     val novelSourceManager: NovelSourceManager

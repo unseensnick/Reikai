@@ -69,7 +69,7 @@ import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.PendingBulkCategoryDialog
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.rememberEntryGestures
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
@@ -270,6 +270,7 @@ class EntryCatalogueScreen(
         filterSheet: @Composable (onDismiss: () -> Unit) -> Unit,
     ) {
         val navigator = LocalNavigator.currentOrThrow
+        val opener = rememberDetailsOpener()
         val state by behavior.state.collectAsState()
         val rows = behavior.rows.collectAsLazyPagingItems()
         val snackbarHostState = remember { SnackbarHostState() }
@@ -342,7 +343,7 @@ class EntryCatalogueScreen(
             // A migration pick outranks a selection.
             choose = loaded.capabilities.migrationPick?.let { pick -> { row: EntryBrowseRow -> pick.pick(row) {} } }
                 ?: behavior::toggleSelection.takeIf { loaded.selectionMode },
-            open = { row: EntryBrowseRow -> navigator.push(row.detailsScreen(sourceKey)) },
+            open = { row: EntryBrowseRow -> opener.open(row, sourceKey) },
             add = behavior::onRowLongClick,
         )
 

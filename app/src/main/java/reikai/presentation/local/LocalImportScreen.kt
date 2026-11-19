@@ -75,11 +75,9 @@ import reikai.data.local.LocalImport
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
-import reikai.novel.local.LocalNovelSource
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.readableColumn
 import reikai.presentation.details.detailsScreen
-import reikai.presentation.details.novelDetailsAt
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -106,19 +104,13 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
         var renaming by remember { mutableStateOf<ImportGroup?>(null) }
         var adding by remember { mutableStateOf<ImportGroup?>(null) }
 
-        // A single series opens once imported, since reading it is why the user came; several land in the library.
-        // Not while files shared in during the import wait, which leaving would drop.
+        // A single series added to the library opens once imported, since reading it is why the user came; several
+        // land in the library. Not while files shared in during the import wait, which leaving would drop.
         LaunchedEffect(state.result) {
             val only = state.result?.series?.singleOrNull() ?: return@LaunchedEffect
             if (state.result?.problems?.isNotEmpty() == true || only.entryId == null) return@LaunchedEffect
-            if (state.groups.isNotEmpty()) return@LaunchedEffect
-            navigator.replace(
-                if (only.type == ContentType.NOVELS) {
-                    novelDetailsAt(LocalNovelSource.ID, only.path)
-                } else {
-                    EntryId.Manga(only.entryId).detailsScreen()
-                },
-            )
+            if (!state.addToLibrary || state.groups.isNotEmpty()) return@LaunchedEffect
+            navigator.replace(EntryId.of(only.type, only.entryId).detailsScreen())
         }
 
         Scaffold(
@@ -168,11 +160,7 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
                     onNewerCopyChoice = viewModel::setNewerCopyChoice,
                     onAddTo = { adding = it },
                     onOpen = { series ->
-                        when {
-                            series.type == ContentType.NOVELS ->
-                                navigator.push(novelDetailsAt(LocalNovelSource.ID, series.path))
-                            series.entryId != null -> navigator.push(EntryId.Manga(series.entryId).detailsScreen())
-                        }
+                        series.entryId?.let { navigator.push(EntryId.of(series.type, it).detailsScreen()) }
                     },
                 )
             }

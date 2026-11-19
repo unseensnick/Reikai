@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import reikai.domain.entry.EntryId
 import reikai.presentation.MainDispatcherExtension
 import kotlin.time.Duration.Companion.seconds
 
@@ -27,7 +28,9 @@ class NeutralDetailsStateTest {
 
     private val model = main.track(object : ViewModel() {})
 
-    private fun neutral(value: Int): EntryDetailsScreenState = EntryDetailsScreenState.Failed("state $value")
+    private fun neutral(value: Int): EntryDetailsScreenState = loadedDetails().copy(
+        entryId = EntryId.Manga(value.toLong()),
+    )
 
     private fun mappedOnTheSpot(value: Int): EntryDetailsScreenState = error("mapped where it was asked for")
 

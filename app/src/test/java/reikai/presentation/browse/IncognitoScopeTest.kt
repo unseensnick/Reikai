@@ -25,8 +25,8 @@ class IncognitoScopeTest {
     companion object {
         @JvmStatic
         fun cases() = listOf(
-            arrayOf("novel from a source", NovelScreen("s", "u", fromSource = true), true),
-            arrayOf("novel from the library", NovelScreen("s", "u"), false),
+            arrayOf("novel from a source", NovelScreen(1L, fromSource = true), true),
+            arrayOf("novel from the library", NovelScreen(1L), false),
             arrayOf("manga from a source", MangaScreen(1L, fromSource = true), true),
             arrayOf("manga from the library", MangaScreen(1L), false),
             arrayOf("manga catalogue", EntryCatalogueScreen(SourceKey.Manga(1L)), true),

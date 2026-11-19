@@ -2,7 +2,6 @@ package reikai.presentation.recents
 
 import android.content.Context
 import android.content.Intent
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
@@ -45,7 +44,6 @@ import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
-import reikai.presentation.details.detailsScreen
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -308,9 +306,6 @@ class MangaRecentsAdapter(
     // Straight to the job rather than through the updates model, which only wraps this same call in a
     // snackbar event the shell now owns. It also lets a surface with no updated lane still refresh.
     override suspend fun refresh(): Boolean = LibraryUpdateWorker.startNow(application.workManager)
-
-    override suspend fun detailsScreen(entry: EntryId): Screen? =
-        (entry as? EntryId.Manga)?.detailsScreen()
 
     override fun open(item: RecentsItem, chapter: ChapterRef): Intent = ReaderActivity.newIntent(
         application,

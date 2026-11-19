@@ -1,13 +1,11 @@
 package reikai.presentation.download
 
-import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -15,7 +13,6 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
-import reikai.presentation.details.detailsScreen
 import java.util.concurrent.ConcurrentHashMap
 
 /** The novel downloader under the download queue, over [NovelDownloadManager]. */
@@ -75,9 +72,6 @@ class NovelDownloadQueueProvider(
         if (cached != null && cached.keys.containsAll(chapterIds)) return cached
         return chaptersOf(seriesId).associate { it.id to it.name }.also { chapterNames[seriesId] = it }
     }
-
-    override suspend fun detailsScreen(seriesId: Long): Screen? =
-        EntryId.Novel(seriesId).detailsScreen(novelRepo)
 
     override suspend fun cancelChapter(chapterId: Long) = downloadManager.cancelDownloads(listOf(chapterId))
 

@@ -118,9 +118,9 @@ app/src/main/java/reikai/presentation/migrate/flow/MangaMigrationFlowAdapter.kt	
 app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt	app/src/main/java/reikai/presentation/reader/NovelReaderViewModel.kt	41b9db6e48006fde
 app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt	app/src/main/java/reikai/presentation/stats/StatsLibrary.kt	8fddfcbd0f4ed41e
 app/src/main/java/reikai/presentation/reader/MangaReaderProvider.kt	app/src/main/java/reikai/presentation/reader/NovelReaderProvider.kt	eb4d7a6b94dcb39b
-app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	26177fb3db089d4e
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	43d49dde0e7bf076
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	539f14a99e1aa122
+app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	5643a88af593f4c0
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	750aff36b6561528
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	880892cb7cac9418
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	f15210d87539d1e3

@@ -556,7 +556,7 @@ class MainActivity : BaseActivity() {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Library(idToOpen)
             }
-            // RK: open a saved novel's details, as built by novelDetailsIntent
+            // RK: open a novel's details, as built by novelDetailsIntent (or an older build's, read only)
             Constants.SHORTCUT_NOVEL -> {
                 lifecycleScope.launch {
                     intent.novelDetailsScreen(novelRepository)?.let {

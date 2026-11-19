@@ -125,8 +125,8 @@ class NovelReaderProvider(
     // The source builds the URL, and a tachiyomi-format extension may override that, as on manga.
     override suspend fun chapterWebUrl(chapterId: Long): String? = withIOContext { viewModel.webUrlOf(chapterId) }
 
-    override fun detailsIntent(context: Context): Intent? = viewModel.detailsRoute.value?.let { route ->
-        novelDetailsIntent(context, route.source, route.url).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    override fun detailsIntent(context: Context): Intent? = viewModel.detailsNovelId.value?.let { novelId ->
+        novelDetailsIntent(context, novelId).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
 
     // The colour filter goes over the whole renderer, so the colour painted around it and behind the readout

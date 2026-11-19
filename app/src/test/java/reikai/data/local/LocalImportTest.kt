@@ -123,6 +123,14 @@ class LocalImportTest(private val type: ContentType) {
             (listOf(ImportProblem.Reason.AddFailed) to null)
     }
 
+    // A novel is stored either way, so its page opens by row id; manga stores a series only on an add.
+    @Test
+    fun `a series kept out of the library has a row to open only for novels`() = runTest {
+        val result = localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
+
+        result.series.single().entryId shouldBe mapOf(ContentType.NOVELS to 7L)[type]
+    }
+
     @Test
     fun `a series joins the folder a past import made under another spelling`() = runTest {
         File(root, "Foo Bar").mkdirs()
