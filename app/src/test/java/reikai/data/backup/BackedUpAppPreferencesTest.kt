@@ -12,7 +12,8 @@ import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
  * Installed LN plugins and their repos follow Extension stores, as the extension apps (field 710) do,
- * so a backup with App settings off still lets a restore offer them.
+ * so a backup with App settings off still lets a restore offer them. App settings also carry the
+ * marker saying the migration options know the custom info option.
  */
 class BackedUpAppPreferencesTest {
 
@@ -49,9 +50,13 @@ class BackedUpAppPreferencesTest {
             Arguments.of(
                 "app settings only",
                 BackupOptions(appSettings = true, extensionStores = false),
-                listOf(seen, FONT_SIZE),
+                listOf(seen, FONT_SIZE, AppPreferenceCarry.CUSTOM_INFO_OPTION_MARKER_KEY),
             ),
-            Arguments.of("both", BackupOptions(), plugins + seen + FONT_SIZE),
+            Arguments.of(
+                "both",
+                BackupOptions(),
+                plugins + seen + FONT_SIZE + AppPreferenceCarry.CUSTOM_INFO_OPTION_MARKER_KEY,
+            ),
         )
     }
 }

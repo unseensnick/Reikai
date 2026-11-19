@@ -28,15 +28,25 @@ class MigrationCustomInfoFlagMigration(
     override val version: Float = 210f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        runCatching {
-            val manga = sourcePreferences.migrationFlags
-            if (manga.isSet()) manga.set(manga.get() + MigrationFlag.CUSTOM_INFO)
-            val novels = novelPreferences.novelMigrationFlags()
-            if (novels.isSet()) novels.set(novels.get() or NovelMigrationFlag.CUSTOM_INFO.bit)
-        }.onFailure {
+        runCatching { turnOnCustomInfo(sourcePreferences, novelPreferences, manga = true, novels = true) }.onFailure {
             logcat(LogPriority.ERROR, it) { "Failed to turn on the custom info migration option" }
         }
 
         return@withIOContext true
+    }
+
+    companion object {
+        /** Adds the option to the saved [manga] and [novels] masks, the rule a restore of an older backup shares. */
+        fun turnOnCustomInfo(
+            sourcePreferences: SourcePreferences,
+            novelPreferences: NovelPreferences,
+            manga: Boolean,
+            novels: Boolean,
+        ) {
+            val mangaFlags = sourcePreferences.migrationFlags
+            if (manga && mangaFlags.isSet()) mangaFlags.set(mangaFlags.get() + MigrationFlag.CUSTOM_INFO)
+            val novelFlags = novelPreferences.novelMigrationFlags()
+            if (novels && novelFlags.isSet()) novelFlags.set(novelFlags.get() or NovelMigrationFlag.CUSTOM_INFO.bit)
+        }
     }
 }

@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import mihon.core.migration.migrations.MigrationCustomInfoFlagMigration
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.DEAD_PLUGINS_NEED_REVALIDATION_KEY
@@ -68,6 +69,15 @@ class AppPreferenceCarry(
             key == DEAD_READER_TTS_ENABLED_KEY && (value as? BooleanPreferenceValue)?.value == true
         }
         if (readAloudWasOn) novelPreferences.addReadAloudButtonToCustomisedBar()
+        if (toRestore.none { it.key == CUSTOM_INFO_OPTION_MARKER_KEY }) {
+            val restored = toRestore.mapTo(HashSet()) { it.key }
+            MigrationCustomInfoFlagMigration.turnOnCustomInfo(
+                extensionSourcePreferences,
+                novelPreferences,
+                manga = extensionSourcePreferences.migrationFlags.key() in restored,
+                novels = novelPreferences.novelMigrationFlags().key() in restored,
+            )
+        }
     }
 
     /** True when [key] is handled here and must not be written as it stands. */
@@ -101,6 +111,8 @@ class AppPreferenceCarry(
                 (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderTapToScroll(it.value) }
             DEAD_READER_AUTO_SCROLL_KEY ->
                 (value as? BooleanPreferenceValue)?.let { novelPreferences.carryReaderAutoScroll(it.value) }
+            // A marker about the backup itself, read in restore, never a setting.
+            CUSTOM_INFO_OPTION_MARKER_KEY -> Unit
             // The address decides where the NovelList sign-in token goes, so a backup never moves it.
             trackPreferences.novelListApiUrl.key() -> Unit
             // A backup may be someone else's: it never picks a silent installer for later extension
@@ -127,6 +139,10 @@ class AppPreferenceCarry(
 
     // Internal so PreferenceRestorerTest reads the lists rather than a copy that drifts from them.
     internal companion object {
+        // Written into every App settings backup (backedUpAppPreferences): a backup without it was made before
+        // the custom info migration option, so its saved migration options gain it on restore.
+        const val CUSTOM_INFO_OPTION_MARKER_KEY = "backup_migration_custom_info_known"
+
         val SKIPPED_KEYS = setOf(
             DEAD_READER_TTS_ENABLED_KEY, // carried after it
             // The retired merge prefs hold ids from the device the backup came from; the restorers rebuild

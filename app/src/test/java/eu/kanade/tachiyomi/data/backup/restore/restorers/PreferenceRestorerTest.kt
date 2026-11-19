@@ -29,6 +29,7 @@ import io.mockk.verify
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
+import mihon.domain.migration.models.MigrationFlag
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -50,6 +51,7 @@ import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
+import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
@@ -227,6 +229,61 @@ class PreferenceRestorerTest {
         )
 
         novelPreferences.readerTapLayout(paged = false).get() shouldBe NovelTapLayout.THIRDS
+    }
+
+    private suspend fun restoreMasks(marked: Boolean, manga: Int? = null, novels: Int? = null) = restorer.restoreApp(
+        listOfNotNull(
+            manga?.let { BackupPreference(sourcePreferences.migrationFlags.key(), IntPreferenceValue(it)) },
+            novels?.let { BackupPreference(novelPreferences.novelMigrationFlags().key(), IntPreferenceValue(it)) },
+            BackupPreference(AppPreferenceCarry.CUSTOM_INFO_OPTION_MARKER_KEY, BooleanPreferenceValue(true))
+                .takeIf { marked },
+        ),
+        backupCategories = null,
+    )
+
+    @Test
+    fun `a manga migration mask saved before the custom info option gains it`() = runTest {
+        restoreMasks(marked = false, manga = MigrationFlag.CHAPTER.flag)
+
+        sourcePreferences.migrationFlags.get() shouldBe setOf(MigrationFlag.CHAPTER, MigrationFlag.CUSTOM_INFO)
+    }
+
+    @Test
+    fun `a novel migration mask saved before the custom info option gains it`() = runTest {
+        restoreMasks(marked = false, novels = NovelMigrationFlag.CHAPTER.bit)
+
+        novelPreferences.novelMigrationFlags().get() shouldBe
+            (NovelMigrationFlag.CHAPTER.bit or NovelMigrationFlag.CUSTOM_INFO.bit)
+    }
+
+    @Test
+    fun `a manga migration mask from a backup that knows the option keeps it off`() = runTest {
+        restoreMasks(marked = true, manga = MigrationFlag.CHAPTER.flag)
+
+        sourcePreferences.migrationFlags.get() shouldBe setOf(MigrationFlag.CHAPTER)
+    }
+
+    @Test
+    fun `a novel migration mask from a backup that knows the option keeps it off`() = runTest {
+        restoreMasks(marked = true, novels = NovelMigrationFlag.CHAPTER.bit)
+
+        novelPreferences.novelMigrationFlags().get() shouldBe NovelMigrationFlag.CHAPTER.bit
+    }
+
+    @Test
+    fun `an old backup leaves a migration mask it does not carry as the device has it`() = runTest {
+        novelPreferences.novelMigrationFlags().set(NovelMigrationFlag.CHAPTER.bit)
+
+        restoreMasks(marked = false, manga = MigrationFlag.CHAPTER.flag)
+
+        novelPreferences.novelMigrationFlags().get() shouldBe NovelMigrationFlag.CHAPTER.bit
+    }
+
+    @Test
+    fun `the custom info option marker is not written into the store`() = runTest {
+        restoreMasks(marked = true)
+
+        store.getBoolean(AppPreferenceCarry.CUSTOM_INFO_OPTION_MARKER_KEY, false).isSet() shouldBe false
     }
 
     /** Disabled is also the default, so only the stored value shows the off choice was carried. */

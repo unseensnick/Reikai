@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
@@ -217,6 +218,7 @@ fun NovelPreferences.pluginInstallKeys() =
 /**
  * Which of the App settings [all] a backup made with [options] writes. The plugin keys follow Extension
  * stores, as the extension apps do, and the seen-source record that names the plugins comes with either.
+ * App settings also carry [AppPreferenceCarry.CUSTOM_INFO_OPTION_MARKER_KEY].
  */
 fun NovelPreferences.backedUpAppPreferences(
     options: BackupOptions,
@@ -224,11 +226,13 @@ fun NovelPreferences.backedUpAppPreferences(
 ): List<BackupPreference> {
     val pluginKeys = pluginInstallKeys()
     val seenKey = seenNovelSources().key()
-    return all.filter {
+    val written = all.filter {
         when (it.key) {
             in pluginKeys -> options.extensionStores
             seenKey -> options.appSettings || options.extensionStores
             else -> options.appSettings
         }
     }
+    if (!options.appSettings) return written
+    return written + BackupPreference(AppPreferenceCarry.CUSTOM_INFO_OPTION_MARKER_KEY, BooleanPreferenceValue(true))
 }
