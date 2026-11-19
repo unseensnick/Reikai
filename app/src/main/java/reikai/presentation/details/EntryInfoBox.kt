@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -79,6 +80,8 @@ data class EntryHeaderUi(
     /** The library query for the viewed source's entries; null where [sourceName] labels a merged group. */
     val sourceQuery: String?,
     val coverFallbacks: List<Any> = emptyList(),
+    /** The series' other titles ([reikai.domain.entry.seriesAltTitles]), shown under the title. */
+    val altTitles: List<String> = emptyList(),
 ) {
     val cover: Any = withCoverFallbacks(coverModel, coverFallbacks)
 }
@@ -88,6 +91,7 @@ fun Manga.toEntryHeader(
     sourceState: EntrySourceState,
     sourceQuery: String?,
     coverFallbacks: List<Manga>,
+    altTitles: List<String>,
 ) = EntryHeaderUi(
     coverModel = this,
     title = title,
@@ -98,6 +102,7 @@ fun Manga.toEntryHeader(
     sourceState = sourceState,
     sourceQuery = sourceQuery,
     coverFallbacks = coverFallbacks,
+    altTitles = altTitles,
 )
 
 fun Novel.toEntryHeader(
@@ -105,6 +110,7 @@ fun Novel.toEntryHeader(
     sourceState: EntrySourceState,
     sourceQuery: String?,
     coverFallbacks: List<Novel>,
+    altTitles: List<String>,
 ) = EntryHeaderUi(
     coverModel = asNovelCover(),
     title = title,
@@ -115,14 +121,15 @@ fun Novel.toEntryHeader(
     sourceState = sourceState,
     sourceQuery = sourceQuery,
     coverFallbacks = coverFallbacks.map { it.asNovelCover() },
+    altTitles = altTitles,
 )
 
 /**
  * Shared details header (blurred cover backdrop + cover + title / author / artist / status / source)
  * for manga and novels. Replaces MangaInfoBox + NovelInfoBox. Status codes match between the two
- * (see NovelStatusCode), so the status icon + label render from one switch. Tapping the title / author
- * / artist runs [onGlobalSearch] and tapping the source browses it; long-press offers library search,
- * global search and copy (Browse, library search and copy on the source).
+ * (see NovelStatusCode), so the status icon + label render from one switch. Tapping the title / an
+ * alternative title / author / artist runs [onGlobalSearch] and tapping the source browses it;
+ * long-press offers library search, global search and copy (Browse, library search and copy on the source).
  */
 @Composable
 fun EntryInfoBox(
@@ -264,7 +271,7 @@ private fun ColumnScope.EntryContentInfo(
     val author = header.author
     val artist = header.artist
 
-    // One menu for all four rows, as the tag chips do it: it anchors to this column rather
+    // One menu for every row, as the tag chips do it: it anchors to this column rather
     // than to the row under the finger, which is the cost of not building four of them.
     // Deliberately remember, not rememberSaveable: an open menu should not survive a rotation
     // and reopen against a stale anchor.
@@ -334,6 +341,31 @@ private fun ColumnScope.EntryContentInfo(
         ),
         textAlign = textAlign,
     )
+
+    if (header.altTitles.isNotEmpty()) {
+        FlowRow(
+            modifier = Modifier.secondaryItemAlpha(),
+            horizontalArrangement = if (textAlign == TextAlign.Center) Arrangement.Center else Arrangement.Start,
+        ) {
+            ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+                Text(text = stringResource(MR.strings.alt_titles) + ": ")
+                header.altTitles.forEachIndexed { index, alt ->
+                    if (index > 0) DotSeparatorText()
+                    Text(
+                        text = alt,
+                        modifier = Modifier.clickableNoIndication(
+                            onLongClick = {
+                                menuTarget = alt
+                                menuIsSource = false
+                                showMenu = true
+                            },
+                            onClick = { onGlobalSearch(alt) },
+                        ),
+                    )
+                }
+            }
+        }
+    }
 
     Spacer(modifier = Modifier.height(2.dp))
 

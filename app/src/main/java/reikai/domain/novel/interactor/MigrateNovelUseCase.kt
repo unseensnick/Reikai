@@ -13,6 +13,7 @@ import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.db.Transactions
+import reikai.domain.entry.CarryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.HideSeries
@@ -70,6 +71,7 @@ class MigrateNovelUseCase(
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val hideSeries: HideSeries,
+    private val carryCustomInfo: CarryCustomInfo,
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
@@ -180,6 +182,10 @@ class MigrateNovelUseCase(
                 }
                 // Bump the target's coverLastModified so coil reloads, mirroring NovelCoverViewModel.
                 updateNovel.awaitUpdateCoverLastModified(target.id)
+            }
+            // Before the swap, as manga, so a failed write fails the row with the library untouched.
+            if (NovelMigrationFlag.CUSTOM_INFO in flags) {
+                carryCustomInfo.await(EntryId.Novel(current.id), EntryId.Novel(target.id))
             }
 
             // The favorite swap and the merge-group rewrite are ONE unit of work, with the swap

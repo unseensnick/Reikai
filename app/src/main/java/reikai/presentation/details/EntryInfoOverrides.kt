@@ -9,6 +9,7 @@ data class EntryInfoOverrides(
     val genre: List<String>? = null,
     val status: Long? = null,
     val thumbnailUrl: String? = null,
+    val altTitles: List<String> = emptyList(),
 )
 
 /**
@@ -23,4 +24,6 @@ fun EntryEditInfoUi.overridesOver(source: EntryEditInfoUi, unknownStatus: Long) 
     genre = genre.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() && it != source.genre },
     status = status.takeIf { it != source.status && it != unknownStatus },
     thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != source.thumbnailUrl },
+    // No source value to diff against: the source models carry no alternative titles.
+    altTitles = altTitles.map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
 )

@@ -290,6 +290,7 @@
     <string name="edit_info_description">Description</string>
     <string name="edit_info_add_tags">Add tags</string>
     <string name="edit_info_add_tags_hint">Separate tags with commas</string>
+    <string name="edit_info_alt_titles_hint">One title per line</string>
     <string name="select_tracker">Select tracker</string>
     <string name="entry_not_tracked">Entry not tracked</string>
     <!-- RK: a background job that could not start -->

@@ -24,6 +24,7 @@ enum class MigrationDataFlag {
     CUSTOM_COVER,
     NOTES,
     REMOVE_DOWNLOAD,
+    CUSTOM_INFO,
 }
 
 /** A migration target source. [key] is the neutral id (manga `Long` stringified, novel plugin id). */
@@ -68,6 +69,8 @@ data class MigrationEntry(
     /** Adapter-built Coil cover model (`MangaCover` / `NovelCover`) for the row thumbnail. */
     val cover: Any?,
     val payload: MigrationPayload,
+    /** The Edit info title, then the series' other titles ([migrationOtherTitles]): the auto search's fallback. */
+    val otherTitles: List<String> = emptyList(),
 )
 
 /**

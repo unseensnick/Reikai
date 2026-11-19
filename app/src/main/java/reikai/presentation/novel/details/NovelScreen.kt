@@ -54,6 +54,7 @@ import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.chapterToOpen
+import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
@@ -328,12 +329,14 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
             nextUpdate = intervalNovel.expectedNextUpdate(),
             editable = isUpdateIntervalEnabled,
         )
-        NovelDetailsDialog.EditInfo -> EntryDetailsDialog.EditInfo(
-            // Seed from the ANCHOR, not displayNovel: save diffs each field against the anchor row, so
-            // seeding from a selected merge sibling would persist its every differing field as an
-            // override on an untouched Save. Matches the manga side (seed and diff share one entry).
-            initial = novel.withCustomInfo(customInfo).toEntryEditInfoUi(),
-            source = novel.toEntryEditInfoUi(),
+        // Seed from the ANCHOR, not displayNovel: save diffs each field against the anchor row, so
+        // seeding from a selected merge sibling would persist its every differing field as an
+        // override on an untouched Save. Matches the manga side (seed and diff share one entry).
+        NovelDetailsDialog.EditInfo -> editInfoDialog(
+            novel,
+            customInfo,
+            Novel::withCustomInfo,
+            Novel::toEntryEditInfoUi,
             coverModel = { url -> novel.asNovelCover(url.ifBlank { null }) },
         )
         is NovelDetailsDialog.FullCover -> EntryDetailsDialog.Cover(d.volume)
@@ -353,7 +356,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
     }
 
 /** Seed the shared edit-info dialog from a novel's effective (edited) values. */
-internal fun Novel.toEntryEditInfoUi() = EntryEditInfoUi(
+internal fun Novel.toEntryEditInfoUi(altTitles: List<String>) = EntryEditInfoUi(
     title = title,
     author = author.orEmpty(),
     artist = artist.orEmpty(),
@@ -361,4 +364,5 @@ internal fun Novel.toEntryEditInfoUi() = EntryEditInfoUi(
     genre = genre.orEmpty(),
     status = status,
     thumbnailUrl = thumbnailUrl.orEmpty(),
+    altTitles = altTitles,
 )

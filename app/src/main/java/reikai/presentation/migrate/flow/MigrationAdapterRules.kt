@@ -29,6 +29,7 @@ fun <T> applicableFlagsOf(
     hasCustomCover: (T) -> Boolean,
     hasNotes: (T) -> Boolean,
     hasDownloads: (T) -> Boolean,
+    hasCustomInfo: (T) -> Boolean,
 ): Set<MigrationDataFlag> = MigrationDataFlag.entries.filterTo(LinkedHashSet()) { flag ->
     when (flag) {
         MigrationDataFlag.CHAPTER -> true
@@ -36,5 +37,6 @@ fun <T> applicableFlagsOf(
         MigrationDataFlag.CUSTOM_COVER -> entries.any(hasCustomCover)
         MigrationDataFlag.NOTES -> entries.any(hasNotes)
         MigrationDataFlag.REMOVE_DOWNLOAD -> entries.any(hasDownloads)
+        MigrationDataFlag.CUSTOM_INFO -> entries.any(hasCustomInfo)
     }
 }

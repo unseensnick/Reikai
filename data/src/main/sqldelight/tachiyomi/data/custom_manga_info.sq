@@ -10,6 +10,7 @@ CREATE TABLE custom_manga_info(
     genre TEXT AS List<String>,
     status INTEGER,
     thumbnail_url TEXT,
+    alt_titles TEXT AS List<String>,
     FOREIGN KEY(manga_id) REFERENCES manga (id)
     ON DELETE CASCADE
 );
@@ -24,8 +25,8 @@ FROM custom_manga_info
 WHERE manga_id = :mangaId;
 
 insert:
-INSERT OR REPLACE INTO custom_manga_info(manga_id, title, author, artist, description, genre, status, thumbnail_url)
-VALUES (:mangaId, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl);
+INSERT OR REPLACE INTO custom_manga_info(manga_id, title, author, artist, description, genre, status, thumbnail_url, alt_titles)
+VALUES (:mangaId, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :altTitles);
 
 delete:
 DELETE FROM custom_manga_info

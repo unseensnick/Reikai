@@ -13,6 +13,7 @@ class EntryInfoOverridesTest {
         genre = listOf("Action"),
         status = 1L,
         thumbnailUrl = "https://cover",
+        altTitles = emptyList(),
     )
 
     @Test

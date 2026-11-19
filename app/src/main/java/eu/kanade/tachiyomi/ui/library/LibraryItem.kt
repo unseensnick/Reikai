@@ -38,6 +38,9 @@ data class LibraryItem(
     // RK: every member's non-blank notes on a merged series, since each source keeps its own, for the
     // notes search terms. Empty when not merged, or when no member has notes.
     val memberNotes: List<String> = emptyList(),
+    // RK: every member's own title on a merged series, which search reads as the series' other titles
+    // (seriesAltTitles). Empty when not merged.
+    val memberTitles: List<String> = emptyList(),
     // RK: the other members' cover models on a merged series, best ranked first, drawn when the row's
     // own cover is missing or fails to load (libraryCoverModel). Empty when not merged.
     val coverFallbacks: List<Any> = emptyList(),

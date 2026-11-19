@@ -21,6 +21,7 @@ data class MergedRowMember<S>(
     val lastUpdate: Instant?,
     val latestUpload: Instant?,
     val chapterFetchedAt: Instant?,
+    val title: String,
 )
 
 /**
@@ -61,6 +62,7 @@ suspend fun <S> LibraryItem.stampMergedGroup(
         // Raw: seriesGenres folds them, and the adult rule reads every source's exact tags.
         memberGenres = members.flatMap { it.genre.orEmpty() },
         memberNotes = members.map { it.notes }.filter { it.isNotBlank() }.distinct(),
+        memberTitles = members.map { it.title },
         coverFallbacks = coverFallbacks,
         badges = badges.copy(
             downloadCount = badgePrefs.downloadBadge(downloads),

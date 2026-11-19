@@ -10,6 +10,7 @@ CREATE TABLE custom_novel_info(
     genre TEXT AS List<String>,
     status INTEGER,
     thumbnail_url TEXT,
+    alt_titles TEXT AS List<String>,
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
     ON DELETE CASCADE
 );
@@ -24,8 +25,8 @@ FROM custom_novel_info
 WHERE novel_id = :novelId;
 
 insert:
-INSERT OR REPLACE INTO custom_novel_info(novel_id, title, author, artist, description, genre, status, thumbnail_url)
-VALUES (:novelId, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl);
+INSERT OR REPLACE INTO custom_novel_info(novel_id, title, author, artist, description, genre, status, thumbnail_url, alt_titles)
+VALUES (:novelId, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :altTitles);
 
 delete:
 DELETE FROM custom_novel_info

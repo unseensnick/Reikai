@@ -31,6 +31,7 @@ private fun MigrationDataFlag.label(): StringResource = when (this) {
     MigrationDataFlag.CUSTOM_COVER -> MR.strings.custom_cover
     MigrationDataFlag.NOTES -> MR.strings.action_notes
     MigrationDataFlag.REMOVE_DOWNLOAD -> MR.strings.delete_downloaded
+    MigrationDataFlag.CUSTOM_INFO -> MR.strings.custom_entry_info
 }
 
 /** Flag sets survive rotation as their names; the enum itself is not parcelable. */

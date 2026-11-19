@@ -68,6 +68,7 @@ class NovelMigrationFlowAdapterTest {
         migrateNovel = mockk(),
         mergeManager = mockk(),
         installer = mockk(),
+        getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
         syncRules = NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
     )
 

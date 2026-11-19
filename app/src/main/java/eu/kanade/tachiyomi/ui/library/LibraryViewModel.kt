@@ -218,6 +218,7 @@ class LibraryViewModel(
                             getSearchTitles::awaitAll,
                         )
                         val queryFields = mangaQueryFields(
+                            items,
                             chapterMatches,
                             customInfo,
                             gallery,
@@ -327,6 +328,7 @@ class LibraryViewModel(
     // RK: the manga binding of the shared query kernel. The source key is the numeric source id as a
     // string (novels supply a plugin slug).
     private fun mangaQueryFields(
+        rows: List<LibraryItem>,
         chapterMatches: Map<String, Set<Long>>,
         customInfo: List<CustomMangaInfo>,
         gallery: GallerySearchIndex,
@@ -337,6 +339,7 @@ class LibraryViewModel(
     ): LibraryQueryFields<LibraryItem> {
         return libraryItemQueryFields(
             sourceKey = { it.libraryManga.manga.source.toString() },
+            rows = rows,
             chapterMatches = chapterMatches,
             // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
             // The rows stay override-free: filter, sort and grouping deliberately read the source values.

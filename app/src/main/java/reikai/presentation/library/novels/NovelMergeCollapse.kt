@@ -104,6 +104,7 @@ suspend fun NovelMergeCollapse.CollapsedNovel.toLibraryRow(
                 it.novel.lastUpdate,
                 it.latestUpload,
                 it.chapterFetchedAt,
+                it.novel.title,
             )
         },
         coverFallbacks = coverFallbacks.map { it.novel.asNovelCover() },

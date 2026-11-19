@@ -14,6 +14,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -67,6 +68,7 @@ class NovelMigrationFlowAdapter(
     private val migrateNovel: MigrateNovelUseCase,
     private val mergeManager: NovelMergeManager,
     private val installer: LnPluginInstaller,
+    private val getEntryCustomInfo: GetEntryCustomInfo,
 ) : MigrationFlowAdapter {
 
     // Building the manager restores the persisted queue and can start the download worker, which
@@ -168,6 +170,11 @@ class NovelMigrationFlowAdapter(
                 latestChapter = shownLatestChapter(summary.latestChapterNumber),
                 cover = novel.asNovelCover(),
                 payload = MigrationPayload.OfNovel(novel),
+                otherTitles = migrationOtherTitles(
+                    novel.title,
+                    getEntryCustomInfo.await(EntryId.Novel(id)),
+                    mergeManager.computeRelatedIds(id).asList().mapNotNull { novelRepository.getById(it)?.title },
+                ),
             )
         }
     }
@@ -185,9 +192,14 @@ class NovelMigrationFlowAdapter(
         // altogether when a source returns a single candidate, so a plugin repeating one wrong
         // listing would dedupe down to that one hit and have it accepted unscored. Pinned by
         // BaseSmartSearchEngine for the extra query and MigrationAdapterConformanceTest for the own listing.
-        val match = SmartNovelSearchEngine(tuning.extraQuery).bestMatch(entry.title, tuning.deepSearch) { query ->
-            source.search(query, 1, filters = null).items
-        } ?: return null
+        val engine = SmartNovelSearchEngine(tuning.extraQuery)
+        val search: suspend (String) -> List<NovelItem> = { query -> source.search(query, 1, filters = null).items }
+        val match = searchPrimaryThenFallback(
+            entry.title,
+            entry.otherTitles,
+            single = { engine.bestMatch(it, tuning.deepSearch, search) },
+            multi = { engine.bestMatchAny(it, tuning.deepSearch, search) },
+        ) ?: return null
         if (entry.isOwnListing(sourceKey, match.path)) return null
         val candidate = match.toCandidate(sourceKey)
         // Ranking needs every candidate's count, as manga fetches each one's chapter list here. Only
@@ -340,12 +352,16 @@ class NovelMigrationFlowAdapter(
         )
     }
 
-    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> = applicableFlagsOf(
-        entries.mapNotNull { (it.payload as? MigrationPayload.OfNovel)?.novel },
-        hasCustomCover = { it.hasCustomCover(coverCache) },
-        hasNotes = { it.notes.isNotBlank() },
-        hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
-    )
+    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
+        val withCustomInfo = entries.filter { getEntryCustomInfo.await(it.id) != null }.mapTo(HashSet()) { it.id.rawId }
+        return applicableFlagsOf(
+            entries.mapNotNull { (it.payload as? MigrationPayload.OfNovel)?.novel },
+            hasCustomCover = { it.hasCustomCover(coverCache) },
+            hasNotes = { it.notes.isNotBlank() },
+            hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
+            hasCustomInfo = { it.id in withCustomInfo },
+        )
+    }
 
     override suspend fun migrate(
         entry: MigrationEntry,
@@ -373,6 +389,7 @@ class NovelMigrationFlowAdapter(
         NovelMigrationFlag.COVER -> MigrationDataFlag.CUSTOM_COVER
         NovelMigrationFlag.NOTES -> MigrationDataFlag.NOTES
         NovelMigrationFlag.REMOVE_DOWNLOAD -> MigrationDataFlag.REMOVE_DOWNLOAD
+        NovelMigrationFlag.CUSTOM_INFO -> MigrationDataFlag.CUSTOM_INFO
     }
 
     private fun MigrationDataFlag.toNovelFlag(): NovelMigrationFlag = when (this) {
@@ -381,5 +398,6 @@ class NovelMigrationFlowAdapter(
         MigrationDataFlag.CUSTOM_COVER -> NovelMigrationFlag.COVER
         MigrationDataFlag.NOTES -> NovelMigrationFlag.NOTES
         MigrationDataFlag.REMOVE_DOWNLOAD -> NovelMigrationFlag.REMOVE_DOWNLOAD
+        MigrationDataFlag.CUSTOM_INFO -> NovelMigrationFlag.CUSTOM_INFO
     }
 }

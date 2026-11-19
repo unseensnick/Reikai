@@ -59,6 +59,7 @@ import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.chapterToOpen
+import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
@@ -367,7 +368,7 @@ class MangaScreen(
 }
 
 // RK: seed the shared edit-info dialog from a manga's effective (overlaid) values.
-internal fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
+internal fun Manga.toEntryEditInfoUi(altTitles: List<String>) = EntryEditInfoUi(
     title = title,
     author = author.orEmpty(),
     artist = artist.orEmpty(),
@@ -375,6 +376,7 @@ internal fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
     genre = genre.orEmpty(),
     status = status,
     thumbnailUrl = thumbnailUrl.orEmpty(),
+    altTitles = altTitles,
 )
 
 // RK: map a manga dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);
@@ -387,10 +389,11 @@ private fun MangaViewModel.State.Success.toSharedDetailsDialog(isUpdateIntervalE
             nextUpdate = d.manga.expectedNextUpdate,
             editable = isUpdateIntervalEnabled,
         )
-        is MangaViewModel.Dialog.EditMangaInfo -> EntryDetailsDialog.EditInfo(
-            // Seed with the effective (overlaid) values; save diffs each field against the raw source manga.
-            initial = d.manga.withCustomInfo(customInfo).toEntryEditInfoUi(),
-            source = d.manga.toEntryEditInfoUi(),
+        is MangaViewModel.Dialog.EditMangaInfo -> editInfoDialog(
+            d.manga,
+            customInfo,
+            Manga::withCustomInfo,
+            Manga::toEntryEditInfoUi,
             coverModel = { url ->
                 MangaCover(
                     mangaId = d.manga.id,

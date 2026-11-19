@@ -33,9 +33,23 @@ abstract class BaseSmartSearchEngine<T>(
         }
     }
 
+    // RK --> several titles in one pass. Always scored: the lone-hit carve-out below trusts a single
+    // answer to the one title asked, which an alternative title is not. Each hit scores its best
+    // similarity against any of [titles]; deep subset queries are deduplicated across titles.
+    protected suspend fun multiTitleSearch(searchAction: SearchAction<T>, titles: List<String>, deep: Boolean): T? {
+        val known = if (deep) titles.map(::cleanDeepSearchTitle) else titles
+        val queries = if (deep) known.flatMap(::getDeepSearchQueries).distinct() else known.distinct()
+        return baseSearch(searchAction, queries, alwaysScore = true) { hit ->
+            val name = getTitle(hit).let { if (deep) cleanDeepSearchTitle(it) else it }
+            known.maxOf { normalizedLevenshtein.similarity(it, name) }
+        }
+    }
+    // RK <--
+
     private suspend fun baseSearch(
         searchAction: SearchAction<T>,
         queries: List<String>,
+        alwaysScore: Boolean = false, // RK: see multiTitleSearch
         calculateDistance: (T) -> Double,
     ): T? {
         val eligibleManga = supervisorScope {
@@ -50,7 +64,7 @@ abstract class BaseSmartSearchEngine<T>(
                     val candidates = searchAction(builtQuery)
                     candidates
                         .map {
-                            val distance = if (queries.size > 1 || candidates.size > 1) {
+                            val distance = if (alwaysScore || queries.size > 1 || candidates.size > 1) { // RK
                                 calculateDistance(it)
                             } else {
                                 1.0

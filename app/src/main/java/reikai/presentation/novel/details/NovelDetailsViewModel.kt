@@ -1815,7 +1815,7 @@ class NovelDetailsViewModel(
 }
 
 private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) =
-    overridesOver(source.toEntryEditInfoUi(), NovelStatusCode.UNKNOWN.toLong()).let {
+    overridesOver(source.toEntryEditInfoUi(emptyList()), NovelStatusCode.UNKNOWN.toLong()).let {
         CustomNovelInfo(
             novelId = source.id,
             title = it.title,
@@ -1825,6 +1825,7 @@ private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) =
             genre = it.genre,
             status = it.status,
             thumbnailUrl = it.thumbnailUrl,
+            altTitles = it.altTitles,
         )
     }
 

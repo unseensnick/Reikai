@@ -74,6 +74,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **Series can carry alternative titles, added in Edit info and shown under the title on details.** Library search finds a series by any of them, and by a merged series' source titles.
 - **Details can jump to the top, the next unread chapter or the bottom of the chapter list (from Tsundoku).** Settings -> Appearance -> Chapter list scroll actions in menu moves them off the top bar.
 - **The Start/Resume button on details can sit on the left (from Komikku).** Drag it sideways, or pick a side in Settings -> Appearance -> Resume button position.
 - **Edit info tags can be dragged into a new order (from TachiyomiSY).** Hold a tag near the top or bottom edge to scroll the form.
@@ -366,6 +367,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Local manga chapters in Updates and History now count as downloaded, with no Download button that did nothing.**
 
 ### Migration
+
+#### Added
+
+- **Migration searches a series' alternative titles when its title finds nothing, and can carry its Edit info to the new source.** The single-entry search lists the titles as chips.
 
 #### Fixed
 

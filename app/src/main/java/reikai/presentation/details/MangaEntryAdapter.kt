@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.seriesAltTitles
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.UndatedChapterDate
@@ -83,6 +84,11 @@ class MangaEntryAdapter(
                     } else {
                         emptyList()
                     },
+                    altTitles = seriesAltTitles(
+                        shown.title,
+                        mergedMangaById.values.map { it.title },
+                        customInfo?.altTitles.orEmpty(),
+                    ),
                 ),
                 favorite = manga.favorite,
                 trackingCount = trackingCount,

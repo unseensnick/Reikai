@@ -1,11 +1,17 @@
 package reikai.presentation.migrate.flow
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -15,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -104,22 +111,32 @@ class EntryMigrationSearchScreen(
             // No scroll behaviour passed on, as Reikai's global search does, so the bar stays one
             // plain header block with the chips under it.
             topBar = { _ ->
-                GlobalSearchToolbar(
-                    searchQuery = query,
-                    progress = state.searchedCount,
-                    total = state.sections.size,
-                    navigateUp = navigator::pop,
-                    onChangeSearchQuery = { query = it.orEmpty() },
-                    onSearch = viewModel::search,
-                    // The sources searched are the configured migration targets; the pinned/all
-                    // source filter has no meaning here.
-                    hideSourceFilter = true,
-                    sourceFilter = SearchSourceFilter.All,
-                    onChangeSearchFilter = {},
-                    onlyShowHasResults = state.onlyShowHasResults,
-                    onToggleResults = viewModel::toggleOnlyResults,
-                    isBusy = state.resolvingPick,
-                )
+                Column {
+                    GlobalSearchToolbar(
+                        searchQuery = query,
+                        progress = state.searchedCount,
+                        total = state.sections.size,
+                        navigateUp = navigator::pop,
+                        onChangeSearchQuery = { query = it.orEmpty() },
+                        onSearch = viewModel::search,
+                        // The sources searched are the configured migration targets; the pinned/all
+                        // source filter has no meaning here.
+                        hideSourceFilter = true,
+                        sourceFilter = SearchSourceFilter.All,
+                        onChangeSearchFilter = {},
+                        onlyShowHasResults = state.onlyShowHasResults,
+                        onToggleResults = viewModel::toggleOnlyResults,
+                        isBusy = state.resolvingPick,
+                    )
+                    // The searched title leads, so a tap can always go back to it.
+                    val alternatives = entry.alternativeTitles
+                    if (alternatives.isNotEmpty()) {
+                        MigrationSearchTitleChips(listOf(entry.title) + alternatives) {
+                            query = it
+                            viewModel.search(it)
+                        }
+                    }
+                }
             },
         ) { contentPadding ->
             // Unlike global search, a source still loading or failed stays under the filter (see
@@ -187,6 +204,22 @@ class EntryMigrationSearchScreen(
                     // stored row behind it to swap out the migrated-away details page.
                     resolved.openDetailsAfterCommit(navigator, replaced, migrated = entry)
                 },
+            )
+        }
+    }
+}
+
+/** The titles the entry goes by, each replacing the query and searching on a tap. */
+@Composable
+internal fun MigrationSearchTitleChips(titles: List<String>, onSearch: (String) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = MaterialTheme.padding.medium),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+    ) {
+        items(items = titles, key = { it }) { title ->
+            SuggestionChip(
+                onClick = { onSearch(title) },
+                label = { Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             )
         }
     }

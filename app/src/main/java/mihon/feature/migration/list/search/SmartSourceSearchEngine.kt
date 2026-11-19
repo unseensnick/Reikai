@@ -24,6 +24,10 @@ class SmartSourceSearchEngine(extraSearchParams: String?) : BaseSmartSearchEngin
         }
     }
 
+    // RK: the fallback over a series' other titles, scored as BaseSmartSearchEngine.multiTitleSearch says
+    suspend fun multiTitleSearch(source: Source, titles: List<String>, deep: Boolean): Manga? =
+        multiTitleSearch(makeSearchAction(source), titles, deep)?.toDomainManga(source.id)
+
     // Sources aren't main-safe: their default implementations block on the network
     private fun makeSearchAction(source: Source): SearchAction<SManga> = { query ->
         withIOContext { source.getSearchManga(1, query, source.getFilterList()).mangas }

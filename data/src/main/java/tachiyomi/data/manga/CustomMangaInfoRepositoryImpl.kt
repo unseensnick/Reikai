@@ -38,6 +38,8 @@ class CustomMangaInfoRepositoryImpl(
             genre = info.genre,
             status = info.status,
             thumbnailUrl = info.thumbnailUrl,
+            // Stored as null when empty, so a row without alternative titles reads as one from before the column.
+            altTitles = info.altTitles.takeIf { it.isNotEmpty() },
         )
     }
 
@@ -54,6 +56,7 @@ class CustomMangaInfoRepositoryImpl(
         genre: List<String>?,
         status: Long?,
         thumbnailUrl: String?,
+        altTitles: List<String>?,
     ): CustomMangaInfo = CustomMangaInfo(
         mangaId = mangaId,
         title = title,
@@ -63,5 +66,6 @@ class CustomMangaInfoRepositoryImpl(
         genre = genre,
         status = status,
         thumbnailUrl = thumbnailUrl,
+        altTitles = altTitles.orEmpty(),
     )
 }

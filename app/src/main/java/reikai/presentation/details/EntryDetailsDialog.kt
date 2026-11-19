@@ -20,6 +20,7 @@ import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.util.Screen
 import reikai.data.coil.withCoverFallbacks
 import reikai.domain.chapter.ChapterNumberEdit
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DetailsRemoval
 import reikai.presentation.components.EntryCoverDialog
@@ -78,6 +79,22 @@ sealed interface EntryDetailsDialog {
     /** A local series whose folder is gone, and the folders holding its files the user may link it to. */
     data class RelinkSeries(val entryTitle: String, val candidates: List<String>) : EntryDetailsDialog
 }
+
+/**
+ * The Edit info dialog over [entry], one seed rule for both types: the form opens on the overlaid values
+ * with the stored alternative titles, and a save diffs against the raw entry, which carries none.
+ */
+fun <T> editInfoDialog(
+    entry: T,
+    custom: EntryCustomInfo?,
+    overlay: T.(EntryCustomInfo?) -> T,
+    toUi: T.(altTitles: List<String>) -> EntryEditInfoUi,
+    coverModel: (String) -> Any,
+) = EntryDetailsDialog.EditInfo(
+    initial = entry.overlay(custom).toUi(custom?.altTitles.orEmpty()),
+    source = entry.toUi(emptyList()),
+    coverModel = coverModel,
+)
 
 /** One merge source for the manage-sources dialog: id + name + chapter count (for the coverage subtitle). */
 data class EntryManageSourceInfo(val id: Long, val sourceName: String, val chapterCount: Int, val isLocal: Boolean)

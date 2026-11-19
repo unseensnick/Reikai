@@ -1,0 +1,3 @@
+-- A series' alternative titles on its Edit info row, one per line (LineListColumnAdapter).
+ALTER TABLE custom_manga_info ADD COLUMN alt_titles TEXT;
+ALTER TABLE custom_novel_info ADD COLUMN alt_titles TEXT;

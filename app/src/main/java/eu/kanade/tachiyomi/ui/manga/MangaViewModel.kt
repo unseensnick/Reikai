@@ -2210,7 +2210,7 @@ sealed interface PagePreviewState {
 
 // RK: the per-field overrides, by the rule edit info shares with novels.
 private fun EntryEditInfoUi.toCustomMangaInfo(source: Manga) =
-    overridesOver(source.toEntryEditInfoUi(), SManga.UNKNOWN.toLong()).let {
+    overridesOver(source.toEntryEditInfoUi(emptyList()), SManga.UNKNOWN.toLong()).let {
         CustomMangaInfo(
             mangaId = source.id,
             title = it.title,
@@ -2220,5 +2220,6 @@ private fun EntryEditInfoUi.toCustomMangaInfo(source: Manga) =
             genre = it.genre,
             status = it.status,
             thumbnailUrl = it.thumbnailUrl,
+            altTitles = it.altTitles,
         )
     }

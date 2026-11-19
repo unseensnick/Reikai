@@ -233,6 +233,7 @@ class MangaHideEngine : HideEngine(ContentType.MANGA) {
             historyRepository = history,
             readingLog = ReadingLogRepositoryImpl(database),
             hideSeries = hideSeries,
+            carryCustomInfo = mockk(relaxed = true),
         )
         val current = checkNotNull(mangas.getMangaById(MigrateHiddenRealDbTest.SOURCE))
         val target = checkNotNull(mangas.getMangaById(MigrateHiddenRealDbTest.TARGET))
@@ -285,6 +286,7 @@ class NovelHideEngine : HideEngine(ContentType.NOVELS) {
             readingLog = ReadingLogRepositoryImpl(database),
             readingPace = ReadingPaceRepositoryImpl(database),
             hideSeries = hideSeries,
+            carryCustomInfo = mockk(relaxed = true),
         )
         val current = checkNotNull(novels.getById(MigrateHiddenRealDbTest.SOURCE))
         val target = checkNotNull(novels.getById(MigrateHiddenRealDbTest.TARGET))

@@ -77,6 +77,7 @@ class BackupManga(
     @ProtoNumber(802) override var customAuthor: String? = null,
     @ProtoNumber(804) override var customDescription: String? = null,
     @ProtoNumber(805) override var customGenre: List<String>? = null,
+    @ProtoNumber(806) override var customAltTitles: List<String> = emptyList(),
     // RK <--
 ) : BackupCustomInfoFields, BackupManualOrderFields, BackupLocalVolumeFields /* RK */ {
     fun getMangaImpl(): Manga {

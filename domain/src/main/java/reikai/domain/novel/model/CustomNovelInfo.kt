@@ -17,6 +17,7 @@ data class CustomNovelInfo(
     override val genre: List<String>? = null,
     override val status: Long? = null,
     override val thumbnailUrl: String? = null,
+    override val altTitles: List<String> = emptyList(),
 ) : EntryCustomInfo
 
 /**

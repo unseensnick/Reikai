@@ -8,6 +8,7 @@ enum class MigrationFlag(val flag: Int) {
     CUSTOM_COVER(0b01000),
     NOTES(0b100000),
     REMOVE_DOWNLOAD(0b10000),
+    CUSTOM_INFO(1 shl 16), // RK: the Edit info row, far above upstream's bits so a new one cannot collide
     ;
 
     companion object {

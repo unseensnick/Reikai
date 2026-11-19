@@ -25,19 +25,22 @@ interface EntryCustomInfo {
     val status: Long?
     val thumbnailUrl: String?
 
+    /** Other names the series goes by, searched and shown under the title; empty when none. */
+    val altTitles: List<String>
+
     /** No overrides set: saving this clears the row (Reset to source). */
     val isEmpty: Boolean
         get() = title == null && author == null && artist == null && description == null &&
-            genre == null && status == null && thumbnailUrl == null
+            genre == null && status == null && thumbnailUrl == null && altTitles.isEmpty()
 }
 
 /** These overrides as [mangaId]'s stored row. */
 fun EntryCustomInfo.toCustomMangaInfo(mangaId: Long) =
-    CustomMangaInfo(mangaId, title, author, artist, description, genre, status, thumbnailUrl)
+    CustomMangaInfo(mangaId, title, author, artist, description, genre, status, thumbnailUrl, altTitles)
 
 /** These overrides as [novelId]'s stored row. */
 fun EntryCustomInfo.toCustomNovelInfo(novelId: Long) =
-    CustomNovelInfo(novelId, title, author, artist, description, genre, status, thumbnailUrl)
+    CustomNovelInfo(novelId, title, author, artist, description, genre, status, thumbnailUrl, altTitles)
 
 /**
  * Each set field wins, the rest pass through. Novels reach this too, since the library renders a novel

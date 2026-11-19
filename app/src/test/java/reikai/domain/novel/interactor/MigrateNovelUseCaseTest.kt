@@ -64,6 +64,7 @@ class MigrateNovelUseCaseTest {
         readingLog = NoReadingLog,
         readingPace = readingPace,
         hideSeries = HideSeries(FakeLibraryHiddenRepository(), mockk(relaxed = true), mockk(relaxed = true)),
+        carryCustomInfo = mockk(relaxed = true),
     )
 
     @Test

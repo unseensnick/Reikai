@@ -79,6 +79,8 @@ class LibraryQueryOverlay(
     val artist: String? = null,
     val description: String? = null,
     val genre: List<String>? = null,
+    /** The stored alternative titles, searched beside the title; never an override of it. */
+    val altTitles: List<String> = emptyList(),
 )
 
 /** What the source terms (`source:`, `srcid:`, `lang:`) read about one of an entry's sources. */

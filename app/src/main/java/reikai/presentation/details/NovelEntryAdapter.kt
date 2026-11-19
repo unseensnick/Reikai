@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.seriesAltTitles
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.NovelChapterListEntry
@@ -96,6 +97,13 @@ class NovelEntryAdapter(
                     sourceQuery = model.headerSourceQuery(this),
                     // Filled on the All view only; a chip shows its own source's cover.
                     coverFallbacks = coverFallbacks(novel.id, groupNovels) { it.id },
+                    altTitles = seriesAltTitles(
+                        display.title,
+                        groupNovels.map {
+                            it.title
+                        },
+                        customInfo?.altTitles.orEmpty(),
+                    ),
                 ),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,

@@ -21,6 +21,7 @@ import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import mihon.data.database.DatabaseRepositoryImpl
+import reikai.data.LineListColumnAdapter
 
 @ContributesTo(AppScope::class)
 @BindingContainer
@@ -117,10 +118,12 @@ object DatabaseBindings {
             // RK: manga custom-info overlay
             custom_manga_infoAdapter = Custom_manga_info.Adapter(
                 genreAdapter = StringListColumnAdapter,
+                alt_titlesAdapter = LineListColumnAdapter,
             ),
             // RK: novel custom-info overlay
             custom_novel_infoAdapter = Custom_novel_info.Adapter(
                 genreAdapter = StringListColumnAdapter,
+                alt_titlesAdapter = LineListColumnAdapter,
             ),
             // RK <--
         )

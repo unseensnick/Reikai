@@ -5,7 +5,7 @@ package reikai.domain.novel.model
  * [mihon.domain.migration.models.MigrationFlag] and stored as a small bitmask in
  * [reikai.domain.novel.NovelPreferences]. Like manga, tracks have no flag: they are always carried on
  * a migration (Mihon dropped its track flag). [REMOVE_DOWNLOAD] deletes the old source's downloaded
- * chapters on migrate, mirroring manga.
+ * chapters on migrate, mirroring manga. [CUSTOM_INFO] carries the Edit info row (CarryCustomInfo).
  */
 enum class NovelMigrationFlag(val bit: Int) {
     CHAPTER(0b00001),
@@ -13,6 +13,7 @@ enum class NovelMigrationFlag(val bit: Int) {
     COVER(0b00100),
     NOTES(0b01000),
     REMOVE_DOWNLOAD(0b10000),
+    CUSTOM_INFO(0b100000),
     ;
 
     companion object {

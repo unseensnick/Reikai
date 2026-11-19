@@ -111,6 +111,8 @@ data class EntryEditInfoUi(
     val genre: List<String>,
     val status: Long,
     val thumbnailUrl: String,
+    // No default: a builder that forgets it would save the row with its alternative titles wiped.
+    val altTitles: List<String>,
 )
 
 /**
@@ -200,6 +202,12 @@ fun EntryEditInfoDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 )
                 InfoField(form.description, stringResource(MR.strings.edit_info_description), minLines = 3)
+                InfoField(
+                    form.altTitles,
+                    stringResource(MR.strings.alt_titles),
+                    minLines = 2,
+                    supportingText = stringResource(MR.strings.edit_info_alt_titles_hint),
+                )
                 TagChips(
                     tags = form.tags,
                     scroll = scroll,
@@ -285,6 +293,7 @@ private class EditInfoForm(initial: EntryEditInfoUi) {
     val artist = TextFieldState()
     val thumbnailUrl = TextFieldState()
     val description = TextFieldState()
+    val altTitles = TextFieldState()
     var status by mutableIntStateOf(0)
     val tags: SnapshotStateList<String> = initial.genre.filter { it.isNotBlank() }.toMutableStateList()
 
@@ -299,6 +308,7 @@ private class EditInfoForm(initial: EntryEditInfoUi) {
         artist.setTextAndPlaceCursorAtEnd(ui.artist)
         thumbnailUrl.setTextAndPlaceCursorAtEnd(ui.thumbnailUrl)
         description.setTextAndPlaceCursorAtEnd(ui.description)
+        altTitles.setTextAndPlaceCursorAtEnd(ui.altTitles.joinToString("\n"))
     }
 
     fun setTags(new: List<String>) {
@@ -328,6 +338,7 @@ private class EditInfoForm(initial: EntryEditInfoUi) {
         genre = tags.toList(),
         status = status.toLong(),
         thumbnailUrl = thumbnailUrl.text.toString(),
+        altTitles = altTitles.text.lines().filter { it.isNotBlank() },
     )
 }
 
@@ -380,10 +391,12 @@ private fun InfoField(
     label: String,
     minLines: Int = 1,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    supportingText: String? = null,
 ) {
     OutlinedTextField(
         state = state,
         label = { Text(label) },
+        supportingText = supportingText?.let { { Text(it) } },
         lineLimits = if (minLines > 1) {
             TextFieldLineLimits.MultiLine(minHeightInLines = minLines)
         } else {

@@ -20,6 +20,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.feature.migration.list.search.SmartSourceSearchEngine
 import reikai.data.manga.toSourceChapters
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.source.listedManga
@@ -54,6 +55,7 @@ class MangaMigrationFlowAdapter(
     private val mergeManager: MangaMergeManager,
     private val getFavorites: GetFavorites,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
+    private val getEntryCustomInfo: GetEntryCustomInfo,
 ) : MigrationFlowAdapter {
 
     override val contentType = ContentType.MANGA
@@ -154,6 +156,11 @@ class MangaMigrationFlowAdapter(
                 latestChapter = shownLatestChapter(summary.latestChapterNumber),
                 cover = manga.asMangaCover(),
                 payload = MigrationPayload.OfManga(manga),
+                otherTitles = migrationOtherTitles(
+                    manga.title,
+                    getEntryCustomInfo.await(EntryId.Manga(id)),
+                    mergeManager.computeRelatedIds(id).asList().mapNotNull { getManga.await(it)?.title },
+                ),
             )
         }
     }
@@ -165,11 +172,12 @@ class MangaMigrationFlowAdapter(
     ): MigrationCandidate? {
         val source = catalogueSource(sourceKey) ?: return null
         val engine = SmartSourceSearchEngine(tuning.extraQuery)
-        val match = if (tuning.deepSearch) {
-            engine.deepSearch(source, entry.title)
-        } else {
-            engine.regularSearch(source, entry.title)
-        } ?: return null
+        val match = searchPrimaryThenFallback(
+            entry.title,
+            entry.otherTitles,
+            single = { if (tuning.deepSearch) engine.deepSearch(source, it) else engine.regularSearch(source, it) },
+            multi = { engine.multiTitleSearch(source, it, tuning.deepSearch) },
+        ) ?: return null
         // The entry's own source stays searchable, but its identical listing is never a target.
         if (entry.isOwnListing(sourceKey, match.url)) return null
         val local = networkToLocalManga(listOf(match)).firstOrNull() ?: return null
@@ -250,12 +258,16 @@ class MangaMigrationFlowAdapter(
         sourcePreferences.migrationFlags.set(flags.mapTo(HashSet()) { MigrationFlag.valueOf(it.name) })
     }
 
-    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> = applicableFlagsOf(
-        entries.mapNotNull { (it.payload as? MigrationPayload.OfManga)?.manga },
-        hasCustomCover = { it.hasCustomCover(coverCache) },
-        hasNotes = { it.notes.isNotBlank() },
-        hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
-    )
+    override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
+        val withCustomInfo = entries.filter { getEntryCustomInfo.await(it.id) != null }.mapTo(HashSet()) { it.id.rawId }
+        return applicableFlagsOf(
+            entries.mapNotNull { (it.payload as? MigrationPayload.OfManga)?.manga },
+            hasCustomCover = { it.hasCustomCover(coverCache) },
+            hasNotes = { it.notes.isNotBlank() },
+            hasDownloads = { downloadManager.getDownloadCount(it) > 0 },
+            hasCustomInfo = { it.id in withCustomInfo },
+        )
+    }
 
     override suspend fun migrate(
         entry: MigrationEntry,

@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryCustomInfo
+import reikai.domain.entry.seriesAltTitles
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.TagAliases
@@ -62,10 +63,11 @@ fun adultLookupKeys(rows: List<LibraryItem>, sourceKey: (LibraryItem) -> String)
  * [chapterMatches] and [categoryMatches] are the per-term id sets each side resolved once; [overlay]
  * supplies custom-info overrides by row id, since filter, sort and grouping read the source values;
  * [galleryIndex] answers the tag grammar, which novels never have; [tracksById] is each side's own track
- * table, already in the shared [Track], and [trackers] the logged-in ones.
+ * table, already in the shared [Track], and [trackers] the logged-in ones; [rows] get [searchTitles] here.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,
+    rows: List<LibraryItem> = emptyList(),
     chapterMatches: Map<String, Set<Long>> = emptyMap(),
     overlay: Map<Long, LibraryQueryOverlay> = emptyMap(),
     galleryIndex: GallerySearchIndex = GallerySearchIndex(),
@@ -73,39 +75,42 @@ fun libraryItemQueryFields(
     tracksById: Map<Long, List<Track>> = emptyMap(),
     trackers: Map<Long, Tracker> = emptyMap(),
     tagAliases: TagAliases = TagAliases.NONE,
-) = LibraryQueryFields<LibraryItem>(
-    id = { it.id },
-    title = { overlay[it.id]?.title ?: it.libraryManga.manga.title },
-    author = { overlay[it.id]?.author ?: it.libraryManga.manga.author },
-    artist = { overlay[it.id]?.artist ?: it.libraryManga.manga.artist },
-    description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
-    // Each source of a merged series keeps its own notes, so the card is found by any of them.
-    notes = { it.memberNotes.ifEmpty { listOf(it.libraryManga.manga.notes) }.joinToString("\n") },
-    genre = { tagAliases.resolveAll(it.seriesTags(overlay[it.id]?.genre)) },
-    sources = { item -> item.allSources(sourceKey(item)) },
-    // The deduplicated group counts, matching what the badges and the sort read.
-    unreadCount = { it.unreadCount },
-    readCount = { it.libraryManga.readCount },
-    totalChapters = { it.libraryManga.totalChapters },
-    dateAdded = { it.libraryManga.manga.favoriteAt },
-    fetchInterval = { it.libraryManga.manga.fetchInterval },
-    nextUpdate = { it.libraryManga.manga.nextUpdate },
-    // Keyed by the row's own raw id: each side resolved the set from its own chapter table, so the
-    // two id spaces never meet here. A collapsed merge group also matches through its members'
-    // ids, since their chapters render as the entry's own but their rows are not in the list.
-    matchesChapter = { item, term ->
-        chapterMatches[term]?.let { ids -> item.memberIds().any { it in ids } }
-    },
-    matchesTagTerm = galleryIndex::matches,
-    status = { it.libraryManga.manga.status },
-    trackerNames = { libraryTrackerNames(it.memberIds(), tracksById, trackers) },
-    categoryIds = { it.libraryManga.categories },
-    matchesCategory = { item, term ->
-        categoryMatches[term]?.let { ids -> item.libraryManga.categories.any { it in ids } }
-    },
-    meanScore = { libraryTrackerMean(it.memberIds(), tracksById, trackers) },
-    tagAliases = tagAliases,
-)
+): LibraryQueryFields<LibraryItem> {
+    val titles = rows.searchTitles(overlay)
+    return LibraryQueryFields(
+        id = { it.id },
+        title = { titles[it.id] ?: overlay[it.id]?.title ?: it.libraryManga.manga.title },
+        author = { overlay[it.id]?.author ?: it.libraryManga.manga.author },
+        artist = { overlay[it.id]?.artist ?: it.libraryManga.manga.artist },
+        description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
+        // Each source of a merged series keeps its own notes, so the card is found by any of them.
+        notes = { it.memberNotes.ifEmpty { listOf(it.libraryManga.manga.notes) }.joinToString("\n") },
+        genre = { tagAliases.resolveAll(it.seriesTags(overlay[it.id]?.genre)) },
+        sources = { item -> item.allSources(sourceKey(item)) },
+        // The deduplicated group counts, matching what the badges and the sort read.
+        unreadCount = { it.unreadCount },
+        readCount = { it.libraryManga.readCount },
+        totalChapters = { it.libraryManga.totalChapters },
+        dateAdded = { it.libraryManga.manga.favoriteAt },
+        fetchInterval = { it.libraryManga.manga.fetchInterval },
+        nextUpdate = { it.libraryManga.manga.nextUpdate },
+        // Keyed by the row's own raw id: each side resolved the set from its own chapter table, so the
+        // two id spaces never meet here. A collapsed merge group also matches through its members'
+        // ids, since their chapters render as the entry's own but their rows are not in the list.
+        matchesChapter = { item, term ->
+            chapterMatches[term]?.let { ids -> item.memberIds().any { it in ids } }
+        },
+        matchesTagTerm = galleryIndex::matches,
+        status = { it.libraryManga.manga.status },
+        trackerNames = { libraryTrackerNames(it.memberIds(), tracksById, trackers) },
+        categoryIds = { it.libraryManga.categories },
+        matchesCategory = { item, term ->
+            categoryMatches[term]?.let { ids -> item.libraryManga.categories.any { it in ids } }
+        },
+        meanScore = { libraryTrackerMean(it.memberIds(), tracksById, trackers) },
+        tagAliases = tagAliases,
+    )
+}
 
 /**
  * A series' tags, the one rule the library's filter, search and grouping, Statistics, Collate tags and the
@@ -135,7 +140,21 @@ internal fun LibraryItem.allSources(ownKey: String) = memberSources.ifEmpty { li
 internal fun LibraryItem.hasLocalSource(ownKey: String) = allSources(ownKey).any { it.isLocal }
 
 /** Maps onto the neutral overlay here rather than either content type learning about the query kernel. */
-fun EntryCustomInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)
+fun EntryCustomInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre, altTitles)
+
+/**
+ * The title search reads for each row that has other titles: the shown title, then [seriesAltTitles] over
+ * a merged series' member titles and the stored ones, a line each. Rows with none are left out.
+ */
+internal fun List<LibraryItem>.searchTitles(overlay: Map<Long, LibraryQueryOverlay>): Map<Long, String> =
+    buildMap {
+        for (item in this@searchTitles) {
+            val custom = overlay[item.id]
+            val main = custom?.title ?: item.libraryManga.manga.title
+            val others = seriesAltTitles(main, item.memberTitles, custom?.altTitles.orEmpty())
+            if (others.isNotEmpty()) put(item.id, (listOf(main) + others).joinToString("\n"))
+        }
+    }
 
 /** The display read's overlay, which the raw rows that filter, sort and search read never take. */
 fun LibraryItem.withCustomInfo(custom: EntryCustomInfo?): LibraryItem {

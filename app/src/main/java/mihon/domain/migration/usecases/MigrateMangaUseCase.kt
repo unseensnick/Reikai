@@ -17,6 +17,7 @@ import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.backup.mergedHistory // RK
 import reikai.domain.db.Transactions
+import reikai.domain.entry.CarryCustomInfo // RK
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType // RK
 import reikai.domain.library.HideSeries // RK
@@ -73,6 +74,7 @@ class MigrateMangaUseCase(
     private val historyRepository: HistoryRepository,
     private val readingLog: ReadingLogRepository, // RK: and so does its reading log
     private val hideSeries: HideSeries, // RK: a replace keeps the series hidden from the library
+    private val carryCustomInfo: CarryCustomInfo, // RK: the Edit info row, behind its own option
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -216,6 +218,10 @@ class MigrateMangaUseCase(
                 // custom-cover write. Without it a target that already had a custom cover keeps
                 // showing the old one, since the cache key does not change.
                 updateManga.awaitUpdateCoverLastModified(target.id)
+            }
+            // RK: before the swap, so a failed write fails the row with the library untouched
+            if (MigrationFlag.CUSTOM_INFO in flags) {
+                carryCustomInfo.await(EntryId.Manga(current.id), EntryId.Manga(target.id))
             }
 
             val currentMangaUpdate = MangaUpdate(current.id) {

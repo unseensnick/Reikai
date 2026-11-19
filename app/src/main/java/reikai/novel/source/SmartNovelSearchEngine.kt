@@ -24,4 +24,8 @@ class SmartNovelSearchEngine(extraSearchParams: String?) : BaseSmartSearchEngine
      */
     suspend fun bestMatch(title: String, deep: Boolean = false, search: SearchAction<NovelItem>): NovelItem? =
         if (deep) deepSearch(search, title) else regularSearch(search, title)
+
+    /** The best hit scored against any of [titles], always scored, so a lone unrelated hit is refused. */
+    suspend fun bestMatchAny(titles: List<String>, deep: Boolean, search: SearchAction<NovelItem>): NovelItem? =
+        multiTitleSearch(search, titles, deep)
 }

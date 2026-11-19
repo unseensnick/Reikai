@@ -64,6 +64,36 @@ class EntryEditInfoDialogTest {
     }
 
     @Test
+    fun `saving another field hands back the alternative titles it was seeded with`() {
+        show(initial = INITIAL.copy(altTitles = listOf("Alt A", "Alt, B")))
+
+        compose.onNodeWithText("Edited title").performTextReplacement("New title")
+        compose.onNodeWithText("Save").performClick()
+
+        saved?.altTitles shouldBe listOf("Alt A", "Alt, B")
+    }
+
+    @Test
+    fun `the alternative titles field saves one title per line`() {
+        show()
+
+        compose.onNodeWithText("Alternative titles").performTextReplacement("Kimetsu no Yaiba\nDemon Slayer")
+        compose.onNodeWithText("Save").performClick()
+
+        saved?.altTitles shouldBe listOf("Kimetsu no Yaiba", "Demon Slayer")
+    }
+
+    @Test
+    fun `reset info clears the alternative titles, which the source has none of`() {
+        show(initial = INITIAL.copy(altTitles = listOf("Alt A")))
+
+        compose.onNodeWithText("Reset info").performClick()
+        compose.onNodeWithText("Save").performClick()
+
+        saved?.altTitles shouldBe emptyList()
+    }
+
+    @Test
     fun `reset tags puts back the source's tags`() {
         show()
 
@@ -154,6 +184,7 @@ class EntryEditInfoDialogTest {
             genre = listOf("Comedy"),
             status = 0,
             thumbnailUrl = "",
+            altTitles = emptyList(),
         )
         val INITIAL = SOURCE.copy(title = "Edited title", genre = listOf("Action", "Drama"))
     }

@@ -298,6 +298,8 @@ class NovelLibraryViewModel(
         val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
         val queryFields = libraryItemQueryFields(
             sourceKey = sourceKey,
+            // No query, nothing searched: the titles are built only for a search.
+            rows = if (queryNode == null) emptyList() else allItems,
             chapterMatches = chapterMatches,
             // Search matches what the card shows, so a renamed novel is findable by the name you gave it.
             // The rows stay override-free: filter, sort and grouping deliberately read the source values.

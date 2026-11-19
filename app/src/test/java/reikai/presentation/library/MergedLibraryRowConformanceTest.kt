@@ -136,6 +136,7 @@ private val customCover = object : EntryCustomInfo {
     override val genre: List<String>? = null
     override val status: Long? = null
     override val thumbnailUrl = "custom"
+    override val altTitles: List<String> = emptyList()
 }
 
 /** The entry a cover candidate is the cover of, whichever content type's model it is. */

@@ -83,17 +83,18 @@ class MigrationAdapterRulesTest {
 
     @Test
     fun `chapters and categories are always offered, the rest only when some entry has them`() {
-        applicableFlagsOf(listOf(Unit), { false }, { false }, { false }) shouldBe
+        applicableFlagsOf(listOf(Unit), { false }, { false }, { false }, { false }) shouldBe
             setOf(MigrationDataFlag.CHAPTER, MigrationDataFlag.CATEGORY)
     }
 
     @Test
     fun `a custom cover, notes and downloads are offered when an entry has each`() {
         val flags = applicableFlagsOf(
-            listOf("cover", "notes", "downloads"),
+            listOf("cover", "notes", "downloads", "info"),
             hasCustomCover = { it == "cover" },
             hasNotes = { it == "notes" },
             hasDownloads = { it == "downloads" },
+            hasCustomInfo = { it == "info" },
         )
 
         flags shouldBe MigrationDataFlag.entries.toSet()
