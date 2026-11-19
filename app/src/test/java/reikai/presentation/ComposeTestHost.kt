@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEventBus
 import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import kotlin.reflect.KClass
@@ -17,12 +18,15 @@ import kotlin.reflect.KClass
 /**
  * Hosts a composable as the app's setComposeContent does, without the app graph: the preview theme
  * reads no preferences, [viewModels] stands in for the graph's view-model factory, so a screen
- * that calls metroViewModel gets the model the test built, and [resultEventBus] stands in for the
+ * that calls metroViewModel gets the model the test built, [assistedFactories] does the same for
+ * assistedMetroViewModel, and [resultEventBus] stands in for the
  * activity's result bus.
  */
 @Composable
 fun ComposeTestHost(
     viewModels: Map<KClass<out ViewModel>, () -> ViewModel> = emptyMap(),
+    assistedFactories: Map<KClass<out ManualViewModelAssistedFactory>, () -> ManualViewModelAssistedFactory> =
+        emptyMap(),
     resultEventBus: ResultEventBus = remember { ResultEventBus() },
     content: @Composable () -> Unit,
 ) {
@@ -30,7 +34,7 @@ fun ComposeTestHost(
         CompositionLocalProvider(
             LocalTextStyle provides MaterialTheme.typography.bodySmall,
             LocalContentColor provides MaterialTheme.colorScheme.onBackground,
-            LocalMetroViewModelFactory provides TestViewModelFactory(viewModels),
+            LocalMetroViewModelFactory provides TestViewModelFactory(viewModels, assistedFactories),
             LocalResultEventBus provides resultEventBus,
             content = content,
         )
@@ -39,4 +43,6 @@ fun ComposeTestHost(
 
 private class TestViewModelFactory(
     override val viewModelProviders: Map<KClass<out ViewModel>, () -> ViewModel>,
+    override val manualAssistedFactoryProviders:
+    Map<KClass<out ManualViewModelAssistedFactory>, () -> ManualViewModelAssistedFactory>,
 ) : MetroViewModelFactory()

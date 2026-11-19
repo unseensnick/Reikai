@@ -94,10 +94,14 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        // Saved with the screen: its arguments outlive process death, and the model made on restore would offer
+        // files already imported again. Files shared in later arrive as events, so they are never taken twice.
+        var handedOverTaken by rememberSaveable { mutableStateOf(false) }
         val viewModel = assistedMetroViewModel<LocalImportViewModel, LocalImportViewModel.Factory> {
-            create(initialUris)
+            create(if (handedOverTaken) emptyList() else initialUris)
         }
         val state by viewModel.state.collectAsState()
+        LaunchedEffect(state.hasImported) { if (state.hasImported) handedOverTaken = true }
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             viewModel.add(uris)
         }
