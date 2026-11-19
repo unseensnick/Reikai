@@ -31,7 +31,7 @@ class NovelLegacyEditsRestoreTest {
     fun `an older backup's edited author comes back as an edit, the rest as the source's`() = runTest {
         val restored = mutableListOf<CustomNovelInfo>()
         val customInfo = mockk<SetCustomNovelInfo> {
-            coEvery { set(any()) } answers
+            coEvery { restore(any()) } answers
                 { restored += firstArg<CustomNovelInfo>() }
         }
 

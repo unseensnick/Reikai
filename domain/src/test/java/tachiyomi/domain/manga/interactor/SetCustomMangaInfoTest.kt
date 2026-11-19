@@ -15,6 +15,7 @@ class SetCustomMangaInfoTest {
         val deleted = mutableListOf<Long>()
         override fun getByMangaIdAsFlow(mangaId: Long): Flow<CustomMangaInfo?> = flowOf(stored[mangaId])
         override fun getAllAsFlow(): Flow<List<CustomMangaInfo>> = flowOf(stored.values.toList())
+        override suspend fun getByMangaId(mangaId: Long) = stored[mangaId]
         override suspend fun set(info: CustomMangaInfo) {
             stored[info.mangaId] = info
         }

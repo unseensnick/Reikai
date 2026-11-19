@@ -126,19 +126,19 @@ class CustomInfoAltTitlesTest {
         @ProtoNumber(802) val customAuthor: String? = null,
     )
 
-    // The restore's own steps: MangaRestorer reads customInfo, RestoreRepositoryImpl sets the whole row.
+    // The restore's own steps: MangaRestorer reads customInfo, RestoreRepositoryImpl writes it through restore.
     private suspend fun restoreManga(bytes: ByteArray) {
         ProtoBuf.decodeFromByteArray(BackupManga.serializer(), bytes).customInfo
-            ?.let { setManga.set(it.toCustomMangaInfo(ID)) }
+            ?.let { setManga.restore(it.toCustomMangaInfo(ID)) }
     }
 
     private suspend fun restoreNovel(bytes: ByteArray) {
         ProtoBuf.decodeFromByteArray(BackupNovel.serializer(), bytes).customInfo
-            ?.let { setNovel.set(it.toCustomNovelInfo(ID)) }
+            ?.let { setNovel.restore(it.toCustomNovelInfo(ID)) }
     }
 
     @Test
-    fun `an older backup's custom info replaces the whole row, title and alternative titles alike`() = runTest {
+    fun `an older backup replaces the device row but keeps its alternative titles, both types`() = runTest {
         setManga.set(CustomMangaInfo(ID, title = "Device title", altTitles = ALTS))
         setNovel.set(CustomNovelInfo(ID, title = "Device title", altTitles = ALTS))
 
@@ -146,7 +146,7 @@ class CustomInfoAltTitlesTest {
         restoreNovel(ProtoBuf.encodeToByteArray(OldNovel.serializer(), OldNovel("src", "/n", customAuthor = "A")))
 
         listOf(manga()?.title, manga()?.altTitles, novel()?.title, novel()?.altTitles) shouldBe
-            listOf(null, emptyList<String>(), null, emptyList<String>())
+            listOf(null, ALTS, null, ALTS)
     }
 
     @Test

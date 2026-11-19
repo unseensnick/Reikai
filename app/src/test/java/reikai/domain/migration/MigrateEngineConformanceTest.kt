@@ -1186,12 +1186,14 @@ class CustomInfoStore {
     private val mangaRepo = object : CustomMangaInfoRepository {
         override fun getByMangaIdAsFlow(mangaId: Long) = manga.map { it[mangaId] }
         override fun getAllAsFlow() = manga.map { it.values.toList() }
+        override suspend fun getByMangaId(mangaId: Long) = manga.value[mangaId]
         override suspend fun set(info: CustomMangaInfo) = manga.update { it + (info.mangaId to info) }
         override suspend fun delete(mangaId: Long) = manga.update { it - mangaId }
     }
     private val novelRepo = object : CustomNovelInfoRepository {
         override fun getByNovelIdAsFlow(novelId: Long) = novels.map { it[novelId] }
         override fun getAllAsFlow() = novels.map { it.values.toList() }
+        override suspend fun getByNovelId(novelId: Long) = novels.value[novelId]
         override suspend fun set(info: CustomNovelInfo) = novels.update { it + (info.novelId to info) }
         override suspend fun delete(novelId: Long) = novels.update { it - novelId }
     }

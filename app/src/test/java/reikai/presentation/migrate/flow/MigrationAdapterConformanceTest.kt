@@ -591,12 +591,14 @@ private fun customInfo(owner: EntryId, altTitles: List<String>): GetEntryCustomI
     val mangaRepo = object : CustomMangaInfoRepository {
         override fun getByMangaIdAsFlow(mangaId: Long) = flowOf(manga.firstOrNull { it.mangaId == mangaId })
         override fun getAllAsFlow() = flowOf(manga)
+        override suspend fun getByMangaId(mangaId: Long) = manga.firstOrNull { it.mangaId == mangaId }
         override suspend fun set(info: CustomMangaInfo) = error("read only")
         override suspend fun delete(mangaId: Long) = error("read only")
     }
     val novelRepo = object : CustomNovelInfoRepository {
         override fun getByNovelIdAsFlow(novelId: Long) = flowOf(novels.firstOrNull { it.novelId == novelId })
         override fun getAllAsFlow() = flowOf(novels)
+        override suspend fun getByNovelId(novelId: Long) = novels.firstOrNull { it.novelId == novelId }
         override suspend fun set(info: CustomNovelInfo) = error("read only")
         override suspend fun delete(novelId: Long) = error("read only")
     }

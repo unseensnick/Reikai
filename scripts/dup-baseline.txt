@@ -125,5 +125,5 @@ app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/mai
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	880892cb7cac9418
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	f15210d87539d1e3
 data/src/main/java/reikai/data/library/updateerror/LibraryUpdateErrorRepositoryImpl.kt	data/src/main/java/reikai/data/novel/updateerror/NovelUpdateErrorRepositoryImpl.kt	2167c4310ae02d35
-data/src/main/java/reikai/data/novel/CustomNovelInfoRepositoryImpl.kt	data/src/main/java/tachiyomi/data/manga/CustomMangaInfoRepositoryImpl.kt	3b8759b903323e47
+data/src/main/java/reikai/data/novel/CustomNovelInfoRepositoryImpl.kt	data/src/main/java/tachiyomi/data/manga/CustomMangaInfoRepositoryImpl.kt	bd1092d3e0d0eb1d
 data/src/main/java/reikai/data/novel/NovelChapterRepositoryImpl.kt	data/src/main/java/reikai/data/novel/NovelTrackRepositoryImpl.kt	749db93129acc917

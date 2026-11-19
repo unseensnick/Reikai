@@ -101,7 +101,7 @@ class RestoreRepositoryImpl(
         restoreExcludedScanlators(manga, entry.excludedScanlators)
         // RK --> an entry without either leaves the device's own alone, as the forks do
         entry.searchMetadata?.let { mangaMetadataRepository.insertFlatMetadata(it.forManga(manga.id)) }
-        entry.customInfo?.let { setCustomMangaInfo.set(it.copy(mangaId = manga.id)) }
+        entry.customInfo?.let { setCustomMangaInfo.restore(it.copy(mangaId = manga.id)) }
         // RK <--
         return manga
     }

@@ -9,6 +9,8 @@ interface CustomNovelInfoRepository {
 
     fun getAllAsFlow(): Flow<List<CustomNovelInfo>>
 
+    suspend fun getByNovelId(novelId: Long): CustomNovelInfo?
+
     suspend fun set(info: CustomNovelInfo)
 
     suspend fun delete(novelId: Long)

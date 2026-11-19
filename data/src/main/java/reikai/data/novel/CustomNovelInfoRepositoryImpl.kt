@@ -1,5 +1,6 @@
 package reikai.data.novel
 
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -27,6 +28,9 @@ class CustomNovelInfoRepositoryImpl(
     override fun getAllAsFlow(): Flow<List<CustomNovelInfo>> {
         return database.custom_novel_infoQueries.getAll(::mapCustomNovelInfo).subscribeToList()
     }
+
+    override suspend fun getByNovelId(novelId: Long): CustomNovelInfo? =
+        database.custom_novel_infoQueries.getByNovelId(novelId, ::mapCustomNovelInfo).awaitAsOneOrNull()
 
     override suspend fun set(info: CustomNovelInfo) {
         database.custom_novel_infoQueries.insert(

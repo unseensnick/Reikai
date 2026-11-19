@@ -98,6 +98,29 @@ class BackupCustomInfoConformanceTest {
         restorer.restore() shouldBe emptyList()
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `a backup without alternative titles keeps the device's and replaces the rest`(restorer: CustomInfoRestorer) =
+        runTest {
+            restorer.restore(onEntry = EVERY_FIELD, deviceAltTitles = DEVICE_ALTS) shouldBe
+                listOf(LOCAL_ID to EVERY_FIELD.copy(altTitles = DEVICE_ALTS))
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `an older Reikai root list keeps the device's alternative titles`(restorer: CustomInfoRestorer) = runTest {
+        restorer.restore(inRootList = EVERY_FIELD, listed = false, deviceAltTitles = DEVICE_ALTS) shouldBe
+            listOf(LOCAL_ID to EVERY_FIELD.copy(altTitles = DEVICE_ALTS))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `a backup carrying alternative titles replaces the device's`(restorer: CustomInfoRestorer) = runTest {
+        val backup = EVERY_FIELD.copy(altTitles = listOf("Backup alt"))
+
+        restorer.restore(onEntry = backup, deviceAltTitles = DEVICE_ALTS) shouldBe listOf(LOCAL_ID to backup)
+    }
+
     @Test
     fun `a backup written now carries custom info on each entry and no root list`() = runTest {
         val backup = writeBackup()
@@ -249,6 +272,7 @@ class BackupCustomInfoConformanceTest {
 
     companion object {
         const val LOCAL_ID = 10L
+        val DEVICE_ALTS = listOf("Device alt")
 
         val EVERY_FIELD = BackupCustomInfo(
             title = "My title",
@@ -294,12 +318,13 @@ interface CustomInfoRestorer {
      * Restores the entry with [onEntry] on its own fields and [inRootList] in an older backup's root list,
      * through the real BackupRestorer over the encoded file, and returns what was written as (local id,
      * custom info). An entry not [listed] in the backup is only on the device, as a 0.3.x novel out of the
-     * library was.
+     * library was. [deviceAltTitles] are the alternative titles the device row already holds.
      */
     suspend fun restore(
         onEntry: BackupCustomInfo? = null,
         inRootList: BackupCustomInfo? = null,
         listed: Boolean = true,
+        deviceAltTitles: List<String> = emptyList(),
     ): List<Pair<Long, BackupCustomInfo>>
 }
 
@@ -311,6 +336,7 @@ class MangaCustomInfoRestorer : CustomInfoRestorer {
         onEntry: BackupCustomInfo?,
         inRootList: BackupCustomInfo?,
         listed: Boolean,
+        deviceAltTitles: List<String>,
     ): List<Pair<Long, BackupCustomInfo>> {
         val backup = Backup(
             backupManga = listOf(
@@ -323,6 +349,9 @@ class MangaCustomInfoRestorer : CustomInfoRestorer {
 
         val written = mutableListOf<Pair<Long, BackupCustomInfo>>()
         val repository = mockk<CustomMangaInfoRepository> {
+            coEvery { getByMangaId(any()) } answers {
+                deviceAltTitles.takeIf { it.isNotEmpty() }?.let { CustomMangaInfo(firstArg(), altTitles = it) }
+            }
             coEvery { set(any()) } answers {
                 val info = firstArg<CustomMangaInfo>()
                 written += info.mangaId to info.toBackupCustomInfo()
@@ -347,6 +376,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
         onEntry: BackupCustomInfo?,
         inRootList: BackupCustomInfo?,
         listed: Boolean,
+        deviceAltTitles: List<String>,
     ): List<Pair<Long, BackupCustomInfo>> {
         val backup = Backup(
             backupManga = emptyList(),
@@ -360,6 +390,9 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
 
         val written = mutableListOf<Pair<Long, BackupCustomInfo>>()
         val repository = mockk<CustomNovelInfoRepository> {
+            coEvery { getByNovelId(any()) } answers {
+                deviceAltTitles.takeIf { it.isNotEmpty() }?.let { CustomNovelInfo(firstArg(), altTitles = it) }
+            }
             coEvery { set(any()) } answers {
                 val info = firstArg<CustomNovelInfo>()
                 written += info.novelId to info.toBackupCustomInfo()

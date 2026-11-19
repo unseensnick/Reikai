@@ -1,6 +1,7 @@
 package tachiyomi.domain.manga.interactor
 
 import dev.zacsweers.metro.Inject
+import reikai.domain.entry.restoredAltTitles
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 
@@ -16,5 +17,10 @@ class SetCustomMangaInfo(
      */
     suspend fun set(info: CustomMangaInfo) {
         if (info.isEmpty) repository.delete(info.mangaId) else repository.set(info)
+    }
+
+    /** A backup's row over the device's, by [restoredAltTitles], pinned by BackupCustomInfoConformanceTest. */
+    suspend fun restore(info: CustomMangaInfo) {
+        set(info.copy(altTitles = restoredAltTitles(info, repository.getByMangaId(info.mangaId))))
     }
 }

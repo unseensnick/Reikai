@@ -136,7 +136,7 @@ class MangaRestorer(
 
     // RK: an older root-list row for a series the backup does not list, applied when the device has it
     suspend fun restoreCustomInfo(source: Long, url: String, info: BackupCustomInfo) {
-        getMangaByUrlAndSourceId.await(url, source)?.let { setCustomMangaInfo.set(info.toCustomMangaInfo(it.id)) }
+        getMangaByUrlAndSourceId.await(url, source)?.let { setCustomMangaInfo.restore(info.toCustomMangaInfo(it.id)) }
     }
 
     // RK: the id is a placeholder; the repository writes the rows under the restored entry's own

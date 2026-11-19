@@ -329,6 +329,6 @@ class NovelRestorer(
     }
 
     private suspend fun restoreCustomInfo(novelId: Long, info: BackupCustomInfo) {
-        setCustomNovelInfo.set(info.toCustomNovelInfo(novelId))
+        setCustomNovelInfo.restore(info.toCustomNovelInfo(novelId))
     }
 }
