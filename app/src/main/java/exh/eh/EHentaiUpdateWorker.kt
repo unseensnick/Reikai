@@ -42,6 +42,7 @@ import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryHiddenRepository
+import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.ReconcileMergedChapters
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
@@ -91,6 +92,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
     @Inject private lateinit var sourceContacts: SourceContacts
 
     @Inject private lateinit var hiddenEntries: LibraryHiddenRepository
+
+    @Inject private lateinit var mangaMergeManager: MangaMergeManager
 
     private val updateErrorLog = UpdateErrorLog(context)
 
@@ -222,9 +225,11 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             updateNotifier.cancelProgressNotification()
             // A stopped run has written its chapters already, and they are never new again, so it still counts.
             val count = withContext(NonCancellable) {
-                visibleArrivalCount(updatedManga.map { (manga, new) -> manga.id to new.size }) {
-                    hiddenEntries.subscribe(ContentType.MANGA).first()
-                }
+                visibleArrivalCount(
+                    updatedManga.map { (manga, new) -> manga.id to new.size },
+                    hidden = { hiddenEntries.subscribe(ContentType.MANGA).first() },
+                    memberships = { mangaMergeManager.memberships() },
+                )
             }
             if (count > 0) libraryPreferences.addNewUpdates(count)
             if (updatedManga.isNotEmpty()) {

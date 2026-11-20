@@ -23,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.RecentsSurface
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelHistory
@@ -101,7 +102,7 @@ class RecentsFeedSurfaceTest {
                 every { getQueuedDownloadsByChapterId() } returns emptyMap()
             }
             val getUpdates = mockk<GetUpdates> {
-                every { subscribe(any(), any(), any(), any(), any(), any(), any()) } answers {
+                every { subscribe(any(), any(), any(), any(), any(), any(), any(), any()) } answers {
                     asked(arg(6))
                     flowOf(emptyList())
                 }
@@ -120,16 +121,18 @@ class RecentsFeedSurfaceTest {
                     libraryPreferences = LibraryPreferences(store),
                     updatesPreferences = UpdatesPreferences(store),
                     reikaiSourcePreferences = preferences,
+                    reikaiLibraryPreferences = ReikaiLibraryPreferences(EmittingPreferenceStore()),
                 ),
             ).state
         }
 
         private val novelUpdates = FeedProbe("novel updates") { surface, preferences, main, asked ->
             val repository = mockk<NovelRepository> {
-                every { getFilteredNovelUpdatesAsFlow(any(), any(), any(), any(), any(), any(), any()) } answers {
-                    asked(arg(6))
-                    flowOf(emptyList())
-                }
+                every { getFilteredNovelUpdatesAsFlow(any(), any(), any(), any(), any(), any(), any(), any()) } answers
+                    {
+                        asked(arg(6))
+                        flowOf(emptyList())
+                    }
             }
             main.track(
                 NovelUpdatesViewModel(
@@ -143,6 +146,7 @@ class RecentsFeedSurfaceTest {
                         every { subscribeAll() } returns
                             flowOf(emptyList())
                     },
+                    reikaiLibraryPreferences = ReikaiLibraryPreferences(EmittingPreferenceStore()),
                 ),
             ).state
         }

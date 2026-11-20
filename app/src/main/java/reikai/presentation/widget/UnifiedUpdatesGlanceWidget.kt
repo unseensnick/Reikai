@@ -135,7 +135,12 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
 
             val flow = remember {
                 combine(
-                    unifiedWidgetUpdates(getUpdates, novelRepository, reikaiLibraryPreferences.shownContent.changes()),
+                    unifiedWidgetUpdates(
+                        getUpdates,
+                        novelRepository,
+                        reikaiLibraryPreferences.shownContent.changes(),
+                        reikaiLibraryPreferences.seriesMergingEnabled.changes(),
+                    ),
                     getEntryCustomInfo.subscribeAll(),
                 ) { updates, customInfo ->
                     prepareSections(context, updates, customInfo, rowCount, columnCount)

@@ -84,6 +84,7 @@ class RecentsCategoryFilterConformanceTest {
                     hideExcludedScanlators = false,
                     includedCategories = include,
                     excludedCategories = exclude,
+                    seriesMerging = true,
                 ).first().map { it.mangaId }
         },
         NOVEL_UPDATES(isManga = false) {
@@ -96,6 +97,7 @@ class RecentsCategoryFilterConformanceTest {
                     bookmarked = null,
                     includedCategories = include,
                     excludedCategories = exclude,
+                    seriesMerging = true,
                 ).first().map { it.novelId }
         },
         MANGA_HISTORY(isManga = true) {

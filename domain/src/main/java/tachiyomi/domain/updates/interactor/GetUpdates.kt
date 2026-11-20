@@ -11,9 +11,11 @@ class GetUpdates(
     private val repository: UpdatesRepository,
 ) {
 
-    suspend fun await(read: Boolean, after: Instant): List<UpdatesWithRelations> {
-        return repository.awaitWithRead(read, after, limit = 500)
+    // RK --> seriesMerging, the library's merging switch, which decides whether a hidden member hides its series
+    suspend fun await(read: Boolean, after: Instant, seriesMerging: Boolean): List<UpdatesWithRelations> {
+        return repository.awaitWithRead(read, after, limit = 500, seriesMerging = seriesMerging)
     }
+    // RK <--
 
     fun subscribe(
         instant: Instant,
@@ -23,6 +25,7 @@ class GetUpdates(
         hideExcludedScanlators: Boolean,
         includedCategories: List<Long>,
         excludedCategories: List<Long>,
+        seriesMerging: Boolean, // RK
     ): Flow<List<UpdatesWithRelations>> {
         return repository.subscribeAll(
             instant,
@@ -33,10 +36,13 @@ class GetUpdates(
             hideExcludedScanlators = hideExcludedScanlators,
             includedCategories = includedCategories,
             excludedCategories = excludedCategories,
+            seriesMerging = seriesMerging, // RK
         )
     }
 
-    fun subscribe(read: Boolean, after: Instant): Flow<List<UpdatesWithRelations>> {
-        return repository.subscribeWithRead(read, after, limit = 500)
+    // RK --> seriesMerging
+    fun subscribe(read: Boolean, after: Instant, seriesMerging: Boolean): Flow<List<UpdatesWithRelations>> {
+        return repository.subscribeWithRead(read, after, limit = 500, seriesMerging = seriesMerging)
     }
+    // RK <--
 }

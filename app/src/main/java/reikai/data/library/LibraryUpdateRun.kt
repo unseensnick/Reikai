@@ -82,12 +82,17 @@ fun LibraryPreferences.addNewUpdates(count: Int) {
 
 /**
  * How many of [arrivals], each an entry id and its new chapter count, the Updates badge counts: none of a [hidden]
- * entry's, since Updates leaves them out. Every update job counts through here, the gallery job included.
+ * entry's, nor of any entry sharing a merge group with one in [memberships] (entry to group, empty while merging is
+ * off), since Updates and the library leave them out. Every update job counts through here, the gallery job included.
  */
-suspend fun visibleArrivalCount(arrivals: List<Pair<Long, Int>>, hidden: suspend () -> Set<Long>): Int {
+suspend fun visibleArrivalCount(
+    arrivals: List<Pair<Long, Int>>,
+    hidden: suspend () -> Set<Long>,
+    memberships: suspend () -> Map<Long, Long>,
+): Int {
     if (arrivals.isEmpty()) return 0
     // A failed read counts every arrival, as before hiding left any out, rather than lose the count.
-    val hiddenIds = runCatching { hidden() }
+    val hiddenIds = runCatching { hiddenWithGroups(hidden(), memberships()) }
         .onFailure {
             logcat("LibraryUpdateRun", LogPriority.ERROR) {
                 "Reading hidden series for the Updates badge failed: ${it.asLog()}"
@@ -95,6 +100,12 @@ suspend fun visibleArrivalCount(arrivals: List<Pair<Long, Int>>, hidden: suspend
         }
         .getOrDefault(emptySet())
     return arrivals.filter { it.first !in hiddenIds }.sumOf { it.second }
+}
+
+private fun hiddenWithGroups(hidden: Set<Long>, memberships: Map<Long, Long>): Set<Long> {
+    val hiddenGroups = hidden.mapNotNullTo(HashSet()) { memberships[it] }
+    if (hiddenGroups.isEmpty()) return hidden
+    return hidden + memberships.filterValues { it in hiddenGroups }.keys
 }
 
 /** What an update run gathered, entry by entry. The manga job fills it from five coroutines at once. */
@@ -210,7 +221,11 @@ suspend fun <E, C> runLibraryUpdate(
         withContext(NonCancellable) {
             if (downloads.isNotEmpty()) queueDownloads(downloads)
             val count =
-                visibleArrivalCount((counted ?: ledger.arrivals).map { entryId(it.first) to it.second.size }, hidden)
+                visibleArrivalCount(
+                    (counted ?: ledger.arrivals).map { entryId(it.first) to it.second.size },
+                    hidden,
+                    memberships,
+                )
             if (count > 0) countArrivals(count)
         }
     }

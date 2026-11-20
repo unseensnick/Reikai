@@ -14,8 +14,10 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.task.AppTask
 import reikai.data.task.AppTaskProgress
 import reikai.data.task.BannerTask
@@ -376,18 +378,48 @@ class LibraryUpdateRunTest {
         preferences.newUpdatesCount.get() shouldBe 1
     }
 
+    /** Entries 3 and 4 are one merged series and only 3 is hidden: the library hides both while merging is on. */
+    @ParameterizedTest
+    @MethodSource("mergedHideBadgeCases")
+    fun `a merged series with a hidden member follows the library's hiding on the badge`(
+        type: ContentType,
+        mergingOn: Boolean,
+        expected: Int,
+    ) = runTest {
+        val preferences = LibraryPreferences(InMemoryPreferenceStore())
+        val hidden = object : LibraryHiddenRepository by NoHiddenEntries {
+            override fun subscribe(type: ContentType) = flowOf(setOf(3L))
+        }
+        val memberships = mapOf(3L to 9L, 4L to 9L)
+
+        bannerRun(type, AppTaskProgress(), preferences, hidden, memberships, mergingOn)<Entry, Row>(
+            type,
+            entryId = { it.id },
+            chapterId = { it.id },
+            announce = {},
+            queueDownloads = {},
+        ) {
+            it.arrived(Entry(3), listOf(Row(30)), emptyList())
+            it.arrived(Entry(4), listOf(Row(40)), emptyList())
+        }
+
+        preferences.newUpdatesCount.get() shouldBe expected
+    }
+
     private fun bannerRun(
         type: ContentType,
         tasks: AppTaskProgress,
         preferences: LibraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         hidden: LibraryHiddenRepository = NoHiddenEntries,
+        memberships: Map<Long, Long> = emptyMap(),
+        mergingOn: Boolean = true,
     ): LibraryUpdateRun {
-        val managers = TestMergeManagers(mapOf(type to emptyMap()), mergingOn = true)
+        val managers = TestMergeManagers(mapOf(type to memberships), mergingOn = mergingOn)
         return LibraryUpdateRun(
             ReconcileMergedChapters(mockk(), stitchers = emptySet()),
             managers.manga,
             managers.novel,
-            mockk<MergedChapterUnitRepository>(),
+            mockk<MergedChapterUnitRepository> { coEvery { getStitch(any(), any()) } returns emptyList() },
             preferences,
             tasks,
             hidden,
@@ -433,6 +465,13 @@ class LibraryUpdateRunTest {
         ) { it.arrived(second, listOf(Row(20)), emptyList()) }
 
         announced.flatten().flatMap { (_, rows) -> rows.map { it.id } } shouldBe listOf(20L)
+    }
+
+    companion object {
+        @JvmStatic
+        fun mergedHideBadgeCases() = listOf(ContentType.MANGA, ContentType.NOVELS).flatMap {
+            listOf(Arguments.of(it, true, 0), Arguments.of(it, false, 1))
+        }
     }
 }
 

@@ -60,6 +60,7 @@ class UnifiedUpdatesWidgetManager(
                 getUpdates,
                 novelRepository,
                 reikaiLibraryPreferences.shownContent.changes(),
+                reikaiLibraryPreferences.seriesMergingEnabled.changes(),
             ),
             locked = securityPreferences.useAuthenticator.changes(),
         )

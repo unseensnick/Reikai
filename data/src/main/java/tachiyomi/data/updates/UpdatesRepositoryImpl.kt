@@ -26,8 +26,10 @@ class UpdatesRepositoryImpl(
         read: Boolean,
         after: Instant,
         limit: Long,
+        seriesMerging: Boolean, // RK
     ): List<UpdatesWithRelations> {
-        return getUpdatesByReadStatus(read = read, after = after, limit = limit).awaitAsList()
+        return getUpdatesByReadStatus(read = read, after = after, limit = limit, seriesMerging = seriesMerging) // RK
+            .awaitAsList()
     }
 
     override fun subscribeAll(
@@ -39,6 +41,7 @@ class UpdatesRepositoryImpl(
         hideExcludedScanlators: Boolean,
         includedCategories: List<Long>,
         excludedCategories: List<Long>,
+        seriesMerging: Boolean, // RK
     ): Flow<List<UpdatesWithRelations>> {
         return database.updatesViewQueries
             .getRecentUpdatesWithFilters(
@@ -48,6 +51,7 @@ class UpdatesRepositoryImpl(
                 started = started?.toLong(),
                 bookmarked = bookmarked,
                 hideExcludedScanlators = hideExcludedScanlators.toLong(),
+                seriesMerging = seriesMerging.toLong(), // RK
                 includedEmpty = includedCategories.isEmpty(),
                 includedCategories = includedCategories,
                 excludedEmpty = excludedCategories.isEmpty(), // RK: reordered to the query's parameter order
@@ -61,20 +65,30 @@ class UpdatesRepositoryImpl(
         read: Boolean,
         after: Instant,
         limit: Long,
+        seriesMerging: Boolean, // RK
     ): Flow<List<UpdatesWithRelations>> {
-        return getUpdatesByReadStatus(read = read, after = after, limit = limit).subscribeToList()
+        return getUpdatesByReadStatus(read = read, after = after, limit = limit, seriesMerging = seriesMerging) // RK
+            .subscribeToList()
     }
 
-    private fun getUpdatesByReadStatus(read: Boolean, after: Instant, limit: Long): Query<UpdatesWithRelations> {
+    // RK: seriesMerging
+    private fun getUpdatesByReadStatus(
+        read: Boolean,
+        after: Instant,
+        limit: Long,
+        seriesMerging: Boolean,
+    ): Query<UpdatesWithRelations> {
         return if (read) {
             database.updatesViewQueries.getReadUpdates(
                 after = after,
+                seriesMerging = seriesMerging.toLong(), // RK
                 limit = limit,
                 mapper = ::mapUpdatesWithRelations,
             )
         } else {
             database.updatesViewQueries.getUnreadUpdates(
                 after = after,
+                seriesMerging = seriesMerging.toLong(), // RK
                 limit = limit,
                 mapper = ::mapUpdatesWithRelations,
             )

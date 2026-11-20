@@ -23,6 +23,8 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.DateTimeUnit
@@ -61,6 +63,7 @@ abstract class BaseUpdatesGridGlanceWidget : GlanceAppWidget() {
     abstract val topPadding: Dp
     abstract val bottomPadding: Dp
 
+    @OptIn(ExperimentalCoroutinesApi::class) // RK: flatMapLatest over the merging switch
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         context.metroGraph<PresentationWidgetGraph>().inject(this)
         val locked = preferences.useAuthenticator.get()
@@ -89,8 +92,10 @@ abstract class BaseUpdatesGridGlanceWidget : GlanceAppWidget() {
             }
 
             val flow = remember {
-                // RK: under Edit info's cover, as the combined widget draws it
-                perSeries.withCustomInfo(getUpdates.subscribe(false, DateLimit))
+                // RK: under Edit info's cover and the merging switch, as the combined widget draws it
+                perSeries.withCustomInfo(
+                    perSeries.seriesMerging.flatMapLatest { getUpdates.subscribe(false, DateLimit, it) },
+                )
                     .map { rawData ->
                         rawData.prepareData(context, rowCount, columnCount)
                     }

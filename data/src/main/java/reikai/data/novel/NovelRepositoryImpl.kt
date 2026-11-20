@@ -99,12 +99,14 @@ class NovelRepositoryImpl(
         bookmarked: Boolean?,
         includedCategories: List<Long>,
         excludedCategories: List<Long>,
+        seriesMerging: Boolean,
     ): Flow<List<NovelUpdateWithRelations>> =
         database.novelUpdatesViewQueries.getRecentNovelUpdatesWithFilters(
             after = after,
             read = unread?.let { !it },
             started = started?.let { if (it) 1L else 0L },
             bookmarked = bookmarked,
+            seriesMerging = if (seriesMerging) 1L else 0L,
             includedEmpty = includedCategories.isEmpty(),
             includedCategories = includedCategories,
             excludedEmpty = excludedCategories.isEmpty(),

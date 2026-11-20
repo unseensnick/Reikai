@@ -19,6 +19,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.category.RecentsSurface
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -104,12 +105,13 @@ class UpdatesFinishedDownloadTest {
             downloadManager = downloadManager,
             downloadCache = mockk<DownloadCache> { every { changes } returns MutableStateFlow(Unit) },
             getUpdates = mockk<GetUpdates> {
-                every { subscribe(any(), any(), any(), any(), any(), any(), any()) } returns flowOf(updates)
+                every { subscribe(any(), any(), any(), any(), any(), any(), any(), any()) } returns flowOf(updates)
             },
             getCustomMangaInfo = mockk<GetCustomMangaInfo> { every { subscribeAll() } returns flowOf(emptyList()) },
             libraryPreferences = LibraryPreferences(store),
             updatesPreferences = UpdatesPreferences(store),
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
+            reikaiLibraryPreferences = ReikaiLibraryPreferences(store),
         )
     }
 

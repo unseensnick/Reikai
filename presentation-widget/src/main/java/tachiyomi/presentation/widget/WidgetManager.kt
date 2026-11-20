@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.presentation.widget.MangaUpdatesPerSeries
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.updates.interactor.GetUpdates
 
@@ -28,6 +29,7 @@ import tachiyomi.domain.updates.interactor.GetUpdates
 class WidgetManager(
     private val getUpdates: GetUpdates,
     private val securityPreferences: SecurityPreferences,
+    private val perSeries: MangaUpdatesPerSeries, // RK
 ) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -46,10 +48,14 @@ class WidgetManager(
             .flatMapLatest { hasWidgets ->
                 if (hasWidgets) {
                     combine(
-                        getUpdates.subscribe(
-                            read = false,
-                            after = BaseUpdatesGridGlanceWidget.DateLimit,
-                        ),
+                        // RK: under the library's merging switch, which decides what a hidden member hides
+                        perSeries.seriesMerging.flatMapLatest {
+                            getUpdates.subscribe(
+                                read = false,
+                                after = BaseUpdatesGridGlanceWidget.DateLimit,
+                                seriesMerging = it,
+                            )
+                        },
                         securityPreferences.useAuthenticator.changes(),
                         transform = { a, b -> a to b },
                     )

@@ -72,6 +72,7 @@ interface NovelRepository {
      * UpdatesFeedFilterConformanceTest and RecentsCategoryFilterConformanceTest. [after] is a lower bound on the
      * fetch date and [limit] caps the row count, applied after the filters. Downloaded stays a Kotlin filter on
      * both content types, since download state lives on disk.
+     * [seriesMerging] is the library's merging switch: on, a merged series with any hidden member is left out.
      */
     fun getFilteredNovelUpdatesAsFlow(
         after: Instant,
@@ -81,6 +82,7 @@ interface NovelRepository {
         bookmarked: Boolean?,
         includedCategories: List<Long>,
         excludedCategories: List<Long>,
+        seriesMerging: Boolean,
     ): Flow<List<NovelUpdateWithRelations>>
 
     /** The library by source and url, for the browse, search and feed lists; silent on a write outside it. */

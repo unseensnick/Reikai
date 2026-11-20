@@ -95,6 +95,7 @@ class RecentsStartedConformanceTest {
                         hideExcludedScanlators = false,
                         includedCategories = emptyList(),
                         excludedCategories = emptyList(),
+                        seriesMerging = true,
                     ).first().isNotEmpty()
                 },
             ),
@@ -125,6 +126,7 @@ class RecentsStartedConformanceTest {
                         bookmarked = null,
                         includedCategories = emptyList(),
                         excludedCategories = emptyList(),
+                        seriesMerging = true,
                     ).first().isNotEmpty()
                 },
             ),

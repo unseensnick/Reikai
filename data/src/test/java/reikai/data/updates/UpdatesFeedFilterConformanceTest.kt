@@ -64,6 +64,32 @@ class UpdatesFeedFilterConformanceTest {
         type.chapterIds(database, Case.NONE) shouldBe listOf(1L, 2L, 3L, 6L)
     }
 
+    /** Entries 3 and 4 are one merged series and only entry 3 is hidden, so the library hides both while merging is on. */
+    @ParameterizedTest
+    @MethodSource("mergedHideCases")
+    fun `a merged series with a hidden member follows the library's hiding`(
+        type: Type,
+        seriesMerging: Boolean,
+        expected: List<Long>,
+    ) = runTest {
+        type.seed(driver, type.statements + type.hideEntryThree + type.groupThreeAndFour)
+
+        type.chapterIds(database, Case.NONE, seriesMerging) shouldBe expected
+    }
+
+    /** The widgets' unread feed: chapters 2, 3, 4 and 6 are unread, 4 of entry 3 and 6 of entry 4. */
+    @ParameterizedTest
+    @MethodSource("mergedHideWidgetCases")
+    fun `the widgets' unread feed follows the library's hiding of a merged series`(
+        type: Type,
+        seriesMerging: Boolean,
+        expected: List<Long>,
+    ) = runTest {
+        type.seed(driver, type.statements + type.hideEntryThree + type.groupThreeAndFour)
+
+        type.unreadWidgetFeed(database, seriesMerging).sorted() shouldBe expected
+    }
+
     /** Entry 5 was added at 100 and its chapter 8 fetched and uploaded at 300, both before the cutoff. */
     @ParameterizedTest
     @EnumSource(Type::class)
@@ -119,6 +145,7 @@ class UpdatesFeedFilterConformanceTest {
         val uploadUnknown: String,
         val cutsOffOnFetch: Boolean,
         val hideEntryThree: String,
+        val groupThreeAndFour: List<String>,
         val beforeCutoff: List<String>,
         val fetchedBeforeAdded: String,
         val newest: String,
@@ -149,6 +176,10 @@ class UpdatesFeedFilterConformanceTest {
                 "remote_date_upload, remote_memo) VALUES (7, 1, 'c7', 'n', NULL, 0, 0, 0, 3.0, 2, 2000, 0, '{}')",
             cutsOffOnFetch = false,
             hideEntryThree = "INSERT INTO library_hidden_manga(manga_id) VALUES (3)",
+            groupThreeAndFour = listOf(
+                "INSERT INTO merge_group(_id, content_type) VALUES (1, 0)",
+                "INSERT INTO merge_group_manga(group_id, manga_id) VALUES (1, 3), (1, 4)",
+            ),
             beforeCutoff = listOf(
                 "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, state_initialized, " +
                     "user_reader_flags, user_chapter_flags, state_cover_last_modified, user_favorite_at, " +
@@ -160,19 +191,32 @@ class UpdatesFeedFilterConformanceTest {
             newest = mangaChapter(id = 10, mangaId = 1, at = 3000) + ", " + mangaChapterValues(11, 1, 4000),
         ) {
             // The excluded-scanlator filter is manga only, so it stays off to compare like with like.
-            override suspend fun query(database: Database, case: Case, limit: Long) = UpdatesRepositoryImpl(database)
-                .subscribeAll(
-                    after = AFTER,
-                    limit = limit,
-                    unread = case.unread,
-                    started = case.started,
-                    bookmarked = case.bookmarked,
-                    hideExcludedScanlators = false,
-                    includedCategories = case.included,
-                    excludedCategories = emptyList(),
-                )
-                .first()
-                .map { it.chapterId }
+            override suspend fun query(database: Database, case: Case, limit: Long, seriesMerging: Boolean) =
+                UpdatesRepositoryImpl(database)
+                    .subscribeAll(
+                        after = AFTER,
+                        limit = limit,
+                        unread = case.unread,
+                        started = case.started,
+                        bookmarked = case.bookmarked,
+                        hideExcludedScanlators = false,
+                        includedCategories = case.included,
+                        excludedCategories = emptyList(),
+                        seriesMerging = seriesMerging,
+                    )
+                    .first()
+                    .map { it.chapterId }
+
+            override suspend fun unreadWidgetFeed(database: Database, seriesMerging: Boolean) =
+                UpdatesRepositoryImpl(database)
+                    .subscribeWithRead(
+                        read = false,
+                        after = AFTER,
+                        limit = Long.MAX_VALUE,
+                        seriesMerging = seriesMerging,
+                    )
+                    .first()
+                    .map { it.chapterId }
         },
         NOVEL(
             listOf(
@@ -195,6 +239,10 @@ class UpdatesFeedFilterConformanceTest {
                 "(7, 1, 'c7', 'n', 0, 0, 0, 3.0, 2, 2000, 0)",
             cutsOffOnFetch = true,
             hideEntryThree = "INSERT INTO library_hidden_novel(novel_id) VALUES (3)",
+            groupThreeAndFour = listOf(
+                "INSERT INTO merge_group(_id, content_type) VALUES (1, 1)",
+                "INSERT INTO merge_group_novel(group_id, novel_id) VALUES (1, 3), (1, 4)",
+            ),
             beforeCutoff = listOf(
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
                     "VALUES (5, 's1', 'e', 't', 0, 0, 0, 100)",
@@ -203,25 +251,39 @@ class UpdatesFeedFilterConformanceTest {
             fetchedBeforeAdded = novelChapter(id = 9, novelId = 1, at = 900),
             newest = novelChapter(id = 10, novelId = 1, at = 3000) + ", " + novelChapterValues(11, 1, 4000),
         ) {
-            override suspend fun query(database: Database, case: Case, limit: Long) = NovelRepositoryImpl(database)
-                .getFilteredNovelUpdatesAsFlow(
-                    after = AFTER,
-                    limit = limit,
-                    unread = case.unread,
-                    started = case.started,
-                    bookmarked = case.bookmarked,
-                    includedCategories = case.included,
-                    excludedCategories = emptyList(),
-                )
-                .first()
-                .map { it.chapterId }
+            override suspend fun query(database: Database, case: Case, limit: Long, seriesMerging: Boolean) =
+                NovelRepositoryImpl(database)
+                    .getFilteredNovelUpdatesAsFlow(
+                        after = AFTER,
+                        limit = limit,
+                        unread = case.unread,
+                        started = case.started,
+                        bookmarked = case.bookmarked,
+                        includedCategories = case.included,
+                        excludedCategories = emptyList(),
+                        seriesMerging = seriesMerging,
+                    )
+                    .first()
+                    .map { it.chapterId }
+
+            override suspend fun unreadWidgetFeed(database: Database, seriesMerging: Boolean) =
+                query(database, Case.UNREAD, Long.MAX_VALUE, seriesMerging)
         },
         ;
 
         /** In the order the feed returns them. */
-        abstract suspend fun query(database: Database, case: Case, limit: Long = Long.MAX_VALUE): List<Long>
+        abstract suspend fun query(
+            database: Database,
+            case: Case,
+            limit: Long = Long.MAX_VALUE,
+            seriesMerging: Boolean = true,
+        ): List<Long>
 
-        suspend fun chapterIds(database: Database, case: Case) = query(database, case).sorted()
+        /** The updates widgets' feed: Mihon's unread read on manga, the unread filter on novels (unifiedWidgetUpdates). */
+        abstract suspend fun unreadWidgetFeed(database: Database, seriesMerging: Boolean): List<Long>
+
+        suspend fun chapterIds(database: Database, case: Case, seriesMerging: Boolean = true) =
+            query(database, case, seriesMerging = seriesMerging).sorted()
 
         suspend fun seed(driver: JdbcSqliteDriver, statements: List<String>) {
             CATEGORIES.forEach { driver.execute(null, it, 0).await() }
@@ -238,6 +300,16 @@ class UpdatesFeedFilterConformanceTest {
 
         @JvmStatic
         fun cases() = Type.entries.flatMap { type -> Case.entries.map { Arguments.of(type, it) } }
+
+        @JvmStatic
+        fun mergedHideCases() = Type.entries.flatMap {
+            listOf(Arguments.of(it, true, listOf(1L, 2L, 3L)), Arguments.of(it, false, listOf(1L, 2L, 3L, 6L)))
+        }
+
+        @JvmStatic
+        fun mergedHideWidgetCases() = Type.entries.flatMap {
+            listOf(Arguments.of(it, true, listOf(2L, 3L)), Arguments.of(it, false, listOf(2L, 3L, 6L)))
+        }
     }
 }
 

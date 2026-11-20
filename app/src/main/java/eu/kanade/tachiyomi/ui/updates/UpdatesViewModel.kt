@@ -37,6 +37,7 @@ import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.overlayCustomInfo
 import reikai.domain.entry.withCustomInfo
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.isOnDevice
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.TriState
@@ -69,6 +70,8 @@ class UpdatesViewModel(
     private val updatesPreferences: UpdatesPreferences,
     // RK: the building surface's category filter, one selection covering both content types, in SQL.
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
+    // RK: the merging switch, which decides whether a hidden member hides its whole merged series here too.
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
     private val subscriberGate = SubscriberGate()
@@ -108,10 +111,12 @@ class UpdatesViewModel(
         combine(
             getUpdatesItemPreferenceFlow(),
             reikaiSourcePreferences.recentsCategoryFilterFlow(surface),
-            ::Pair,
+            reikaiLibraryPreferences.seriesMergingEnabled.changes(), // RK
+            ::Triple, // RK
         )
             .distinctUntilChanged()
-            .flatMapLatest { (prefs, categories) ->
+            .flatMapLatest { (prefs, categories, seriesMerging) ->
+                // RK
                 getUpdates.subscribe(
                     // Recomputed per subscription, so a long-running process keeps a three month
                     // window from now rather than from whenever the model was built.
@@ -122,6 +127,7 @@ class UpdatesViewModel(
                     hideExcludedScanlators = prefs.filterExcludedScanlators,
                     includedCategories = categories.include,
                     excludedCategories = categories.exclude,
+                    seriesMerging = seriesMerging, // RK
                 ).distinctUntilChanged()
             },
         downloadCache.changes.pausedWhileUnsubscribed(),

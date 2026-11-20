@@ -47,6 +47,7 @@ class UpdatesFeedQueryPlanTest {
                 hideExcludedScanlators = false,
                 includedCategories = emptyList(),
                 excludedCategories = emptyList(),
+                seriesMerging = true,
             ).first()
             else -> NovelRepositoryImpl(database).getFilteredNovelUpdatesAsFlow(
                 after = Instant.fromEpochMilliseconds(0),
@@ -56,6 +57,7 @@ class UpdatesFeedQueryPlanTest {
                 bookmarked = null,
                 includedCategories = emptyList(),
                 excludedCategories = emptyList(),
+                seriesMerging = true,
             ).first()
         }
 

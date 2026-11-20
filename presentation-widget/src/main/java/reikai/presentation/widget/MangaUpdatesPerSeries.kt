@@ -13,4 +13,7 @@ interface MangaUpdatesPerSeries {
 
     /** [updates] under each series' Edit info overrides, kept current as they are edited. */
     fun withCustomInfo(updates: Flow<List<UpdatesWithRelations>>): Flow<List<UpdatesWithRelations>>
+
+    /** The library's merging switch, which the feed reads to hide a merged series with any hidden member. */
+    val seriesMerging: Flow<Boolean>
 }

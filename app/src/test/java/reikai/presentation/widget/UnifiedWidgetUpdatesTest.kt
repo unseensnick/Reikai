@@ -85,6 +85,7 @@ internal class UnifiedWidgetUpdatesTest {
         GetUpdates(UpdatesRepositoryImpl(database)),
         NovelRepositoryImpl(database),
         flowOf(shown),
+        flowOf(true),
     ).first()
 
     companion object {

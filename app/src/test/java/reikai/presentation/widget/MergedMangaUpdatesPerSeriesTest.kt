@@ -9,7 +9,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.TestMergeManagers
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.model.UpdatesWithRelations
@@ -25,6 +27,7 @@ class MergedMangaUpdatesPerSeriesTest {
                 mockk { every { subscribeAll() } returns flowOf(custom) },
                 mockk { every { subscribeAll() } returns flowOf(emptyList()) },
             ),
+            ReikaiLibraryPreferences(InMemoryPreferenceStore()),
         )
 
     private val updates = listOf(update(mangaId = 2L, chapterId = 20L), update(1L, 10L), update(2L, 21L))

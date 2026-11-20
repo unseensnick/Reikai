@@ -23,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.RecentsSurface
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.NovelCover
@@ -102,7 +103,8 @@ class LocalRecentsDownloadConformanceTest {
                     },
                     downloadCache = mockk<DownloadCache> { every { changes } returns MutableStateFlow(Unit) },
                     getUpdates = mockk<GetUpdates> {
-                        every { subscribe(any(), any(), any(), any(), any(), any(), any()) } returns flowOf(listOf(row))
+                        every { subscribe(any(), any(), any(), any(), any(), any(), any(), any()) } returns
+                            flowOf(listOf(row))
                     },
                     getCustomMangaInfo = mockk<GetCustomMangaInfo> {
                         every { subscribeAll() } returns
@@ -111,6 +113,7 @@ class LocalRecentsDownloadConformanceTest {
                     libraryPreferences = LibraryPreferences(store),
                     updatesPreferences = UpdatesPreferences(store),
                     reikaiSourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
+                    reikaiLibraryPreferences = ReikaiLibraryPreferences(EmittingPreferenceStore()),
                 ),
             ).state.map { state ->
                 state.items.takeUnless { state.isLoading }?.map { item ->
@@ -131,7 +134,7 @@ class LocalRecentsDownloadConformanceTest {
                     surface = RecentsSurface.UPDATES,
                     novelRepo = mockk<NovelRepository> {
                         every {
-                            getFilteredNovelUpdatesAsFlow(any(), any(), any(), any(), any(), any(), any())
+                            getFilteredNovelUpdatesAsFlow(any(), any(), any(), any(), any(), any(), any(), any())
                         } returns flowOf(listOf(row))
                     },
                     downloadManagerProvider = { mockk { every { queueState } returns MutableStateFlow(emptyList()) } },
@@ -144,6 +147,7 @@ class LocalRecentsDownloadConformanceTest {
                         every { subscribeAll() } returns
                             flowOf(emptyList())
                     },
+                    reikaiLibraryPreferences = ReikaiLibraryPreferences(EmittingPreferenceStore()),
                 ),
             ).state.map { state ->
                 state.items.takeUnless { state.isLoading }?.map { item ->

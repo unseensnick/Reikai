@@ -22,6 +22,7 @@ import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.RecentsSurface
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelHistory
@@ -102,7 +103,8 @@ class RecentsFeedCustomInfoTest {
                     },
                     downloadCache = mockk<DownloadCache> { every { changes } returns MutableStateFlow(Unit) },
                     getUpdates = mockk<GetUpdates> {
-                        every { subscribe(any(), any(), any(), any(), any(), any(), any()) } returns flowOf(listOf(row))
+                        every { subscribe(any(), any(), any(), any(), any(), any(), any(), any()) } returns
+                            flowOf(listOf(row))
                     },
                     getCustomMangaInfo = mockk<GetCustomMangaInfo> {
                         every { subscribeAll() } returns flowOf(listOf(CustomMangaInfo(mangaId = ID, title = CUSTOM)))
@@ -110,6 +112,7 @@ class RecentsFeedCustomInfoTest {
                     libraryPreferences = LibraryPreferences(store),
                     updatesPreferences = UpdatesPreferences(store),
                     reikaiSourcePreferences = preferences,
+                    reikaiLibraryPreferences = ReikaiLibraryPreferences(EmittingPreferenceStore()),
                 ),
             ).state.map { state -> state.items.map { it.update.mangaTitle } }
         }
@@ -126,7 +129,7 @@ class RecentsFeedCustomInfoTest {
                     surface = RecentsSurface.UPDATES,
                     novelRepo = mockk<NovelRepository> {
                         every {
-                            getFilteredNovelUpdatesAsFlow(any(), any(), any(), any(), any(), any(), any())
+                            getFilteredNovelUpdatesAsFlow(any(), any(), any(), any(), any(), any(), any(), any())
                         } returns flowOf(listOf(row))
                     },
                     downloadManagerProvider = { mockk { every { queueState } returns MutableStateFlow(emptyList()) } },
@@ -138,6 +141,7 @@ class RecentsFeedCustomInfoTest {
                     getCustomNovelInfo = mockk<GetCustomNovelInfo> {
                         every { subscribeAll() } returns flowOf(listOf(CustomNovelInfo(novelId = ID, title = CUSTOM)))
                     },
+                    reikaiLibraryPreferences = ReikaiLibraryPreferences(EmittingPreferenceStore()),
                 ),
             ).state.map { state -> state.items.map { it.update.novelTitle } }
         }
