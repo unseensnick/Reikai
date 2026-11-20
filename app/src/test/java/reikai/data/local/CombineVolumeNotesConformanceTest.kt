@@ -236,6 +236,32 @@ class CombineVolumeNotesConformanceTest(private val type: ContentType) {
             (taken to world.rows("Kept")["Ch 5"]?.label) shouldBe (mapOf("Kept/Ch 5" to "Prologue") to "Prologue")
         }
 
+    /** The combine's rows have landed by its [nth] owner read that shows them, so that read failing loses no move. */
+    private suspend fun combinedFailingRead(nth: Int): LocalVolumeMove {
+        var skip = nth
+        world.notesWrites.failRead = { rows -> rows.any { it.folder != it.owner } && skip-- == 0 }
+        return combined()
+    }
+
+    @Test
+    fun `a combine whose chapter read fails after its rows moved reports moved and keeps its Undo`() = runTest {
+        val move = combinedFailingRead(1)
+
+        val undone = world.onApp { move.undo() }
+
+        (move.result to undone) shouldBe (LocalMoveResult.Moved to LocalMoveResult.Moved)
+    }
+
+    /** With no record of the owners after it, the Undo cannot tell a change since, so it refuses. */
+    @Test
+    fun `a combine whose owner read fails after its rows moved reports moved`() = runTest {
+        val move = combinedFailingRead(0)
+
+        val undone = world.onApp { move.undo() }
+
+        (move.result to (undone is LocalMoveResult.Failed)) shouldBe (LocalMoveResult.Moved to true)
+    }
+
     private suspend fun combined() =
         world.onApp { world.combine.combine(type, world.series(KEPT), listOf(world.series(OTHER))) }
 

@@ -15,6 +15,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -30,6 +32,7 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.FolderUnreadableException
 import reikai.util.testAppScope
 import java.util.Collections
+import kotlin.time.Duration.Companion.seconds
 
 class LocalImportViewModelTest {
 
@@ -185,6 +188,39 @@ class LocalImportViewModelTest {
         model.settle()
 
         imported.filter { it.asksAboutNewerCopies } shouldBe emptyList()
+    }
+
+    /** The second look at a group a share grew is what finds its newer copy, so confirming waits for it. */
+    @Test
+    fun `confirming categories waits for a grown group's second look before copying it`() = runTest {
+        val more = mockk<Uri>()
+        val look = CompletableDeferred<Unit>()
+        val imported = Collections.synchronizedList(mutableListOf<ImportGroup>())
+        coEvery { localImport.preview(listOf(more)) } returns (listOf(group("a", more)) to emptyList())
+        coEvery { localImport.inspect(any(), any()) } coAnswers {
+            look.await()
+            firstArg<ImportGroup>().copy(existing = "a", newerCopies = mapOf(more to "old.cbz"))
+        }
+        coEvery { localImport.import(any(), any(), any()) } answers {
+            imported += firstArg<List<ImportGroup>>()
+            ImportResult(emptyList(), emptyList())
+        }
+        categoriesRead.complete(BatchCategories.Ask(emptyList()))
+        val model = model()
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+        model.startImport()
+        model.state.first { it.pickCategories != null }
+        model.add(listOf(more))
+        model.state.first { s -> s.groups.single().files.size == 2 }
+
+        model.confirmCategories(ContentType.MANGA, emptyList())
+        // Long enough for a confirm that does not wait to copy the group before its second look answers.
+        withContext(Dispatchers.Default) { withTimeoutOrNull(1.seconds) { model.state.first { !it.isImporting } } }
+        look.complete(Unit)
+        model.settle()
+
+        imported shouldBe emptyList()
     }
 
     @Test

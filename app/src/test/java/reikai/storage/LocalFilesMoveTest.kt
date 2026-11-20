@@ -38,7 +38,7 @@ class LocalFilesMoveTest {
         val a = tree().findFile("A")!!
         val moved = a.findFile("Vol 1")!!.moveTo(context, a, tree().findFile("B")!!)
 
-        (moved?.name to File(root, "B/Vol 1/Ch 1/001.jpg").readText()) shouldBe ("Vol 1" to "page")
+        (moved to File(root, "B/Vol 1/Ch 1/001.jpg").readText()) shouldBe (MoveOutcome.Moved to "page")
     }
 
     @Test
@@ -48,12 +48,12 @@ class LocalFilesMoveTest {
 
         val moved = a.findFile("Vol 1")!!.moveTo(context, a, tree().findFile("B")!!)
 
-        (moved to File(root, "A/Vol 1/Ch 1/001.jpg").exists()) shouldBe (null to true)
+        (moved to File(root, "A/Vol 1/Ch 1/001.jpg").exists()) shouldBe (MoveOutcome.Stayed to true)
     }
 
     /** Nothing could find it under the dodged name, so it goes back to where it was. */
     @Test
-    fun `a move a provider landed under another name is moved back and answers null`() {
+    fun `a move a provider landed under another name is moved back and answers that it stayed`() {
         FakeSafProvider.moveDodgesTakenName = true
         File(root, "B/Vol 1").mkdirs()
         val a = tree().findFile("A")!!
@@ -61,14 +61,14 @@ class LocalFilesMoveTest {
         val moved = a.findFile("Vol 1")!!.moveTo(context, a, tree().findFile("B")!!)
 
         (moved to File(root, "A/Vol 1/Ch 1/001.jpg").exists() to File(root, "B").list()!!.toList()) shouldBe
-            (null to true to listOf("Vol 1"))
+            (MoveOutcome.Stayed to true to listOf("Vol 1"))
     }
 
     @Test
     fun `the tree root is never moved`() {
         val inner = FakeSafProvider.picked(context, File(root, "A"))
 
-        inner.moveTo(context, tree(), tree().findFile("B")!!) shouldBe null
+        inner.moveTo(context, tree(), tree().findFile("B")!!) shouldBe MoveOutcome.Stayed
     }
 
     @Test

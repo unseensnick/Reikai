@@ -465,7 +465,8 @@ class MainActivity : BaseActivity() {
                 componentActivity.addOnNewIntentListener(consumer)
                 awaitClose { componentActivity.removeOnNewIntentListener(consumer) }
             }
-                .collectLatest {
+                // RK: collect, since the import check suspends and a newer intent would cancel the one before it
+                .collect {
                     handleIntentAction(it, navigator, resultEventBus)
                 }
         }

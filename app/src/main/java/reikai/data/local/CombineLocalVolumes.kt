@@ -577,8 +577,11 @@ class CombineLocalVolumes(
             return failed(LocalMoveResult.Failed(e))
         }
         // Who owns what in the folders the Undo gives volumes back to: it writes its rows only over this same state.
+        // The rows have moved, so a failed read costs the Undo, which cannot then tell a change since, not the move.
         val handed = remove.mapTo(HashSet()) { it.folder }
-        val left = localVolumes.all(type).filterTo(HashSet()) { it.folder in handed }
+        val left = runCatchingCancellable { localVolumes.all(type).filterTo(HashSet()) { it.folder in handed } }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Reading the volumes after a local volume move failed" } }
+            .getOrNull()
         // The rows have moved, so a failure in the library steps after them must not lose the Undo.
         var tookOut = emptyMap<Long, Instant>()
         try {
@@ -591,8 +594,11 @@ class CombineLocalVolumes(
         relist.forEach { relist(type, it) }
         // An organize since that kept every owner row (one that renamed nothing) shows only in these addresses:
         // the Undo hands chapters back by folder, so it would find none there and report a hand-back that moved none.
+        // Unread, that check is skipped: at worst a hand-back reports done after moving none, which loses nothing.
         val regrouped = (remove + add).mapTo(HashSet()) { it.folder }
-        val addresses = chaptersIn(type, series.values, regrouped)
+        val addresses = runCatchingCancellable { chaptersIn(type, series.values, regrouped) }
+            .onFailure { logcat(LogPriority.WARN, it) { "Reading the chapters after a local volume move failed" } }
+            .getOrNull()
         return LocalVolumeMove(
             result = LocalMoveResult.Moved,
             undoing = {
@@ -604,7 +610,7 @@ class CombineLocalVolumes(
                     if (!now.containsAll(add) || now.filterTo(HashSet()) { it.folder in handed } != left) {
                         return@undo LocalMoveResult.Failed(IllegalStateException("The volumes changed since"))
                     }
-                    if (!chaptersIn(type, series.values, regrouped).containsAll(addresses)) {
+                    if (addresses != null && !chaptersIn(type, series.values, regrouped).containsAll(addresses)) {
                         return@undo LocalMoveResult.Failed(IllegalStateException("The files changed since"))
                     }
                     try {

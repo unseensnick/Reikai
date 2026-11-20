@@ -24,6 +24,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localChapterFile
 import reikai.source.local.localChapterUnit
 import reikai.source.local.localChapterUrl
+import reikai.storage.MoveOutcome
 import reikai.storage.createNew
 import reikai.storage.listOrNull
 import reikai.storage.moveTo
@@ -106,13 +107,25 @@ class LocalOrganizer(
                             // third name; noted as a landed step, so the putting back and every retry find it.
                             val now = document?.name
                             if (now != null && now != step.path.last()) {
-                                at = at.strayed(now)
+                                at = at.strayed(
+                                    landed = listOf(FileStep.Rename(step.path, now)),
+                                    rest = listOf(FileStep.Rename(step.path.dropLast(1) + now, step.to)),
+                                )
                                 journal.update(id, at)
                             }
                             error("Could not $step")
                         }
                     }
-                    is FileStep.Move -> check(move(root, step, named)) { "Could not $step" }
+                    is FileStep.Move -> when (val outcome = move(root, step, named)) {
+                        MoveOutcome.Moved -> Unit
+                        // The same third name a dodged rename can leave, noted the same way for the same reason.
+                        is MoveOutcome.Strayed -> {
+                            at = at.strayed(step, outcome)
+                            journal.update(id, at)
+                            error("Could not $step")
+                        }
+                        MoveOutcome.Stayed -> error("Could not $step")
+                    }
                     else -> check(apply(root, step)) { "Could not $step" }
                 }
             } catch (e: Exception) {
@@ -255,17 +268,20 @@ class LocalOrganizer(
     }
 
     /** Moves [step]'s document unless its target holds the name, by the target's names as [named] has them. */
-    private fun move(root: UniFile, step: FileStep.Move, named: MutableMap<List<String>, MutableSet<String>>): Boolean {
+    private fun move(
+        root: UniFile,
+        step: FileStep.Move,
+        named: MutableMap<List<String>, MutableSet<String>>,
+    ): MoveOutcome {
         val name = step.path.last()
-        val from = resolve(root, step.path.dropLast(1)) ?: return false
-        val into = resolve(root, step.into) ?: return false
-        val document = from.findFile(name) ?: return false
+        val from = resolve(root, step.path.dropLast(1)) ?: return MoveOutcome.Stayed
+        val into = resolve(root, step.into) ?: return MoveOutcome.Stayed
+        val document = from.findFile(name) ?: return MoveOutcome.Stayed
         val taken = named[step.into]
             ?: into.listOrNull(context)?.mapNotNullTo(HashSet()) { it.name }?.also { named[step.into] = it }
-            ?: return false
-        if (name in taken || document.moveTo(context, from, into) == null) return false
-        taken += name
-        return true
+            ?: return MoveOutcome.Stayed
+        if (name in taken) return MoveOutcome.Stayed
+        return document.moveTo(context, from, into).also { if (it == MoveOutcome.Moved) taken += name }
     }
 
     /** Whether [step] is through on disk, by the names its parents' trusted listings hold; null when unreadable. */
@@ -321,12 +337,23 @@ fun Organize.folders(): List<String> = (
         steps.filterIsInstance<FileStep.Rename>().filter { it.path.size == 1 }.flatMap { it.path + it.to }
     ).distinct()
 
-/** This plan with its cut rename's document found at [name]: that much as landed, then the rest of it from there. */
-private fun Organize.strayed(name: String): Organize {
-    val cut = steps[done] as FileStep.Rename
-    val landed = FileStep.Rename(cut.path, name)
-    val rest = FileStep.Rename(cut.path.dropLast(1) + name, cut.to)
-    return copy(steps = steps.take(done) + landed + rest + steps.drop(done + 1), done = done + 1)
+/** This plan with its cut step replaced by the [landed] steps that left its document where it is, then [rest]. */
+private fun Organize.strayed(landed: List<FileStep>, rest: List<FileStep>): Organize =
+    copy(steps = steps.take(done) + landed + rest + steps.drop(done + 1), done = done + landed.size)
+
+/** This plan with cut move [cut]'s document found under [stray]'s name, renamed in its own folder and then moved. */
+private fun Organize.strayed(cut: FileStep.Move, stray: MoveOutcome.Strayed): Organize {
+    val name = cut.path.last()
+    val folder = cut.path.dropLast(1)
+    val renamed = FileStep.Rename(cut.path, stray.name)
+    return if (stray.inTarget) {
+        strayed(
+            landed = listOf(renamed, FileStep.Move(folder + stray.name, cut.into)),
+            rest = listOf(FileStep.Rename(cut.into + stray.name, name)),
+        )
+    } else {
+        strayed(landed = listOf(renamed), rest = listOf(FileStep.Rename(folder + stray.name, name), cut))
+    }
 }
 
 /** Every chapter address series [id] of [type] lists. */

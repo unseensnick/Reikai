@@ -37,6 +37,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.model.NovelUpdate
@@ -65,9 +66,20 @@ import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
-/** The volumes repository, whose notes writes can be made to fail from the [failNotesAfter]th one on. */
+/**
+ * The volumes repository, whose notes writes can be made to fail from the [failNotesAfter]th one on, and whose
+ * one owner read [failRead] answers true for, given the rows it would have read, fails.
+ */
 internal class FlakyNotes(private val real: LocalVolumeRepository) : LocalVolumeRepository by real {
     var failNotesAfter: Int? = null
+    var failRead: ((List<VolumeOwner>) -> Boolean)? = null
+
+    override suspend fun all(type: ContentType): List<VolumeOwner> = real.all(type).also { rows ->
+        if (failRead?.invoke(rows) == true) {
+            failRead = null
+            error("Reading volumes failed")
+        }
+    }
 
     override suspend fun setNotes(type: ContentType, series: String, key: String, notes: String) {
         val left = failNotesAfter

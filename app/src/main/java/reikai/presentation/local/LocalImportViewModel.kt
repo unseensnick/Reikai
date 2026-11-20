@@ -13,6 +13,7 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.local.CombinableSeries
@@ -137,29 +138,36 @@ class LocalImportViewModel(
 
         // Checked inside each write, so a newer look that lands first is never written over by this one.
         fun latest(change: (State) -> State) = state.update { s -> if (inspections[key] == asked) change(s) else s }
+        // Counted as a read, since it is what finds a newer copy the import has to ask about first.
+        state.update { it.copy(reads = it.reads + 1) }
         viewModelScope.launchIO {
-            val group = state.value.groups.firstOrNull { it.key == key } ?: return@launchIO
-            val found = try {
-                localImport.inspect(group, if (auto) null else target ?: group.existing)
-            } catch (e: FolderUnreadableException) {
+            try {
+                val group = state.value.groups.firstOrNull { it.key == key } ?: return@launchIO
+                val found = try {
+                    localImport.inspect(group, if (auto) null else target ?: group.existing)
+                } catch (e: FolderUnreadableException) {
+                    latest { s ->
+                        s.copy(
+                            groups = s.groups.filterNot { it.key == key },
+                            problems = s.problems + ImportProblem(group.title, ImportProblem.Reason.NoStorage),
+                        )
+                    }
+                    return@launchIO
+                }
                 latest { s ->
-                    s.copy(
-                        groups = s.groups.filterNot { it.key == key },
-                        problems = s.problems + ImportProblem(group.title, ImportProblem.Reason.NoStorage),
-                    )
+                    s.withGroup(key) {
+                        it.copy(
+                            existing = found.existing,
+                            duplicates = found.duplicates,
+                            newerCopies = found.newerCopies,
+                            onNewerCopy = found.onNewerCopy,
+                            listsUnder = found.listsUnder,
+                        )
+                    }
                 }
-                return@launchIO
-            }
-            latest { s ->
-                s.withGroup(key) {
-                    it.copy(
-                        existing = found.existing,
-                        duplicates = found.duplicates,
-                        newerCopies = found.newerCopies,
-                        onNewerCopy = found.onNewerCopy,
-                        listsUnder = found.listsUnder,
-                    )
-                }
+            } finally {
+                state.update { it.copy(reads = it.reads - 1) }
+                decideOpen()
             }
         }
     }
@@ -214,7 +222,8 @@ class LocalImportViewModel(
                     }
                 }
             }
-            val ready = state.value
+            // A look still running may find a newer copy to ask about in what this would copy.
+            val ready = state.first { !it.isReading }
             if (!ready.isReadyToImport) {
                 state.update { it.copy(isImporting = false) }
                 return@launchIO
@@ -299,7 +308,8 @@ class LocalImportViewModel(
         /** Whether a preview is still reading files; reads can overlap, a pick beside a share. */
         val isReading: Boolean get() = reads > 0
 
-        val isReadyToImport: Boolean get() = groups.isNotEmpty() && groups.none(ImportGroup::asksAboutNewerCopies)
+        val isReadyToImport: Boolean get() =
+            !isReading && groups.isNotEmpty() && groups.none(ImportGroup::asksAboutNewerCopies)
     }
 
     @AssistedFactory

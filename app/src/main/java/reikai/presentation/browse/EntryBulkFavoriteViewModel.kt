@@ -10,10 +10,10 @@ import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
@@ -111,8 +111,8 @@ abstract class EntryBulkFavoriteViewModel<T : Any>(
 
     private suspend fun addAndFinish(items: List<T>, categoryIds: List<Long>) {
         // On the app scope, so leaving the screen mid-batch neither drops the rest nor stops one
-        // entry between its favorite and its filing.
-        appScope.async { addToLibrary(items, categoryIds) }.await()
+        // entry between its favorite and its filing. A launch, so a failure reaches the scope's handler.
+        appScope.launch { addToLibrary(items, categoryIds) }.join()
         setDialog(null)
         toggleSelectionMode(false)
     }

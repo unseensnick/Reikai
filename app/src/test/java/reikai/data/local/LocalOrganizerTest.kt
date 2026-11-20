@@ -91,6 +91,49 @@ class LocalOrganizerTest(private val type: ContentType) {
                 listOf(true, listOf("From (1)"), true)
         }
 
+    private fun movingVolume() = renaming("From", "To").copy(
+        steps = listOf(FileStep.Move(listOf("From", "Vol 1"), listOf("To"))),
+    )
+
+    /** Another writer takes the target's name, then the volume's own while the provider moves it back: a third name. */
+    @Test
+    fun `a move put back onto a name another writer took leaves the journal holding the volume where it is`() =
+        runTest {
+            File(local, "From/Vol 1").mkdirs()
+            File(local, "To").mkdirs()
+            FakeSafProvider.moveDodgesTakenName = true
+            val squat = mutableSetOf(File(local, "To/Vol 1"), File(local, "From/Vol 1"))
+            FakeSafProvider.onCall = { call, target ->
+                if (call == "moveDocument" || call == "renameDocument") {
+                    if (squat.remove(target)) target.mkdir()
+                }
+            }
+
+            organizer.run(type, movingVolume())
+
+            val held = (journal.entries.single().plan as Organize).steps.map { (it as FileStep.Rename).path }
+            listOf(File(local, "From/Vol 1 (1)").isDirectory, held, locks.isBlocked(type, listOf("From"))) shouldBe
+                listOf(true, listOf(listOf("From", "Vol 1 (1)")), true)
+        }
+
+    /** The provider dodged the move's name and then failed the move back, so the volume waits in the target. */
+    @Test
+    fun `a move left in the target under a dodged name is put back where it came from`() = runTest {
+        File(local, "From/Vol 1").mkdirs()
+        File(local, "To").mkdirs()
+        FakeSafProvider.moveDodgesTakenName = true
+        var moves = 0
+        FakeSafProvider.onCall = { call, target ->
+            if (call == "moveDocument" && ++moves == 1) target.mkdir()
+            if (call == "moveDocument" && moves == 2) error("provider died")
+        }
+
+        organizer.run(type, movingVolume())
+
+        listOf(File(local, "From/Vol 1").isDirectory, File(local, "To").list()!!.toList(), journal.entries) shouldBe
+            listOf(true, listOf("Vol 1"), emptyList<Any>())
+    }
+
     /** The run read the folder before its journal row; one later query failing must not strand a row with nothing done. */
     @Test
     fun `an organize whose local folder fails a query after the first look refuses no folder`() = runTest {

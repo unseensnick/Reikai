@@ -268,32 +268,45 @@ fun UniFile.canMoveAndRename(context: Context): Boolean {
     return flags != null && flags and needed == needed
 }
 
+/** Where [moveTo] left a document. */
+sealed interface MoveOutcome {
+    /** In the target under its own name. */
+    data object Moved : MoveOutcome
+
+    /** Where it was under its own name, or somewhere no name could be read for. */
+    data object Stayed : MoveOutcome
+
+    /** Under [name] instead, in the target when [inTarget] and otherwise back in its own folder. */
+    data class Strayed(val name: String, val inTarget: Boolean) : MoveOutcome
+}
+
 /**
- * Moves this document out of [from] into [into] under its own name, as one provider move, and answers it where it
- * landed, or null when it did not move. A device provider's move is one rename on disk and refuses a name [into]
- * already holds, so the caller frees the name first. A move that landed under another name is moved back and
- * answers null, since nothing could find it there. Never moves a tree root, whose grant would not follow it.
+ * Moves this document out of [from] into [into] under its own name, as one provider move. A device provider's
+ * move is one rename on disk and refuses a name [into] already holds, so the caller frees the name first. A move
+ * the provider landed under another name is moved back under its own; when that is dodged or fails in turn, the
+ * answer names where it was left ([MoveOutcome.Strayed]), since every reversal finds a file by its name. Never
+ * moves a tree root, whose grant would not follow it.
  */
-fun UniFile.moveTo(context: Context, from: UniFile, into: UniFile): UniFile? {
-    val name = name ?: return null
-    if (!DocumentsContract.isTreeUri(uri)) return null
-    if (DocumentsContract.getDocumentId(uri) == DocumentsContract.getTreeDocumentId(uri)) return null
+fun UniFile.moveTo(context: Context, from: UniFile, into: UniFile): MoveOutcome {
+    val name = name ?: return MoveOutcome.Stayed
+    if (!DocumentsContract.isTreeUri(uri)) return MoveOutcome.Stayed
+    if (DocumentsContract.getDocumentId(uri) == DocumentsContract.getTreeDocumentId(uri)) return MoveOutcome.Stayed
     val moved = try {
         DocumentsContract.moveDocument(context.contentResolver, uri, from.uri, into.uri)
     } catch (e: Exception) {
         null
-    } ?: return null
-    val landed = UniFile.fromUri(context, moved) ?: return null
-    if (landed.name == name) return landed
-    try {
-        // It goes back under the dodged name it carries now, so it takes its own name again there.
+    } ?: return MoveOutcome.Stayed
+    val dodged = UniFile.fromUri(context, moved)?.name
+    if (dodged == name) return MoveOutcome.Moved
+    val back = try {
         DocumentsContract.moveDocument(context.contentResolver, moved, into.uri, from.uri)
             ?.let { UniFile.fromUri(context, it) }
-            ?.rename(name)
     } catch (e: Exception) {
-        // Left where it landed: the caller's reversal finds it by its document, not its name.
-    }
-    return null
+        null
+    } ?: return dodged?.let { MoveOutcome.Strayed(it, inTarget = true) } ?: MoveOutcome.Stayed
+    // It goes back under the dodged name it carries now, so it takes its own name again there.
+    val now = if (back.rename(name)) name else back.name
+    return if (now == null || now == name) MoveOutcome.Stayed else MoveOutcome.Strayed(now, inTarget = false)
 }
 
 /**
