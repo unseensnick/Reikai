@@ -30,8 +30,6 @@ import uy.kohesive.injekt.api.get
  */
 @Serializable
 data object SettingsMangaDexScreen : SearchableSettings {
-    private fun readResolve(): Any = SettingsMangaDexScreen
-
     @ReadOnlyComposable
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_mangadex

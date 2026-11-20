@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -77,9 +78,9 @@ private fun SnippetEditDialog(
     onDismissRequest: () -> Unit,
     onSave: (NovelCodeSnippet) -> Unit,
 ) {
-    var title by remember { mutableStateOf(snippet?.title.orEmpty()) }
-    var code by remember { mutableStateOf(snippet?.code.orEmpty()) }
-    var runOnAppend by remember { mutableStateOf(snippet?.runOnAppend ?: false) }
+    var title by rememberSaveable { mutableStateOf(snippet?.title.orEmpty()) }
+    var code by rememberSaveable { mutableStateOf(snippet?.code.orEmpty()) }
+    var runOnAppend by rememberSaveable { mutableStateOf(snippet?.runOnAppend ?: false) }
     // Held across recompositions: a fresh id per frame would make every save look like a new snippet.
     val newId = remember { UUID.randomUUID().toString() }
 

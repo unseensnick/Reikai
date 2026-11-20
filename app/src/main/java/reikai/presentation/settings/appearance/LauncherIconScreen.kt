@@ -3,7 +3,6 @@ package reikai.presentation.settings.appearance
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -77,7 +78,7 @@ fun LauncherIconScreen() {
             LauncherIcon.entries.groupBy { it.design }.forEach { (design, icons) ->
                 HeadingItem(design.label)
                 FlowRow(
-                    modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
+                    modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium).selectableGroup(),
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                 ) {
@@ -122,7 +123,7 @@ internal fun IconTile(icon: LauncherIcon, isShown: Boolean, onClick: () -> Unit)
         modifier = Modifier
             .width(80.dp)
             .clip(MaterialTheme.shapes.medium)
-            .clickable(role = Role.RadioButton, onClick = onClick)
+            .selectable(selected = isShown, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = MaterialTheme.padding.small),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

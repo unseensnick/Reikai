@@ -28,7 +28,6 @@ import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterTitleFormat
-import reikai.domain.reader.ReaderProgressSize
 import reikai.novel.content.NovelSnippetKind
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
@@ -49,7 +48,7 @@ import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.rememberTtsOptions
 import reikai.presentation.reader.settings.dualPageRowsShown
 import reikai.presentation.reader.settings.dualPageViewRow
-import reikai.presentation.reader.settings.progressSizeLabel
+import reikai.presentation.reader.settings.readerProgressPreferenceItems
 import reikai.presentation.reader.settings.spreadGapRow
 import reikai.presentation.reader.tenthsLabel
 import reikai.presentation.reader.volumeKeyScrollPreference
@@ -629,23 +628,13 @@ data object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerKeepScreenOn(),
                     title = stringResource(MR.strings.pref_keep_screen_on),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerShowProgressPercentage(),
-                    title = stringResource(MR.strings.pref_show_reading_progress),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerShowTimeLeft(),
-                    title = stringResource(MR.strings.pref_show_time_left),
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.readerProgressSize(),
-                    entries = ReaderProgressSize.entries.associateWith { progressSizeLabel(it) },
-                    title = stringResource(MR.strings.pref_progress_size),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerProgressBacked(),
-                    title = stringResource(MR.strings.pref_progress_backed),
-                ),
+                *readerProgressPreferenceItems(
+                    progressLabel = MR.strings.pref_show_reading_progress,
+                    showProgress = novelPreferences.readerShowProgressPercentage(),
+                    showTimeLeft = novelPreferences.readerShowTimeLeft(),
+                    progressSize = novelPreferences.readerProgressSize(),
+                    progressBacked = novelPreferences.readerProgressBacked(),
+                ).toTypedArray(),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerChapterTitleFormat(),
                     entries = ChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },

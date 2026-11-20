@@ -349,30 +349,25 @@ data object SettingsTrackingScreen : SearchableSettings {
         onDismissRequest: () -> Unit,
     ) {
         val context = LocalContext.current
-        val scope = rememberCoroutineScope()
 
         val username = rememberTextFieldState(tracker.getUsername())
         val password = rememberTextFieldState(tracker.getPassword())
-        var processing by remember { mutableStateOf(false) }
-        var inputError by remember { mutableStateOf(false) }
 
-        AlertDialog(
-            onDismissRequest = onDismissRequest,
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(MR.strings.login_title, tracker.name),
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = onDismissRequest) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Close,
-                            contentDescription = stringResource(MR.strings.action_close),
-                        )
-                    }
-                }
+        // RK --> the title and the confirm button are the shell the token login shares
+        TrackingLoginDialogShell(
+            tracker = tracker,
+            canLogin = username.text.isNotBlank() && password.text.isNotBlank(),
+            login = {
+                checkLogin(
+                    context = context,
+                    tracker = tracker,
+                    username = username.text.toString(),
+                    password = password.text.toString(),
+                )
             },
-            text = {
+            onDismissRequest = onDismissRequest,
+            fields = { isError ->
+                // RK <--
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         modifier = Modifier
@@ -382,7 +377,7 @@ data object SettingsTrackingScreen : SearchableSettings {
                         label = { Text(text = stringResource(uNameStringRes)) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         lineLimits = TextFieldLineLimits.SingleLine,
-                        isError = inputError && !processing,
+                        isError = isError, // RK
                     )
 
                     var hidePassword by remember { mutableStateOf(true) }
@@ -413,34 +408,11 @@ data object SettingsTrackingScreen : SearchableSettings {
                             keyboardType = KeyboardType.Password,
                             imeAction = ImeAction.Done,
                         ),
-                        isError = inputError && !processing,
+                        isError = isError, // RK
                     )
                 }
-            },
-            confirmButton = {
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !processing && username.text.isNotBlank() && password.text.isNotBlank(),
-                    onClick = {
-                        scope.launchIO {
-                            processing = true
-                            val result = checkLogin(
-                                context = context,
-                                tracker = tracker,
-                                username = username.text.toString(),
-                                password = password.text.toString(),
-                            )
-                            inputError = !result
-                            if (result) onDismissRequest()
-                            processing = false
-                        }
-                    },
-                ) {
-                    val id = if (processing) MR.strings.logging_in else MR.strings.login
-                    Text(text = stringResource(id))
-                }
-            },
-        )
+            }, // RK
+        ) // RK
     }
 
     private suspend fun checkLogin(
@@ -548,9 +520,67 @@ data object SettingsTrackingScreen : SearchableSettings {
     ) {
         val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
-        val scope = rememberCoroutineScope()
 
         val token = rememberTextFieldState(tracker.getPassword())
+
+        TrackingLoginDialogShell(
+            tracker = tracker,
+            canLogin = token.text.isNotBlank(),
+            login = {
+                // The tracker reads the token out of the password slot, so the username
+                // it stores comes from the service itself once the token validates.
+                checkLogin(context = context, tracker = tracker, username = "", password = token.text.toString())
+            },
+            onDismissRequest = onDismissRequest,
+        ) { isError ->
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (onWebViewLogin != null) {
+                    // The easier path, so it leads. A token outlasts a session cookie, which is
+                    // why the field below stays rather than being replaced by this.
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onWebViewLogin,
+                    ) {
+                        Text(text = stringResource(MR.strings.login_with_browser))
+                    }
+                    Text(text = stringResource(MR.strings.login_token_or_paste))
+                } else {
+                    Text(text = stringResource(MR.strings.login_token_info))
+                }
+
+                Text(
+                    text = stringResource(helpStringRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                RevealableSecureTextField(
+                    state = token,
+                    label = stringResource(tokenStringRes),
+                    isError = isError,
+                )
+
+                TextButton(onClick = { uriHandler.openUri(helpUrl) }) {
+                    Text(text = stringResource(MR.strings.login_get_token))
+                }
+            }
+        }
+    }
+
+    /**
+     * A login dialog's title with its close button and the full-width confirm button, around [fields],
+     * which is told when to show the last attempt as failed. [login] runs off the main thread, and the
+     * dialog closes when it succeeds.
+     */
+    @Composable
+    private fun TrackingLoginDialogShell(
+        tracker: Tracker,
+        canLogin: Boolean,
+        login: suspend () -> Boolean,
+        onDismissRequest: () -> Unit,
+        fields: @Composable (isError: Boolean) -> Unit,
+    ) {
+        val scope = rememberCoroutineScope()
         var processing by remember { mutableStateOf(false) }
         var inputError by remember { mutableStateOf(false) }
 
@@ -570,54 +600,15 @@ data object SettingsTrackingScreen : SearchableSettings {
                     }
                 }
             },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (onWebViewLogin != null) {
-                        // The easier path, so it leads. A token outlasts a session cookie, which is
-                        // why the field below stays rather than being replaced by this.
-                        OutlinedButton(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = onWebViewLogin,
-                        ) {
-                            Text(text = stringResource(MR.strings.login_with_browser))
-                        }
-                        Text(text = stringResource(MR.strings.login_token_or_paste))
-                    } else {
-                        Text(text = stringResource(MR.strings.login_token_info))
-                    }
-
-                    Text(
-                        text = stringResource(helpStringRes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    RevealableSecureTextField(
-                        state = token,
-                        label = stringResource(tokenStringRes),
-                        isError = inputError && !processing,
-                    )
-
-                    TextButton(onClick = { uriHandler.openUri(helpUrl) }) {
-                        Text(text = stringResource(MR.strings.login_get_token))
-                    }
-                }
-            },
+            text = { fields(inputError && !processing) },
             confirmButton = {
                 Button(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !processing && token.text.isNotBlank(),
+                    enabled = !processing && canLogin,
                     onClick = {
                         scope.launchIO {
                             processing = true
-                            // The tracker reads the token out of the password slot, so the username
-                            // it stores comes from the service itself once the token validates.
-                            val result = checkLogin(
-                                context = context,
-                                tracker = tracker,
-                                username = "",
-                                password = token.text.toString(),
-                            )
+                            val result = login()
                             inputError = !result
                             if (result) onDismissRequest()
                             processing = false

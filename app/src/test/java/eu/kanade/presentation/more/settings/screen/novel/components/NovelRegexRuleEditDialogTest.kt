@@ -1,9 +1,12 @@
 package eu.kanade.presentation.more.settings.screen.novel.components
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexPreview
 import org.junit.Rule
 import org.junit.Test
@@ -49,6 +52,28 @@ class NovelRegexRuleEditDialogTest {
         show(NovelRegexPreview(rule.copy(title = ""), "", Result.success("b")))
 
         compose.onNodeWithText(SAVE).assertIsEnabled()
+    }
+
+    /** A rotation or fold recreates the Activity while the model keeps the dialog open. */
+    @Test
+    fun `what was typed survives the screen being recreated`() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            ComposeTestHost {
+                NovelRegexRuleEditDialog(
+                    rule = null,
+                    preview = null,
+                    onDismissRequest = {},
+                    onSave = {},
+                    onPreview = { _, _ -> },
+                )
+            }
+        }
+        compose.onNodeWithText("Name").performTextInput("Typed")
+
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithText("Typed").assertIsDisplayed()
     }
 
     private companion object {

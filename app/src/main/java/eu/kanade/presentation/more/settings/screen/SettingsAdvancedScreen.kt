@@ -89,8 +89,7 @@ data object SettingsAdvancedScreen : SearchableSettings {
         val basePreferences = remember { graph.basePreferences }
         val networkPreferences = remember { graph.networkPreferences }
         val libraryPreferences = remember { graph.libraryPreferences }
-        // RK: listOfNotNull outlived the optional ExHentai login row it was for; no entry is null now
-        return listOfNotNull(
+        return listOf(
             // RK --> upstream's loose rows at the top grouped under what they have in common (see
             // docs/dev/subsystems/architecture.md). The update-error switches live in Settings -> Library,
             // the adult-sources gate in Browse and sources, and clearing merges in the Library group below.

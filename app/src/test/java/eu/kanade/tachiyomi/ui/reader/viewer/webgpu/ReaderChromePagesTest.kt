@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -151,9 +153,10 @@ class ReaderChromePagesTest {
         }
 
         // Width, since a button's height has a touch-target floor. Text rounds, hence the margin.
-        val widths = compose.onAllNodesWithText("Retry").fetchSemanticsNodes().map { it.size.width }
+        fun retryWidth(tag: String) =
+            compose.onNode(hasText("Retry") and hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNode().size.width
 
-        (abs(widths.max() - widths.min() * STRIP_CAPTURE_SCALE) <= 3) shouldBe true
+        (abs(retryWidth("paged") - retryWidth("strip") * STRIP_CAPTURE_SCALE) <= 3) shouldBe true
     }
 
     /** A merged series crosses sources, and only the chapter's own gets past a host's hotlink check. */

@@ -12,6 +12,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
@@ -130,7 +133,12 @@ private fun ToggleItem(
                 .padding(MaterialTheme.padding.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onToggle) {
+            // Toggle semantics so the state is announced; the colours stay the plain button's.
+            IconToggleButton(
+                checked = enabled,
+                onCheckedChange = { onToggle() },
+                colors = IconButtonDefaults.iconToggleButtonColors(checkedContentColor = LocalContentColor.current),
+            ) {
                 Icon(
                     imageVector = if (enabled) {
                         MaterialSymbols.RoundedFilled.CheckCircle

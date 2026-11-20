@@ -95,7 +95,11 @@ class SettingsNovelReaderScreenTest {
     private class ReadingRows(val preferences: NovelPreferences, val read: (List<String>) -> Unit) {
         @Composable
         fun Content() {
-            read(SettingsNovelReaderScreen.getReadingGroup(preferences).preferenceItems.map { it.title })
+            read(
+                SettingsNovelReaderScreen.getReadingGroup(preferences).preferenceItems
+                    .filter { it.visible }
+                    .map { it.title },
+            )
         }
     }
 

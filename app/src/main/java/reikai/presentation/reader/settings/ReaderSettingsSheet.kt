@@ -56,6 +56,7 @@ import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import eu.kanade.presentation.more.settings.Preference as SettingsPreference
 
 /**
  * What the in-reader settings sheet edits, answered per content type so the compiler makes both
@@ -249,9 +250,7 @@ internal fun ColumnScope.ReaderPageRows(
     }
     CheckboxItem(label = stringResource(progressLabel), pref = showProgress)
     CheckboxItem(label = stringResource(MR.strings.pref_show_time_left), pref = showTimeLeft)
-    val isProgressShown by showProgress.collectAsState()
-    val isTimeLeftShown by showTimeLeft.collectAsState()
-    if (isProgressShown || isTimeLeftShown) {
+    if (progressBarShown(showProgress, showTimeLeft)) {
         val selectedSize by progressSize.collectAsState()
         SettingsChipRow(MR.strings.pref_progress_size) {
             ReaderProgressSize.entries.forEach {
@@ -270,6 +269,50 @@ internal fun ColumnScope.ReaderPageRows(
         CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = drawUnderCutout)
     }
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = keepScreenOn)
+}
+
+/**
+ * The settings screens' progress rows, fed what [ReaderPageRows] is fed, so the size and the backing
+ * show only while something draws the progress bar, as in the sheet.
+ */
+@Composable
+internal fun readerProgressPreferenceItems(
+    progressLabel: StringResource,
+    showProgress: Preference<Boolean>,
+    showTimeLeft: Preference<Boolean>,
+    progressSize: Preference<ReaderProgressSize>,
+    progressBacked: Preference<Boolean>,
+): List<SettingsPreference.PreferenceItem<out Any, out Any>> {
+    val barShown = progressBarShown(showProgress, showTimeLeft)
+    return listOf(
+        SettingsPreference.PreferenceItem.SwitchPreference(
+            preference = showProgress,
+            title = stringResource(progressLabel),
+        ),
+        SettingsPreference.PreferenceItem.SwitchPreference(
+            preference = showTimeLeft,
+            title = stringResource(MR.strings.pref_show_time_left),
+        ),
+        SettingsPreference.PreferenceItem.ListPreference(
+            preference = progressSize,
+            entries = ReaderProgressSize.entries.associateWith { progressSizeLabel(it) },
+            title = stringResource(MR.strings.pref_progress_size),
+            visible = barShown,
+        ),
+        SettingsPreference.PreferenceItem.SwitchPreference(
+            preference = progressBacked,
+            title = stringResource(MR.strings.pref_progress_backed),
+            visible = barShown,
+        ),
+    )
+}
+
+/** Whether the progress bar draws, which the progress size and backing apply to. */
+@Composable
+private fun progressBarShown(showProgress: Preference<Boolean>, showTimeLeft: Preference<Boolean>): Boolean {
+    val isProgressShown by showProgress.collectAsState()
+    val isTimeLeftShown by showTimeLeft.collectAsState()
+    return isProgressShown || isTimeLeftShown
 }
 
 /** The e-ink flash after a page turn, the same rows for either reader. */

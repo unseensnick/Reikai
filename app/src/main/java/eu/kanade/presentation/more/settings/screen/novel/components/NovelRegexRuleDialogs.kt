@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexPreview
@@ -40,13 +41,13 @@ fun NovelRegexRuleEditDialog(
     onSave: (NovelRegexReplacement) -> Unit,
     onPreview: (NovelRegexReplacement, String) -> Unit,
 ) {
-    var title by remember { mutableStateOf(rule?.title.orEmpty()) }
-    var pattern by remember { mutableStateOf(rule?.pattern.orEmpty()) }
-    var replacement by remember { mutableStateOf(rule?.replacement.orEmpty()) }
-    var isRegex by remember { mutableStateOf(rule?.isRegex ?: true) }
-    var matchWholeWord by remember { mutableStateOf(rule?.matchWholeWord ?: false) }
-    var caseSensitive by remember { mutableStateOf(rule?.caseSensitive ?: false) }
-    var sample by remember { mutableStateOf("") }
+    var title by rememberSaveable { mutableStateOf(rule?.title.orEmpty()) }
+    var pattern by rememberSaveable { mutableStateOf(rule?.pattern.orEmpty()) }
+    var replacement by rememberSaveable { mutableStateOf(rule?.replacement.orEmpty()) }
+    var isRegex by rememberSaveable { mutableStateOf(rule?.isRegex ?: true) }
+    var matchWholeWord by rememberSaveable { mutableStateOf(rule?.matchWholeWord ?: false) }
+    var caseSensitive by rememberSaveable { mutableStateOf(rule?.caseSensitive ?: false) }
+    var sample by rememberSaveable { mutableStateOf("") }
     // Held across recompositions: a fresh id per frame would make every save look like a new rule.
     val newId = remember { UUID.randomUUID().toString() }
 

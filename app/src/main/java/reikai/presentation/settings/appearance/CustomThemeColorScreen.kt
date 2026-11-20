@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.navigation3.runtime.NavKey
@@ -149,6 +151,7 @@ fun CustomThemeColorScreen() {
                                 .background(color = color, shape = MaterialTheme.shapes.small)
                                 .height(48.dp)
                                 .aspectRatio(1f)
+                                .semantics { contentDescription = color.toArgb().toHexRgb() }
                                 .clickable(role = Role.Button) {
                                     controller.selectByColor(color, true)
                                     scope.launch { scrollState.animateScrollTo(0) }
