@@ -13,7 +13,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -77,6 +78,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -97,10 +99,12 @@ import reikai.domain.entry.EntryId
 import reikai.domain.track.EntryTrackPort
 import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.RemoteFirstRemoval
+import reikai.domain.track.TrackWriter
 import reikai.domain.track.autobind.AutoBindTracker
 import reikai.domain.track.autobind.AutoBindTrackers
 import reikai.domain.track.autobind.offerTrackers
 import reikai.domain.track.removeTrack
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
@@ -113,6 +117,7 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.Clock
 import kotlin.time.Instant
+import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
 /**
  * The single track-info dialog stack for both manga and novels: the same domain [Track] (novels adapt
@@ -123,10 +128,7 @@ import kotlin.time.Instant
  * searching for those entries; [offerTrackers] decides the rows, for both types.
  */
 @Serializable
-data class EntryTrackInfoDialogHomeRoute(
-    val entry: EntryId,
-    val entryTitle: String,
-) : NavKey {
+data class EntryTrackInfoDialogHomeRoute(val entry: EntryId) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -141,6 +143,10 @@ data class EntryTrackInfoDialogHomeRoute(
 
         val state: StateFlow<Model.State>
             field = MutableStateFlow<Model.State>(State())
+
+        /** The tracker whose replace confirmation is up, held here so a rotation keeps it. */
+        val pendingReplace: StateFlow<Long?>
+            field = MutableStateFlow<Long?>(null)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
@@ -168,10 +174,11 @@ data class EntryTrackInfoDialogHomeRoute(
             val candidate = autoBindTrackers.of(item.tracker) ?: return
             appScope.launch {
                 val bindEntry = port.autoBindEntry() ?: return@launch
-                val match = try {
-                    candidate.match(bindEntry)
-                } catch (_: Exception) {
-                    null
+                // A null match is the source having no counterpart; a throw is the tracker failing.
+                val match = runCatchingCancellable { candidate.match(bindEntry) }.getOrElse { e ->
+                    logcat(LogPriority.ERROR, e) { "Failed to match entry=$entry on ${item.tracker.name}" }
+                    withUIContext { context.toast(context.trackerErrorMessage(item.tracker.name, e)) }
+                    return@launch
                 }
                 if (match == null) {
                     withUIContext { context.toast(MR.strings.error_no_match) }
@@ -180,6 +187,10 @@ data class EntryTrackInfoDialogHomeRoute(
                 bindTrack(context, port, item.tracker, match)
             }
         }
+
+        fun askToReplace(item: TrackItem) = pendingReplace.update { item.tracker.id }
+
+        fun dismissReplace() = pendingReplace.update { null }
 
         private suspend fun refreshTrackers() {
             val failed = port.refresh().mapNotNull { (tracker, e) -> tracker?.let { it to e } }
@@ -214,7 +225,7 @@ data class EntryTrackInfoDialogHomeRoute(
 }
 
 @Composable
-fun EntryTrackInfoDialogHomeScreen(entry: EntryId, entryTitle: String) {
+fun EntryTrackInfoDialogHomeScreen(entry: EntryId) {
     val navigator = LocalNavigator.current
     val context = LocalContext.current
     val locale = LocalLocale.current
@@ -230,56 +241,37 @@ fun EntryTrackInfoDialogHomeScreen(entry: EntryId, entryTitle: String) {
         )
     }
     val state by viewModel.state.collectAsState()
-    var pendingAutoBind by remember { mutableStateOf<TrackItem?>(null) }
+    val pendingReplace by viewModel.pendingReplace.collectAsState()
 
     TrackInfoDialogHome(
         trackItems = state.trackItems,
         dateFormat = dateFormat,
-        onStatusClick = {
-            navigator.push(EntryTrackStatusSelectorRoute(it.track!!, it.tracker.id, entry))
-        },
-        onChapterClick = {
-            navigator.push(EntryTrackChapterSelectorRoute(it.track!!, it.tracker.id, entry))
-        },
-        onScoreClick = {
-            navigator.push(EntryTrackScoreSelectorRoute(it.track!!, it.tracker.id, entry))
-        },
-        onStartDateEdit = {
-            navigator.push(EntryTrackDateSelectorRoute(it.track!!, it.tracker.id, start = true, entry))
-        },
-        onEndDateEdit = {
-            navigator.push(EntryTrackDateSelectorRoute(it.track!!, it.tracker.id, start = false, entry))
-        },
+        onStatusClick = { navigator.push(EntryTrackStatusSelectorRoute(it.tracker.id, entry)) },
+        onChapterClick = { navigator.push(EntryTrackChapterSelectorRoute(it.tracker.id, entry)) },
+        onScoreClick = { navigator.push(EntryTrackScoreSelectorRoute(it.tracker.id, entry)) },
+        onStartDateEdit = { navigator.push(EntryTrackDateSelectorRoute(it.tracker.id, start = true, entry)) },
+        onEndDateEdit = { navigator.push(EntryTrackDateSelectorRoute(it.tracker.id, start = false, entry)) },
         onNewSearch = {
             if (it.tracker.id in state.autoMatchTrackerIds) {
-                if (it.tracker is ReplacingWriteTracker) pendingAutoBind = it else viewModel.registerAutoBind(it)
+                if (it.tracker is ReplacingWriteTracker) viewModel.askToReplace(it) else viewModel.registerAutoBind(it)
             } else {
-                navigator.push(
-                    EntryTrackerSearchRoute(
-                        entry = entry,
-                        initialQuery = it.track?.title ?: entryTitle,
-                        currentUrl = it.track?.remoteUrl,
-                        serviceId = it.tracker.id,
-                    ),
-                )
+                navigator.push(EntryTrackerSearchRoute(entry, it.tracker.id))
             }
         },
         onOpenInBrowser = { openTrackerInBrowser(context, it) },
-        onRemoved = {
-            navigator.push(EntryTrackerRemoveRoute(entry, it.track!!, it.tracker.id))
-        },
+        onRemoved = { navigator.push(EntryTrackerRemoveRoute(entry, it.tracker.id)) },
         onCopyLink = { context.copyTrackerLink(it) },
         onTogglePrivate = viewModel::togglePrivate,
     )
 
-    pendingAutoBind?.let { item ->
+    state.trackItems.find { it.tracker.id == pendingReplace }?.let { item ->
         ReplaceEntryConfirmDialog(
             trackerName = item.tracker.name,
             onConfirm = {
-                pendingAutoBind = null
+                viewModel.dismissReplace()
                 viewModel.registerAutoBind(item)
             },
-            onDismissRequest = { pendingAutoBind = null },
+            onDismissRequest = viewModel::dismissReplace,
         )
     }
 }
@@ -294,9 +286,24 @@ private fun Context.copyTrackerLink(trackItem: TrackItem) {
     if (url.isNotBlank()) copyToClipboard(url, url)
 }
 
+/** [trackerId]'s binding among the entry's group tracks, picked as the home page lists it. */
+private suspend fun EntryTrackPort.trackFor(trackerId: Long): Track? =
+    tracks().first().find { it.trackerId == trackerId }
+
+/**
+ * Applies [edit] to the binding as stored now, never to a copy read when the page opened: the write
+ * pushes the whole row, so a stale one would send old progress, score and dates back to the tracker.
+ */
+private suspend fun EntryTrackPort.editTrack(trackerId: Long, edit: suspend TrackWriter.(DbTrack) -> Unit) {
+    val track = trackFor(trackerId) ?: return
+    writer.edit(track.toDbTrack())
+}
+
+// The pickers' routes carry the tracker and the entry only, so a restored sheet reads the binding afresh.
+// Each model's state stays null until that read lands, and stays null for a binding removed meanwhile.
+
 @Serializable
 data class EntryTrackStatusSelectorRoute(
-    val track: Track,
     val serviceId: Long,
     val entry: EntryId,
 ) : NavKey {
@@ -304,38 +311,40 @@ data class EntryTrackStatusSelectorRoute(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val track: Track,
-        @Assisted trackerId: Long,
+        @Assisted private val trackerId: Long,
         @Assisted entry: EntryId,
         @AppCoroutineScope private val appScope: CoroutineScope,
         trackerManager: TrackerManager,
         ports: EntryTrackPorts,
     ) : ViewModel() {
 
-        val state: StateFlow<Model.State>
-            field = MutableStateFlow<Model.State>(State(track.status))
+        val state: StateFlow<Model.State?>
+            field = MutableStateFlow<Model.State?>(null)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, entry: EntryId): Model
+            fun create(trackerId: Long, entry: EntryId): Model
         }
 
-        // The tracker and the writer are derived from the ids rather than passed in, so the dialog
+        // The tracker and the port are derived from the ids rather than passed in, so the dialog
         // stops resolving DI from a composable body. Every selector model below does the same.
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = ports.of(entry).writer
+        private val port = ports.of(entry)
+
+        init {
+            viewModelScope.launch { port.trackFor(trackerId)?.let { track -> state.value = State(track.status) } }
+        }
 
         fun getSelections(): Map<Long, StringResource?> =
             tracker.getStatusList().associateWith { tracker.getStatus(it) }
 
-        fun setSelection(selection: Long) = state.update { it.copy(selection = selection) }
+        fun setSelection(selection: Long) = state.update { it?.copy(selection = selection) }
 
         fun setStatus() {
-            appScope.launch {
-                writer.setRemoteStatus(tracker, track.toDbTrack(), state.value.selection)
-            }
+            val selection = state.value?.selection ?: return
+            appScope.launch { port.editTrack(trackerId) { setRemoteStatus(tracker, it, selection) } }
         }
 
         @Immutable
@@ -344,13 +353,13 @@ data class EntryTrackStatusSelectorRoute(
 }
 
 @Composable
-fun EntryTrackStatusSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
+fun EntryTrackStatusSelectorScreen(serviceId: Long, entry: EntryId) {
     val navigator = LocalNavigator.current
     val viewModel =
         assistedMetroViewModel<EntryTrackStatusSelectorRoute.Model, EntryTrackStatusSelectorRoute.Model.Factory> {
-            create(track = track, trackerId = serviceId, entry = entry)
+            create(trackerId = serviceId, entry = entry)
         }
-    val state by viewModel.state.collectAsState()
+    val state = viewModel.state.collectAsState().value ?: return
     TrackStatusSelector(
         selection = state.selection,
         onSelectionChange = viewModel::setSelection,
@@ -365,7 +374,6 @@ fun EntryTrackStatusSelectorScreen(track: Track, serviceId: Long, entry: EntryId
 
 @Serializable
 data class EntryTrackChapterSelectorRoute(
-    val track: Track,
     val serviceId: Long,
     val entry: EntryId,
 ) : NavKey {
@@ -373,57 +381,61 @@ data class EntryTrackChapterSelectorRoute(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val track: Track,
-        @Assisted trackerId: Long,
+        @Assisted private val trackerId: Long,
         @Assisted entry: EntryId,
         @AppCoroutineScope private val appScope: CoroutineScope,
         trackerManager: TrackerManager,
         ports: EntryTrackPorts,
     ) : ViewModel() {
 
-        val state: StateFlow<Model.State>
-            field = MutableStateFlow<Model.State>(State(track.lastChapterRead.toInt()))
+        val state: StateFlow<Model.State?>
+            field = MutableStateFlow<Model.State?>(null)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, entry: EntryId): Model
+            fun create(trackerId: Long, entry: EntryId): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = ports.of(entry).writer
+        private val port = ports.of(entry)
 
-        fun getRange(): Iterable<Int> {
-            val endRange = if (track.totalChapters > 0) track.totalChapters else 10000
-            return 0..endRange.toInt()
-        }
-
-        fun setSelection(selection: Int) = state.update { it.copy(selection = selection) }
-
-        fun setChapter() {
-            appScope.launch {
-                writer.setRemoteLastChapterRead(tracker, track.toDbTrack(), state.value.selection)
+        init {
+            viewModelScope.launch {
+                port.trackFor(trackerId)?.let { track ->
+                    val endRange = if (track.totalChapters > 0) track.totalChapters else 10000
+                    state.value = State(track.lastChapterRead.toInt(), 0..endRange.toInt(), track.lastChapterRead)
+                }
             }
         }
 
+        fun setSelection(selection: Int) = state.update { it?.copy(selection = selection) }
+
+        fun setChapter() {
+            val state = state.value ?: return
+            // The picker holds whole chapters, so an unmoved one would truncate 12.5 to 12.
+            if (state.selection == state.opened.toInt()) return
+            appScope.launch { port.editTrack(trackerId) { setRemoteLastChapterRead(tracker, it, state.selection) } }
+        }
+
         @Immutable
-        data class State(val selection: Int)
+        data class State(val selection: Int, val range: IntRange, val opened: Double)
     }
 }
 
 @Composable
-fun EntryTrackChapterSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
+fun EntryTrackChapterSelectorScreen(serviceId: Long, entry: EntryId) {
     val navigator = LocalNavigator.current
     val viewModel =
         assistedMetroViewModel<EntryTrackChapterSelectorRoute.Model, EntryTrackChapterSelectorRoute.Model.Factory> {
-            create(track = track, trackerId = serviceId, entry = entry)
+            create(trackerId = serviceId, entry = entry)
         }
-    val state by viewModel.state.collectAsState()
+    val state = viewModel.state.collectAsState().value ?: return
     TrackChapterSelector(
         selection = state.selection,
         onSelectionChange = viewModel::setSelection,
-        range = remember { viewModel.getRange() },
+        range = state.range,
         onConfirm = {
             viewModel.setChapter()
             navigator.pop()
@@ -434,7 +446,6 @@ fun EntryTrackChapterSelectorScreen(track: Track, serviceId: Long, entry: EntryI
 
 @Serializable
 data class EntryTrackScoreSelectorRoute(
-    val track: Track,
     val serviceId: Long,
     val entry: EntryId,
 ) : NavKey {
@@ -442,37 +453,39 @@ data class EntryTrackScoreSelectorRoute(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val track: Track,
-        @Assisted trackerId: Long,
+        @Assisted private val trackerId: Long,
         @Assisted entry: EntryId,
         @AppCoroutineScope private val appScope: CoroutineScope,
         trackerManager: TrackerManager,
         ports: EntryTrackPorts,
     ) : ViewModel() {
 
-        // Declared above the state, which seeds itself from the tracker: property initializers run in
-        // declaration order, so the reverse order would read an unset tracker.
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = ports.of(entry).writer
+        private val port = ports.of(entry)
 
-        val state: StateFlow<Model.State>
-            field = MutableStateFlow<Model.State>(State(tracker.displayScore(track)))
+        val state: StateFlow<Model.State?>
+            field = MutableStateFlow<Model.State?>(null)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, entry: EntryId): Model
+            fun create(trackerId: Long, entry: EntryId): Model
+        }
+
+        init {
+            viewModelScope.launch {
+                port.trackFor(trackerId)?.let { track -> state.value = State(tracker.displayScore(track)) }
+            }
         }
 
         fun getSelections(): List<String> = tracker.getScoreList()
 
-        fun setSelection(selection: String) = state.update { it.copy(selection = selection) }
+        fun setSelection(selection: String) = state.update { it?.copy(selection = selection) }
 
         fun setScore() {
-            appScope.launch {
-                writer.setRemoteScore(tracker, track.toDbTrack(), state.value.selection)
-            }
+            val selection = state.value?.selection ?: return
+            appScope.launch { port.editTrack(trackerId) { setRemoteScore(tracker, it, selection) } }
         }
 
         @Immutable
@@ -481,13 +494,13 @@ data class EntryTrackScoreSelectorRoute(
 }
 
 @Composable
-fun EntryTrackScoreSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
+fun EntryTrackScoreSelectorScreen(serviceId: Long, entry: EntryId) {
     val navigator = LocalNavigator.current
     val viewModel =
         assistedMetroViewModel<EntryTrackScoreSelectorRoute.Model, EntryTrackScoreSelectorRoute.Model.Factory> {
-            create(track = track, trackerId = serviceId, entry = entry)
+            create(trackerId = serviceId, entry = entry)
         }
-    val state by viewModel.state.collectAsState()
+    val state = viewModel.state.collectAsState().value ?: return
     TrackScoreSelector(
         selection = state.selection,
         onSelectionChange = viewModel::setSelection,
@@ -502,7 +515,6 @@ fun EntryTrackScoreSelectorScreen(track: Track, serviceId: Long, entry: EntryId)
 
 @Serializable
 data class EntryTrackDateSelectorRoute(
-    val track: Track,
     val serviceId: Long,
     val start: Boolean,
     val entry: EntryId,
@@ -511,8 +523,7 @@ data class EntryTrackDateSelectorRoute(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val track: Track,
-        @Assisted trackerId: Long,
+        @Assisted private val trackerId: Long,
         @Assisted private val start: Boolean,
         @Assisted private val entry: EntryId,
         @AppCoroutineScope private val appScope: CoroutineScope,
@@ -520,50 +531,64 @@ data class EntryTrackDateSelectorRoute(
         ports: EntryTrackPorts,
     ) : ViewModel() {
 
+        /** The binding as the page opened on it, which seeds the calendar and its bounds. */
+        val track: StateFlow<Track?>
+            field = MutableStateFlow<Track?>(null)
+
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, start: Boolean, entry: EntryId): Model
+            fun create(trackerId: Long, start: Boolean, entry: EntryId): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = ports.of(entry).writer
+        private val port = ports.of(entry)
+
+        init {
+            viewModelScope.launch { track.value = port.trackFor(trackerId) }
+        }
 
         // In UTC
-        val initialSelection: Long
-            get() {
-                val date = (if (start) track.startDate else track.finishDate) ?: Clock.System.now()
-                return date.toEpochMilliseconds().convertEpochMillisZone(TimeZone.currentSystemDefault(), TimeZone.UTC)
-            }
+        fun initialSelection(track: Track): Long {
+            val date = (if (start) track.startDate else track.finishDate) ?: Clock.System.now()
+            return date.toEpochMilliseconds().convertEpochMillisZone(TimeZone.currentSystemDefault(), TimeZone.UTC)
+        }
 
         // In UTC
         fun setDate(millis: Long) {
             // Convert to local time
             val localMillis = millis.convertEpochMillisZone(TimeZone.UTC, TimeZone.currentSystemDefault())
             appScope.launch {
-                if (start) {
-                    writer.setRemoteStartDate(tracker, track.toDbTrack(), localMillis)
-                } else {
-                    writer.setRemoteFinishDate(tracker, track.toDbTrack(), localMillis)
+                port.editTrack(trackerId) {
+                    if (start) {
+                        setRemoteStartDate(
+                            tracker,
+                            it,
+                            localMillis,
+                        )
+                    } else {
+                        setRemoteFinishDate(tracker, it, localMillis)
+                    }
                 }
             }
         }
 
         fun confirmRemoveDate(navigator: Navigator) {
-            navigator.push(EntryTrackDateRemoverRoute(track, tracker.id, start, entry))
+            navigator.push(EntryTrackDateRemoverRoute(tracker.id, start, entry))
         }
     }
 }
 
 @Composable
-fun EntryTrackDateSelectorScreen(track: Track, serviceId: Long, start: Boolean, entry: EntryId) {
+fun EntryTrackDateSelectorScreen(serviceId: Long, start: Boolean, entry: EntryId) {
     val navigator = LocalNavigator.current
-    val selectableDates = remember(track, start) { trackSelectableDates(track, start) }
     val viewModel =
         assistedMetroViewModel<EntryTrackDateSelectorRoute.Model, EntryTrackDateSelectorRoute.Model.Factory> {
-            create(track = track, trackerId = serviceId, start = start, entry = entry)
+            create(trackerId = serviceId, start = start, entry = entry)
         }
+    val track = viewModel.track.collectAsState().value ?: return
+    val selectableDates = remember(track, start) { trackSelectableDates(track, start) }
 
     val canRemove = if (start) track.startDate != null else track.finishDate != null
     TrackDateSelector(
@@ -572,7 +597,7 @@ fun EntryTrackDateSelectorScreen(track: Track, serviceId: Long, start: Boolean, 
         } else {
             stringResource(MR.strings.track_finished_reading_date)
         },
-        initialSelectedDateMillis = viewModel.initialSelection,
+        initialSelectedDateMillis = remember(track) { viewModel.initialSelection(track) },
         selectableDates = selectableDates,
         onConfirm = {
             viewModel.setDate(it)
@@ -627,7 +652,6 @@ private fun trackSelectableDates(track: Track, start: Boolean): SelectableDates 
 
 @Serializable
 data class EntryTrackDateRemoverRoute(
-    val track: Track,
     val serviceId: Long,
     val start: Boolean,
     val entry: EntryId,
@@ -636,8 +660,7 @@ data class EntryTrackDateRemoverRoute(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val track: Track,
-        @Assisted trackerId: Long,
+        @Assisted private val trackerId: Long,
         @Assisted private val start: Boolean,
         @Assisted entry: EntryId,
         @AppCoroutineScope private val appScope: CoroutineScope,
@@ -649,20 +672,18 @@ data class EntryTrackDateRemoverRoute(
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(track: Track, trackerId: Long, start: Boolean, entry: EntryId): Model
+            fun create(trackerId: Long, start: Boolean, entry: EntryId): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
-        private val writer = ports.of(entry).writer
+        private val port = ports.of(entry)
 
         fun getServiceName() = tracker.name
 
         fun removeDate() {
             appScope.launch {
-                if (start) {
-                    writer.setRemoteStartDate(tracker, track.toDbTrack(), 0)
-                } else {
-                    writer.setRemoteFinishDate(tracker, track.toDbTrack(), 0)
+                port.editTrack(trackerId) {
+                    if (start) setRemoteStartDate(tracker, it, 0) else setRemoteFinishDate(tracker, it, 0)
                 }
             }
         }
@@ -670,10 +691,10 @@ data class EntryTrackDateRemoverRoute(
 }
 
 @Composable
-fun EntryTrackDateRemoverScreen(track: Track, serviceId: Long, start: Boolean, entry: EntryId) {
+fun EntryTrackDateRemoverScreen(serviceId: Long, start: Boolean, entry: EntryId) {
     val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<EntryTrackDateRemoverRoute.Model, EntryTrackDateRemoverRoute.Model.Factory> {
-        create(track = track, trackerId = serviceId, start = start, entry = entry)
+        create(trackerId = serviceId, start = start, entry = entry)
     }
     AlertDialogContent(
         modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
@@ -722,8 +743,6 @@ fun EntryTrackDateRemoverScreen(track: Track, serviceId: Long, start: Boolean, e
 @Serializable
 data class EntryTrackerSearchRoute(
     val entry: EntryId,
-    val initialQuery: String,
-    val currentUrl: String?,
     val serviceId: Long,
 ) : NavKey {
 
@@ -731,9 +750,7 @@ data class EntryTrackerSearchRoute(
     @AssistedInject
     class Model(
         @Assisted entry: EntryId,
-        @Assisted private val currentUrl: String?,
-        @Assisted initialQuery: String,
-        @Assisted trackerId: Long,
+        @Assisted private val trackerId: Long,
         @AppCoroutineScope private val appScope: CoroutineScope,
         private val context: Context,
         trackerManager: TrackerManager,
@@ -743,22 +760,23 @@ data class EntryTrackerSearchRoute(
         val state: StateFlow<Model.State>
             field = MutableStateFlow<Model.State>(State())
 
+        /** Here rather than in the composition, since its prefill is read by id after the page opens. */
+        val query = TextFieldState()
+
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(
-                entry: EntryId,
-                currentUrl: String?,
-                initialQuery: String,
-                trackerId: Long,
-            ): Model
+            fun create(entry: EntryId, trackerId: Long): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
         private val port = ports.of(entry)
 
         private var searchJob: Job? = null
+
+        /** The bound entry's page, which a result matching it is preselected by. */
+        private var currentUrl: String? = null
 
         val supportsPrivateTracking = tracker.supportsPrivateTracking
 
@@ -767,9 +785,13 @@ data class EntryTrackerSearchRoute(
         val trackerName = tracker.name
 
         init {
-            // Run search on first launch
-            if (initialQuery.isNotBlank()) {
-                trackingSearch(initialQuery)
+            viewModelScope.launch {
+                val track = port.trackFor(trackerId)
+                currentUrl = track?.remoteUrl
+                val initialQuery = track?.title ?: port.title().orEmpty()
+                query.setTextAndPlaceCursorAtEnd(initialQuery)
+                // Run search on first launch
+                if (initialQuery.isNotBlank()) trackingSearch(initialQuery)
             }
         }
 
@@ -805,33 +827,32 @@ data class EntryTrackerSearchRoute(
 
         fun updateSelection(selected: TrackSearch) = state.update { it.copy(selected = selected) }
 
+        fun askToReplace(selected: TrackSearch) = state.update { it.copy(pendingBind = selected) }
+
+        fun dismissReplace() = state.update { it.copy(pendingBind = null) }
+
         @Immutable
         data class State(
             val queryResult: Result<List<TrackSearch>>? = null,
             val selected: TrackSearch? = null,
+            /** The pick whose replace confirmation is up, held here so a rotation keeps it. */
+            val pendingBind: TrackSearch? = null,
         )
     }
 }
 
 @Composable
-fun EntryTrackerSearchScreen(entry: EntryId, initialQuery: String, currentUrl: String?, serviceId: Long) {
+fun EntryTrackerSearchScreen(entry: EntryId, serviceId: Long) {
     val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<EntryTrackerSearchRoute.Model, EntryTrackerSearchRoute.Model.Factory> {
-        create(
-            entry = entry,
-            currentUrl = currentUrl,
-            initialQuery = initialQuery,
-            trackerId = serviceId,
-        )
+        create(entry = entry, trackerId = serviceId)
     }
 
     val state by viewModel.state.collectAsState()
 
-    val textFieldState = rememberTextFieldState(initialQuery)
-    var pendingBind by remember { mutableStateOf<TrackSearch?>(null) }
     TrackerSearch(
-        state = textFieldState,
-        onDispatchQuery = { viewModel.trackingSearch(textFieldState.text.toString()) },
+        state = viewModel.query,
+        onDispatchQuery = { viewModel.trackingSearch(viewModel.query.text.toString()) },
         queryResult = state.queryResult,
         selected = state.selected,
         onSelectedChange = viewModel::updateSelection,
@@ -839,7 +860,7 @@ fun EntryTrackerSearchScreen(entry: EntryId, initialQuery: String, currentUrl: S
             val selected = state.selected ?: return@f
             selected.private = private
             if (viewModel.replacesRemoteEntry) {
-                pendingBind = selected
+                viewModel.askToReplace(selected)
             } else {
                 viewModel.registerTracking(selected)
                 navigator.pop()
@@ -849,15 +870,15 @@ fun EntryTrackerSearchScreen(entry: EntryId, initialQuery: String, currentUrl: S
         supportsPrivateTracking = viewModel.supportsPrivateTracking,
     )
 
-    pendingBind?.let { selected ->
+    state.pendingBind?.let { selected ->
         ReplaceEntryConfirmDialog(
             trackerName = viewModel.trackerName,
             onConfirm = {
-                pendingBind = null
+                viewModel.dismissReplace()
                 viewModel.registerTracking(selected)
                 navigator.pop()
             },
-            onDismissRequest = { pendingBind = null },
+            onDismissRequest = viewModel::dismissReplace,
         )
     }
 }
@@ -865,7 +886,6 @@ fun EntryTrackerSearchScreen(entry: EntryId, initialQuery: String, currentUrl: S
 @Serializable
 data class EntryTrackerRemoveRoute(
     val entry: EntryId,
-    val track: Track,
     val serviceId: Long,
 ) : NavKey {
 
@@ -873,8 +893,7 @@ data class EntryTrackerRemoveRoute(
     @AssistedInject
     class Model(
         @Assisted entry: EntryId,
-        @Assisted private val track: Track,
-        @Assisted trackerId: Long,
+        @Assisted private val trackerId: Long,
         private val removal: RemoteFirstRemoval,
         trackerManager: TrackerManager,
         ports: EntryTrackPorts,
@@ -884,11 +903,18 @@ data class EntryTrackerRemoveRoute(
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(entry: EntryId, track: Track, trackerId: Long): Model
+            fun create(entry: EntryId, trackerId: Long): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
         private val port = ports.of(entry)
+
+        /** The binding the service delete names, read by id when the page opens. */
+        private var track: Track? = null
+
+        init {
+            viewModelScope.launch { track = port.trackFor(trackerId) }
+        }
 
         fun getName() = tracker.name
 
@@ -897,15 +923,18 @@ data class EntryTrackerRemoveRoute(
         // Cleared from every merged source, so a sibling's row can't keep the tracker alive in the
         // library's tracker filter, sort and grouping. Not on viewModelScope: the screen pops as the
         // removal starts.
-        fun remove(alsoFromService: Boolean) = port.removeTrack(removal, tracker, track, alsoFromService)
+        fun remove(alsoFromService: Boolean) {
+            val track = track ?: return
+            port.removeTrack(removal, tracker, track, alsoFromService)
+        }
     }
 }
 
 @Composable
-fun EntryTrackerRemoveScreen(entry: EntryId, track: Track, serviceId: Long) {
+fun EntryTrackerRemoveScreen(entry: EntryId, serviceId: Long) {
     val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<EntryTrackerRemoveRoute.Model, EntryTrackerRemoveRoute.Model.Factory> {
-        create(entry = entry, track = track, trackerId = serviceId)
+        create(entry = entry, trackerId = serviceId)
     }
     val serviceName = viewModel.getName()
     var removeRemoteTrack by remember { mutableStateOf(false) }
@@ -994,15 +1023,15 @@ private suspend fun bindTrack(context: Context, port: EntryTrackPort, tracker: T
 
 /** The track sheet over [entry]'s details page, drawn as an overlay so the page stays beneath it. */
 @Serializable
-data class EntryTrackSheetRoute(val entry: EntryId, val entryTitle: String) : NavKey
+data class EntryTrackSheetRoute(val entry: EntryId) : NavKey
 
 /**
  * The sheet [EntryTrackSheetRoute] opens, with its pickers on a navigator of its own, as upstream's track
  * dialog has. Each page gets its own ViewModel store, or every picker would reuse the first one's model.
  */
 @Composable
-fun EntryTrackSheet(entry: EntryId, entryTitle: String, onDismissRequest: () -> Unit) {
-    val sheetNavigator = rememberNavigator(EntryTrackInfoDialogHomeRoute(entry, entryTitle))
+fun EntryTrackSheet(entry: EntryId, onDismissRequest: () -> Unit) {
+    val sheetNavigator = rememberNavigator(EntryTrackInfoDialogHomeRoute(entry))
 
     CompositionLocalProvider(LocalNavigator provides sheetNavigator) {
         AdaptiveSheet(
@@ -1020,26 +1049,18 @@ fun EntryTrackSheet(entry: EntryId, entryTitle: String, onDismissRequest: () -> 
                     rememberViewModelStoreNavEntryDecorator(),
                 ),
                 entryProvider = entryProvider {
-                    entry<EntryTrackInfoDialogHomeRoute> { EntryTrackInfoDialogHomeScreen(it.entry, it.entryTitle) }
-                    entry<EntryTrackStatusSelectorRoute> {
-                        EntryTrackStatusSelectorScreen(it.track, it.serviceId, it.entry)
-                    }
-                    entry<EntryTrackChapterSelectorRoute> {
-                        EntryTrackChapterSelectorScreen(it.track, it.serviceId, it.entry)
-                    }
-                    entry<EntryTrackScoreSelectorRoute> {
-                        EntryTrackScoreSelectorScreen(it.track, it.serviceId, it.entry)
-                    }
+                    entry<EntryTrackInfoDialogHomeRoute> { EntryTrackInfoDialogHomeScreen(it.entry) }
+                    entry<EntryTrackStatusSelectorRoute> { EntryTrackStatusSelectorScreen(it.serviceId, it.entry) }
+                    entry<EntryTrackChapterSelectorRoute> { EntryTrackChapterSelectorScreen(it.serviceId, it.entry) }
+                    entry<EntryTrackScoreSelectorRoute> { EntryTrackScoreSelectorScreen(it.serviceId, it.entry) }
                     entry<EntryTrackDateSelectorRoute> {
-                        EntryTrackDateSelectorScreen(it.track, it.serviceId, it.start, it.entry)
+                        EntryTrackDateSelectorScreen(it.serviceId, it.start, it.entry)
                     }
                     entry<EntryTrackDateRemoverRoute> {
-                        EntryTrackDateRemoverScreen(it.track, it.serviceId, it.start, it.entry)
+                        EntryTrackDateRemoverScreen(it.serviceId, it.start, it.entry)
                     }
-                    entry<EntryTrackerSearchRoute> {
-                        EntryTrackerSearchScreen(it.entry, it.initialQuery, it.currentUrl, it.serviceId)
-                    }
-                    entry<EntryTrackerRemoveRoute> { EntryTrackerRemoveScreen(it.entry, it.track, it.serviceId) }
+                    entry<EntryTrackerSearchRoute> { EntryTrackerSearchScreen(it.entry, it.serviceId) }
+                    entry<EntryTrackerRemoveRoute> { EntryTrackerRemoveScreen(it.entry, it.serviceId) }
                 },
             )
         }

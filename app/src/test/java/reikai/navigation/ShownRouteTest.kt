@@ -15,7 +15,7 @@ class ShownRouteTest {
 
     @Test
     fun `the page under the track sheet is the one shown`() {
-        testNavigator(TestRootRoute, details, EntryTrackSheetRoute(EntryId.Novel(1L), "Title")).shownRoute shouldBe
+        testNavigator(TestRootRoute, details, EntryTrackSheetRoute(EntryId.Novel(1L))).shownRoute shouldBe
             details
     }
 

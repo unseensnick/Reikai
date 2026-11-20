@@ -108,9 +108,7 @@ import reikai.presentation.track.EntryTrackSheetRoute
 import reikai.presentation.track.EntryTrackStatusSelectorRoute
 import reikai.presentation.track.EntryTrackerRemoveRoute
 import reikai.presentation.track.EntryTrackerSearchRoute
-import tachiyomi.domain.track.model.Track
 import java.io.File
-import kotlin.time.Instant
 
 /**
  * Every route the app module declares survives a save and restore, and every one the main display draws is
@@ -140,23 +138,6 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
             reikaiEntries()
         }
 
-        private val track = Track(
-            id = 1L,
-            mangaId = 2L,
-            trackerId = 3L,
-            remoteId = 4L,
-            libraryId = 5L,
-            title = "Title",
-            lastChapterRead = 6.0,
-            totalChapters = 7L,
-            status = 8L,
-            score = 9.0,
-            remoteUrl = "https://example.org/9",
-            startDate = Instant.fromEpochMilliseconds(10L),
-            finishDate = null,
-            private = true,
-        )
-
         val routes: List<Pair<NavKey, DrawnBy>> = listOf(
             NovelRoute(1L, fromSource = true) to DrawnBy.MAIN,
             EntryCatalogueRoute(
@@ -166,7 +147,7 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
                 migrateFor = MigrationPickFor(EntryId.Novel(2L), flowId = 3L),
                 savedSearchId = 4L,
             ) to DrawnBy.MAIN,
-            EntryTrackSheetRoute(EntryId.Manga(1L), "Title") to DrawnBy.MAIN,
+            EntryTrackSheetRoute(EntryId.Manga(1L)) to DrawnBy.MAIN,
             NovelSourcePreferencesRoute("plugin") to DrawnBy.MAIN,
             AboutScreen to DrawnBy.MAIN,
             SettingsEhScreen to DrawnBy.MAIN,
@@ -246,14 +227,14 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
             TopLevelRoute.More to DrawnBy.TABS,
             RecentsTabRoute to DrawnBy.TABS,
             StatsTabRoute to DrawnBy.TABS,
-            EntryTrackInfoDialogHomeRoute(EntryId.Novel(1L), "Title") to DrawnBy.TRACK_SHEET,
-            EntryTrackStatusSelectorRoute(track, 3L, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
-            EntryTrackChapterSelectorRoute(track, 3L, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
-            EntryTrackScoreSelectorRoute(track, 3L, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
-            EntryTrackDateSelectorRoute(track, 3L, start = true, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
-            EntryTrackDateRemoverRoute(track, 3L, start = false, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
-            EntryTrackerSearchRoute(EntryId.Novel(2L), "query", "https://example.org/1", 3L) to DrawnBy.TRACK_SHEET,
-            EntryTrackerRemoveRoute(EntryId.Novel(2L), track, 3L) to DrawnBy.TRACK_SHEET,
+            EntryTrackInfoDialogHomeRoute(EntryId.Novel(1L)) to DrawnBy.TRACK_SHEET,
+            EntryTrackStatusSelectorRoute(3L, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
+            EntryTrackChapterSelectorRoute(3L, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
+            EntryTrackScoreSelectorRoute(3L, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
+            EntryTrackDateSelectorRoute(3L, start = true, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
+            EntryTrackDateRemoverRoute(3L, start = false, EntryId.Manga(2L)) to DrawnBy.TRACK_SHEET,
+            EntryTrackerSearchRoute(EntryId.Novel(2L), 3L) to DrawnBy.TRACK_SHEET,
+            EntryTrackerRemoveRoute(EntryId.Novel(2L), 3L) to DrawnBy.TRACK_SHEET,
         )
 
         @JvmStatic

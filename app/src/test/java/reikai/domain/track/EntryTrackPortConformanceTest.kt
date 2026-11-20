@@ -28,6 +28,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
@@ -123,6 +124,11 @@ class EntryTrackPortConformanceTest {
             addNovelTrack = addNovelTrack,
             deleteNovelTrack = deleteNovelTrack,
             novelTrackUpdater = novelTrackUpdater,
+            getEntryCustomInfo = mockk {
+                coEvery { await(any()) } returns mockk<EntryCustomInfo>(relaxed = true) {
+                    every { title } returns EDITED_TITLE
+                }
+            },
         )
 
         /** A tracker whose catalogues are [catalogues]; each search answers with a hit named for its catalogue. */
@@ -255,6 +261,12 @@ class EntryTrackPortConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
+    fun `the title is the entry's own with its Edit info override applied`(type: Type) = runTest {
+        h.ports.of(type.entry).title() shouldBe EDITED_TITLE
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
     fun `the writer is the entry's own engine's`(type: Type) {
         h.ports.of(type.entry).writer shouldBe type.expectedWriter(h)
     }
@@ -268,6 +280,7 @@ class EntryTrackPortConformanceTest {
         const val NOVEL_CATALOGUE = "novel"
         const val GROUP_ROW = "group row"
         const val OWN_ROW = "own row"
+        const val EDITED_TITLE = "edited title"
         val RATE_LIMITED = HttpException(429)
         const val TOAST = "eu.kanade.tachiyomi.util.system.ToastExtensionsKt"
         const val TRACKER_ERROR = "reikai.presentation.track.TrackerErrorMessageKt"

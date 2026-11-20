@@ -8,6 +8,8 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.GetEntryCustomInfo
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.manga.DeleteTrackInGroup
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.novel.NovelRepository
@@ -16,6 +18,7 @@ import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.model.NovelTrack
+import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.novel.track.NovelTrackUpdater
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.track.autobind.AutoBindEntry
@@ -38,6 +41,9 @@ interface EntryTrackPort {
 
     /** Null while the entry or its source is not loaded. */
     suspend fun autoBindEntry(): AutoBindEntry?
+
+    /** The title the details page shows, Edit info's override applied; null while the entry is not loaded. */
+    suspend fun title(): String?
 
     /** Whether [tracker]'s catalogue holds this type; binding across the two binds a different work. */
     fun supports(tracker: Tracker): Boolean
@@ -73,6 +79,7 @@ class EntryTrackPorts(
     private val addNovelTrack: AddNovelTrack,
     private val deleteNovelTrack: DeleteNovelTrack,
     private val novelTrackUpdater: NovelTrackUpdater,
+    private val getEntryCustomInfo: GetEntryCustomInfo,
 ) {
 
     fun of(entry: EntryId): EntryTrackPort = when (entry) {
@@ -89,6 +96,9 @@ class EntryTrackPorts(
 
         override suspend fun autoBindEntry() =
             getManga.await(mangaId)?.let { AutoBindEntry.Manga(it, sourceManager.getOrStub(it.source)) }
+
+        override suspend fun title() =
+            getManga.await(mangaId)?.withCustomInfo(getEntryCustomInfo.await(EntryId.Manga(mangaId)))?.title
 
         override fun supports(tracker: Tracker) = tracker.supportsContent(isNovel = false)
 
@@ -109,6 +119,9 @@ class EntryTrackPorts(
         override suspend fun autoBindEntry() = novelRepository.getById(novelId)?.let { novel ->
             novelSourceManager.get(novel.source)?.let { AutoBindEntry.Novel(novel, it) }
         }
+
+        override suspend fun title() =
+            novelRepository.getById(novelId)?.withCustomInfo(getEntryCustomInfo.await(EntryId.Novel(novelId)))?.title
 
         override fun supports(tracker: Tracker) = tracker.supportsContent(isNovel = true)
 

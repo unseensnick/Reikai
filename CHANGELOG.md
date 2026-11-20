@@ -432,6 +432,15 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel's edited author, artist, description, genres or status in a backup from Reikai 0.1 or 0.2 now survives the next refresh after a restore.**
 - **Restoring a backup now fills in a manga chapter's page count when the rest of that chapter already matches the device.** Before, it showed the page you reached without the total until the chapter was opened again.
 
+### Tracking
+
+#### Fixed
+
+- **Changing a tracker's status, score or dates no longer sends an older reading progress back to the tracker.**
+- **Confirming the tracker's chapter picker without moving it no longer rounds progress like 12.5 down to 12.**
+- **Tapping a self-hosted server tracker whose server can't be reached now says why instead of reporting no match.**
+- **The warning before a tracker replaces its list entry now stays up when the screen rotates.**
+
 ### Other
 
 - Updated Compose, Conscrypt, Firebase, jsoup, kotlinx.serialization, Metro and the WebGPU manga viewer (from Mihon).

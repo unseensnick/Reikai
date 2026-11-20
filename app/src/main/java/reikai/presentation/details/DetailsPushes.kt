@@ -75,7 +75,7 @@ internal fun EntryDetailsNavigation.withSharedPushes(
         },
         onBrowseSource = { stack.push(EntryCatalogueRoute(viewedSource.key)) }.takeIf { viewedSource.browsable },
         onOpenTrackingSettings = { stack.openSettings(SettingsTrackingScreen, twoPane) },
-        onOpenTrackSheet = { stack.push(EntryTrackSheetRoute(state.entryId, state.details.header.title)) },
+        onOpenTrackSheet = { stack.push(EntryTrackSheetRoute(state.entryId)) },
         onEditNotes = {
             stack.push(
                 when (val viewed = EntryId.of(type, state.viewedEntryId)) {

@@ -109,7 +109,7 @@ fun EntryProviderScope<NavKey>.reikaiEntries() {
     }
     entry<EntryTrackSheetRoute>(metadata = OverlaySheetScene.overlaySheet()) { route ->
         val navigator = LocalNavigator.current
-        EntryTrackSheet(route.entry, route.entryTitle, onDismissRequest = { navigator.pop() })
+        EntryTrackSheet(route.entry, onDismissRequest = { navigator.pop() })
     }
     entry<NovelSourcePreferencesRoute> { SourcePreferencesScreen(SourceKey.Novel(it.sourceId)) }
 

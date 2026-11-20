@@ -9,6 +9,7 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -39,6 +40,8 @@ class EntryTrackerSearchModelTest {
         val newer = listOf(mockk<TrackSearch>(relaxed = true))
         val model = model(
             mockk {
+                every { tracks() } returns flowOf(emptyList())
+                coEvery { title() } returns ""
                 coEvery { search(any(), "old") } coAnswers { older.await() }
                 coEvery { search(any(), "new") } returns newer
             },
@@ -54,6 +57,37 @@ class EntryTrackerSearchModelTest {
         model.state.value.queryResult shouldBe Result.success(newer)
     }
 
+    @Test
+    fun `an unbound tracker's search starts from the entry's title read by id`() = runTest {
+        useTestDispatchers()
+        val model = model(
+            mockk {
+                every { tracks() } returns flowOf(emptyList())
+                coEvery { title() } returns "Edited title"
+                coEvery { search(any(), any()) } returns emptyList()
+            },
+        )
+        advanceUntilIdle()
+
+        model.query.text.toString() shouldBe "Edited title"
+    }
+
+    @Test
+    fun `a pick awaiting the replace confirmation is held by the model`() = runTest {
+        useTestDispatchers()
+        val model = model(
+            mockk {
+                every { tracks() } returns flowOf(emptyList())
+                coEvery { title() } returns ""
+            },
+        )
+        val pick = mockk<TrackSearch>(relaxed = true)
+
+        model.askToReplace(pick)
+
+        model.state.value.pendingBind shouldBe pick
+    }
+
     private fun TestScope.useTestDispatchers() {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
@@ -62,8 +96,6 @@ class EntryTrackerSearchModelTest {
 
     private fun model(port: EntryTrackPort) = EntryTrackerSearchRoute.Model(
         entry = EntryId.Manga(1L),
-        currentUrl = null,
-        initialQuery = "",
         trackerId = TRACKER_ID,
         appScope = testAppScope(),
         context = mockk(),
