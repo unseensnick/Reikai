@@ -1,5 +1,7 @@
 package reikai.presentation.track
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.lifecycle.SavedStateHandle
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -73,6 +75,25 @@ class EntryTrackerSearchModelTest {
     }
 
     @Test
+    fun `a query typed before the title is read is not replaced by it`() = runTest {
+        useTestDispatchers()
+        val title = CompletableDeferred<String>()
+        val model = model(
+            mockk {
+                every { tracks() } returns flowOf(emptyList())
+                coEvery { title() } coAnswers { title.await() }
+            },
+        )
+        advanceUntilIdle()
+        model.query.setTextAndPlaceCursorAtEnd("typed")
+
+        title.complete("Edited title")
+        advanceUntilIdle()
+
+        model.query.text.toString() shouldBe "typed"
+    }
+
+    @Test
     fun `a pick awaiting the replace confirmation is held by the model`() = runTest {
         useTestDispatchers()
         val model = model(
@@ -97,6 +118,7 @@ class EntryTrackerSearchModelTest {
     private fun model(port: EntryTrackPort) = EntryTrackerSearchRoute.Model(
         entry = EntryId.Manga(1L),
         trackerId = TRACKER_ID,
+        savedState = SavedStateHandle(),
         appScope = testAppScope(),
         context = mockk(),
         trackerManager = mockk { every { get(TRACKER_ID) } returns mockk(relaxed = true) },

@@ -47,6 +47,12 @@ fun EntryId.keptSeedColor(coverUrl: String?, coverLastModified: Instant?): Int? 
     return MangaCover.vibrantCoverColorMap[key]
 }
 
+/**
+ * The colour last kept for this entry, from whichever cover, for a page's first frame while its own cover is
+ * read: the page then asks [seedColor] and takes its answer, so an old cover's colour lasts one read at most.
+ */
+fun EntryId.lastSeedColor(): Int? = MangaCover.vibrantCoverColorMap[signedKey()]
+
 // Which cover each kept colour came from. Kept for the process only: a colour restored from disk, or found by
 // the library's cover loads, carries no cover, so the first open after a start reads it again.
 private val seedCovers = ConcurrentHashMap<Long, String>()

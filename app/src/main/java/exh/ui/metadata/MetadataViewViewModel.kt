@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import reikai.data.coil.extractCoverColor
+import reikai.data.coil.lastSeedColor
 import reikai.data.coil.seedColor
 import reikai.domain.entry.EntryId
 import tachiyomi.core.common.util.lang.launchIO
@@ -53,9 +54,9 @@ class MetadataViewViewModel(
     private val _manga = MutableStateFlow<Manga?>(null)
     val manga = _manga.asStateFlow()
 
-    /** The colour the manga's cover tints the page with, when the cover theme is on. */
+    /** The colour the manga's cover tints the page with, when the cover theme is on, from the first frame. */
     val seedColor: StateFlow<Int?>
-        field = MutableStateFlow<Int?>(null)
+        field = MutableStateFlow(EntryId.Manga(mangaId).lastSeedColor()?.takeIf { themeCoverBased })
 
     init {
         viewModelScope.launchIO {

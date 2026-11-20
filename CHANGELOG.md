@@ -397,7 +397,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Copy and Migrate buttons in the migration list no longer sit under the navigation bar.**
 - **Tapping a migration target twice while browsing a source no longer closes the migration list too.**
 - **Coming back to the migration favorites list from a series no longer shows the loading spinner again.**
-- **A novel picked as a migration target after rotating the screen now returns to the migration list.**
+- **A novel migration target still being saved when the screen rotates now returns to the migration list.**
 
 ### Backup & restore
 

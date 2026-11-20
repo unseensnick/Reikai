@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -16,6 +17,7 @@ import reikai.domain.entry.EntryId
 import reikai.presentation.MainDispatcherExtension
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Duration.Companion.seconds
 
@@ -28,14 +30,17 @@ class MetadataViewViewModelTest {
 
     private val manga = Manga.create().copy(id = MANGA_ID, thumbnailUrl = "https://example.org/cover.jpg")
 
-    private fun viewModel(themeCoverBased: Boolean) = main.track(
+    private fun viewModel(
+        themeCoverBased: Boolean,
+        getManga: GetManga = mockk { coEvery { await(MANGA_ID) } returns manga },
+    ) = main.track(
         MetadataViewViewModel(
             mangaId = MANGA_ID,
             sourceId = 2L,
             context = mockk(relaxed = true),
             getFlatMetadataById = mockk { coEvery { await(MANGA_ID) } returns null },
             sourceManager = mockk { coEvery { get(2L) } returns null },
-            getManga = mockk { coEvery { await(MANGA_ID) } returns manga },
+            getManga = getManga,
             uiPreferences = UiPreferences(
                 InMemoryPreferenceStore(
                     sequenceOf(InMemoryPreference("pref_theme_cover_based_key", themeCoverBased, true)),
@@ -52,6 +57,17 @@ class MetadataViewViewModelTest {
         withContext(Dispatchers.Default) {
             withTimeout(5.seconds) { viewModel.seedColor.first { it != null } }
         } shouldBe COLOR
+    }
+
+    @Test
+    fun `a colour already kept tints the first frame, before the manga is read`() = runTest {
+        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null) { COLOR }
+
+        val unread = mockk<GetManga> { coEvery { await(MANGA_ID) } coAnswers { awaitCancellation() } }
+
+        val viewModel = viewModel(themeCoverBased = true, getManga = unread)
+
+        viewModel.seedColor.value shouldBe COLOR
     }
 
     @Test

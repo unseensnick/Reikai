@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
@@ -26,6 +27,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,8 +38,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.SavedStateHandleSaveableApi
+import androidx.lifecycle.viewmodel.compose.saveable
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -115,6 +122,7 @@ import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.AlertDialogContent
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.screens.LoadingScreen
 import kotlin.time.Clock
 import kotlin.time.Instant
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
@@ -290,6 +298,45 @@ private fun Context.copyTrackerLink(trackItem: TrackItem) {
 private suspend fun EntryTrackPort.trackFor(trackerId: Long): Track? =
     tracks().first().find { it.trackerId == trackerId }
 
+/** What a picker page holds of its binding: still being read, read, or gone before the page opened on it. */
+sealed interface TrackPage<out T> {
+    data object Loading : TrackPage<Nothing>
+
+    data class Loaded<T>(val value: T) : TrackPage<T>
+
+    data object Gone : TrackPage<Nothing>
+}
+
+private suspend fun <T> EntryTrackPort.pageFor(trackerId: Long, toValue: (Track) -> T): TrackPage<T> =
+    trackFor(trackerId)?.let { TrackPage.Loaded(toValue(it)) } ?: TrackPage.Gone
+
+private val <T> TrackPage<T>.loaded: T? get() = (this as? TrackPage.Loaded)?.value
+
+private fun <T> MutableStateFlow<TrackPage<T>>.updateLoaded(transform: (T) -> T) =
+    update { if (it is TrackPage.Loaded) TrackPage.Loaded(transform(it.value)) else it }
+
+/**
+ * Every picker page and the remove page draw through here, so none confirms on a binding it has not read. A
+ * spinner holds the sheet open while the read runs; a binding gone by then says so and pops, since an empty
+ * page would leave the sheet up with only a scrim tap to close it.
+ */
+@Composable
+internal fun <T> TrackPageContent(page: TrackPage<T>, onGone: () -> Unit, content: @Composable (T) -> Unit) {
+    when (page) {
+        TrackPage.Loading -> LoadingScreen(Modifier.height(TRACK_PAGE_LOADING_HEIGHT.dp))
+        TrackPage.Gone -> {
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                context.toast(MR.strings.entry_not_tracked)
+                onGone()
+            }
+        }
+        is TrackPage.Loaded -> content(page.value)
+    }
+}
+
+private const val TRACK_PAGE_LOADING_HEIGHT = 120
+
 /**
  * Applies [edit] to the binding as stored now, never to a copy read when the page opened: the write
  * pushes the whole row, so a stale one would send old progress, score and dates back to the tracker.
@@ -299,8 +346,8 @@ private suspend fun EntryTrackPort.editTrack(trackerId: Long, edit: suspend Trac
     writer.edit(track.toDbTrack())
 }
 
-// The pickers' routes carry the tracker and the entry only, so a restored sheet reads the binding afresh.
-// Each model's state stays null until that read lands, and stays null for a binding removed meanwhile.
+// The pickers' routes carry the tracker and the entry only, so a restored sheet reads the binding afresh,
+// and each page draws through [TrackPageContent] once that read lands.
 
 @Serializable
 data class EntryTrackStatusSelectorRoute(
@@ -318,8 +365,8 @@ data class EntryTrackStatusSelectorRoute(
         ports: EntryTrackPorts,
     ) : ViewModel() {
 
-        val state: StateFlow<Model.State?>
-            field = MutableStateFlow<Model.State?>(null)
+        val state: StateFlow<TrackPage<Model.State>>
+            field = MutableStateFlow<TrackPage<Model.State>>(TrackPage.Loading)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
@@ -334,16 +381,16 @@ data class EntryTrackStatusSelectorRoute(
         private val port = ports.of(entry)
 
         init {
-            viewModelScope.launch { port.trackFor(trackerId)?.let { track -> state.value = State(track.status) } }
+            viewModelScope.launch { state.value = port.pageFor(trackerId) { State(it.status) } }
         }
 
         fun getSelections(): Map<Long, StringResource?> =
             tracker.getStatusList().associateWith { tracker.getStatus(it) }
 
-        fun setSelection(selection: Long) = state.update { it?.copy(selection = selection) }
+        fun setSelection(selection: Long) = state.updateLoaded { it.copy(selection = selection) }
 
         fun setStatus() {
-            val selection = state.value?.selection ?: return
+            val selection = state.value.loaded?.selection ?: return
             appScope.launch { port.editTrack(trackerId) { setRemoteStatus(tracker, it, selection) } }
         }
 
@@ -359,17 +406,19 @@ fun EntryTrackStatusSelectorScreen(serviceId: Long, entry: EntryId) {
         assistedMetroViewModel<EntryTrackStatusSelectorRoute.Model, EntryTrackStatusSelectorRoute.Model.Factory> {
             create(trackerId = serviceId, entry = entry)
         }
-    val state = viewModel.state.collectAsState().value ?: return
-    TrackStatusSelector(
-        selection = state.selection,
-        onSelectionChange = viewModel::setSelection,
-        selections = remember { viewModel.getSelections() },
-        onConfirm = {
-            viewModel.setStatus()
-            navigator.pop()
-        },
-        onDismissRequest = navigator::pop,
-    )
+    val page by viewModel.state.collectAsState()
+    TrackPageContent(page, onGone = navigator::pop) { state ->
+        TrackStatusSelector(
+            selection = state.selection,
+            onSelectionChange = viewModel::setSelection,
+            selections = remember { viewModel.getSelections() },
+            onConfirm = {
+                viewModel.setStatus()
+                navigator.pop()
+            },
+            onDismissRequest = navigator::pop,
+        )
+    }
 }
 
 @Serializable
@@ -388,8 +437,8 @@ data class EntryTrackChapterSelectorRoute(
         ports: EntryTrackPorts,
     ) : ViewModel() {
 
-        val state: StateFlow<Model.State?>
-            field = MutableStateFlow<Model.State?>(null)
+        val state: StateFlow<TrackPage<Model.State>>
+            field = MutableStateFlow<TrackPage<Model.State>>(TrackPage.Loading)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
@@ -403,17 +452,17 @@ data class EntryTrackChapterSelectorRoute(
 
         init {
             viewModelScope.launch {
-                port.trackFor(trackerId)?.let { track ->
+                state.value = port.pageFor(trackerId) { track ->
                     val endRange = if (track.totalChapters > 0) track.totalChapters else 10000
-                    state.value = State(track.lastChapterRead.toInt(), 0..endRange.toInt(), track.lastChapterRead)
+                    State(track.lastChapterRead.toInt(), 0..endRange.toInt(), track.lastChapterRead)
                 }
             }
         }
 
-        fun setSelection(selection: Int) = state.update { it?.copy(selection = selection) }
+        fun setSelection(selection: Int) = state.updateLoaded { it.copy(selection = selection) }
 
         fun setChapter() {
-            val state = state.value ?: return
+            val state = state.value.loaded ?: return
             // The picker holds whole chapters, so an unmoved one would truncate 12.5 to 12.
             if (state.selection == state.opened.toInt()) return
             appScope.launch { port.editTrack(trackerId) { setRemoteLastChapterRead(tracker, it, state.selection) } }
@@ -431,17 +480,19 @@ fun EntryTrackChapterSelectorScreen(serviceId: Long, entry: EntryId) {
         assistedMetroViewModel<EntryTrackChapterSelectorRoute.Model, EntryTrackChapterSelectorRoute.Model.Factory> {
             create(trackerId = serviceId, entry = entry)
         }
-    val state = viewModel.state.collectAsState().value ?: return
-    TrackChapterSelector(
-        selection = state.selection,
-        onSelectionChange = viewModel::setSelection,
-        range = state.range,
-        onConfirm = {
-            viewModel.setChapter()
-            navigator.pop()
-        },
-        onDismissRequest = navigator::pop,
-    )
+    val page by viewModel.state.collectAsState()
+    TrackPageContent(page, onGone = navigator::pop) { state ->
+        TrackChapterSelector(
+            selection = state.selection,
+            onSelectionChange = viewModel::setSelection,
+            range = state.range,
+            onConfirm = {
+                viewModel.setChapter()
+                navigator.pop()
+            },
+            onDismissRequest = navigator::pop,
+        )
+    }
 }
 
 @Serializable
@@ -463,8 +514,8 @@ data class EntryTrackScoreSelectorRoute(
         private val tracker = trackerManager.get(trackerId)!!
         private val port = ports.of(entry)
 
-        val state: StateFlow<Model.State?>
-            field = MutableStateFlow<Model.State?>(null)
+        val state: StateFlow<TrackPage<Model.State>>
+            field = MutableStateFlow<TrackPage<Model.State>>(TrackPage.Loading)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
@@ -474,17 +525,15 @@ data class EntryTrackScoreSelectorRoute(
         }
 
         init {
-            viewModelScope.launch {
-                port.trackFor(trackerId)?.let { track -> state.value = State(tracker.displayScore(track)) }
-            }
+            viewModelScope.launch { state.value = port.pageFor(trackerId) { State(tracker.displayScore(it)) } }
         }
 
         fun getSelections(): List<String> = tracker.getScoreList()
 
-        fun setSelection(selection: String) = state.update { it?.copy(selection = selection) }
+        fun setSelection(selection: String) = state.updateLoaded { it.copy(selection = selection) }
 
         fun setScore() {
-            val selection = state.value?.selection ?: return
+            val selection = state.value.loaded?.selection ?: return
             appScope.launch { port.editTrack(trackerId) { setRemoteScore(tracker, it, selection) } }
         }
 
@@ -500,17 +549,19 @@ fun EntryTrackScoreSelectorScreen(serviceId: Long, entry: EntryId) {
         assistedMetroViewModel<EntryTrackScoreSelectorRoute.Model, EntryTrackScoreSelectorRoute.Model.Factory> {
             create(trackerId = serviceId, entry = entry)
         }
-    val state = viewModel.state.collectAsState().value ?: return
-    TrackScoreSelector(
-        selection = state.selection,
-        onSelectionChange = viewModel::setSelection,
-        selections = remember { viewModel.getSelections() },
-        onConfirm = {
-            viewModel.setScore()
-            navigator.pop()
-        },
-        onDismissRequest = navigator::pop,
-    )
+    val page by viewModel.state.collectAsState()
+    TrackPageContent(page, onGone = navigator::pop) { state ->
+        TrackScoreSelector(
+            selection = state.selection,
+            onSelectionChange = viewModel::setSelection,
+            selections = remember { viewModel.getSelections() },
+            onConfirm = {
+                viewModel.setScore()
+                navigator.pop()
+            },
+            onDismissRequest = navigator::pop,
+        )
+    }
 }
 
 @Serializable
@@ -532,8 +583,8 @@ data class EntryTrackDateSelectorRoute(
     ) : ViewModel() {
 
         /** The binding as the page opened on it, which seeds the calendar and its bounds. */
-        val track: StateFlow<Track?>
-            field = MutableStateFlow<Track?>(null)
+        val track: StateFlow<TrackPage<Track>>
+            field = MutableStateFlow<TrackPage<Track>>(TrackPage.Loading)
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
@@ -546,7 +597,7 @@ data class EntryTrackDateSelectorRoute(
         private val port = ports.of(entry)
 
         init {
-            viewModelScope.launch { track.value = port.trackFor(trackerId) }
+            viewModelScope.launch { track.value = port.pageFor(trackerId) { it } }
         }
 
         // In UTC
@@ -587,25 +638,27 @@ fun EntryTrackDateSelectorScreen(serviceId: Long, start: Boolean, entry: EntryId
         assistedMetroViewModel<EntryTrackDateSelectorRoute.Model, EntryTrackDateSelectorRoute.Model.Factory> {
             create(trackerId = serviceId, start = start, entry = entry)
         }
-    val track = viewModel.track.collectAsState().value ?: return
-    val selectableDates = remember(track, start) { trackSelectableDates(track, start) }
+    val page by viewModel.track.collectAsState()
+    TrackPageContent(page, onGone = navigator::pop) { track ->
+        val selectableDates = remember(track, start) { trackSelectableDates(track, start) }
 
-    val canRemove = if (start) track.startDate != null else track.finishDate != null
-    TrackDateSelector(
-        title = if (start) {
-            stringResource(MR.strings.track_started_reading_date)
-        } else {
-            stringResource(MR.strings.track_finished_reading_date)
-        },
-        initialSelectedDateMillis = remember(track) { viewModel.initialSelection(track) },
-        selectableDates = selectableDates,
-        onConfirm = {
-            viewModel.setDate(it)
-            navigator.pop()
-        },
-        onRemove = { viewModel.confirmRemoveDate(navigator) }.takeIf { canRemove },
-        onDismissRequest = navigator::pop,
-    )
+        val canRemove = if (start) track.startDate != null else track.finishDate != null
+        TrackDateSelector(
+            title = if (start) {
+                stringResource(MR.strings.track_started_reading_date)
+            } else {
+                stringResource(MR.strings.track_finished_reading_date)
+            },
+            initialSelectedDateMillis = remember(track) { viewModel.initialSelection(track) },
+            selectableDates = selectableDates,
+            onConfirm = {
+                viewModel.setDate(it)
+                navigator.pop()
+            },
+            onRemove = { viewModel.confirmRemoveDate(navigator) }.takeIf { canRemove },
+            onDismissRequest = navigator::pop,
+        )
+    }
 }
 
 private fun trackSelectableDates(track: Track, start: Boolean): SelectableDates = object : SelectableDates {
@@ -751,6 +804,7 @@ data class EntryTrackerSearchRoute(
     class Model(
         @Assisted entry: EntryId,
         @Assisted private val trackerId: Long,
+        @Assisted savedState: SavedStateHandle,
         @AppCoroutineScope private val appScope: CoroutineScope,
         private val context: Context,
         trackerManager: TrackerManager,
@@ -760,14 +814,18 @@ data class EntryTrackerSearchRoute(
         val state: StateFlow<Model.State>
             field = MutableStateFlow<Model.State>(State())
 
-        /** Here rather than in the composition, since its prefill is read by id after the page opens. */
-        val query = TextFieldState()
+        // In the model, since its prefill is read by id after the page opens, and saved with the page, so a
+        // typed query outlives the process
+        @OptIn(SavedStateHandleSaveableApi::class)
+        val query: TextFieldState = savedState.saveable(key = "query", saver = TextFieldState.Saver) {
+            TextFieldState()
+        }
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(entry: EntryId, trackerId: Long): Model
+            fun create(entry: EntryId, trackerId: Long, savedState: SavedStateHandle): Model
         }
 
         private val tracker = trackerManager.get(trackerId)!!
@@ -785,11 +843,17 @@ data class EntryTrackerSearchRoute(
         val trackerName = tracker.name
 
         init {
+            val restored = query.text.toString()
             viewModelScope.launch {
                 val track = port.trackFor(trackerId)
                 currentUrl = track?.remoteUrl
-                val initialQuery = track?.title ?: port.title().orEmpty()
-                query.setTextAndPlaceCursorAtEnd(initialQuery)
+                val prefill = track?.title ?: port.title().orEmpty()
+                // A query restored with the page, or typed while the reads ran, is the user's to keep
+                val initialQuery = when {
+                    restored.isNotEmpty() -> restored
+                    query.text.isNotEmpty() -> return@launch
+                    else -> prefill.also(query::setTextAndPlaceCursorAtEnd)
+                }
                 // Run search on first launch
                 if (initialQuery.isNotBlank()) trackingSearch(initialQuery)
             }
@@ -845,7 +909,7 @@ data class EntryTrackerSearchRoute(
 fun EntryTrackerSearchScreen(entry: EntryId, serviceId: Long) {
     val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<EntryTrackerSearchRoute.Model, EntryTrackerSearchRoute.Model.Factory> {
-        create(entry = entry, trackerId = serviceId)
+        create(entry = entry, trackerId = serviceId, savedState = it.createSavedStateHandle())
     }
 
     val state by viewModel.state.collectAsState()
@@ -910,10 +974,11 @@ data class EntryTrackerRemoveRoute(
         private val port = ports.of(entry)
 
         /** The binding the service delete names, read by id when the page opens. */
-        private var track: Track? = null
+        val track: StateFlow<TrackPage<Track>>
+            field = MutableStateFlow<TrackPage<Track>>(TrackPage.Loading)
 
         init {
-            viewModelScope.launch { track = port.trackFor(trackerId) }
+            viewModelScope.launch { track.value = port.pageFor(trackerId) { it } }
         }
 
         fun getName() = tracker.name
@@ -924,7 +989,7 @@ data class EntryTrackerRemoveRoute(
         // library's tracker filter, sort and grouping. Not on viewModelScope: the screen pops as the
         // removal starts.
         fun remove(alsoFromService: Boolean) {
-            val track = track ?: return
+            val track = track.value.loaded ?: return
             port.removeTrack(removal, tracker, track, alsoFromService)
         }
     }
@@ -938,50 +1003,53 @@ fun EntryTrackerRemoveScreen(entry: EntryId, serviceId: Long) {
     }
     val serviceName = viewModel.getName()
     var removeRemoteTrack by remember { mutableStateOf(false) }
-    AlertDialogContent(
-        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-        icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
-        title = {
-            Text(
-                text = stringResource(MR.strings.track_delete_title, serviceName),
-                textAlign = TextAlign.Center,
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
-                Text(text = stringResource(MR.strings.track_delete_text, serviceName))
-                if (viewModel.isDeletable()) {
-                    LabeledCheckbox(
-                        label = stringResource(MR.strings.track_delete_remote_text, serviceName),
-                        checked = removeRemoteTrack,
-                        onCheckedChange = { removeRemoteTrack = it },
-                    )
+    val page by viewModel.track.collectAsState()
+    TrackPageContent(page, onGone = navigator::pop) {
+        AlertDialogContent(
+            modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
+            icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
+            title = {
+                Text(
+                    text = stringResource(MR.strings.track_delete_title, serviceName),
+                    textAlign = TextAlign.Center,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+                    Text(text = stringResource(MR.strings.track_delete_text, serviceName))
+                    if (viewModel.isDeletable()) {
+                        LabeledCheckbox(
+                            label = stringResource(MR.strings.track_delete_remote_text, serviceName),
+                            checked = removeRemoteTrack,
+                            onCheckedChange = { removeRemoteTrack = it },
+                        )
+                    }
                 }
-            }
-        },
-        buttons = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small, Alignment.End),
-            ) {
-                TextButton(onClick = navigator::pop) {
-                    Text(text = stringResource(MR.strings.action_cancel))
-                }
-                FilledTonalButton(
-                    onClick = {
-                        viewModel.remove(alsoFromService = removeRemoteTrack)
-                        navigator.pop()
-                    },
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    ),
+            },
+            buttons = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small, Alignment.End),
                 ) {
-                    Text(text = stringResource(MR.strings.action_ok))
+                    TextButton(onClick = navigator::pop) {
+                        Text(text = stringResource(MR.strings.action_cancel))
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            viewModel.remove(alsoFromService = removeRemoteTrack)
+                            navigator.pop()
+                        },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                    ) {
+                        Text(text = stringResource(MR.strings.action_ok))
+                    }
                 }
-            }
-        },
-    )
+            },
+        )
+    }
 }
 
 /** Asked before binding a [ReplacingWriteTracker], since the bind's write clears what it does not carry. */

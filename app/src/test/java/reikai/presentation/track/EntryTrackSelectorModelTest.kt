@@ -8,6 +8,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -64,6 +66,32 @@ class EntryTrackSelectorModelTest {
         written.single().last_chapter_read shouldBe 8.0
     }
 
+    /** A binding removed elsewhere, or before a restored sheet reopened, leaves the page nothing to edit. */
+    @ParameterizedTest
+    @MethodSource("entries")
+    fun `a picker opened on a binding that is gone says so`(entry: EntryId) = runTest {
+        stored.value = emptyList()
+
+        val model = EntryTrackStatusSelectorRoute.Model(TRACKER_ID, entry, appScope(), trackerManager(), ports())
+
+        model.state.value shouldBe TrackPage.Gone
+    }
+
+    @Test
+    fun `the remove page holds its binding as loading until the read lands`() = runTest {
+        appScope()
+
+        val model = EntryTrackerRemoveRoute.Model(
+            EntryId.Manga(1L),
+            TRACKER_ID,
+            mockk(),
+            trackerManager(),
+            ports(tracks = MutableSharedFlow()),
+        )
+
+        model.track.value shouldBe TrackPage.Loading
+    }
+
     @Test
     fun `confirming the chapter picker unmoved keeps fractional progress`() = runTest {
         stored.value = listOf(track(lastChapterRead = 12.5))
@@ -98,9 +126,9 @@ class EntryTrackSelectorModelTest {
         every { get(TRACKER_ID) } returns tracker
     }
 
-    private fun ports(): EntryTrackPorts {
+    private fun ports(tracks: Flow<List<Track>> = stored): EntryTrackPorts {
         val port = mockk<EntryTrackPort> {
-            every { tracks() } returns stored
+            every { tracks() } returns tracks
             every { writer } returns fakeWriter
         }
         return mockk { every { of(any()) } returns port }
