@@ -66,4 +66,31 @@ class MangaDownloadQueueProviderTest {
 
         coVerify(exactly = 0) { downloadManager.reorderQueue(any()) }
     }
+
+    private fun queueOfChapters(vararg numbers: Double): DownloadManager {
+        val downloads = numbers.map { number ->
+            Download(mockk(relaxed = true), manga, Chapter.create().copy(id = number.toLong(), chapterNumber = number))
+        }
+        return mockk<DownloadManager>(relaxed = true) { every { queueState } returns MutableStateFlow(downloads) }
+    }
+
+    @Test
+    fun `a sort the queue already holds leaves the downloader alone`() = runTest {
+        val downloadManager = queueOfChapters(1.0, 2.0)
+        val provider = MangaDownloadQueueProvider(downloadManager, mockk(relaxed = true), mockk(relaxed = true))
+
+        provider.sort(DownloadQueueSortKey.CHAPTER_NUMBER, descending = false)
+
+        coVerify(exactly = 0) { downloadManager.reorderQueue(any()) }
+    }
+
+    @Test
+    fun `a sort that changes the chapter order reorders the downloader`() = runTest {
+        val downloadManager = queueOfChapters(2.0, 1.0)
+        val provider = MangaDownloadQueueProvider(downloadManager, mockk(relaxed = true), mockk(relaxed = true))
+
+        provider.sort(DownloadQueueSortKey.CHAPTER_NUMBER, descending = false)
+
+        coVerify { downloadManager.reorderQueue(match { list -> list.map { it.chapter.id } == listOf(1L, 2L) }) }
+    }
 }

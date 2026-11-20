@@ -76,12 +76,11 @@ class MangaDownloadQueueProvider(
     override fun start() = downloadManager.startDownloads()
 
     override suspend fun sort(key: DownloadQueueSortKey, descending: Boolean) {
-        val sorted = downloadManager.queueState.value.sortedWithinSeries(
+        downloadManager.queueState.value.sortedWithinSeriesIfChanged(
             seriesOf = { it.manga.id },
             keyOf = { key.sortValue(it.chapter.dateUpload, it.chapter.chapterNumber) },
             descending = descending,
-        )
-        downloadManager.reorderQueue(sorted)
+        )?.let { downloadManager.reorderQueue(it) }
     }
 }
 

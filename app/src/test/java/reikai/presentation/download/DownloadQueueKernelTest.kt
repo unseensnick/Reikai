@@ -269,6 +269,14 @@ class DownloadQueueKernelTest {
     }
 
     @Test
+    @DisplayName("a sort a split queue's series already hold is no reorder")
+    fun sortAlreadyHeldBySplitQueueIsNoReorder() {
+        val queue = listOf(1L to 1.0, 2L to 5.0, 1L to 2.0)
+
+        queue.sortedWithinSeriesIfChanged({ it.first }, { it.second }, descending = false) shouldBe null
+    }
+
+    @Test
     fun `an empty queue is stopped`() {
         queueState(EngineQueueStatus(pending = 0, isRunning = true)) shouldBe DownloadQueueState.Stopped
     }

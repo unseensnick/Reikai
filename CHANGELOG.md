@@ -159,6 +159,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel download notification offers Pause and Show entry, as manga's does, without a Cancel that cleared the whole queue.**
 - **Move to bottom on a series' only queued chapter no longer sends that series to the front of the download queue.**
 - **Dragging a download queue card back before its first move took effect now leaves the queue in the order shown.**
+- **Sorting the download queue no longer restarts the manga chapter downloading when the sort leaves manga in the same order.**
 
 ### Reader
 

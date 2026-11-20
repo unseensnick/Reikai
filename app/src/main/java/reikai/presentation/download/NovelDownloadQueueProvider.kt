@@ -103,14 +103,13 @@ class NovelDownloadQueueProvider(
         val chapterById = chapterRepo.getByNovelIds(queue.map { it.novelId }.distinct())
             .values.flatten()
             .associateBy { it.id }
-        val sorted = queue.sortedWithinSeries(
+        queue.sortedWithinSeriesIfChanged(
             seriesOf = { it.novelId },
             keyOf = { download ->
                 chapterById[download.chapterId]?.let { key.sortValue(it.dateUpload, it.chapterNumber) }
             },
             descending = descending,
-        )
-        downloadManager.reorderQueue(sorted)
+        )?.let { downloadManager.reorderQueue(it) }
     }
 
     private suspend fun labelOf(novelId: Long): QueuedSeriesLabel = labels[novelId]

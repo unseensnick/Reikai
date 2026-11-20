@@ -207,3 +207,17 @@ fun <T, K : Comparable<K>> List<T>.sortedWithinSeries(
     val sorted = group.sortedBy(keyOf)
     if (descending) sorted.reversed() else sorted
 }
+
+/**
+ * The sorted queue, or null when every series already holds its chapters in that order. Compared per
+ * series for the reason [withSeriesInOrderIfMoved] gives: a split queue is never equal to its regrouped
+ * form, and the sort sheet reaches every provider, so a novel-only sort must not restart Mihon's downloader.
+ */
+fun <T, K : Comparable<K>> List<T>.sortedWithinSeriesIfChanged(
+    seriesOf: (T) -> Long,
+    keyOf: (T) -> K?,
+    descending: Boolean,
+): List<T>? {
+    val sorted = sortedWithinSeries(seriesOf, keyOf, descending)
+    return sorted.takeIf { it.groupBy(seriesOf) != groupBy(seriesOf) }
+}
