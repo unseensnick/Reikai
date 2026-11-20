@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -93,6 +94,31 @@ class SavedSearchViewModelTest {
         model.awaitingSave { delete(repository.rows.value.single().id) }
 
         repository.rows.value.shouldBeEmpty()
+    }
+
+    @Test
+    fun `the route's saved search is put on once`() = runTest(dispatcher) {
+        val model = withRouteSearch()
+        model.routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH)
+
+        model.routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH) shouldBe null
+    }
+
+    // Process death rebuilds the browse model on the route's plain listing, and this model beside it.
+    @Test
+    fun `a model rebuilt after process death puts the route's search on again`() = runTest(dispatcher) {
+        withRouteSearch().routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH)
+
+        withRouteSearch().routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH)?.id shouldBe ROUTE_SEARCH
+    }
+
+    private suspend fun withRouteSearch(): SavedSearchViewModel {
+        if (repository.rows.value.isEmpty()) repository.insert(sourceKey, "Completed", "sword", null)
+        return SavedSearchViewModel(sourceKey, repository).also { model -> model.state.first { it.isNotEmpty() } }
+    }
+
+    private companion object {
+        const val ROUTE_SEARCH = 1L
     }
 }
 

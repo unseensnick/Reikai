@@ -1,5 +1,6 @@
 package reikai.presentation.browse.catalogue
 
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -111,7 +112,7 @@ private class MangaColumnsProbe : ColumnsProbe {
         val bulk = mockk<BulkFavoriteViewModel> {
             every { state } returns MutableStateFlow(EntryBulkFavoriteViewModel.State())
         }
-        return MangaBrowseAdapter(model, bulk)
+        return MangaBrowseAdapter(model, bulk, model.viewModelScope)
     }
 }
 
@@ -143,6 +144,6 @@ private class NovelColumnsProbe : ColumnsProbe {
         val bulk = mockk<NovelBulkFavoriteViewModel> {
             every { state } returns MutableStateFlow(EntryBulkFavoriteViewModel.State())
         }
-        return NovelBrowseAdapter(model, bulk, "src")
+        return NovelBrowseAdapter(model, bulk, "src", model.viewModelScope)
     }
 }

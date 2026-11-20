@@ -87,14 +87,11 @@ data class EntryBrowseCapabilities(
 )
 
 /**
- * Browsing to choose what [migrateForId] moves to, so a tap reports the pick back and pops instead of
- * opening the entry. A plain class held once by its adapter, not a data class: it carries an action,
- * and re-creating it per state emission would break the enclosing state's equality.
+ * Browsing to choose what an entry migrates to, so a tap [pick]s the row as the target instead of
+ * opening it. A plain class held once by its adapter, not a data class: it carries an action, and
+ * re-creating it per state emission would break the enclosing state's equality.
  */
-class MigrationPickCapability(
-    val migrateForId: Long,
-    val pick: (EntryBrowseRow, onPicked: () -> Unit) -> Unit,
-)
+class MigrationPickCapability(val pick: (EntryBrowseRow) -> Unit)
 
 /** Loading the source again. Held once by its adapter, as [MigrationPickCapability] is, for the same reason. */
 class SourceLoadRetry(val run: () -> Unit)

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.browse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +54,12 @@ fun BrowseTab() {
     )
 
     val state = rememberPagerState { tabs.size }
+
+    // RK: two tabs search the one Browse-level query, so Back closes it here rather than in each
+    //     tab's content, which the pager does not compose while another tab shows.
+    BackHandler(enabled = searchQuery != null && tabs[state.currentPage].searchEnabled) {
+        browseViewModel.search(null)
+    }
 
     TabbedScreen(
         titleRes = MR.strings.browse,

@@ -1,16 +1,25 @@
 package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.entry.EntryId
 import reikai.presentation.MainDispatcherExtension
 import tachiyomi.domain.manga.model.Manga
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The picker's selection. Back and the up arrow clear it, as Mihon's picker does, where they used to
@@ -80,12 +89,44 @@ class EntryMigrationFavoritesViewModelTest {
         viewModel.state.first { it.entries.size == 2 }.entries.map { it.title } shouldBe listOf("Alpha", "beta")
     }
 
-    private suspend fun TestScope.loaded(count: Int): EntryMigrationFavoritesViewModel {
-        val favorites = (1L..count).map {
-            MigrationFavorite(EntryId.Manga(it), "t$it", null, MigrationPayload.OfManga(Manga.create()))
+    // Navigation 3 drops a covered page from composition, so a page pushed over the list stops its collector.
+    @Test
+    fun `coming back to the list after it stopped collecting never shows the spinner again`() =
+        runTest(dispatcher) {
+            val fake = FakeMigrationFlowAdapter(emptyList(), favorites = favorites(2))
+            var reads = 0
+            // A second read never answers, so a list that read again would stay on its spinner.
+            val adapter = object : MigrationFlowAdapter by fake {
+                override fun favorites(sourceKey: String) =
+                    if (reads++ == 0) fake.favorites(sourceKey) else flow { awaitCancellation() }
+            }
+            val viewModel = main.track(EntryMigrationFavoritesViewModel(adapter, "src"))
+            val screen = backgroundScope.launch { viewModel.state.collect {} }
+            viewModel.state.first { it.entries.size == 2 }
+            screen.cancel()
+            advanceUntilIdle()
+            // flowOn fuses into the share, so the list's five-second stop runs off the test clock.
+            withContext(Dispatchers.Default) { delay(5.5.seconds) }
+
+            val seen = mutableListOf<Boolean>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.state.collect { seen += it.isLoading }
+            }
+            withContext(Dispatchers.Default) { delay(200.milliseconds) }
+
+            seen shouldBe listOf(false)
         }
+
+    private fun favorites(count: Int) = (1L..count).map {
+        MigrationFavorite(EntryId.Manga(it), "t$it", null, MigrationPayload.OfManga(Manga.create()))
+    }
+
+    private suspend fun TestScope.loaded(count: Int): EntryMigrationFavoritesViewModel {
         val viewModel = main.track(
-            EntryMigrationFavoritesViewModel(FakeMigrationFlowAdapter(emptyList(), favorites = favorites), "src"),
+            EntryMigrationFavoritesViewModel(
+                FakeMigrationFlowAdapter(emptyList(), favorites = favorites(count)),
+                "src",
+            ),
         )
         backgroundScope.launch { viewModel.state.collect {} }
         // The state is built on the IO dispatcher, which virtual time does not reach, so each step

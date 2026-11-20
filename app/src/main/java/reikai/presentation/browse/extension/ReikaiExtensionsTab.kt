@@ -1,6 +1,5 @@
 package reikai.presentation.browse.extension
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -161,10 +160,6 @@ fun reikaiExtensionsTab(
         ),
         content = { contentPadding, _ ->
             val state by engine.state.collectAsStateWithLifecycle()
-
-            BackHandler(enabled = state.query != null) {
-                browseViewModel.search(null)
-            }
 
             Column {
                 ContentTypeFilterChips(

@@ -1,5 +1,6 @@
 package reikai.presentation.novel.browse
 
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -145,7 +146,7 @@ class NovelBrowseFilterRoutingTest {
             every { state } returns MutableStateFlow(EntryBulkFavoriteViewModel.State())
         }
 
-        val draft = NovelBrowseAdapter(model, bulk, SOURCE_ID).captureSearch()
+        val draft = NovelBrowseAdapter(model, bulk, SOURCE_ID, model.viewModelScope).captureSearch()
 
         draft.filtersJson shouldBe null
     }

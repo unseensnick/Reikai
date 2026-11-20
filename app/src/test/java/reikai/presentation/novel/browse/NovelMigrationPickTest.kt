@@ -24,7 +24,11 @@ import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
 import tachiyomi.domain.library.service.LibraryPreferences
 
-/** A novel picked as a migration target is stored first, and one that cannot be stored says so. */
+/**
+ * A novel picked as a migration target is stored first, and the outcome waits in the state for the
+ * screen to report: the store can outlive a configuration change, and only the screen drawn then holds
+ * a live navigator.
+ */
 class NovelMigrationPickTest {
 
     @BeforeEach
@@ -34,41 +38,36 @@ class NovelMigrationPickTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `a pick that cannot be stored is reported`() = runTest {
-        var reported = false
-
-        pick(onPicked = {}, onUnavailable = { reported = true })
-
-        reported shouldBe true
+    fun `a pick that cannot be stored is left for the screen to report`() = runTest {
+        pick(stored = null) shouldBe NovelBrowseState.MigrationPick.Unavailable
     }
 
     @Test
-    fun `a pick that cannot be stored stays on the catalogue`() = runTest {
-        var picked = false
-
-        pick(onPicked = { picked = true }, onUnavailable = {})
-
-        picked shouldBe false
+    fun `a stored pick is left for the screen as the row it was stored as`() = runTest {
+        pick(stored = mockk { every { id } returns STORED_ID }) shouldBe
+            NovelBrowseState.MigrationPick.Stored(STORED_ID)
     }
 
     @Test
-    fun `a stored pick reports the row it was stored as`() = runTest {
-        var picked: Long? = null
+    fun `a reported pick is not reported again`() = runTest {
+        val model = model(stored = mockk { every { id } returns STORED_ID })
+        model.awaitPick()
 
-        pick(onPicked = { picked = it }, onUnavailable = {}, stored = mockk { every { id } returns STORED_ID })
+        model.consumeMigrationPick()
 
-        picked shouldBe STORED_ID
+        model.state.value.migrationPick shouldBe null
     }
+
+    private suspend fun pick(stored: Novel?): NovelBrowseState.MigrationPick? =
+        model(stored).apply { awaitPick() }.state.value.migrationPick
 
     /** Picks, then waits for the pick's own work only: the model also runs collectors that never end. */
-    private suspend fun pick(onPicked: (Long) -> Unit, onUnavailable: () -> Unit, stored: Novel? = null) {
-        val model = model(stored)
-        val scope = model.viewModelScope.coroutineContext.job
+    private suspend fun NovelBrowseViewModel.awaitPick() {
+        val scope = viewModelScope.coroutineContext.job
         val running = scope.children.toSet()
-        model.pickAsMigrationTarget(ITEM, onPicked, onUnavailable)
+        pickAsMigrationTarget(ITEM)
         (scope.children.toSet() - running).forEach { it.join() }
     }
-
     private fun model(stored: Novel?): NovelBrowseViewModel {
         val store = EmittingPreferenceStore()
         return NovelBrowseViewModel(

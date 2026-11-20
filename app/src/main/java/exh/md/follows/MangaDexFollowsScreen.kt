@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -54,8 +55,9 @@ fun MangaDexFollowsScreen(sourceId: Long) {
 
     val bulkFavoriteViewModel = metroViewModel<BulkFavoriteViewModel>()
     val bulkFavoriteState by bulkFavoriteViewModel.state.collectAsState()
+    val adapterScope = rememberCoroutineScope()
     val adapter = remember(viewModel, bulkFavoriteViewModel) {
-        MangaBrowseAdapter(viewModel, bulkFavoriteViewModel)
+        MangaBrowseAdapter(viewModel, bulkFavoriteViewModel, adapterScope)
     }
     val entries = adapter.rows.collectAsLazyPagingItems()
     val browseState by adapter.state.collectAsState()

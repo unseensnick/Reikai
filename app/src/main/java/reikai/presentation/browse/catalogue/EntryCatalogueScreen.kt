@@ -25,7 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -70,6 +70,7 @@ import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.local.LocalImportRoute
 import reikai.presentation.migrate.flow.MigrationPickFor
 import reikai.presentation.migrate.flow.rememberMigrationPickReport
+import reikai.presentation.novel.browse.NovelBrowseState
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
@@ -157,8 +158,9 @@ private fun MangaCatalogue(
     }
     val bulk = metroViewModel<BulkFavoriteViewModel>()
     val reportPick = rememberMigrationPickReport(migrateFor)
+    val adapterScope = rememberCoroutineScope()
     val adapter = remember(viewModel, bulk) {
-        MangaBrowseAdapter(viewModel, bulk, migrateFor?.entry?.rawId, reportPick)
+        MangaBrowseAdapter(viewModel, bulk, adapterScope, migrateFor?.entry?.rawId, reportPick)
     }
     val modelState by viewModel.state.collectAsState()
     val source = modelState.source
@@ -217,18 +219,22 @@ private fun NovelCatalogue(
     }
     val bulk = metroViewModel<NovelBulkFavoriteViewModel>()
     val reportPick = rememberMigrationPickReport(migrateFor)
+    val adapterScope = rememberCoroutineScope()
     val adapter = remember(viewModel, bulk) {
-        NovelBrowseAdapter(
-            viewModel,
-            bulk,
-            sourceId,
-            migrateFor?.entry?.rawId,
-            onPickUnavailable = { context.toast(MR.strings.migrationFlow_pickUnavailable) },
-            onMigrationPicked = reportPick,
-        )
+        NovelBrowseAdapter(viewModel, bulk, sourceId, adapterScope, migrateFor?.entry?.rawId)
     }
     val modelState by viewModel.state.collectAsState()
     val source = modelState.source
+
+    // Reported from here rather than by the model, so the pop goes through this composition's navigator.
+    LaunchedEffect(modelState.migrationPick) {
+        val pick = modelState.migrationPick ?: return@LaunchedEffect
+        viewModel.consumeMigrationPick()
+        when (pick) {
+            is NovelBrowseState.MigrationPick.Stored -> reportPick(pick.targetId)
+            NovelBrowseState.MigrationPick.Unavailable -> context.toast(MR.strings.migrationFlow_pickUnavailable)
+        }
+    }
 
     Catalogue(
         sourceKey = sourceKey,
@@ -305,18 +311,13 @@ private fun Catalogue(
     // Which chip reads as applied. Cleared by anything that replaces what it put on screen.
     var appliedSavedSearchId by remember { mutableStateOf<Long?>(null) }
 
-    // Whether the screen's own saved search has been put on once. Separate from the chip state
-    // above, which the reader clears by tapping anything else: keyed on that, re-applying became
-    // a matter of the list re-emitting, which saving a new search on this very screen does.
-    var openedWithSearch by rememberSaveable { mutableStateOf(false) }
-
     // Applied once the screen is up rather than before the model is built, which costs one
     // discarded page of the default listing and keeps the models free of a saved-search read.
+    // Once per model, not per chip state: the reader clears that by tapping anything else, and
+    // saving a new search on this very screen re-emits the list.
     val isLoaded = state is EntryBrowseScreenState.Loaded
     LaunchedEffect(savedSearches, isLoaded) {
-        val search = savedSearchToOpen(state, savedSearchId, savedSearches, openedWithSearch)
-            ?: return@LaunchedEffect
-        openedWithSearch = true
+        val search = savedSearchModel.routeSearchToOpen(state, savedSearchId) ?: return@LaunchedEffect
         appliedSavedSearchId = search.id
         behavior.applySearch(search.query, search.filtersJson)
     }
@@ -357,7 +358,7 @@ private fun Catalogue(
 
     val gestures = rememberEntryGestures(
         // A migration pick outranks a selection.
-        choose = loaded.capabilities.migrationPick?.let { pick -> { row: EntryBrowseRow -> pick.pick(row) {} } }
+        choose = loaded.capabilities.migrationPick?.pick
             ?: behavior::toggleSelection.takeIf { loaded.selectionMode },
         open = { row: EntryBrowseRow -> opener.open(row, sourceKey) },
         add = behavior::onRowLongClick,

@@ -39,6 +39,15 @@ class SavedSearchViewModel(
         }
     }
 
+    // On this model rather than saved with the screen: the browse model the search goes onto starts
+    // over on its route's listing after process death, and this model is rebuilt beside it.
+    private var routeSearchOpened = false
+
+    /** The saved search the route opened with, the first time it is owed: see [savedSearchToOpen]. */
+    fun routeSearchToOpen(screen: EntryBrowseScreenState, savedSearchId: Long?): SavedSearch? =
+        savedSearchToOpen(screen, savedSearchId, state.value, routeSearchOpened)
+            ?.also { routeSearchOpened = true }
+
     /** Saves [draft] under [name]. A draft holding neither a query nor filters is not saved. */
     fun save(name: String, draft: SavedSearchDraft) {
         if (draft.isEmpty || name.isBlank()) return

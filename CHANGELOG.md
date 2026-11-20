@@ -329,6 +329,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A long-press add to library that hits an error now says it failed instead of closing the app.**
 - **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
 - **A source's sign-in is no longer sent to another site when a request is redirected there and meets a Cloudflare check.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
@@ -372,6 +373,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Series from a self-hosted archive server on a newer version load their details again (from Komikku).**
 - **An extension repo whose address starts serving a different repo now says so on its card, instead of its extensions silently stopping updating (from Komikku).**
 - **A paged light-novel plugin's later pages now report a site that is down instead of showing an empty page.**
+- **Back now closes the search on the Browse Sources tab, as it does on Extensions.**
+- **A catalogue opened from a feed's saved search keeps the search after Android closes the app in the background.**
 
 ### Updates & History
 
@@ -393,6 +396,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A migration that fails to carry tracker links or reading history now shows as failed, so Retry can finish it.**
 - **The Copy and Migrate buttons in the migration list no longer sit under the navigation bar.**
 - **Tapping a migration target twice while browsing a source no longer closes the migration list too.**
+- **Coming back to the migration favorites list from a series no longer shows the loading spinner again.**
+- **A novel picked as a migration target after rotating the screen now returns to the migration list.**
 
 ### Backup & restore
 

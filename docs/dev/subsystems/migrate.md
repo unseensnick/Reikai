@@ -126,6 +126,7 @@ Both engines refuse a self-target and a missing target source, and rethrow every
 - **The favorites picker runs the shared selection kernel, long press included.** `EntryMigrationFavoritesViewModel` routes tap, select all, invert, clear and a long-press range through `EntrySelection`, as every other Reikai multi-select does; Mihon's picker has tap and clear only.
 - **A row names its source by `sourceDisplayName`**, which names an uninstalled source by what it was last seen as (manga through `getOrStub`, novels through `NovelSourceManager.nameOf`).
 - **The favorites picker keeps its selection on Continue, where Mihon clears it.** Backing out of config is the only way to adjust a large set, and the list never returns here.
+- **The favorites list is read once per picker.** Its state starts on the first collector and never stops, because a page pushed over the picker drops it from composition, and a restart would show the spinner again on return.
 - **Mihon's "select enabled sources" is not offered.** `enabledSources()` never lists a disabled source, so there is nothing for it to filter.
 - **Novels never auto re-download after a migration.** It matches manga and avoids spending metered data silently.
 - **A chapter read on both copies keeps the later read time and the longer duration, not the sum,** which is what a backup restore does too.

@@ -1,8 +1,8 @@
 package reikai.presentation.browse.catalogue
 
-import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.map
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,34 +28,21 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 /**
  * Adapts the live [NovelBrowseViewModel] plus its bulk-selection model to the neutral
  * [EntryBrowseBehavior]. Symmetric with [MangaBrowseAdapter], so one shared browse screen drives both
- * catalogues. [migrateForId] is set only when the screen was opened to choose a migration target,
- * which is what fills the matching capability slot.
+ * catalogues. [migrateForId] fills the migration-pick slot. [scope] is the screen's composition: the
+ * adapter is rebuilt with it, and a share on the model's scope outlived each rebuild, Activity and all.
  */
 class NovelBrowseAdapter(
     private val model: NovelBrowseViewModel,
     private val bulk: NovelBulkFavoriteViewModel,
     private val sourceId: String,
+    scope: CoroutineScope,
     migrateForId: Long? = null,
-    private val onPickUnavailable: () -> Unit = {},
-    /** Report the picked target's stored row back, which the screen sends to the asking flow and pops. */
-    private val onMigrationPicked: (targetId: Long) -> Unit = {},
 ) : EntryBrowseBehavior {
 
     private val savedSearchFilters = NovelSavedSearchFilters()
 
     private val capabilities = EntryBrowseCapabilities(
-        migrationPick = migrateForId?.let { id ->
-            MigrationPickCapability(id) { row, onPicked ->
-                model.pickAsMigrationTarget(
-                    row.item,
-                    onPicked = { targetId ->
-                        onPicked()
-                        onMigrationPicked(targetId)
-                    },
-                    onUnavailable = onPickUnavailable,
-                )
-            }
-        },
+        migrationPick = migrateForId?.let { MigrationPickCapability { row -> model.pickAsMigrationTarget(row.item) } },
     )
 
     /**
@@ -71,11 +58,8 @@ class NovelBrowseAdapter(
 
     override val state: StateFlow<EntryBrowseScreenState> =
         combine(model.state, bulk.state, toolbarText, ::toNeutral)
-            // WhileSubscribed, not Eagerly: the adapter is rebuilt per composition entry while its
-            // sharing coroutine lives in the model's scope, so an eager start leaves one orphaned
-            // mapper running per re-entry.
             .stateIn(
-                model.viewModelScope,
+                scope,
                 SharingStarted.WhileSubscribed(),
                 toNeutral(model.state.value, bulk.state.value, toolbarText.value),
             )
@@ -88,7 +72,7 @@ class NovelBrowseAdapter(
         .map { pagerFlow ->
             pagerFlow.map { pagingData -> pagingData.map { novelBrowseRow(it, sourceId, favorited) } }
         }
-        .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyFlow())
+        .stateIn(scope, SharingStarted.WhileSubscribed(), emptyFlow())
 
     private fun toNeutral(
         state: NovelBrowseState,

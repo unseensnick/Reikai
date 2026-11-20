@@ -1,5 +1,6 @@
 package reikai.presentation.browse.catalogue
 
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -74,6 +75,6 @@ class EnhancedEhViewTest {
         val bulk = mockk<BulkFavoriteViewModel> {
             every { state } returns MutableStateFlow(EntryBulkFavoriteViewModel.State())
         }
-        return MangaBrowseAdapter(model, bulk)
+        return MangaBrowseAdapter(model, bulk, model.viewModelScope)
     }
 }

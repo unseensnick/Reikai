@@ -521,7 +521,8 @@ class EntryMigrationListViewModelTest {
             // one cell that also held the commit, so dismissing left the screen idle with the
             // migration still running: a second commit could then start on top of it.
             model.showExitConfirm()
-            model.state.value.isBusy shouldBe true
+            (model.state.value.visibleDialog to model.state.value.isBusy) shouldBe
+                (EntryMigrationListViewModel.Dialog.ExitConfirm to true)
             model.dismissDialog()
 
             model.state.value.isBusy shouldBe true

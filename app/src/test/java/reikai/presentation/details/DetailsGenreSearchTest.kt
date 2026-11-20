@@ -2,6 +2,7 @@ package reikai.presentation.details
 
 import eu.kanade.tachiyomi.ui.home.TabEvent
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import mihon.core.navigation.HomeRoute
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
@@ -38,7 +39,8 @@ class DetailsGenreSearchTest {
     @Test
     fun `the nearest of two catalogues of the source is the target`() {
         val nearest = EntryCatalogueRoute(own)
-        listOf(EntryCatalogueRoute(own), nearest).catalogueOf(own) shouldBe nearest
+        // Equal routes, so only identity tells the nearest from the farther one, as the pop does.
+        listOf(EntryCatalogueRoute(own), nearest).catalogueOf(own) shouldBeSameInstanceAs nearest
     }
 
     @Test

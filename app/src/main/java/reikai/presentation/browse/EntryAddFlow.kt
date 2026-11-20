@@ -9,9 +9,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import logcat.LogPriority
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.EntryDuplicateCardUi
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -100,9 +103,18 @@ abstract class EntryAddFlow<D : Any>(
 
     protected abstract fun D.toNeutral(): EntryAddDialog
 
-    /** Runs [step] and shows the question it asks, or closes the flow, saying so when the add failed. */
+    /**
+     * Runs [step] and shows the question it asks, or closes the flow, saying so when the add failed.
+     * A step that throws reads as failed: rethrown from the await on [scope], it would crash the app.
+     */
     protected fun launchStep(step: suspend () -> AddStep<D>) {
-        scope.launch { show(appScope.async { step() }.await()) }
+        scope.launch {
+            val next = runCatchingCancellable { appScope.async { step() }.await() }.getOrElse { e ->
+                logcat(LogPriority.ERROR, e) { "A ${contentType.name.lowercase()} add step failed" }
+                AddStep.Failed
+            }
+            show(next)
+        }
     }
 
     /** Runs [step] against [current], read when the verb is called: never later, and never after a dismiss. */

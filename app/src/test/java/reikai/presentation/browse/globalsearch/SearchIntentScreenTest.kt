@@ -14,18 +14,19 @@ class SearchIntentScreenTest {
 
     @Test
     fun `a novel app's link opens through the shared-link tiers`() = runTest {
-        searchIntentRoute(LINK, NOVEL_APP, novelPackages).shouldBeInstanceOf<DeepLinkRoute>()
+        searchIntentRoute(LINK, NOVEL_APP, novelPackages) shouldBe DeepLinkRoute(LINK)
     }
 
     @Test
     fun `a manga extension's search stays a global search`() = runTest {
-        searchIntentRoute(LINK, "eu.kanade.tachiyomi.extension.en.manga", novelPackages)
-            .shouldBeInstanceOf<EntryGlobalSearchRoute>()
+        searchIntentRoute(LINK, MANGA_EXTENSION, novelPackages) shouldBe
+            EntryGlobalSearchRoute(LINK, MANGA_EXTENSION, scopedContentType = ContentType.MANGA)
     }
 
     @Test
-    fun `a search naming no extension stays a global search`() = runTest {
-        searchIntentRoute("query", null, novelPackages).shouldBeInstanceOf<EntryGlobalSearchRoute>()
+    fun `a search naming no extension searches its query`() = runTest {
+        searchIntentRoute("query", null, novelPackages)
+            .shouldBeInstanceOf<EntryGlobalSearchRoute>().searchQuery shouldBe "query"
     }
 
     @Test
@@ -43,5 +44,6 @@ class SearchIntentScreenTest {
     private companion object {
         const val LINK = "https://example.com/novel/1"
         const val NOVEL_APP = "eu.kanade.tachiyomi.novelextension.en.app"
+        const val MANGA_EXTENSION = "eu.kanade.tachiyomi.extension.en.manga"
     }
 }

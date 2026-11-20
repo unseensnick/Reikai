@@ -1,6 +1,5 @@
 package reikai.presentation.browse.catalogue
 
-import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.map
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -8,6 +7,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import exh.source.configurableSource
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,11 +30,12 @@ import tachiyomi.domain.source.model.StubSource
  * [EntryBrowseBehavior]. Mihon's model stays upstream-tracked and never implements a Reikai
  * interface, so every shape mismatch reconciles HERE. Symmetric with [NovelBrowseAdapter], so one
  * shared browse screen drives both catalogues; manga-only affordances go through capability slots
- * rather than onto the shared spine.
+ * rather than onto the shared spine. [scope] is the composition's, see [NovelBrowseAdapter].
  */
 class MangaBrowseAdapter(
     private val model: BrowseSourceViewModel,
     private val bulk: BulkFavoriteViewModel,
+    scope: CoroutineScope,
     migrateForId: Long? = null,
     /** Report the picked target back, which the screen sends to the asking flow and pops. */
     onPickTarget: (targetId: Long) -> Unit = {},
@@ -43,23 +44,17 @@ class MangaBrowseAdapter(
     private val savedSearchFilters = MangaSavedSearchFilters()
 
     private val capabilities = EntryBrowseCapabilities(
-        migrationPick = migrateForId?.let { id ->
+        migrationPick = migrateForId?.let {
             // A browsed manga row is already a stored row, so unlike the novel twin there is
             // nothing to materialize before the pick can name it.
-            MigrationPickCapability(id) { row, onPicked ->
-                onPickTarget(row.manga.id)
-                onPicked()
-            }
+            MigrationPickCapability { row -> onPickTarget(row.manga.id) }
         },
     )
 
     override val state: StateFlow<EntryBrowseScreenState> =
         combine(model.state, bulk.state, ::toNeutral)
-            // WhileSubscribed, not Eagerly: the adapter is rebuilt per composition entry while its
-            // sharing coroutine lives in the model's scope, so an eager start leaves one orphaned
-            // mapper running per re-entry.
             .stateIn(
-                model.viewModelScope,
+                scope,
                 SharingStarted.WhileSubscribed(),
                 toNeutral(model.state.value, bulk.state.value),
             )
@@ -72,7 +67,7 @@ class MangaBrowseAdapter(
                 pagingData.map(::mangaBrowseRow)
             }
         }
-        .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyFlow())
+        .stateIn(scope, SharingStarted.WhileSubscribed(), emptyFlow())
 
     private fun toNeutral(
         state: BrowseSourceViewModel.State,

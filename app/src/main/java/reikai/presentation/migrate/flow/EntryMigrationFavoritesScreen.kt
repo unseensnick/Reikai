@@ -30,7 +30,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
@@ -60,7 +59,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.shouldExpandFAB
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * The library entries of one source, to pick which to migrate away from it (the Migrate tab's route:
@@ -198,9 +196,9 @@ class EntryMigrationFavoritesViewModel(
 
     /**
      * The source's name and its favorites, as one value so the screen never shows a loaded list under
-     * an empty source name. Stays subscribed while the screen is: migrating an entry away removes it
-     * from this source's library, and the list should say so rather than offering it again. A throw
-     * must not escape: nothing clears isLoading, so the screen would sit on its spinner for good.
+     * an empty source name. Stays subscribed while the picker is on the stack: migrating an entry away
+     * removes it from this source's library, and the list should say so rather than offering it again.
+     * A throw must not escape: nothing clears isLoading, so the screen would sit on its spinner for good.
      */
     private val content: Flow<Content> = flow {
         adapter.prepare()
@@ -238,7 +236,9 @@ class EntryMigrationFavoritesViewModel(
         )
     }
         .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+        // Never stopped once started: a page pushed over the picker drops it from composition, and a
+        // restart re-reads from the loading seed, so coming back would show the spinner again.
+        .stateIn(viewModelScope, SharingStarted.Lazily, State())
 
     fun toggle(id: EntryId) = selection.update { EntrySelection.toggle(it, id) }
 

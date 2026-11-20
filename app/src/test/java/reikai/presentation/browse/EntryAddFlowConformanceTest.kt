@@ -2,6 +2,7 @@ package reikai.presentation.browse
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.joinAll
@@ -16,6 +17,7 @@ import reikai.novel.host.NovelItem
 import reikai.presentation.novel.browse.NovelAddFlow
 import reikai.presentation.novel.details.NovelRoute
 import tachiyomi.domain.manga.model.Manga
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
 
@@ -159,6 +161,19 @@ class EntryAddFlowConformanceTest {
         failures.get() shouldBe 0
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a step that throws says the add failed rather than crashing`(probe: AddFlowProbe) = runTest {
+        val failures = probe.watchFailures(this)
+        probe.storeEntry(inLibrary = false)
+        probe.failFiling()
+        probe.pressEntry()
+
+        probe.act { flow.confirmCategories(listOf(PICKED_CATEGORY)) }
+
+        (failures.get() to probe.crashes.get()) shouldBe (1 to 0)
+    }
+
     companion object {
         const val PICKED_CATEGORY = 3L
         const val DUPLICATE_GROUP = 70L
@@ -176,7 +191,10 @@ class EntryAddFlowConformanceTest {
  */
 abstract class AddFlowProbe {
     private val job = SupervisorJob()
-    protected val scope = CoroutineScope(job)
+
+    /** Throws that escaped the flow to its scope's handler, which in the app crashes a debug build. */
+    val crashes = AtomicInteger()
+    protected val scope = CoroutineScope(job + CoroutineExceptionHandler { _, _ -> crashes.incrementAndGet() })
 
     abstract val flow: EntryAddFlow<*>
 
@@ -185,6 +203,9 @@ abstract class AddFlowProbe {
 
     /** The database refuses the entry's favorite write, as a failed update does. */
     abstract fun refuseFavoriteWrites()
+
+    /** The entry's category write throws, as a database or file failure does. */
+    abstract fun failFiling()
 
     /** Stores a library entry the duplicate lookup lists, answering its id. */
     abstract fun storeDuplicate(): Long
@@ -248,6 +269,10 @@ class MangaAddFlowProbe : AddFlowProbe() {
         library.refusedFavoriteWrites += ENTRY
     }
 
+    override fun failFiling() {
+        library.beforeFiling = { throw IOException("database gone") }
+    }
+
     override fun storeDuplicate(): Long {
         library.insert(
             library.put(DUPLICATE, favorite = true).copy(title = EntryAddFlowConformanceTest.DUPLICATE_TITLE),
@@ -298,6 +323,10 @@ class NovelAddFlowProbe : AddFlowProbe() {
 
     override fun refuseFavoriteWrites() {
         library.refusedFavoriteWrites += ENTRY
+    }
+
+    override fun failFiling() {
+        library.beforeFiling = { throw IOException("database gone") }
     }
 
     override fun storeDuplicate(): Long {

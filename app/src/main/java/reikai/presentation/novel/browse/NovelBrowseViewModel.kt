@@ -49,7 +49,6 @@ import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.browse.catalogue.trackDisplayMode
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -71,7 +70,6 @@ class NovelBrowseViewModel(
     private val manager: NovelSourceManager,
     private val novelRepository: NovelRepository,
     private val libraryAdder: NovelLibraryAdder,
-    // Where a migration-target pick is left for the screen that asked for it.
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
     private val sourcePreferences: SourcePreferences,
     private val getIncognitoState: GetIncognitoState,
@@ -274,23 +272,21 @@ class NovelBrowseViewModel(
     val addFlow = NovelAddFlow(libraryAdder, viewModelScope, appScope)
 
     /**
-     * Store [item] as a migration target and hand its row id to [onPicked], which reports it back to
-     * the migration screen waiting for it and pops.
-     *
-     * The row is stored first, unfavorited, because a migration target has to be something the
-     * library can point at; the migrate step does the rest. A row that cannot be stored runs
-     * [onUnavailable] instead and stays here, so the reader can pick another result.
+     * Store [item], unfavorited, as a migration target the library can point at, and leave the outcome
+     * in [NovelBrowseState.migrationPick] for the screen to report: the store can outlive a configuration
+     * change, and a callback taken from the composition would pop a dead back stack. A row that cannot
+     * be stored stays here, so the reader can pick another result.
      */
-    fun pickAsMigrationTarget(item: NovelItem, onPicked: (targetRawId: Long) -> Unit, onUnavailable: () -> Unit) {
+    fun pickAsMigrationTarget(item: NovelItem) {
         viewModelScope.launchIO {
             val stored = libraryAdder.materialize(item, sourceId)
-            if (stored == null) {
-                withUIContext { onUnavailable() }
-                return@launchIO
-            }
-            withUIContext { onPicked(stored.id) }
+            val pick = stored?.let { NovelBrowseState.MigrationPick.Stored(it.id) }
+                ?: NovelBrowseState.MigrationPick.Unavailable
+            state.update { it.copy(migrationPick = pick) }
         }
     }
+
+    fun consumeMigrationPick() = state.update { it.copy(migrationPick = null) }
 
     // A novel source id is the plugin's String id, not the Long the manga side uses.
     @AssistedFactory
@@ -338,7 +334,16 @@ data class NovelBrowseState(
     val displayMode: LibraryDisplayMode = LibraryDisplayMode.default,
     /** The grid's column counts, carried for the same reason as [displayMode]. */
     val columns: BrowseColumns = BrowseColumns(),
+    /** A migration-target pick the screen has yet to report. */
+    val migrationPick: MigrationPick? = null,
 ) {
+    sealed interface MigrationPick {
+        data class Stored(val targetId: Long) : MigrationPick
+
+        /** The result could not be stored, so there is nothing to migrate onto. */
+        data object Unavailable : MigrationPick
+    }
+
     /** What the pager pages, or null until the source resolves. The filter draft is deliberately
      *  absent: only [appliedFilters] reaches the pager, so editing filters refetches nothing. */
     internal val pagerInput: NovelPagerInput?

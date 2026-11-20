@@ -1,5 +1,6 @@
 package reikai.presentation.novel.browse
 
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -102,7 +103,7 @@ class NovelBrowseMissingSourceTest {
         val bulk = mockk<NovelBulkFavoriteViewModel> {
             every { state } returns MutableStateFlow(EntryBulkFavoriteViewModel.State())
         }
-        return NovelBrowseAdapter(model, bulk, SOURCE_ID)
+        return NovelBrowseAdapter(model, bulk, SOURCE_ID, model.viewModelScope)
     }
 
     private suspend fun NovelBrowseAdapter.settled() = state.first { it != EntryBrowseScreenState.Loading }
