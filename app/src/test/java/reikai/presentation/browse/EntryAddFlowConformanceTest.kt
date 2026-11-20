@@ -2,6 +2,7 @@ package reikai.presentation.browse
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -174,6 +175,29 @@ class EntryAddFlowConformanceTest {
         (failures.get() to probe.crashes.get()) shouldBe (1 to 0)
     }
 
+    // The step's writes run on the app scope, so leaving the screen while the picker's confirm is
+    // still filing does not cut the add off halfway.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a confirm still files once the screen has closed`(probe: AddFlowProbe) = runTest {
+        probe.storeEntry(inLibrary = false)
+        probe.pressEntry()
+        val held = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        probe.holdFiling {
+            held.complete(Unit)
+            release.await()
+        }
+
+        probe.flow.confirmCategories(listOf(PICKED_CATEGORY))
+        held.await()
+        probe.closeScreen()
+        release.complete(Unit)
+        probe.awaitAppScope()
+
+        probe.entryCategories() shouldBe listOf(PICKED_CATEGORY)
+    }
+
     companion object {
         const val PICKED_CATEGORY = 3L
         const val DUPLICATE_GROUP = 70L
@@ -196,6 +220,14 @@ abstract class AddFlowProbe {
     val crashes = AtomicInteger()
     protected val scope = CoroutineScope(job + CoroutineExceptionHandler { _, _ -> crashes.incrementAndGet() })
 
+    // Apart from the screen's, so a case can close the screen and still see what the app scope finishes.
+    private val appJob = SupervisorJob()
+    protected val appScope = CoroutineScope(appJob + CoroutineExceptionHandler { _, _ -> crashes.incrementAndGet() })
+
+    fun closeScreen() = job.cancel()
+
+    suspend fun awaitAppScope() = appJob.children.toList().joinAll()
+
     abstract val flow: EntryAddFlow<*>
 
     abstract fun storeEntry(inLibrary: Boolean)
@@ -206,6 +238,9 @@ abstract class AddFlowProbe {
 
     /** The entry's category write throws, as a database or file failure does. */
     abstract fun failFiling()
+
+    /** Runs [hold] just before the entry's category write. */
+    abstract fun holdFiling(hold: suspend () -> Unit)
 
     /** Stores a library entry the duplicate lookup lists, answering its id. */
     abstract fun storeDuplicate(): Long
@@ -250,7 +285,7 @@ class MangaAddFlowProbe : AddFlowProbe() {
         userCategories = listOf(libraryCategory(EntryAddFlowConformanceTest.PICKED_CATEGORY)),
         mergeManager = fakeGrouping(mapOf(DUPLICATE to EntryAddFlowConformanceTest.DUPLICATE_GROUP), suggest = true),
     )
-    override val flow = MangaAddFlow(library.adder, scope, scope)
+    override val flow = MangaAddFlow(library.adder, scope, appScope)
 
     override fun toString() = "manga"
 
@@ -271,6 +306,10 @@ class MangaAddFlowProbe : AddFlowProbe() {
 
     override fun failFiling() {
         library.beforeFiling = { throw IOException("database gone") }
+    }
+
+    override fun holdFiling(hold: suspend () -> Unit) {
+        library.beforeFiling = hold
     }
 
     override fun storeDuplicate(): Long {
@@ -304,7 +343,7 @@ class NovelAddFlowProbe : AddFlowProbe() {
         userCategories = listOf(libraryCategory(EntryAddFlowConformanceTest.PICKED_CATEGORY)),
         mergeManager = fakeGrouping(mapOf(DUPLICATE to EntryAddFlowConformanceTest.DUPLICATE_GROUP), suggest = true),
     )
-    override val flow = NovelAddFlow(library.adder, scope, scope)
+    override val flow = NovelAddFlow(library.adder, scope, appScope)
 
     override fun toString() = "novel"
 
@@ -327,6 +366,10 @@ class NovelAddFlowProbe : AddFlowProbe() {
 
     override fun failFiling() {
         library.beforeFiling = { throw IOException("database gone") }
+    }
+
+    override fun holdFiling(hold: suspend () -> Unit) {
+        library.beforeFiling = hold
     }
 
     override fun storeDuplicate(): Long {

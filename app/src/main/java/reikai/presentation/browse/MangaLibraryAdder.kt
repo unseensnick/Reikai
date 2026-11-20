@@ -105,11 +105,10 @@ class MangaLibraryAdder(
      * sequence, filed in the group's categories, so it never asks. Only the picks: the duplicate list
      * is fuzzy, and one member is enough since the merge absorbs that member's whole group.
      */
-    suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult = addEntryOrPrompt(
+    suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddOutcome = addEntry(
         resolveCategories = { groupCategoryIdsOf(selectedIds) },
         favorite = { joinGroupForAdd(manga, selectedIds) },
         fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
-        categoryPicker = { categoryPickerSelection(manga.id) },
     )
 
     // The defaults go first, so the setting the join hands the entry is the one it keeps.

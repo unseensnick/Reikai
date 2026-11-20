@@ -49,6 +49,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.components.DownloadProgress
@@ -277,8 +278,8 @@ class NovelRecentsAdapter(
         novelLibraryAdder.confirmAddCategories(novel.id, categoryIds)
     }
 
-    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
-        val novel = novelOf(entry) ?: return AddFavoriteResult.Failed
+    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome {
+        val novel = novelOf(entry) ?: return AddOutcome.Failed
         return novelLibraryAdder.addToExistingGroup(novel.id, duplicates.map { it.rawId })
     }
 

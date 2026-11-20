@@ -181,15 +181,13 @@ class NovelLibraryAdder(
     )
 
     /**
-     * The stored-row form of the browse [addToExistingGroup] above, answering the shared result type
-     * instead of a browse dialog. Twin of `MangaLibraryAdder.addToExistingGroup`, pinned by the
-     * `addEntryOrPrompt` kernel both call.
+     * The stored-row form of the browse [addToExistingGroup] above: nothing is inserted, only joined and
+     * filed. Twin of `MangaLibraryAdder.addToExistingGroup`, pinned by the `addEntry` kernel both call.
      */
-    suspend fun addToExistingGroup(novelId: Long, selectedIds: List<Long>): AddFavoriteResult = addEntryOrPrompt(
+    suspend fun addToExistingGroup(novelId: Long, selectedIds: List<Long>): AddOutcome = addEntry(
         resolveCategories = { groupCategoryIdsOf(selectedIds) },
         favorite = { joinGroup(novelId, selectedIds) },
         fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
-        categoryPicker = { categoryPickerPrompt(novelId) },
     )
 
     /**

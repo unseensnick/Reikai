@@ -47,6 +47,7 @@ import reikai.domain.stats.StatsShortcut
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.components.EntryDuplicateCardUi
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.components.DownloadProgress
@@ -1937,9 +1938,9 @@ private class FakeRecentsProvider(
         filedCategories = entry to categoryIds
     }
 
-    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
+    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome {
         groupedWith = duplicates
-        return addResult
+        return AddOutcome.Added
     }
 
     override suspend fun clearHistory(): Boolean {

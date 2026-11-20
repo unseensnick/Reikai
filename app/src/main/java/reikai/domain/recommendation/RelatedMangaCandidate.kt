@@ -3,6 +3,7 @@ package reikai.domain.recommendation
 import eu.kanade.tachiyomi.source.model.SManga
 import mihon.domain.manga.model.toDomainManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * Pool element for the related-mangas carousel: an [SManga] plus the source it counts as coming from,
@@ -36,10 +37,13 @@ class RelatedMangaCandidate(
 }
 
 /**
- * The local manga id a tapped [candidate] opens, stored first if it is new, or null for a tracker's
- * card, whose URL belongs to no installed source, so the caller routes it through global search.
+ * The local manga a [candidate] is, stored first if it is new, or null for a tracker's card, whose URL
+ * belongs to no installed source, so a tap routes it through global search and a bulk add skips it.
  */
-suspend fun NetworkToLocalManga.localIdOf(candidate: RelatedMangaCandidate): Long? {
+suspend fun NetworkToLocalManga.storedOf(candidate: RelatedMangaCandidate): Manga? {
     if (candidate.sourceId == RECOMMENDS_SOURCE) return null
-    return this(candidate.manga.toDomainManga(candidate.sourceId)).id
+    return this(candidate.manga.toDomainManga(candidate.sourceId))
 }
+
+/** The local manga id a tapped [candidate] opens; see [storedOf]. */
+suspend fun NetworkToLocalManga.localIdOf(candidate: RelatedMangaCandidate): Long? = storedOf(candidate)?.id

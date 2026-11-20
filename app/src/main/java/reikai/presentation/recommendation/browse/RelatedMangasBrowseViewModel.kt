@@ -15,9 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import mihon.domain.manga.model.toDomainManga
 import reikai.domain.recommendation.PrepareRecommendationAssembly
-import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RelatedLibraryKeys
 import reikai.domain.recommendation.RelatedMangaCache
@@ -25,6 +23,7 @@ import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.isInLibrary
 import reikai.domain.recommendation.localIdOf
+import reikai.domain.recommendation.storedOf
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
@@ -156,20 +155,19 @@ class RelatedMangasBrowseViewModel(
         val selected = picked.filterNot { it.inLibrary }.map { it.candidate }
 
         viewModelScope.launchIO {
-            // Tracker-origin candidates resolve to no installed source, so they can't be favorited.
-            val (trackerOrigin, addable) = selected.partition { it.sourceId == RECOMMENDS_SOURCE }
-            val resolved = addable
-                .map { networkToLocalManga(it.manga.toDomainManga(it.sourceId)) }
-                .filterNot { it.favorite }
+            // A tracker's card resolves to no installed source, so it can't be favorited.
+            val stored = selected.map { networkToLocalManga.storedOf(it) }
+            val skipped = stored.count { it == null }
+            val resolved = stored.filterNotNull().filterNot { it.favorite }
             if (resolved.isEmpty()) {
-                finishAdd(added = 0, skipped = trackerOrigin.size)
+                finishAdd(added = 0, skipped = skipped)
                 return@launchIO
             }
 
             when (val batch = libraryAdder.resolveBatchCategories()) {
-                is BatchCategories.Default -> addAndReport(resolved, batch.categoryIds, skipped = trackerOrigin.size)
+                is BatchCategories.Default -> addAndReport(resolved, batch.categoryIds, skipped = skipped)
                 is BatchCategories.Ask -> state.update {
-                    it.copy(dialog = Dialog.ChangeCategory(resolved, batch.initialSelection, trackerOrigin.size))
+                    it.copy(dialog = Dialog.ChangeCategory(resolved, batch.initialSelection, skipped))
                 }
             }
         }

@@ -7,6 +7,7 @@ import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.MergeScope
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.AddOutcome
 
 /**
  * Acting on the chapters a feed shows, on every surface: each mode that declares a selection needs
@@ -123,7 +124,7 @@ interface RecentsBehavior {
     suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>)
 
     /** Adds [entry] and merges it into the group of the [duplicates] the user picked, in the group's categories. */
-    suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult
+    suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome
 
     /**
      * Drops every read record of this content type, behind the engine's one confirmation, answering

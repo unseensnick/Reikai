@@ -395,7 +395,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         reset()
         val result = adder(true, false, true, groupCategories, userCategories, defaultCategoryId)
             .addToExistingGroup(manga, listOf(2L))
-        val prompt = (result as? AddFavoriteResult.NeedsCategoryChoice)?.initialSelection?.map { it.value }
+        val prompt = emptyList<Category>().takeIf { result == AddOutcome.NeedsCategoryChoice }
         return GroupAddResult(prompt, GroupAddEffects(null, merged, favoriteWritten, filed))
     }
 
@@ -524,7 +524,7 @@ class NovelGroupAddProbe : GroupAddProbe {
         reset()
         val result = adder(true, false, true, groupCategories, userCategories, defaultCategoryId)
             .addToExistingGroup(novelId = 1L, selectedIds = listOf(2L))
-        val prompt = (result as? AddFavoriteResult.NeedsCategoryChoice)?.initialSelection?.map { it.value }
+        val prompt = emptyList<Category>().takeIf { result == AddOutcome.NeedsCategoryChoice }
         return GroupAddResult(prompt, GroupAddEffects(null, merged, favoriteWritten, filed))
     }
 

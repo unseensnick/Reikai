@@ -41,6 +41,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.isInstalled
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
@@ -297,8 +298,8 @@ class MangaRecentsAdapter(
         mangaLibraryAdder.confirmAddCategories(manga.id, categoryIds)
     }
 
-    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {
-        val manga = mangaOf(entry) ?: return AddFavoriteResult.Failed
+    override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome {
+        val manga = mangaOf(entry) ?: return AddOutcome.Failed
         return mangaLibraryAdder.addToExistingGroup(manga, duplicates.map { it.rawId })
     }
 

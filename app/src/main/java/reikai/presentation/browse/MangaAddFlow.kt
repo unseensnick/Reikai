@@ -51,7 +51,7 @@ class MangaAddFlow(
     }
 
     override fun addToGroup(entryIds: List<Long>) = continueWith(raised as? MangaAddDialog.AddDuplicate) {
-        adder.addToExistingGroup(it.manga, entryIds).toStep(it.manga)
+        adder.addToExistingGroup(it.manga, entryIds).step
     }
 
     override fun startMigrate(duplicateId: Long) = continueWith(raised as? MangaAddDialog.AddDuplicate) {

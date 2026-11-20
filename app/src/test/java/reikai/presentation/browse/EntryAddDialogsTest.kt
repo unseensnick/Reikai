@@ -1,23 +1,31 @@
 package reikai.presentation.browse
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import mihon.core.navigation.Navigator
+import mihon.core.navigation.rememberNavigator
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.presentation.ComposeTestHost
+import reikai.presentation.TestRootRoute
 
 /**
- * The long-press dialogs drawn over each content type's real add flow. The flow's own conformance
- * test calls its verbs directly, so only this one sees a button wired to the wrong verb.
+ * The long-press dialogs drawn over each content type's real add flow, every button and card gesture
+ * included. The flow's own conformance test calls its verbs directly, so only this one sees a button
+ * wired to the wrong verb.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 class EntryAddDialogsTest(private val newProbe: ProbeFactory) {
@@ -28,7 +36,12 @@ class EntryAddDialogsTest(private val newProbe: ProbeFactory) {
     // The runner hands every test the same parameters, so each builds its own library.
     private val probe = newProbe.create()
 
-    private fun showDialogs() = compose.setContent { ComposeTestHost { DialogHost(probe.flow).Content() } }
+    private lateinit var navigator: Navigator
+
+    private fun showDialogs() = compose.setContent {
+        navigator = rememberNavigator(TestRootRoute)
+        ComposeTestHost(navigator = navigator) { DialogHost(probe.flow).Content() }
+    }
 
     @Test
     fun `confirming a removal takes the entry out of the library`() = runTest {
@@ -83,6 +96,31 @@ class EntryAddDialogsTest(private val newProbe: ProbeFactory) {
         probe.entryInLibrary() shouldBe true
     }
 
+    @Test
+    fun `tapping a duplicate card offers to migrate it onto the entry`() = runTest {
+        val duplicate = probe.storeDuplicate()
+        probe.storeEntry(inLibrary = false)
+        probe.pressEntry()
+        showDialogs()
+
+        compose.onNodeWithText(EntryAddFlowConformanceTest.DUPLICATE_TITLE).performClick()
+        probe.act {}
+
+        probe.flow.dialog.value shouldBe EntryAddDialog.Migrate(currentId = duplicate, targetId = probe.entryId())
+    }
+
+    @Test
+    fun `long-pressing a duplicate card opens that duplicate`() = runTest {
+        val duplicate = probe.storeDuplicate()
+        probe.storeEntry(inLibrary = false)
+        probe.pressEntry()
+        showDialogs()
+
+        compose.onNodeWithText(EntryAddFlowConformanceTest.DUPLICATE_TITLE).performTouchInput { longClick() }
+
+        compose.runOnIdle { navigator.current shouldBe probe.flow.duplicateScreen(duplicate) }
+    }
+
     class ProbeFactory(private val name: String, val create: () -> AddFlowProbe) {
         override fun toString() = name
     }
@@ -98,6 +136,10 @@ class EntryAddDialogsTest(private val newProbe: ProbeFactory) {
 }
 
 private class DialogHost(private val flow: EntryAddFlow<*>) {
+    // The migrate question opens the migration host, which needs the app graph; the cases stop at the flow.
     @Composable
-    fun Content() = EntryAddDialogs(flow)
+    fun Content() {
+        val dialog by flow.dialog.collectAsState()
+        if (dialog !is EntryAddDialog.Migrate) EntryAddDialogs(flow)
+    }
 }
