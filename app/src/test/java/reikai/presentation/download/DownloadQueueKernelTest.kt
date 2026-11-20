@@ -201,6 +201,14 @@ class DownloadQueueKernelTest {
     }
 
     @Test
+    @DisplayName("a series split around another keeps its chapters where they are when its order did not change")
+    fun splitSeriesUnchangedOrderIsNoReorder() {
+        val queue = listOf(1L to 10L, 2L to 20L, 1L to 11L)
+
+        queue.withSeriesInOrderIfMoved(listOf(1L, 2L)) { it.first } shouldBe null
+    }
+
+    @Test
     @DisplayName("a series order the queue does not hold yet is applied")
     fun changedSeriesOrderIsReorder() {
         val queue = listOf(1L to 10L, 2L to 20L)

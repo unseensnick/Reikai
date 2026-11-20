@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,5 +50,20 @@ class MangaDownloadQueueProviderTest {
     @Test
     fun `a downloader paused for the network shows nothing as downloading`() = runTest {
         activeSeries(paused = true) shouldBe emptySet()
+    }
+
+    @Test
+    fun `a drag that keeps a split queue's series order leaves the downloader alone`() = runTest {
+        val other = Manga.create().copy(id = 2L)
+        val downloadManager = mockk<DownloadManager>(relaxed = true) {
+            every { queueState } returns MutableStateFlow(
+                listOf(manga, other, manga).map { Download(mockk(relaxed = true), it, Chapter.create()) },
+            )
+        }
+        val provider = MangaDownloadQueueProvider(downloadManager, mockk(relaxed = true), mockk(relaxed = true))
+
+        provider.reorderSeries(listOf(1L, 2L))
+
+        coVerify(exactly = 0) { downloadManager.reorderQueue(any()) }
     }
 }

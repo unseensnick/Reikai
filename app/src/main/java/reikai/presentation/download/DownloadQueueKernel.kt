@@ -164,9 +164,13 @@ fun seriesOrders(cards: List<EntryDownloadCardUi>, cardKeysInOrder: List<String>
 /**
  * The queue with its series in [seriesIdsInOrder], or null when it already holds that order: Mihon's
  * reorder restarts the chapters it is downloading, so moving a novel past a manga must not touch it.
+ * Compared by series order, not by chapter: a queue with one series split around another (a later
+ * download appended) is never equal to its regrouped form, so a drag elsewhere would restart it.
  */
-fun <T> List<T>.withSeriesInOrderIfMoved(seriesIdsInOrder: List<Long>, seriesOf: (T) -> Long): List<T>? =
-    withSeriesInOrder(seriesIdsInOrder, seriesOf).takeIf { it != this }
+fun <T> List<T>.withSeriesInOrderIfMoved(seriesIdsInOrder: List<Long>, seriesOf: (T) -> Long): List<T>? {
+    val reordered = withSeriesInOrder(seriesIdsInOrder, seriesOf)
+    return reordered.takeIf { it.map(seriesOf).distinct() != map(seriesOf).distinct() }
+}
 
 /**
  * The queue with one chapter moved behind the rest of its series, the chapter sheet's Move to bottom.
