@@ -12,6 +12,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -99,6 +101,20 @@ class NovelSourceManager(
         installer().awaitFirstLoad()
         appsRegistered.await()
     }
+
+    /**
+     * Whether the first plugin load and the apps' registration have both finished, without starting the
+     * load: before then a source missing from [sources] may only not have loaded yet.
+     */
+    val firstLoadDone: Flow<Boolean> = combine(
+        flow { emitAll(installer().firstLoadDone) },
+        flow {
+            emit(false)
+            appsRegistered.await()
+            emit(true)
+        },
+    ) { plugins, apps -> plugins && apps }
+        .distinctUntilChanged()
 
     private val builtInIds = builtIn.mapTo(HashSet()) { it.id }
 

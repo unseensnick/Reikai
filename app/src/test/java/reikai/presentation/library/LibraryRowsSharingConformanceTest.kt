@@ -103,6 +103,7 @@ class LibraryRowsSharingConformanceTest {
                         },
                     ),
                 )
+                every { firstLoadDone } returns flowOf(true)
             },
             mergeGroupRepository = mergeGroupRepository,
             mergedChapterUnitRepository = mergedChapterUnitRepository,

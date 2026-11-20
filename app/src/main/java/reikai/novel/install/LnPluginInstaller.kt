@@ -95,8 +95,8 @@ class LnPluginInstaller(
         field = MutableStateFlow<Map<String, LnPluginLoadFailure>>(emptyMap())
 
     /** Whether a load pass has run this process, whatever it loaded; see [awaitFirstLoad]. */
-    @Volatile
-    private var firstLoadDone = false
+    val firstLoadDone: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
     /** Load any installed plugins not yet registered this process, in parallel. Retries previously
      *  failed ones once their wait is up, so a novel screen opened later self-heals a transient failure. */
@@ -110,8 +110,8 @@ class LnPluginInstaller(
      * loaded again per novel or per chapter; [ensureLoaded] at a screen or run start does the retrying.
      */
     suspend fun awaitFirstLoad() {
-        if (firstLoadDone) return
-        loadMutex.withLock { if (!firstLoadDone) loadPendingLocked() }
+        if (firstLoadDone.value) return
+        loadMutex.withLock { if (!firstLoadDone.value) loadPendingLocked() }
     }
 
     /**
@@ -128,7 +128,7 @@ class LnPluginInstaller(
         val due = (prefs.installedPluginUrls().get() - loadedUrls)
             .filterTo(mutableSetOf()) { url -> failedAt[url]?.let { at - it >= RETRY_FAILED_AFTER_MS } ?: true }
         loadUrlsLocked(due)
-        firstLoadDone = true
+        firstLoadDone.value = true
     }
 
     suspend fun installFromUrl(
