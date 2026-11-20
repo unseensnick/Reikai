@@ -11,11 +11,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.model.LibraryNovel
+import reikai.domain.novel.model.Novel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.presentation.MainDispatcherExtension
@@ -38,15 +44,18 @@ class StatsViewModelTest {
     private val store = EmittingPreferenceStore()
     private var load: suspend () -> StatsLibrary = { library(1) }
 
-    private fun viewModel() = main.track(
+    private fun viewModel(
+        mangaDownloads: Int = 0,
+        novelDownloadManager: NovelDownloadManager = mockk(),
+    ) = main.track(
         StatsViewModel(
-            downloadManager = mockk<DownloadManager> { every { getDownloadCount() } returns 0 },
+            downloadManager = mockk<DownloadManager> { every { getDownloadCount() } returns mangaDownloads },
             getTotalReadDuration = GetTotalReadDuration(mockk { coEvery { getTotalReadDuration() } returns 0L }),
             preferences = LibraryPreferences(store),
             novelHistoryRepository = mockk<NovelHistoryRepository> { coEvery { getTotalReadDuration() } returns 0L },
             novelPreferences = NovelPreferences(store),
             sourcePreferences = ReikaiSourcePreferences(store),
-            novelDownloadManager = { mockk<NovelDownloadManager>() },
+            novelDownloadManager = { novelDownloadManager },
             statsLibraryLoader = { load() },
         ),
     )
@@ -76,10 +85,30 @@ class StatsViewModelTest {
         }
 
         model.refresh()
-        withContext(Dispatchers.Default) { withTimeoutOrNull(5.seconds) { started.await() } }
+        withContext(Dispatchers.Default) { withTimeout(5.seconds) { started.await() } }
 
         (model.state.value as? StatsScreenState.Success)?.overview?.libraryMangaCount shouldBe 1
         gate.complete(library(2))
+    }
+
+    /** Two manga with four downloads, three novels with one each, which the novel manager counts. */
+    @ParameterizedTest
+    @CsvSource("ALL, 5, 7", "MANGA, 2, 4", "NOVELS, 3, 3")
+    fun `each chip counts its own titles and downloads`(type: ContentType, titles: Int, downloads: Int) = runTest {
+        ReikaiSourcePreferences(store).statsContentType.set(type)
+        load = { statsLibrary(manga = (1L..2L).map(::manga), novels = (1L..3L).map(::novel)) }
+        val model = viewModel(
+            mangaDownloads = 4,
+            novelDownloadManager = mockk { every { getDownloadCount(any()) } returns 1 },
+        )
+
+        model.refresh()
+
+        withContext(Dispatchers.Default) {
+            withTimeout(5.seconds) {
+                model.state.first { it is StatsScreenState.Success } as StatsScreenState.Success
+            }
+        }.let { it.overview.libraryMangaCount to it.chapters.downloadCount } shouldBe (titles to downloads)
     }
 
     private suspend fun StatsViewModel.awaitTitles(count: Int): Int? = withContext(Dispatchers.Default) {
@@ -89,6 +118,18 @@ class StatsViewModelTest {
     }
 
     private fun library(titles: Int) = statsLibrary(manga = (1L..titles).map(::manga))
+
+    private fun novel(id: Long) = LibraryNovel(
+        novel = Novel.create().copy(id = id),
+        categories = emptyList(),
+        totalChapters = 0,
+        readCount = 0,
+        bookmarkCount = 0,
+        downloadCount = 0,
+        latestUpload = null,
+        chapterFetchedAt = null,
+        lastRead = null,
+    )
 
     private fun manga(id: Long) = LibraryManga(
         manga = Manga.create().copy(id = id),

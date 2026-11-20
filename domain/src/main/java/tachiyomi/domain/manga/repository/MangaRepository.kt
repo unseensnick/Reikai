@@ -19,6 +19,9 @@ interface MangaRepository {
 
     suspend fun getFavorites(): List<Manga>
 
+    // RK: the stored manga among [ids], in one read rather than one per id.
+    suspend fun getMangaByIds(ids: List<Long>): List<Manga>
+
     // RK: favorited adult-source galleries with captured metadata (EHentai update checker).
     suspend fun getExhFavoriteMangaWithMetadata(sources: List<Long>): List<Manga>
 

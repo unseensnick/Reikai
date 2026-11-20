@@ -10,14 +10,15 @@ import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -140,11 +141,12 @@ class StatsViewModel(
     init {
         viewModelScope.launchIO {
             // RK --> the last figures stay on screen while a refresh loads
-            combine(
-                ingredients.value.filterNotNull(),
-                sourcePreferences.statsContentType.changes()
-                    .onStart { emit(sourcePreferences.statsContentType.get()) },
-            ) { ingredients, type -> buildSuccess(type, ingredients) }
+            // The chip's own StateFlow, and the fold over the whole library on Default, as the stats
+            // detail screens fold theirs.
+            combine(ingredients.value.filterNotNull(), contentType) { ingredients, type ->
+                buildSuccess(type, ingredients)
+            }
+                .flowOn(Dispatchers.Default)
                 .collectLatest { state.value = it }
             // RK <--
         }

@@ -50,12 +50,17 @@ class StatsCoversTest {
         }
     }
 
-    // Every point read answers with a cover the in-memory lead does not have.
+    // Only the batch reads answer, each with a cover the in-memory lead does not have: a series outside
+    // the library is never read one id at a time.
     private val mangaRepository = mockk<MangaRepository> {
-        coEvery { getMangaById(any()) } answers { Manga.create().copy(id = firstArg(), thumbnailUrl = "stored") }
+        coEvery { getMangaByIds(any()) } answers {
+            firstArg<List<Long>>().map { Manga.create().copy(id = it, thumbnailUrl = "stored") }
+        }
     }
     private val novelRepository = mockk<NovelRepository> {
-        coEvery { getById(any()) } answers { Novel.create().copy(id = firstArg(), thumbnailUrl = "stored") }
+        coEvery { getByIds(any()) } answers {
+            firstArg<List<Long>>().map { Novel.create().copy(id = it, thumbnailUrl = "stored") }
+        }
     }
 
     private fun id(type: ContentType, raw: Long): EntryId =

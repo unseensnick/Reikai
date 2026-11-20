@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import logcat.LogPriority
+import reikai.data.merge.MAX_SQL_IDS_PER_QUERY
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
@@ -38,6 +39,9 @@ class NovelRepositoryImpl(
 
     override suspend fun getById(id: Long): Novel? =
         database.novelsQueries.findById(id, ::mapNovel).awaitAsOneOrNull()
+
+    override suspend fun getByIds(ids: List<Long>): List<Novel> =
+        ids.chunked(MAX_SQL_IDS_PER_QUERY).flatMap { database.novelsQueries.findByIds(it, ::mapNovel).awaitAsList() }
 
     override suspend fun getByUrlAndSource(url: String, source: String): Novel? =
         database.novelsQueries.findByUrlAndSource(url, source, ::mapNovel).awaitAsOneOrNull()

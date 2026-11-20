@@ -15,6 +15,9 @@ import kotlin.time.Instant
 interface NovelRepository {
     suspend fun getAll(): List<Novel>
     suspend fun getById(id: Long): Novel?
+
+    /** The stored novels among [ids], in one read rather than one per id. */
+    suspend fun getByIds(ids: List<Long>): List<Novel>
     suspend fun getByUrlAndSource(url: String, source: String): Novel?
     suspend fun getFavorites(): List<Novel>
 

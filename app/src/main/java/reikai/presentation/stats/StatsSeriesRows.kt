@@ -25,19 +25,24 @@ suspend fun statsCovers(
 ): Map<EntryId, Any> {
     val mangaLeads = library.manga.titles.associateBy { it.manga.id }
     val novelLeads = library.novels.titles.associateBy { it.novel.id }
-    return ids.mapNotNull { id ->
+    val leads = ids.associateWith { id ->
         val custom = library.customInfo[id]
-        val cover = when (id) {
+        when (id) {
             is EntryId.Manga -> mangaLeads[id.rawId]?.manga?.withCustomInfo(custom)?.asMangaCover()
             is EntryId.Novel -> novelLeads[id.rawId]?.novel?.withCustomInfo(custom)?.asNovelCover()
-        } ?: runCatchingCancellable {
-            when (id) {
-                is EntryId.Manga -> mangaRepository.getMangaById(id.rawId).asMangaCover()
-                is EntryId.Novel -> novelRepository.getById(id.rawId)?.asNovelCover()
-            }
-        }.getOrNull()
-        cover?.let { id to it }
-    }.toMap()
+        }
+    }
+    // The rest in one read per type, since a reading-time list can hold every series ever read.
+    val outside = leads.filterValues { it == null }.keys
+    val mangaIds = outside.filterIsInstance<EntryId.Manga>().map { it.rawId }
+    val novelIds = outside.filterIsInstance<EntryId.Novel>().map { it.rawId }
+    val stored = buildMap<EntryId, Any> {
+        runCatchingCancellable { mangaRepository.getMangaByIds(mangaIds) }.getOrNull().orEmpty()
+            .forEach { put(EntryId.Manga(it.id), it.asMangaCover()) }
+        runCatchingCancellable { novelRepository.getByIds(novelIds) }.getOrNull().orEmpty()
+            .forEach { put(EntryId.Novel(it.id), it.asNovelCover()) }
+    }
+    return ids.mapNotNull { id -> (leads[id] ?: stored[id])?.let { id to it } }.toMap()
 }
 
 /** The rows whose series is [state]; every row when [state] is null. */

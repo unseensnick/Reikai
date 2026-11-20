@@ -58,6 +58,11 @@ SELECT *
 FROM novels
 WHERE _id = :novelId;
 
+findByIds:
+SELECT *
+FROM novels
+WHERE _id IN :ids;
+
 findFavorites:
 SELECT *
 FROM novels

@@ -13,6 +13,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
+import reikai.data.merge.MAX_SQL_IDS_PER_QUERY
 import tachiyomi.core.common.util.lang.toLong
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -65,6 +66,13 @@ class MangaRepositoryImpl(
     }
 
     // RK: backs the EHentai gallery update checker.
+    // RK -->
+    override suspend fun getMangaByIds(ids: List<Long>): List<Manga> =
+        ids.chunked(MAX_SQL_IDS_PER_QUERY).flatMap {
+            database.mangaQueries.getMangaByIds(it, MangaMapper::mapManga).awaitAsList()
+        }
+    // RK <--
+
     override suspend fun getExhFavoriteMangaWithMetadata(sources: List<Long>): List<Manga> {
         return database.mangaQueries
             .getEhMangaWithMetadata(sources, MangaMapper::mapManga)
