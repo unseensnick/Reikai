@@ -70,6 +70,7 @@ import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.ReaderControlSpan
 import reikai.presentation.reader.text.ResumeVeil
+import reikai.presentation.reader.text.WebSearchSelection
 import reikai.presentation.reader.text.chapterSwipeStep
 import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.hasTravelled
@@ -2060,6 +2061,7 @@ class NovelTextViewport(
             )
             NovelTextStyle.apply(this, settings, context, fontManager)
             setTextIsSelectable(textSelectable)
+            customSelectionActionModeCallback = WebSearchSelection(this)
             // Selectable text has one tap owner, the watcher, so a click listener here would double
             // every tap: the Editor swallows a click on the text but not one past its last line.
             // Without selection the click is the owner instead, because LinkOnlyMovementMethod

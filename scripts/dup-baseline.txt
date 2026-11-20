@@ -86,6 +86,7 @@ app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.
 app/src/main/java/mihon/domain/migration/usecases/MigrateMangaUseCase.kt	app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt	e6adbde1e15cf839
 app/src/main/java/reikai/data/local/CombineLocalVolumes.kt	app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt	045731c0963b2e88
 app/src/main/java/reikai/data/local/CombineLocalVolumes.kt	app/src/main/java/reikai/presentation/reader/NovelReaderViewModel.kt	46017fd853c18e4c
+app/src/main/java/reikai/data/local/CombineLocalVolumes.kt	app/src/main/java/reikai/presentation/stats/StatsLibrary.kt	a59d9dd94fc6eeca
 app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2ec218252f58acee
 app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/novel/export/NovelEpubExportWorker.kt	a22d3ead731f9d1c
 app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	app/src/main/java/reikai/novel/export/NovelEpubExportWorker.kt	a22d3ead731f9d1c

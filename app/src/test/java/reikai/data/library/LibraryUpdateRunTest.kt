@@ -6,6 +6,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -19,6 +20,7 @@ import reikai.data.task.BannerTask
 import reikai.data.task.bannerTask
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
@@ -50,6 +52,8 @@ class LibraryUpdateRunTest {
     private val events = mutableListOf<String>()
     private val announced = mutableListOf<List<Pair<Entry, List<Row>>>>()
     private var badge = 0
+    private var hiddenIds = emptySet<Long>()
+    private var hiddenRead: () -> Set<Long> = { hiddenIds }
     private val queued = mutableListOf<Long>()
 
     private var now = 0L
@@ -130,6 +134,7 @@ class LibraryUpdateRunTest {
             stitch
         },
         announce = announce,
+        hidden = { hiddenRead() },
         countArrivals = { badge += it },
         queueDownloads = { downloads ->
             // Suspends, as the real queue does, so only a non-cancellable finish reaches the end.
@@ -185,6 +190,36 @@ class LibraryUpdateRunTest {
         update { it.bothSourcesGainChapterTen() }
 
         badge shouldBe 1
+    }
+
+    @Test
+    fun `a hidden series' arrivals are not counted on the badge`() = runTest {
+        hiddenIds = setOf(3L)
+
+        update {
+            it.arrived(Entry(3), listOf(Row(30)), listOf(Row(30)))
+            it.arrived(Entry(4), listOf(Row(40)), listOf(Row(40)))
+        }
+
+        badge shouldBe 1
+    }
+
+    @Test
+    fun `a run whose hidden read fails still queues its downloads and counts every arrival`() = runTest {
+        hiddenRead = { error("database closed") }
+
+        update { it.bothSourcesGainChapterTen() }
+
+        (queued.size to badge) shouldBe (1 to 1)
+    }
+
+    @Test
+    fun `a cancelled run does not count a hidden series' arrivals on the badge`() = runTest {
+        hiddenIds = setOf(1L, 2L)
+
+        cancelMidRun()
+
+        badge shouldBe 0
     }
 
     @Test
@@ -244,6 +279,7 @@ class LibraryUpdateRunTest {
             },
             LibraryPreferences(InMemoryPreferenceStore()),
             AppTaskProgress(),
+            NoHiddenEntries,
         )
 
         run<Entry, Row>(
@@ -305,6 +341,7 @@ class LibraryUpdateRunTest {
             mockk<MergedChapterUnitRepository>(),
             LibraryPreferences(InMemoryPreferenceStore()),
             tasks,
+            NoHiddenEntries,
         )
     }
 
@@ -335,6 +372,7 @@ class LibraryUpdateRunTest {
             mockk<MergedChapterUnitRepository> { coEvery { getStitch(any(), any()) } returns stitch },
             LibraryPreferences(InMemoryPreferenceStore()),
             AppTaskProgress(),
+            NoHiddenEntries,
         )
 
         run<Entry, Row>(
@@ -347,4 +385,12 @@ class LibraryUpdateRunTest {
 
         announced.flatten().flatMap { (_, rows) -> rows.map { it.id } } shouldBe listOf(20L)
     }
+}
+
+/** No entry hidden, for the runs whose badge this test does not look at. */
+private object NoHiddenEntries : LibraryHiddenRepository {
+    override fun subscribe(type: ContentType) = flowOf(emptySet<Long>())
+    override suspend fun isHidden(type: ContentType, id: Long) = false
+    override suspend fun hide(type: ContentType, ids: List<Long>) = Unit
+    override suspend fun unhide(type: ContentType, ids: List<Long>) = Unit
 }

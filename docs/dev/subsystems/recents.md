@@ -84,7 +84,7 @@ Updates draws the 56dp row (`UpdatesRowShell`), with group and child rows from `
 - `app/src/main/java/reikai/presentation/recents/RecentsEngines.kt`, `RecentsTab.kt`, `RecentsTabBody.kt`, `ShowsUpdatesBadge.kt`: engine builders and the tab hosts.
 - `app/src/main/java/reikai/domain/category/RecentsCategoryFilter.kt`: `RecentsSurface`, `recentsCategoryFilterFlow`, `seedRecentsSurfaceFromUpdates`.
 - `app/src/main/java/reikai/domain/recents/RecentsFeedBounds.kt`: `RECENTS_FEED_LIMIT`, `recentsFeedCutoff`.
-- `data/src/main/sqldelight/tachiyomi/view/updatesView.sq`, `novelUpdatesView.sq`, `historyView.sq`, `novelHistoryView.sq`, `recentlyAddedView.sq`, `recentsUnread.sq`: the feeds.
+- `data/src/main/sqldelight/tachiyomi/view/updatesView.sq`, `novelUpdatesView.sq`, `historyView.sq`, `novelHistoryView.sq`, `recentlyAddedView.sq`, `recentsUnread.sq`: the feeds. Both Updates views leave out a series hidden from the library; History keeps it.
 - `data/src/main/java/reikai/data/recents/RecentlyAddedRepositoryImpl.kt`: the added lane for both types.
 - `app/src/main/java/reikai/presentation/updates/NovelUpdatesViewModel.kt`, `app/src/main/java/reikai/presentation/history/NovelHistoryViewModel.kt`, `HistoryFeedFailure.kt` (`emptyOnFailure`).
 - `app/src/main/java/reikai/presentation/widget/UnifiedWidgetUpdates.kt`, `UnifiedUpdatesGlanceWidget.kt`, `UnifiedUpdatesWidgetManager.kt`.

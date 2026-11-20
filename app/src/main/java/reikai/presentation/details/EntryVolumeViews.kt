@@ -380,14 +380,27 @@ internal fun AddVolumesDialog(
     val series by produceState<List<CombinableSeries>?>(null) { value = load() }
     val picked = remember { mutableStateListOf<CombinableSeries>() }
     var alsoOrganize by remember { mutableStateOf(false) }
+    // By title or folder name; a pick hidden by the search stays picked.
+    var query by remember { mutableStateOf("") }
+    val shown = remember(series, query) {
+        val text = query.trim()
+        series.orEmpty().filter { text.isEmpty() || it.title.contains(text, true) || it.folder.contains(text, true) }
+    }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(stringResource(MR.strings.action_add_volumes)) },
         text = {
             Column {
                 Text(stringResource(MR.strings.add_volumes_summary, title))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(text = stringResource(MR.strings.action_search)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
-                    items(series.orEmpty(), key = { it.id }) { one ->
+                    items(shown, key = { it.id }) { one ->
                         val toggle = { if (!picked.remove(one)) picked += one }
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable(onClick = toggle).testTag("add:${one.id}"),

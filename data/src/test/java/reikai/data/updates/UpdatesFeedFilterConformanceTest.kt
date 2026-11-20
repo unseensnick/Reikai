@@ -56,6 +56,14 @@ class UpdatesFeedFilterConformanceTest {
         type.chapterIds(database, Case.NONE).contains(7L) shouldBe type.cutsOffOnFetch
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a series hidden from the library is left out of the feed`(type: Type) = runTest {
+        type.seed(driver, type.statements + type.hideEntryThree)
+
+        type.chapterIds(database, Case.NONE) shouldBe listOf(1L, 2L, 3L, 6L)
+    }
+
     /**
      * Entry 1 is in category 1, entry 2 in category 2, entry 3 in none and entry 4 in both. Chapters, all
      * fetched and uploaded after the entry was added: 1 read, 2 started, 3 bookmarked, 4 untouched, 5 read
@@ -83,6 +91,7 @@ class UpdatesFeedFilterConformanceTest {
         val statements: List<String>,
         val uploadUnknown: String,
         val cutsOffOnFetch: Boolean,
+        val hideEntryThree: String,
     ) {
         MANGA(
             listOf(
@@ -109,6 +118,7 @@ class UpdatesFeedFilterConformanceTest {
                 "user_bookmark, user_last_page_read, remote_chapter_number, remote_order, state_date_fetch, " +
                 "remote_date_upload, remote_memo) VALUES (7, 1, 'c7', 'n', NULL, 0, 0, 0, 3.0, 2, 2000, 0, '{}')",
             cutsOffOnFetch = false,
+            hideEntryThree = "INSERT INTO library_hidden_manga(manga_id) VALUES (3)",
         ) {
             // The excluded-scanlator filter is manga only, so it stays off to compare like with like.
             override suspend fun query(database: Database, case: Case) = UpdatesRepositoryImpl(database)
@@ -145,6 +155,7 @@ class UpdatesFeedFilterConformanceTest {
                 "chapter_number, source_order, date_fetch, date_upload) VALUES " +
                 "(7, 1, 'c7', 'n', 0, 0, 0, 3.0, 2, 2000, 0)",
             cutsOffOnFetch = true,
+            hideEntryThree = "INSERT INTO library_hidden_novel(novel_id) VALUES (3)",
         ) {
             override suspend fun query(database: Database, case: Case) = NovelRepositoryImpl(database)
                 .getFilteredNovelUpdatesAsFlow(

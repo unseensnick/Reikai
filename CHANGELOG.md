@@ -21,14 +21,14 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Light novels can be read from your own EPUB files, through a local source beside the manga one.** Chapters follow the book's table of contents, even when one file holds several.
+- **Light novels can be read from your own EPUB files, through a local source beside the manga one.** Chapters follow the book's table of contents, even when one file holds several, and a series takes every book's tags.
 - **Books and comics can be imported from Library -> ⋮ -> Import files, or by opening or sharing a file with Reikai.** Reikai copies them into its local folders, asking before it adds to a series you have or replaces a file.
 - **A novel can be saved as an EPUB file from its ⋮ menu, or several at once from a library selection.** Downloaded chapters go in with the cover, pictures and details, so an imported copy keeps them.
 - **Local manga can keep each volume in a folder of its own, with that volume's chapters inside.** A picture named cover or folder is the volume's cover, and other loose pictures read as an Extras chapter.
 - **A local series split into volumes lists its chapters under a header per volume, with chips to show one volume at a time.** A header shows the volume's cover and how much of it is read, selects it on a tap and marks it read with its button; the reader's chapter list is grouped the same way.
 - **Picking a volume of a local series shows that volume's own cover, description and notes.** Each volume keeps its own notes, and backups carry them.
 - **A local series' volumes can be put in reading order and renamed from ⋮ -> Reorder volumes.** Chapters sorted by source are read in the new order; backups keep it.
-- **Local series can be combined into one series with volumes, with Combine as volumes on a library selection, and a volume split back out from ⋮ -> Split out volumes, without moving a file.** Read progress carries over, and each change offers Undo.
+- **Local series can be combined into one series with volumes, with Combine as volumes on a library selection, and a volume split back out from ⋮ -> Split out volumes, without moving a file.** Read progress and each series' notes carry over, Add volumes can be searched, and each change offers Undo.
 - **⋮ -> Organize files moves a local series' volumes into its folder and names them after its title and volumes.** A preview lists every new name first, and an unticked Also organize files offers it after grouping, renaming or editing, where the storage can move files.
 - **Open folder on a local series opens the folder its files are in.**
 - **A local chapter whose file goes missing keeps its read progress until the file comes back, through renames, moves and backups.** Deleting a volume in the app drops it on purpose.
@@ -50,7 +50,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The library filters by tag: show or hide any tag from Filter -> Tags, or from a tag on a series' page.** Save a set of tags to bring it back with one tap.
 - **Two tags that mean the same can be made one: long-press a tag in Filter -> Tags and pick the other.** Filtering, tag search, Group by tag, Statistics and recommendations then count them as one tag.
 - **The library can show only local series, or hide them, from Filter -> Local.** A merged series counts as local when any of its sources is.
-- **Series can be hidden from the library: select them and pick More -> Hide, and bring them back from ⋮ -> Hidden entries.** They still update and show in Updates, History and Statistics.
+- **Series can be hidden from the library: select them and pick More -> Hide, and bring them back from ⋮ -> Hidden entries.** They still update, but stay out of Updates and its badge; History and Statistics still show them.
 - **Library categories can be arranged by hand: pick Manual in Sort, then long-press a cover and move it.** Each move offers Undo, and Reset manual order puts a category back.
 - **A banner shows how far a library update or a backup restore has got (from Komikku).** Settings -> Library and Settings -> Data and storage can each hide it.
 
@@ -185,7 +185,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
-- **Selecting text in a novel now offers your installed apps' text actions too, such as a dictionary or a translator.** This needs Settings -> Novel reader -> Select text by long press.
+- **Selecting text in a novel now offers your installed apps' text actions too, such as a dictionary or a translator, and Web search.** This needs Settings -> Novel reader -> Select text by long press.
 - **On a busy phone, the manga reader no longer sometimes picks the wrong automatic reading mode as it opens.** It also no longer sends a merged chapter's web actions to the wrong source.
 - **Marking the chapter you're reading as read from the reader's chapter list no longer deletes its download when Settings -> Downloads -> After manually marked as read is on.**
 - **In incognito, deleting chapters after reading no longer removes another source's unread copy in a merged series, for manga and novels.**

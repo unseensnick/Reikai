@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -45,6 +46,29 @@ class AddVolumesDialogTest {
 
         confirmed shouldBe others
     }
+
+    @Test
+    fun `a search lists only the series whose title or folder matches`() {
+        show()
+
+        compose.onNodeWithText("Search").performTextInput("c")
+
+        (tagged("add:2") to tagged("add:3")) shouldBe (false to true)
+    }
+
+    @Test
+    fun `a series ticked before a search is still added once the search hides it`() {
+        show()
+        compose.onNodeWithTag("add:2").performClick()
+
+        compose.onNodeWithText("Search").performTextInput("Vol 3")
+        compose.onNodeWithTag("add:3").performClick()
+        compose.onNodeWithText("Add").performClick()
+
+        confirmed shouldBe others
+    }
+
+    private fun tagged(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
 
     @Test
     fun `nothing can be added before a series is ticked`() {

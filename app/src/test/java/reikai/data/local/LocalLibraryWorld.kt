@@ -330,6 +330,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             removeManga = removal,
             novelRepository = mockk(),
             novelChapterRepository = mockk(),
+            chapterRepository = chapterRepository,
             storageManager = storage,
             novelSources = mockk(),
             libraryPreferences = libraryPreferences,

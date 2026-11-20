@@ -40,6 +40,7 @@ import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
+import reikai.presentation.library.seriesGenres
 import reikai.storage.FolderUnreadableException
 import reikai.storage.list
 import reikai.storage.localCover
@@ -178,7 +179,9 @@ class LocalNovelSource(
             path = novelPath,
             name = details?.title ?: (series ?: coverSeries).title(first.book),
             cover = coverSeries.coverAddress(firstFile, first.book),
-            genres = (details?.genre ?: meta.genres).joinToString(","),
+            // Every volume's, since one book may carry none of the tags the others do
+            genres = (details?.genre ?: seriesGenres(null, volumes.map { it.third.book.metadata.genres }))
+                .joinToString(","),
             summary = details?.description ?: meta.description,
             author = details?.author ?: meta.author,
             artist = details?.artist ?: meta.artist,

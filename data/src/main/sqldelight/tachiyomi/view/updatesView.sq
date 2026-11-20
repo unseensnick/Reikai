@@ -26,6 +26,8 @@ ON manga.id = excluded_scanlator.manga_id
 AND chapter.remote_scanlator = excluded_scanlator.scanlator
 WHERE user_favorite_at IS NOT NULL
 AND state_date_fetch > user_favorite_at
+-- RK: a series hidden from the library is left out of Updates too
+AND NOT EXISTS (SELECT 1 FROM library_hidden_manga WHERE library_hidden_manga.manga_id = manga.id)
 ORDER BY state_date_fetch DESC;
 
 getRecentUpdatesWithFilters:

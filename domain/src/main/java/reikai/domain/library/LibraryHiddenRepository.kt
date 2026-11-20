@@ -4,8 +4,8 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * The entries hidden from the library view, by raw id per content type, since manga and novel ids
- * collide. Hidden only from the library view: updates, notifications, Recents and Statistics still read
- * them. Write through HideSeries, which reaches every library member of a merged series.
+ * collide. The Updates feed and badge leave them out too; updates, notifications, History and Statistics
+ * still read them. Write through HideSeries, which reaches every library member of a merged series.
  */
 interface LibraryHiddenRepository {
 

@@ -1,0 +1,54 @@
+-- A series hidden from the library is left out of Updates and the updates widgets too, both content types.
+DROP VIEW updatesView;
+CREATE VIEW updatesView AS
+SELECT
+    manga.id AS mangaId,
+    manga.remote_title AS mangaTitle,
+    chapter.id AS chapterId,
+    chapter.remote_name AS chapterName,
+    chapter.remote_scanlator AS scanlator,
+    chapter.remote_url AS chapterUrl,
+    chapter.user_read AS read,
+    chapter.user_bookmark AS bookmark,
+    chapter.user_last_page_read AS lastPageRead,
+    chapter.page_count AS pageCount,
+    manga.source_id AS sourceId,
+    manga.user_favorite_at IS NOT NULL AS favorite,
+    manga.remote_cover AS thumbnailUrl,
+    manga.state_cover_last_modified AS coverLastModified,
+    chapter.remote_date_upload AS dateUpload,
+    chapter.state_date_fetch AS dateFetch,
+    excluded_scanlator.scanlator AS excludedScanlator
+FROM manga JOIN chapter
+ON manga.id = chapter.manga_id
+LEFT JOIN excluded_scanlator
+ON manga.id = excluded_scanlator.manga_id
+AND chapter.remote_scanlator = excluded_scanlator.scanlator
+WHERE user_favorite_at IS NOT NULL
+AND state_date_fetch > user_favorite_at
+AND NOT EXISTS (SELECT 1 FROM library_hidden_manga WHERE library_hidden_manga.manga_id = manga.id)
+ORDER BY state_date_fetch DESC;
+
+DROP VIEW novelUpdatesView;
+CREATE VIEW novelUpdatesView AS
+SELECT
+    novels._id AS novelId,
+    novels.title AS novelTitle,
+    novel_chapters._id AS chapterId,
+    novel_chapters.name AS chapterName,
+    novel_chapters.url AS chapterUrl,
+    novel_chapters.read,
+    novel_chapters.bookmark,
+    novel_chapters.last_text_progress AS lastTextProgress,
+    novels.source,
+    novels.favorite_at IS NOT NULL AS favorite,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.cover_last_modified AS coverLastModified,
+    novel_chapters.date_fetch AS dateFetch,
+    novels.url AS novelUrl
+FROM novels JOIN novel_chapters
+ON novels._id = novel_chapters.novel_id
+WHERE novels.favorite_at IS NOT NULL
+AND novel_chapters.date_fetch > novels.favorite_at
+AND NOT EXISTS (SELECT 1 FROM library_hidden_novel WHERE library_hidden_novel.novel_id = novels._id)
+ORDER BY novel_chapters.date_fetch DESC;

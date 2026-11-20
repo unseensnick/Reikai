@@ -186,7 +186,10 @@ class LocalSeriesRelink(
     /** The candidates among [listed], the local root's trusted listing; a folder that cannot be listed whole is none. */
     private suspend fun candidatesIn(type: ContentType, id: Long, folder: String, listed: List<UniFile>): List<String> {
         // Only the chapters in [folder]: a group's others sit in folders that did not move.
-        val paths = chapterUrls(type, id).filter { chapterVolumeUnit(type, it)?.first == folder }
+        val paths = localChapterUrls(type, id, novelChapterRepository, chapterRepository).filter {
+            chapterVolumeUnit(type, it)?.first ==
+                folder
+        }
             .mapNotNull { relativePath(type, folder, it) }
         if (paths.isEmpty()) return emptyList()
         val volumes = paths.mapNotNullTo(HashSet()) { it.substringBefore('/', "").lowercase().ifEmpty { null } }
@@ -224,10 +227,5 @@ class LocalSeriesRelink(
     private suspend fun address(type: ContentType, id: Long): String? = when (type) {
         ContentType.NOVELS -> novelRepository.getById(id)?.url
         else -> mangaRepository.getMangaById(id).url
-    }
-
-    private suspend fun chapterUrls(type: ContentType, id: Long): List<String> = when (type) {
-        ContentType.NOVELS -> novelChapterRepository.getByNovelId(id).map { it.url }
-        else -> chapterRepository.getChapterByMangaId(id).map { it.url }
     }
 }

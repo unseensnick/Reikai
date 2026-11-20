@@ -19,6 +19,7 @@ import reikai.domain.local.LocalFileJournalPlan.UrlRule
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
 import reikai.domain.local.VolumeOwner
+import reikai.domain.novel.NovelChapterRepository
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localChapterFile
 import reikai.source.local.localChapterUnit
@@ -30,6 +31,7 @@ import reikai.storage.parkIfSpent
 import reikai.storage.rename
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
@@ -290,6 +292,17 @@ class LocalOrganizer(
 /** Every series folder an organize names, before and after, which its holder locks and a failure blocks. */
 fun Organize.folders(): List<String> =
     (listOf(fromSeries, toSeries) + (ownersBefore + ownersAfter).flatMap { listOf(it.folder, it.owner) }).distinct()
+
+/** Every chapter address series [id] of [type] lists. */
+internal suspend fun localChapterUrls(
+    type: ContentType,
+    id: Long,
+    novelChapters: NovelChapterRepository,
+    mangaChapters: ChapterRepository,
+): List<String> = when (type) {
+    ContentType.NOVELS -> novelChapters.getByNovelId(id).map { it.url }
+    else -> mangaChapters.getChapterByMangaId(id).map { it.url }
+}
 
 /** A local chapter address's folder and volume (a manga volume folder or [VolumeOwner.LOOSE], a novel's book). */
 internal fun chapterVolumeUnit(type: ContentType, url: String): Pair<String, String>? = when (type) {

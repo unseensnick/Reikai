@@ -6,13 +6,16 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
 import reikai.data.task.AppTask
 import reikai.data.task.AppTaskProgress
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -20,6 +23,7 @@ import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.collapseNewChapters
 import reikai.domain.novel.NovelMergeManager
 import tachiyomi.core.common.preference.getAndSet
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -36,6 +40,7 @@ class LibraryUpdateRun(
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val libraryPreferences: LibraryPreferences,
     private val appTaskProgress: AppTaskProgress,
+    private val hiddenEntries: LibraryHiddenRepository,
 ) {
     suspend operator fun <E, C> invoke(
         contentType: ContentType,
@@ -55,6 +60,7 @@ class LibraryUpdateRun(
                 memberships = { mergeManager.memberships() },
                 stitchOf = { mergedChapterUnitRepository.getStitch(contentType, it) },
                 announce = announce,
+                hidden = { hiddenEntries.subscribe(contentType).first() },
                 countArrivals = libraryPreferences::addNewUpdates,
                 queueDownloads = queueDownloads,
                 report = { done, total -> appTaskProgress.report(task, done, total) },
@@ -138,7 +144,8 @@ class UpdateProgressList<E>(private val total: Int, private val show: suspend (L
 
 /**
  * One library update run, for either content type: [run] fills the ledger, the merged stitch is
- * reconciled, and the arrivals are announced, counted and downloaded one copy per merged chapter.
+ * reconciled, and the arrivals are announced, counted and downloaded one copy per merged chapter. A [hidden]
+ * entry's arrivals are not counted on the Updates badge, since Updates leaves them out.
  * A run that ends early has written its chapters already, and they are never new again, so it
  * still counts and queues everything it fetched, uncollapsed.
  */
@@ -149,13 +156,14 @@ suspend fun <E, C> runLibraryUpdate(
     memberships: suspend () -> Map<Long, Long>,
     stitchOf: suspend (groupId: Long) -> List<ChapterUnit>,
     announce: suspend (List<Pair<E, List<C>>>) -> Unit,
+    hidden: suspend () -> Set<Long>,
     countArrivals: (Int) -> Unit,
     queueDownloads: suspend (List<Pair<E, List<C>>>) -> Unit,
     report: (done: Int, total: Int) -> Unit,
     run: suspend (UpdateRunLedger<E, C>) -> Unit,
 ) {
     val ledger = UpdateRunLedger<E, C>(report)
-    var counted: Int? = null
+    var counted: List<Pair<E, List<C>>>? = null
     var downloads: List<Pair<E, List<C>>> = ledger.downloads
     try {
         afterPass { run(ledger) }
@@ -176,14 +184,18 @@ suspend fun <E, C> runLibraryUpdate(
                 .distinctBy { (_, chapter) -> arrivals.dedupeKey(chapterId(chapter)) }
                 .groupBy({ it.first }, { it.second })
                 .toList()
-            counted = announced.sumOf { it.second.size }
+            counted = announced
             if (announced.isNotEmpty()) announce(announced)
         }
     } finally {
         withContext(NonCancellable) {
-            val count = counted ?: ledger.arrivals.sumOf { it.second.size }
-            if (count > 0) countArrivals(count)
             if (downloads.isNotEmpty()) queueDownloads(downloads)
+            // A failed read counts every arrival, as before hiding left any out, rather than lose the count.
+            val hiddenIds = runCatching { hidden() }
+                .onFailure { logcat(LogPriority.ERROR, it) { "Reading hidden series for the Updates badge failed" } }
+                .getOrDefault(emptySet())
+            val count = (counted ?: ledger.arrivals).filter { entryId(it.first) !in hiddenIds }.sumOf { it.second.size }
+            if (count > 0) countArrivals(count)
         }
     }
 }
