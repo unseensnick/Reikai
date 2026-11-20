@@ -19,22 +19,28 @@ import kotlinx.coroutines.test.runTest
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelChapterSyncRules
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.db.Transactions
 import reikai.domain.entry.CarryCustomInfo
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
+import reikai.domain.entry.signedKey
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.HideSeries
+import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -61,6 +67,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
@@ -528,6 +535,26 @@ class MigrateEngineConformanceTest {
         engine.migrate(Setup(swapFails = true), replace = true).sourceTrackerCalls shouldBe emptyList()
     }
 
+    // Cover colours
+
+    /** No cover load follows a replace for the old entry, so the swap's own follow-up moves its colour. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a replace leaves the old entry's cover colour evictable`(engine: MigrateEngine) = runTest {
+        val key = engine.entryId(SOURCE).signedKey()
+        CoverColors.put(key, COLOR, inLibrary = true)
+
+        engine.migrate(Setup(), replace = true)
+        (1L..CoverColors.CAP).forEach { CoverColors.put(BROWSE_BASE + it, COLOR, inLibrary = false) }
+
+        CoverColors[key] shouldBe null
+    }
+
+    @AfterEach
+    fun clearColors() {
+        CoverColors.clear()
+    }
+
     // Custom info
 
     @ParameterizedTest(name = "{0}")
@@ -560,6 +587,8 @@ class MigrateEngineConformanceTest {
         const val SOURCE = 1L
         const val TARGET = 2L
         const val SOURCE_ADDED = 1234L
+        const val COLOR = 0x123456
+        const val BROWSE_BASE = 10_000L
 
         @JvmStatic
         fun engines() = listOf(MangaEngine(), NovelEngine())
@@ -780,10 +809,14 @@ interface MigrateEngine {
         skipTargetRefresh: Boolean = true,
         targetId: Long = MigrateEngineConformanceTest.TARGET,
     ): Outcome
+
+    fun entryId(id: Long): EntryId
 }
 
 class MangaEngine : MigrateEngine {
     override fun toString() = "manga"
+
+    override fun entryId(id: Long) = EntryId.Manga(id)
 
     override suspend fun migrate(
         setup: Setup,
@@ -895,6 +928,9 @@ class MangaEngine : MigrateEngine {
                 }
             }
         }
+        val getCategories = mockk<GetCategories> {
+            coEvery { await(any<Long>()) } answers { setup.categories[firstArg()].orEmpty().map(::category) }
+        }
         val useCase = MigrateMangaUseCase(
             // Unconfined runs the detached download delete inline, so the outcome already shows it
             scope = CoroutineScope(Dispatchers.Unconfined),
@@ -905,12 +941,7 @@ class MangaEngine : MigrateEngine {
             updateManga = updateManga,
             getChaptersByMangaId = getChapters,
             updateChapter = mockk(relaxed = true),
-            getCategories = mockk {
-                coEvery { await(any<Long>()) } answers { setup.categories[firstArg()].orEmpty().map(::category) }
-            },
-            setMangaCategories = mockk {
-                coEvery { await(any(), any()) } answers { rec.categoryWrites[firstArg()] = secondArg() }
-            },
+            getCategories = getCategories,
             getTracks = getTracks,
             trackRepository = trackRepository,
             coverCache = coverCache,
@@ -918,7 +949,18 @@ class MangaEngine : MigrateEngine {
             mangaMergeManager = merge,
             chapterRepository = chapterRepository,
             transactions = rec,
-            sourceTracker = sourceTracker,
+            swapEffects = MigrationSwapEffects(
+                mangaCategories = MangaGroupCategories(
+                    getCategories,
+                    mockk {
+                        coEvery { await(any(), any()) } answers { rec.categoryWrites[firstArg()] = secondArg() }
+                    },
+                ),
+                novelCategories = mockk(),
+                mangaMerge = merge,
+                novelMerge = mockk(),
+                sourceTracker = sourceTracker,
+            ),
             getHistory = getHistory,
             historyRepository = historyRepository,
             readingLog = rec.readingLog,
@@ -985,6 +1027,8 @@ class MangaEngine : MigrateEngine {
 
 class NovelEngine : MigrateEngine {
     override fun toString() = "novel"
+
+    override fun entryId(id: Long) = EntryId.Novel(id)
 
     override suspend fun migrate(
         setup: Setup,
@@ -1092,14 +1136,12 @@ class NovelEngine : MigrateEngine {
                 }
             }
         }
+        val getCategories = mockk<GetNovelCategories> {
+            coEvery { awaitByNovelId(any()) } answers { setup.categories[firstArg()].orEmpty().map(::category) }
+        }
         val useCase = MigrateNovelUseCase(
             novelChapterRepository = chapterRepository,
-            getNovelCategories = mockk {
-                coEvery { awaitByNovelId(any()) } answers { setup.categories[firstArg()].orEmpty().map(::category) }
-            },
-            setNovelCategories = mockk {
-                coEvery { await(any(), any()) } answers { rec.categoryWrites[firstArg()!!] = secondArg() }
-            },
+            getNovelCategories = getCategories,
             novelMergeManager = merge,
             novelDownloadManagerProvider = { downloadManager },
             updateNovel = updateNovel,
@@ -1110,7 +1152,18 @@ class NovelEngine : MigrateEngine {
             novelRepository = novelRepository,
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             transactions = rec,
-            sourceTracker = sourceTracker,
+            swapEffects = MigrationSwapEffects(
+                mangaCategories = mockk(),
+                novelCategories = NovelGroupCategories(
+                    getCategories,
+                    mockk {
+                        coEvery { await(any(), any()) } answers { rec.categoryWrites[firstArg()!!] = secondArg() }
+                    },
+                ),
+                mangaMerge = mockk(),
+                novelMerge = merge,
+                sourceTracker = sourceTracker,
+            ),
             novelHistoryRepository = history,
             syncRules = NovelChapterSyncRules(
                 NoChapterNumberOverrides,

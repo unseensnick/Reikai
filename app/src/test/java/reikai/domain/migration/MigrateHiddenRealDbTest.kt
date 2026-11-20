@@ -30,7 +30,9 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.HideSeries
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.MigrateNovelUseCase
@@ -253,6 +255,7 @@ class MangaHideEngine : HideEngine(ContentType.MANGA) {
         // Stubbed outside a mockk block, where get binds to the matcher scope.
         val sourceManager = mockk<SourceManager>()
         coEvery { sourceManager.get(any()) } returns mockk(relaxed = true)
+        val mergeManager = MangaMergeManager(merges, prefs, {}, {})
         val useCase = MigrateMangaUseCase(
             scope = CoroutineScope(Dispatchers.Unconfined),
             sourcePreferences = mockk(relaxed = true),
@@ -263,15 +266,20 @@ class MangaHideEngine : HideEngine(ContentType.MANGA) {
             getChaptersByMangaId = GetChaptersByMangaId(chapters),
             updateChapter = UpdateChapter(chapters),
             getCategories = GetCategories(CategoryRepositoryImpl(database)),
-            setMangaCategories = SetMangaCategories(mangas),
             getTracks = GetTracks(tracks),
             trackRepository = tracks,
             coverCache = mockk(relaxed = true),
             updateMangaFromRemote = mockk(),
-            mangaMergeManager = MangaMergeManager(merges, prefs, {}, {}),
+            mangaMergeManager = mergeManager,
             chapterRepository = chapters,
             transactions = SqlDelightTransactions(database),
-            sourceTracker = mockk(relaxed = true),
+            swapEffects = MigrationSwapEffects(
+                MangaGroupCategories(GetCategories(CategoryRepositoryImpl(database)), SetMangaCategories(mangas)),
+                mockk(),
+                mergeManager,
+                mockk(),
+                mockk(relaxed = true),
+            ),
             getHistory = GetHistory(history),
             historyRepository = history,
             readingLog = ReadingLogRepositoryImpl(database),
@@ -308,7 +316,6 @@ class NovelHideEngine : HideEngine(ContentType.NOVELS) {
         val useCase = MigrateNovelUseCase(
             novelChapterRepository = NovelChapterRepositoryImpl(database),
             getNovelCategories = GetNovelCategories(CategoryRepositoryImpl(database)),
-            setNovelCategories = SetNovelCategories(novels),
             novelMergeManager = mergeManager,
             novelDownloadManagerProvider = { error("a migration without flags or a refresh needs no downloads") },
             updateNovel = UpdateNovel(novels, mockk(relaxed = true)),
@@ -324,7 +331,13 @@ class NovelHideEngine : HideEngine(ContentType.NOVELS) {
                 NoChapterTombstones,
             ),
             transactions = SqlDelightTransactions(database),
-            sourceTracker = mockk(relaxed = true),
+            swapEffects = MigrationSwapEffects(
+                mockk(),
+                NovelGroupCategories(GetNovelCategories(CategoryRepositoryImpl(database)), SetNovelCategories(novels)),
+                mockk(),
+                mergeManager,
+                mockk(relaxed = true),
+            ),
             novelHistoryRepository = NovelHistoryRepositoryImpl(database),
             readingLog = ReadingLogRepositoryImpl(database),
             readingPace = ReadingPaceRepositoryImpl(database),

@@ -17,8 +17,8 @@ import reikai.domain.entry.CarryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.HideSeries
+import reikai.domain.migration.MigrationSwapEffects
 import reikai.domain.novel.NovelChapterRepository
-import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -32,7 +32,6 @@ import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.readinglog.sessionMoves
-import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
@@ -51,7 +50,6 @@ import kotlin.time.Clock
 class MigrateNovelUseCase(
     private val novelChapterRepository: NovelChapterRepository,
     private val getNovelCategories: GetNovelCategories,
-    private val setNovelCategories: SetNovelCategories,
     private val novelMergeManager: NovelMergeManager,
     // A Provider: constructing the manager restores the persisted download queue and can start the
     // download worker, which building a migration must not do.
@@ -66,7 +64,7 @@ class MigrateNovelUseCase(
     private val syncRules: NovelChapterSyncRules,
     // So the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
-    private val sourceTracker: SourceTrackerDispatcher,
+    private val swapEffects: MigrationSwapEffects,
     private val novelHistoryRepository: NovelHistoryRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
@@ -75,8 +73,6 @@ class MigrateNovelUseCase(
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
-
-    private val groupCategories = NovelGroupCategories(getNovelCategories, setNovelCategories)
 
     suspend operator fun invoke(
         current: Novel,
@@ -224,11 +220,11 @@ class MigrateNovelUseCase(
                     }
                 }
             }
-            groupCategories.fileMigrationTarget(target.id, categoryIds, novelMergeManager)
-            sourceTracker.migrated(
+            swapEffects.afterSwap(
                 EntryId.Novel(current.id),
                 EntryId.Novel(target.id),
                 replace,
+                categoryIds,
                 carriedChapters = NovelMigrationFlag.CHAPTER in flags,
             )
         } catch (e: Throwable) {

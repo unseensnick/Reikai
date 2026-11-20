@@ -45,7 +45,6 @@ class MigrateNovelUseCaseTest {
     ) = MigrateNovelUseCase(
         novelChapterRepository = novelChapterRepository,
         getNovelCategories = mockk(relaxed = true),
-        setNovelCategories = mockk(relaxed = true),
         novelMergeManager = mockk<NovelMergeManager>(relaxed = true) {
             coEvery { computeRelatedIds(any()) } returns longArrayOf()
         },
@@ -58,7 +57,7 @@ class MigrateNovelUseCaseTest {
         novelRepository = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns true },
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         transactions = PassThroughTransactions,
-        sourceTracker = mockk(relaxed = true),
+        swapEffects = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true) { coEvery { upsertAllNovelHistory(any()) } returns true },
         syncRules = NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
         readingLog = NoReadingLog,

@@ -21,14 +21,12 @@ import reikai.domain.entry.CarryCustomInfo // RK
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.library.ContentType // RK
 import reikai.domain.library.HideSeries // RK
-import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.migration.MigrationSwapEffects // RK
 import reikai.domain.readinglog.ReadingLogRepository // RK
 import reikai.domain.readinglog.sessionMoves // RK
-import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
@@ -54,7 +52,7 @@ class MigrateMangaUseCase(
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val updateChapter: UpdateChapter,
     private val getCategories: GetCategories,
-    private val setMangaCategories: SetMangaCategories,
+    // RK: setMangaCategories moved to MigrationSwapEffects, which files the target's whole group.
     private val getTracks: GetTracks,
     // RK: the repository, not UpsertTrack, which logs and swallows; see the track carry below.
     private val trackRepository: TrackRepository,
@@ -67,8 +65,8 @@ class MigrateMangaUseCase(
     private val chapterRepository: ChapterRepository,
     // RK: so the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
-    // RK: tells an extension that syncs to its own site about the migration.
-    private val sourceTracker: SourceTrackerDispatcher,
+    // RK: the steps after the swap commits, shared with the novel engine.
+    private val swapEffects: MigrationSwapEffects,
     // RK: reading history carries onto the matched chapters, as Komikku's migration does.
     private val getHistory: GetHistory,
     private val historyRepository: HistoryRepository,
@@ -77,8 +75,6 @@ class MigrateMangaUseCase(
     private val carryCustomInfo: CarryCustomInfo, // RK: the Edit info row, behind its own option
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
-
-    private val groupCategories = MangaGroupCategories(getCategories, setMangaCategories) // RK
 
     // RK: flags may be passed as a value so concurrent migrations can't read each other's set out of
     // the shared preference; skipTargetRefresh lets a caller that just fetched the target's chapters
@@ -257,11 +253,11 @@ class MigrateMangaUseCase(
                     }
                 }
             }
-            groupCategories.fileMigrationTarget(target.id, categoryIds, mangaMergeManager)
-            sourceTracker.migrated(
+            swapEffects.afterSwap(
                 EntryId.Manga(current.id),
                 EntryId.Manga(target.id),
                 replace,
+                categoryIds,
                 carriedChapters = MigrationFlag.CHAPTER in flags,
             )
             // RK <--
