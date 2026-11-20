@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
@@ -57,6 +59,7 @@ class EntryDownloadQueueViewModel(
             ContentType.NOVELS to novels.withCustomInfo { custom[EntryId.Novel(it)] },
         )
     }
+        .flowOn(Dispatchers.Default)
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), replay = 1)
 
     val state: StateFlow<State> = combine(
@@ -77,6 +80,8 @@ class EntryDownloadQueueViewModel(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
+    private val reorderLock = Mutex()
+
     private val openedSeries = MutableStateFlow<Pair<ContentType, Long>?>(null)
 
     /** The chapter sheet of the series the user opened; null once that series has left the queue. */
@@ -86,15 +91,17 @@ class EntryDownloadQueueViewModel(
         .mapLatest { (snapshotsByType, opened) ->
             val (type, seriesId) = opened ?: return@mapLatest null
             val snapshot = snapshotsByType[type] ?: return@mapLatest null
-            val card = snapshot.toCards(type).find { it.seriesId == seriesId }
+            val chapters = snapshot.chapters.filter { it.seriesId == seriesId }
+            val card = snapshot.copy(chapters = chapters).toCards(type).singleOrNull()
             if (card == null) {
                 openedSeries.value = null
                 return@mapLatest null
             }
-            val chapters = snapshot.chapters.filter { it.seriesId == seriesId }
             val names = providers[type]?.chapterNames(seriesId, chapters.map { it.chapterId }).orEmpty()
             SeriesSheet(card, chapters.map { EntryDownloadChapterUi(it, names[it.chapterId].orEmpty()) })
         }
+        // Rebuilt on every progress sample while the sheet is open.
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
     private val isRunning: StateFlow<Map<ContentType, Boolean>> = combine(
@@ -118,10 +125,13 @@ class EntryDownloadQueueViewModel(
         val cards = state.value.cards
         val known = cards.mapTo(HashSet()) { it.cardKey }
         sourcePreferences.downloadQueueOrder.set(cardKeysInOrder.filter { it in known }.joinToString(ORDER_SEPARATOR))
-        // The queue edits suspend for the downloader's lock, which a start or stop elsewhere may hold
+        // The queue edits suspend for the downloader's lock, which a start or stop elsewhere may hold. One
+        // at a time, so a reorder undoing one still waiting compares against the order that one applied.
         viewModelScope.launch {
-            seriesOrderChanges(cards, cardKeysInOrder).forEach { (type, seriesIds) ->
-                providers[type]?.reorderSeries(seriesIds)
+            reorderLock.withLock {
+                seriesOrders(cards, cardKeysInOrder).forEach { (type, seriesIds) ->
+                    providers[type]?.reorderSeries(seriesIds)
+                }
             }
         }
     }

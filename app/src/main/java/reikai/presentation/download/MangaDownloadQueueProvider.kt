@@ -60,11 +60,8 @@ class MangaDownloadQueueProvider(
     }
 
     override suspend fun reorderSeries(seriesIdsInOrder: List<Long>) {
-        downloadManager.reorderQueue(
-            downloadManager.queueState.value.withSeriesInOrder(seriesIdsInOrder) {
-                it.manga.id
-            },
-        )
+        downloadManager.queueState.value.withSeriesInOrderIfMoved(seriesIdsInOrder) { it.manga.id }
+            ?.let { downloadManager.reorderQueue(it) }
     }
 
     override suspend fun cancelSeries(seriesId: Long) {

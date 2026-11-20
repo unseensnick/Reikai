@@ -185,19 +185,35 @@ class DownloadQueueKernelTest {
     }
 
     @Test
-    @DisplayName("moving a novel past a manga reorders only the novels")
-    fun crossTypeMoveLeavesOtherTypeAlone() {
-        val changes = seriesOrderChanges(listOf(m1, n1, n2), listOf(n2.cardKey, m1.cardKey, n1.cardKey))
+    @DisplayName("a list reorder names each content type's series in the list's order")
+    fun seriesOrdersPerType() {
+        val orders = seriesOrders(listOf(m1, n1, n2), listOf(n2.cardKey, m1.cardKey, n1.cardKey))
 
-        changes shouldBe mapOf(ContentType.NOVELS to listOf(2L, 1L))
+        orders shouldBe mapOf(ContentType.NOVELS to listOf(2L, 1L), ContentType.MANGA to listOf(1L))
     }
 
     @Test
-    @DisplayName("a move that keeps every type's own order reorders no downloader")
-    fun interleaveOnlyReordersNothing() {
-        val changes = seriesOrderChanges(listOf(m1, n1), listOf(n1.cardKey, m1.cardKey))
+    @DisplayName("a series order the queue already holds leaves the downloader alone")
+    fun unchangedSeriesOrderIsNoReorder() {
+        val queue = listOf(1L to 10L, 2L to 20L)
 
-        changes shouldBe emptyMap()
+        queue.withSeriesInOrderIfMoved(listOf(1L, 2L)) { it.first } shouldBe null
+    }
+
+    @Test
+    @DisplayName("a series order the queue does not hold yet is applied")
+    fun changedSeriesOrderIsReorder() {
+        val queue = listOf(1L to 10L, 2L to 20L)
+
+        queue.withSeriesInOrderIfMoved(listOf(2L, 1L)) { it.first } shouldBe listOf(2L to 20L, 1L to 10L)
+    }
+
+    @Test
+    @DisplayName("move to bottom on a series' only queued chapter keeps the series in its place")
+    fun moveToBottomLoneChapterStays() {
+        val queue = listOf(4L to 7L, 9L to 1L)
+
+        queue.withChapterLastInSeries(1L, { it.second }, { it.first }) shouldBe queue
     }
 
     @Test

@@ -152,28 +152,32 @@ fun prunedOrder(
 }
 
 /**
- * The new series order of each content type whose own order a list reorder moved. A type whose
- * series kept their relative order is left out: Mihon's reorder restarts the chapters it is
- * downloading, so moving a novel past a manga must not touch the manga downloader.
+ * Each content type's series order in a list reorder. Every type is named, and each provider leaves its
+ * downloader alone when the live queue already holds that order ([withSeriesInOrderIfMoved]); the list's
+ * cards cannot decide that, since they lag a reorder still waiting on the downloader's lock.
  */
-fun seriesOrderChanges(
-    cards: List<EntryDownloadCardUi>,
-    cardKeysInOrder: List<String>,
-): Map<ContentType, List<Long>> {
+fun seriesOrders(cards: List<EntryDownloadCardUi>, cardKeysInOrder: List<String>): Map<ContentType, List<Long>> {
     val byKey = cards.associateBy { it.cardKey }
-    val ordered = cardKeysInOrder.mapNotNull { byKey[it] }
-    return ordered.groupBy({ it.contentType }, { it.seriesId })
-        .filter { (type, wanted) -> wanted != cards.filter { it.contentType == type }.map { it.seriesId } }
+    return cardKeysInOrder.mapNotNull { byKey[it] }.groupBy({ it.contentType }, { it.seriesId })
 }
 
 /**
+ * The queue with its series in [seriesIdsInOrder], or null when it already holds that order: Mihon's
+ * reorder restarts the chapters it is downloading, so moving a novel past a manga must not touch it.
+ */
+fun <T> List<T>.withSeriesInOrderIfMoved(seriesIdsInOrder: List<Long>, seriesOf: (T) -> Long): List<T>? =
+    withSeriesInOrder(seriesIdsInOrder, seriesOf).takeIf { it != this }
+
+/**
  * The queue with one chapter moved behind the rest of its series, the chapter sheet's Move to bottom.
- * The series keeps its place: its card, not the sheet, orders it against other series.
+ * The series keeps its place: its card, not the sheet, orders it against other series, so a series'
+ * only queued chapter stays where it is.
  */
 fun <T> List<T>.withChapterLastInSeries(chapterId: Long, chapterIdOf: (T) -> Long, seriesOf: (T) -> Long): List<T> {
     val moved = find { chapterIdOf(it) == chapterId } ?: return this
     val rest = this - moved
     val lastOfSeries = rest.indexOfLast { seriesOf(it) == seriesOf(moved) }
+    if (lastOfSeries < 0) return this
     return rest.toMutableList().apply { add(lastOfSeries + 1, moved) }
 }
 

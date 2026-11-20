@@ -84,8 +84,8 @@ class NovelDownloadQueueProvider(
     }
 
     override suspend fun reorderSeries(seriesIdsInOrder: List<Long>) {
-        val reordered = downloadManager.queueState.value.withSeriesInOrder(seriesIdsInOrder) { it.novelId }
-        downloadManager.reorderQueue(reordered)
+        downloadManager.queueState.value.withSeriesInOrderIfMoved(seriesIdsInOrder) { it.novelId }
+            ?.let { downloadManager.reorderQueue(it) }
     }
 
     override suspend fun cancelSeries(seriesId: Long) = downloadManager.cancelDownloads(

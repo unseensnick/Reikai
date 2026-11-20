@@ -1,12 +1,16 @@
 package reikai.presentation.download
 
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -59,6 +63,50 @@ class EntryDownloadQueueViewModelTest {
         order shouldBe ""
     }
 
+    @Test
+    fun `a reorder undoing one still waiting on the downloader leaves the original order`() = runTest {
+        val snapshot = MutableStateFlow(seriesSnapshot(listOf(SERIES, OTHER)))
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        val manga = mockk<MangaDownloadQueueProvider>(relaxed = true) {
+            every { contentType } returns ContentType.MANGA
+            every { isRunning } returns flowOf(false)
+            every { snapshots } returns snapshot
+            coEvery { reorderSeries(any()) } coAnswers {
+                val wanted = firstArg<List<Long>>()
+                if (calls++ == 0) gate.await()
+                snapshot.value = seriesSnapshot(wanted)
+            }
+        }
+        val viewModel = main.track(
+            EntryDownloadQueueViewModel(
+                mangaProvider = manga,
+                novelProvider = provider(ContentType.NOVELS, queued = false),
+                sourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
+                getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(emptyMap()) },
+            ),
+        )
+        backgroundScope.launch { viewModel.state.collect {} }
+        viewModel.state.first { s -> s.cards.map { it.seriesId } == listOf(SERIES, OTHER) }
+
+        viewModel.reorder(listOf(mangaKey(OTHER), mangaKey(SERIES)))
+        viewModel.reorder(listOf(mangaKey(SERIES), mangaKey(OTHER)))
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        snapshot.value.chapters.map { it.seriesId } shouldBe listOf(SERIES, OTHER)
+    }
+
+    private fun mangaKey(seriesId: Long) = EntryDownloadCardUi.keyPrefix(ContentType.MANGA) + seriesId
+
+    private fun seriesSnapshot(series: List<Long>) = DownloadQueueSnapshot(
+        chapters = series.map { QueuedChapter(it, chapterId = it * 10, status = QueuedChapterStatus.QUEUED) },
+        activeSeries = emptySet(),
+        completed = emptyMap(),
+        labels = series.associateWith { QueuedSeriesLabel("Title $it", "Source") },
+        restored = true,
+    )
+
     /**
      * Saves a manga slot and a novel slot with neither queued, the manga queue restored, and waits for the
      * manga slot, which nothing can bring back, to be pruned. The saved order left then.
@@ -103,5 +151,6 @@ class EntryDownloadQueueViewModelTest {
 
     private companion object {
         const val SERIES = 7L
+        const val OTHER = 8L
     }
 }
