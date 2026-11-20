@@ -346,6 +346,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **A long-press add to library that hits an error now says it failed instead of closing the app.**
+- **A search or a migration target pick in Browse now survives Android closing the app in the background.**
 - **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
 - **A source's sign-in is no longer sent to another site when a request is redirected there and meets a Cloudflare check.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
@@ -460,6 +461,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Restoring a backup now fills in a manga chapter's page count when the rest of that chapter already matches the device.** Before, it showed the page you reached without the total until the chapter was opened again.
 
 ### Tracking
+
+#### Changed
+
+- **Searching for a series in the tracker sheet now starts from the title the details page shows, Edit info included.**
 
 #### Fixed
 
