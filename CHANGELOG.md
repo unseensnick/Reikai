@@ -70,6 +70,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Stopping an adult-source series update now really stops it, with no false failure notice.**
 - **Library updates check several novel sources at once, as they do for manga.**
 - **The bottom bar comes back when a shortcut or notification leaves the library while you are selecting.**
+- **Rotating or folding the phone on Edit categories no longer deletes a category before you can Undo it.** A delete confirmation stays open too, and Undo no longer lingers after a drag has already deleted it.
 
 ### Details
 

@@ -5,12 +5,9 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +40,7 @@ fun CategoryScreen() {
         onClickCreate = { viewModel.showDialog(CategoryDialog.Create) },
         onClickRename = { viewModel.showDialog(CategoryDialog.Rename(it)) },
         onClickDelete = { viewModel.showDialog(CategoryDialog.Delete(it)) },
+        onClickDeleteSelected = { viewModel.showDialog(CategoryDialog.DeleteSelected) },
         onToggleHidden = viewModel::toggleHidden,
         onChangeOrder = viewModel::changeOrder,
         onMoveToEnd = viewModel::moveToEnd, // RK
@@ -59,7 +57,6 @@ fun CategoryScreen() {
         onDeleteSelected = viewModel::deleteSelected,
         onUndoDelete = viewModel::undoPendingDelete,
         onCommitDelete = viewModel::commitPendingDelete,
-        onCommitAllDeletes = viewModel::commitAllPendingDeletes,
     )
 }
 
@@ -70,6 +67,7 @@ private fun CategoryManager(
     onClickCreate: () -> Unit,
     onClickRename: (Category) -> Unit,
     onClickDelete: (Category) -> Unit,
+    onClickDeleteSelected: () -> Unit,
     onToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
     onMoveToEnd: (Category, Int) -> Unit, // RK: the move menu, always to the whole table's ends
@@ -87,14 +85,11 @@ private fun CategoryManager(
     onDeleteSelected: () -> Unit,
     onUndoDelete: (batch: Long) -> Unit,
     onCommitDelete: (batch: Long) -> Unit,
-    onCommitAllDeletes: () -> Unit,
     // RK <--
 ) {
     val context = LocalContext.current
     val navigator = LocalNavigator.current
-    // RK: the action-mode toolbar's Delete asks first; this gates the deferred delete
     val snackbarHostState = remember { SnackbarHostState() }
-    var showDeleteSelectedConfirm by remember { mutableStateOf(false) }
 
     if (state is CategoryScreenState.Loading) {
         LoadingScreen()
@@ -119,7 +114,7 @@ private fun CategoryManager(
         onSelectAll = onSelectAll,
         onInvertSelection = onInvertSelection,
         onClearSelection = onClearSelection,
-        onDeleteSelected = { showDeleteSelectedConfirm = true },
+        onDeleteSelected = onClickDeleteSelected, // the action-mode toolbar's Delete asks first
         // RK <--
     )
 
@@ -144,43 +139,36 @@ private fun CategoryManager(
             onDelete = { onDelete(dialog.category) },
             category = dialog.category.name,
         )
-    }
-
-    // RK: bulk-delete confirmation -> deferred delete + undo snackbar
-    if (showDeleteSelectedConfirm) {
-        CategoryDeleteSelectedDialog(
+        // RK: bulk-delete confirmation -> deferred delete + undo snackbar
+        CategoryDialog.DeleteSelected -> CategoryDeleteSelectedDialog(
             count = successState.selection.size,
-            onDismissRequest = { showDeleteSelectedConfirm = false },
+            onDismissRequest = onDismissDialog,
             onDelete = onDeleteSelected,
         )
     }
 
-    // RK: leaving the surface commits any still-pending delete,
-    // so it isn't silently dropped when the undo snackbar's coroutine is cancelled.
-    DisposableEffect(Unit) {
-        onDispose { onCommitAllDeletes() }
+    // RK: an armed delete: commit on dismiss, restore on undo. Keyed on the batch, so a recreated screen
+    // offers the undo again, and one committed elsewhere (a drag, leaving) takes its snackbar down.
+    val undoable = successState.undoableDeletes.firstOrNull()
+    LaunchedEffect(undoable) {
+        if (undoable == null) return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = context.pluralStringResource(MR.plurals.categories_deleted, undoable.count, undoable.count),
+            actionLabel = context.stringResource(MR.strings.action_undo),
+            duration = SnackbarDuration.Short,
+            withDismissAction = true,
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            onUndoDelete(undoable.batch)
+        } else {
+            onCommitDelete(undoable.batch)
+        }
     }
 
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
                 is CategoryEvent.LocalizedMessage -> context.toast(event.stringRes)
-                // RK: a bulk delete was armed; commit on dismiss, restore on undo
-                is CategoryEvent.ShowUndoSnackbar -> {
-                    val result = snackbarHostState.showSnackbar(
-                        message = context.pluralStringResource(MR.plurals.categories_deleted, event.count, event.count),
-                        actionLabel = context.stringResource(MR.strings.action_undo),
-                        duration = SnackbarDuration.Short,
-                        withDismissAction = true,
-                    )
-                    if (result ==
-                        SnackbarResult.ActionPerformed
-                    ) {
-                        onUndoDelete(event.batch)
-                    } else {
-                        onCommitDelete(event.batch)
-                    }
-                }
             }
         }
     }
