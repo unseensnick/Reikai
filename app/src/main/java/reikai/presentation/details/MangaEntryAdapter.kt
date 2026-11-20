@@ -21,6 +21,7 @@ import reikai.domain.entry.seriesAltTitles
 import reikai.domain.library.tagKey
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
@@ -52,7 +53,7 @@ class MangaEntryAdapter(
     override val state: StateFlow<EntryDetailsScreenState> =
         model.neutralDetailsState(model.state, duplicateMarking.marks) { state, marks -> state.toNeutral(marks) }
 
-    override val downloadProgress = EntryDownloadProgress.Live(model::getDownloadProgress)
+    override fun downloadProgress(chapterId: Long) = DownloadProgress.Live { model.getDownloadProgress(chapterId) }
 
     private fun MangaViewModel.State.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
         MangaViewModel.State.Loading -> EntryDetailsScreenState.Loading
@@ -203,6 +204,12 @@ class MangaEntryAdapter(
 
     private fun chapterById(id: Long): Chapter? = itemById(id)?.chapter
 
+    // One pass over the list, where a lookup per id would walk it once for each.
+    private fun chaptersByIds(ids: List<Long>): List<Chapter> {
+        val wanted = ids.toSet()
+        return successState()?.chapters.orEmpty().filter { it.id in wanted }.map { it.chapter }
+    }
+
     /** The selection over the filtered rows on screen, never over the full chapter list behind them. */
     private fun MangaViewModel.State.Success.visibleSelection(): Set<Long> = EntrySelection.selectedAmong(
         chapters.filter { it.selected }.mapTo(HashSet()) { it.id },
@@ -220,14 +227,12 @@ class MangaEntryAdapter(
     override fun selectedMarkable() = selectedChapters().map { MarkableChapter(it.mangaId, it.url) }
 
     override fun toggleChapterBlock(chapterIds: List<Long>) {
-        val items = chapterIds.mapNotNull(::itemById)
-        val select = !items.all { it.selected }
         val shown = successState()?.processedChapters?.map { it.id } ?: return
-        items.filter { it.selected != select }.forEach { model.toggleSelection(it, visible = shown) }
+        model.toggleBlock(chapterIds, visible = shown)
     }
 
     override fun markChaptersRead(chapterIds: List<Long>, read: Boolean) {
-        model.markChaptersRead(chapterIds.mapNotNull(::chapterById), read)
+        model.markChaptersRead(chaptersByIds(chapterIds), read)
     }
 
     // --- EntryDetailsBehavior: forward to the model (reconciling neutral ids -> the model's shapes). ---

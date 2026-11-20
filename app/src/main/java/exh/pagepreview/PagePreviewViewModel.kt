@@ -56,7 +56,7 @@ class PagePreviewViewModel(
     init {
         viewModelScope.launchIO {
             val manga = getManga.await(mangaId)!!
-            val chapter = getChaptersByMangaId.await(mangaId).minByOrNull { it.sourceOrder }
+            val chapter = previewChapterOf(mangaId) { getChaptersByMangaId.await(it) }
             if (chapter == null) {
                 state.update {
                     PagePreviewState.Error(Exception("No chapters found"))

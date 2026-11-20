@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.Serializable
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.savedVolume
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -66,7 +67,7 @@ data class VolumeNotesRoute(
         private suspend fun load(): Pair<EntryChapterListItem.Volume, String>? {
             val saved = volumes.loadedVolumes(type)
             val chip = seriesVolumes()?.chipOf(series, volumeKey, saved, volumes.loadedLooseFiles()) ?: return null
-            return chip to saved[series]?.firstOrNull { it.key == volumeKey }?.notes.orEmpty()
+            return chip to saved.savedVolume(series, volumeKey)?.notes.orEmpty()
         }
 
         // The series' stored chapters, as its details page reads them; null once the series is gone.

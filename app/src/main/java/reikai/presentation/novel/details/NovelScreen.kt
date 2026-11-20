@@ -35,6 +35,8 @@ import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.source.preferencesRoute
+import reikai.presentation.details.DETAILS_ADAPTER_KEY
+import reikai.presentation.details.DETAILS_SETTINGS_KEY
 import reikai.presentation.details.DetailsSettings
 import reikai.presentation.details.DetailsViewedSource
 import reikai.presentation.details.DuplicateMarking
@@ -49,6 +51,7 @@ import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.detailsRoute
 import reikai.presentation.details.editInfoDialog
+import reikai.presentation.details.keptForScreen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
@@ -81,19 +84,23 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val coverViewModelFactory = remember { context.appGraph.novelCoverViewModelFactory }
     val adapter = remember(viewModel) {
-        val graph = context.appGraph
-        val duplicates = DuplicateMarking(
-            ContentType.NOVELS,
-            graph.chapterCopyMarks,
-            graph.reikaiLibraryPreferences.showSkippedDuplicates,
-            graph.novelPreferences.readerSkipDuplicateChapters(),
-            viewModel.viewModelScope,
-            graph.appCoroutineScope,
-        )
-        NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
+        viewModel.keptForScreen(DETAILS_ADAPTER_KEY) {
+            val graph = context.appGraph
+            val duplicates = DuplicateMarking(
+                ContentType.NOVELS,
+                graph.chapterCopyMarks,
+                graph.reikaiLibraryPreferences.showSkippedDuplicates,
+                graph.novelPreferences.readerSkipDuplicateChapters(),
+                viewModel.viewModelScope,
+                graph.appCoroutineScope,
+            )
+            NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
+        }
     }
     val settings = remember(viewModel) {
-        context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
+        viewModel.keptForScreen(DETAILS_SETTINGS_KEY) {
+            context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
+        }
     }
     val neutralState by adapter.state.collectAsStateWithLifecycle()
 

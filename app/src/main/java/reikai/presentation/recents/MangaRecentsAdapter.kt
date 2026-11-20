@@ -44,6 +44,7 @@ import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
+import reikai.presentation.components.DownloadProgress
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -363,7 +364,7 @@ internal fun mangaDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val 
     is UpdatesItem -> recentsDownloadUi(payload.update.sourceId == LocalSource.ID) {
         RecentsDownloadUi(
             state = payload.downloadStateProvider,
-            progress = RecentsDownloadProgress.Live(payload.downloadProgressProvider),
+            progress = DownloadProgress.Live(payload.downloadProgressProvider),
         )
     }
     else -> null

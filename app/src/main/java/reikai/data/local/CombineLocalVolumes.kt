@@ -20,6 +20,7 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.savedVolume
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.SetEntryTitle
 import reikai.domain.library.ContentType
@@ -401,7 +402,7 @@ class CombineLocalVolumes(
     ): List<FoldedRow> = rows.map { (from, row, to) ->
         val (folder, volume) = localGroupUnit(from, row.key)
         val key = localGroupKey(to, folder, volume)
-        val there = saved[to]?.firstOrNull { it.key == key }
+        val there = saved.savedVolume(to, key)
         val end = saved[to]?.mapNotNull { it.position }?.maxOrNull()?.plus(1)
         val position = there?.position ?: row.position?.let { p -> end?.plus(p) }
         val (won, lost) = if (backupAtTarget) there to row else row to there
@@ -469,9 +470,10 @@ class CombineLocalVolumes(
     suspend fun waitsForRepair(type: ContentType, series: CombinableSeries): Boolean =
         seriesLocks.isBlocked(type, listOf(series.folder))
 
-    /** Forgets what [series]' group waits on ([waitsForRepair]), leaving every file where it is. */
-    suspend fun forgetUnfinished(type: ContentType, series: CombinableSeries) =
+    /** Forgets what [series]' group waits on ([waitsForRepair]), leaving every file where it is, on the app scope. */
+    suspend fun forgetUnfinished(type: ContentType, series: CombinableSeries) = appScope.async {
         organizer.forget(type, LocalGroups(localVolumes.all(type)).closure(listOf(series.folder)))
+    }.await()
 
     /** Takes [series]' volumes [volumeKeys] out into one series of their own named [title], in the library. */
     suspend fun splitOut(
@@ -1038,7 +1040,7 @@ class CombineLocalVolumes(
         }
 
         fun move(key: String, toKey: String) {
-            val row = saved[from]?.firstOrNull { it.key == key } ?: return
+            val row = saved.savedVolume(from, key) ?: return
             val position = row.position?.let { p -> base?.plus(p) }
             moves += VolumeRowPair(
                 VolumeRowMove(from, key, kept, toKey, position),

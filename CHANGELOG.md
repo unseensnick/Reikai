@@ -105,6 +105,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Two quick chapter sort or filter picks no longer undo each other.**
 - **Details and the reader take their tint from a series' new cover once its cover changes.**
 - **A new or removed custom cover is kept even if you leave the details screen at once.**
+- **A novel opened from Browse now shows it is loading while its chapters are fetched, and a pull to refresh then waits for that fetch.**
+- **A page preview on a merged gallery's details page now opens the gallery's own chapter, as More previews does.**
 
 ### Merged series
 
@@ -294,11 +296,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Statistics and its detail screens now show your latest reading when you come back to them, such as after reading a series from one.**
 - **Statistics' Reading time period chips now wrap instead of squeezing at the largest text size.**
-
-### Settings
 - **Statistics' Reading time screen left open past midnight now reaches the new day.**
 - **Statistics' Reading time bars can be picked by dragging along the chart, since a month's bars are too thin to tap.**
 - **Statistics' Reading time month names follow your language's date order.**
+
+### Settings
 
 #### Added
 

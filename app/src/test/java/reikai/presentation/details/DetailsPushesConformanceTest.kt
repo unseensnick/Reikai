@@ -65,6 +65,17 @@ class DetailsPushesConformanceTest {
 
     @ParameterizedTest
     @MethodSource("cases")
+    fun `a genre on a source with no filters searches its catalogue for it as text`(case: Case) {
+        val catalogue = EntryCatalogueRoute(case.source)
+        pushes(case, catalogue, filterable = false) { nav, _ ->
+            nav.onTagSearch("Action")
+
+            recorder.sent shouldBe listOf(resultKey<BrowseSearchEvent>() to BrowseSearchEvent("Action", genre = false))
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("cases")
     fun `a genre with no catalogue behind it searches the library for the entry's type`(case: Case) =
         pushes(case) { nav, _ ->
             nav.onTagSearch("Action")
@@ -89,7 +100,7 @@ class DetailsPushesConformanceTest {
 
     @ParameterizedTest
     @MethodSource("cases")
-    fun `Tracking with no tracker logged in opens tracker settings`(case: Case) = pushes(case) { nav, stack ->
+    fun `the tracker settings push opens tracker settings`(case: Case) = pushes(case) { nav, stack ->
         nav.onOpenTrackingSettings()
 
         stack.current.shouldBeInstanceOf<SettingsTrackingScreen>()
@@ -97,9 +108,7 @@ class DetailsPushesConformanceTest {
 
     @ParameterizedTest
     @MethodSource("cases")
-    fun `Tracking with a tracker logged in opens the track sheet for the anchor`(
-        case: Case,
-    ) = pushes(case) { nav, stack ->
+    fun `the track sheet push opens the sheet for the anchor`(case: Case) = pushes(case) { nav, stack ->
         nav.onOpenTrackSheet()
 
         stack.current.shouldBeInstanceOf<EntryTrackSheetRoute>().entry shouldBe case.anchor
@@ -130,13 +139,14 @@ class DetailsPushesConformanceTest {
         case: Case,
         vararg below: NavKey,
         browsable: Boolean = true,
+        filterable: Boolean = true,
         test: (SharedDetailsPushes, Navigator) -> Unit,
     ) {
         val stack = testNavigator(HomeRoute, *below, OtherTestRoute)
         val nav = EntryDetailsNavigation(
             navigateUp = {},
             onOpenChapter = {},
-            viewedSource = DetailsViewedSource(case.source, browsable = browsable),
+            viewedSource = DetailsViewedSource(case.source, browsable = browsable, filterable = filterable),
             onOpenFilterSettings = {},
         ).withSharedPushes(
             loadedDetails().copy(entryId = case.anchor, viewedEntryId = case.viewed),

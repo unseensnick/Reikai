@@ -255,6 +255,7 @@ class LocalMovesUnderLockTest {
             seriesLocks = locks,
             owners = volumes,
             volumePicks = VolumePickRepositoryImpl(database, appScope),
+            appScope = appScope,
         )
         refreshed(KEPT)
         refreshed(OTHER)

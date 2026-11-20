@@ -49,6 +49,7 @@ import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.EntryDuplicateCardUi
 import reikai.presentation.browse.components.EntrySourceLabel
+import reikai.presentation.components.DownloadProgress
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.Preference
@@ -1735,7 +1736,7 @@ internal fun targetRow(ref: ChapterRef, state: RecentsChapterState, downloaded: 
         state = state,
         download = RecentsDownloadUi(
             state = { if (downloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED },
-            progress = RecentsDownloadProgress.Unsupported,
+            progress = DownloadProgress.Unsupported,
         ),
     )
 
@@ -1855,7 +1856,7 @@ private class FakeRecentsProvider(
 
     override fun downloadUi(item: RecentsItem): RecentsDownloadUi = RecentsDownloadUi(
         state = { if (item.entryId in downloadedNow) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED },
-        progress = RecentsDownloadProgress.Unsupported,
+        progress = DownloadProgress.Unsupported,
     )
 
     // The same answer [targetRow] gives, since both adapters resolve the two through one lane rule; a

@@ -1,12 +1,16 @@
 package reikai.presentation.novel.details
 
+import android.content.Context
 import androidx.compose.material3.SnackbarData
 import androidx.compose.ui.graphics.Color
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -34,9 +38,14 @@ import reikai.novel.install.LnPluginLoadFailure
 import reikai.presentation.details.EntrySourceState
 import reikai.presentation.reader.FakeNovelSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.i18n.MR
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * What the novel details screen fetches from its source on its own: the first fetch of a novel opened
@@ -45,10 +54,16 @@ import java.util.concurrent.CopyOnWriteArrayList
 class NovelDetailsFetchTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        // The harness context is a relaxed mock, so the one message a test names is given a text of its own.
+        mockkStatic(LOCALIZE)
+        every { any<Context>().stringResource(MR.strings.no_chapters_error) } returns NO_CHAPTERS
+    }
 
     @AfterEach
     fun tearDown() {
+        unmockkStatic(LOCALIZE)
         MangaCover.vibrantCoverColorMap.clear()
         Dispatchers.resetMain()
     }
@@ -62,6 +77,50 @@ class NovelDetailsFetchTest {
         }
 
         (loaded.novel.title to loaded.novel.favorite) shouldBe ("New" to false)
+    }
+
+    @Test
+    fun `a novel opened from browsing shows it is refreshing while its first fetch runs`() = runTest {
+        val refreshing = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            // The source's answer is a plain call on the IO dispatcher, so it is held there by a latch.
+            val answer = CountDownLatch(1)
+            harness.source("alpha").details = {
+                answer.await(10, TimeUnit.SECONDS)
+                SourceNovel(path = NEW_URL, chapters = listOf(ChapterItem("One", "/1")))
+            }
+            val model = harness.openListing("alpha", NEW_URL)
+            try {
+                model.awaitLoaded { it.isRefreshing }.isRefreshing
+            } finally {
+                answer.countDown()
+            }
+        }
+
+        refreshing shouldBe true
+    }
+
+    @Test
+    fun `a pull to refresh during the first fetch asks the source nothing more`() = runTest {
+        val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val answer = CountDownLatch(1)
+            val calls = AtomicInteger()
+            harness.source("alpha").details = {
+                calls.incrementAndGet()
+                answer.await(10, TimeUnit.SECONDS)
+                SourceNovel(path = NEW_URL, chapters = listOf(ChapterItem("One", "/1")))
+            }
+            val model = harness.openListing("alpha", NEW_URL)
+            model.awaitLoaded { it.isRefreshing }
+            model.refresh()
+            answer.countDown()
+            model.awaitLoaded { it.chapters.size == 1 && !it.isRefreshing }
+            withContext(Dispatchers.Default) {
+                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (calls.get() < 2) delay(20) }
+            }
+            calls.get()
+        }
+
+        asked shouldBe 1
     }
 
     @Test
@@ -142,10 +201,10 @@ class NovelDetailsFetchTest {
     fun `a novel opened from browsing whose source lists no chapters says so`() = runTest {
         val shown = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             harness.source("alpha").details = { SourceNovel(path = NEW_URL, name = "New") }
-            harness.openListing("alpha", NEW_URL).snackbarWithin(10_000)
+            harness.openListing("alpha", NEW_URL).snackbarWithin(10_000)?.visuals?.message
         }
 
-        (shown != null) shouldBe true
+        shown shouldBe NO_CHAPTERS
     }
 
     @Test
@@ -484,6 +543,8 @@ class NovelDetailsFetchTest {
 
     private companion object {
         const val NEW_URL = "/novel/new"
+        const val NO_CHAPTERS = "no chapters"
+        const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
         const val MISSING_ID = 999L
         const val TINT = 0xFF336699.toInt()
         const val OTHER_TINT = 0xFF993366.toInt()

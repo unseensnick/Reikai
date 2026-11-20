@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import exh.pagepreview.components.PagePreviewScreen
 import kotlinx.serialization.Serializable
 import mihon.core.navigation.LocalNavigator
@@ -36,5 +35,5 @@ fun PagePreviewScreen(mangaId: Long) {
 
 private fun openPage(context: Context, state: PagePreviewState, page: Int) {
     if (state !is PagePreviewState.Success) return
-    context.startActivity(ReaderActivity.newIntent(context, state.manga.id, state.chapter.id, page))
+    context.openPreviewPage(state.chapter, page)
 }

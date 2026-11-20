@@ -7,7 +7,6 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +26,7 @@ import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.inUserOrder
+import reikai.domain.chapter.savedVolume
 import reikai.domain.chapter.volumeNumberIn
 import reikai.domain.chapter.volumeRuns
 import reikai.domain.entry.EntryId
@@ -79,7 +79,7 @@ data class ChapterVolume(
 
     /** This volume under the name the user gave it in [saved], if they gave it one. */
     fun named(saved: Map<String, List<LocalVolume>>): ChapterVolume =
-        saved[series]?.firstOrNull { it.key == key }?.label?.let { copy(label = VolumeLabel.Name(it)) } ?: this
+        saved.savedVolume(series, key)?.label?.let { copy(label = VolumeLabel.Name(it)) } ?: this
 }
 
 /** A manga chapter loose in a folder: its [file] name, and its [title] without the folder in front. */
@@ -219,9 +219,9 @@ class VolumePicking(
     /** Every folder (or book) in the local folder [entry]'s missing [member] could be linked to by hand. */
     suspend fun memberChoices(entry: EntryId, member: String) = relink.memberChoices(entry.contentType, member)
 
-    /** Links [entry]'s missing [member] to [to]; on the app scope, so closing the screen does not cut it off. */
+    /** Links [entry]'s missing [member] to [to]. */
     suspend fun relinkMember(entry: EntryId, member: String, to: String): LocalMoveResult =
-        appScope.async { relink.relinkMember(entry.contentType, entry.rawId, member, to) }.await()
+        relink.relinkMember(entry.contentType, entry.rawId, member, to)
 
     /** Takes [entry]'s missing [member] out of its group. */
     suspend fun removeMember(entry: EntryId, member: String): LocalMoveResult {
@@ -233,10 +233,10 @@ class VolumePicking(
     suspend fun waitsForRepair(entry: EntryId): Boolean =
         series(entry)?.let { combine.waitsForRepair(entry.contentType, it) } == true
 
-    /** Forgets what [entry] waits on, moving no file; on the app scope, so closing the screen does not cut it off. */
+    /** Forgets what [entry] waits on, moving no file. */
     suspend fun forgetUnfinished(entry: EntryId) {
         val own = series(entry) ?: return
-        appScope.async { combine.forgetUnfinished(entry.contentType, own) }.await()
+        combine.forgetUnfinished(entry.contentType, own)
     }
 
     /** Whether [entry]'s storage can move and rename files, without which Organize files is not offered. */
@@ -294,9 +294,10 @@ data class VolumeView(
 
 /**
  * [this] under a header per volume, only [picked]'s when it names one, each row titled without its volume
- * in front; null where volumes cannot head the list ([volumeRuns]). Chips follow the volumes' numbers when
- * every one states a number, else the list's order. The chips, which the volume dialogs act on, are every
- * one of [every], the volumes of the series' unfiltered list, so a chapter filter hides none from them.
+ * in front; the rows stay unheaded where volumes cannot head them ([volumeRuns]), and the view is null where
+ * the series has fewer than two volumes or a row has none. Chips follow the volumes' numbers when every one
+ * states a number, else the list's order. The chips, which the volume dialogs act on, are every one of
+ * [every], the volumes of the series' unfiltered list, so a chapter filter or sort hides none from them.
  */
 fun List<EntryChapterListItem>.inVolumes(
     picked: String?,
@@ -304,22 +305,32 @@ fun List<EntryChapterListItem>.inVolumes(
     every: List<ChapterVolume>,
     loose: Map<String, LooseFiles> = emptyMap(),
 ): VolumeView? {
-    val runs = filterIsInstance<EntryChapterListItem.Chapter>()
-        .map { row -> row.volume?.let { row.copy(volume = it.shown(loose, saved)) } ?: row }
-        .volumeRuns { it.volume?.key } ?: return null
-    val headers = runs.volumeHeaders({ it.volume!! }, { it.id }, { it.read })
-    val series = headers.first().series
+    val rows = filterIsInstance<EntryChapterListItem.Chapter>()
+        .map { row -> row.copy(volume = row.volume?.shown(loose, saved) ?: return null) }
+    val runs = rows.volumeRuns { it.volume?.key }
+    val headers = (
+        runs ?: rows.groupBy {
+            it.volume!!.key
+        }.toList()
+        ).volumeHeaders({ it.volume!! }, { it.id }, { it.read })
+    val series = headers.firstOrNull()?.series ?: every.firstNotNullOfOrNull { it.shown(loose, saved) }?.series
+        ?: return null
     val shownByKey = headers.associateBy { it.key }
     val all = every.volumesOf(series, saved, loose).map { shownByKey[it.key] ?: it.emptyChip() }.ifEmpty { headers }
+    if (all.size < 2) return null
     val chips = all.inChipOrder(saved[series])
     // Numbered in chip order.
     val duplicates = chips.duplicateIndexByKey()
     fun EntryChapterListItem.Volume.numbered() = copy(duplicate = duplicates.getValue(key))
     val shown = picked?.takeIf { key -> headers.any { it.key == key } }
-    val items = runs.zip(headers).filter { (_, header) -> shown == null || header.key == shown }
-        .flatMap { (run, header) ->
-            listOf(header.numbered()) + run.second.map { it.copy(name = it.volume!!.titleOf(it.name)) }
-        }
+    val items = when {
+        runs != null -> runs.zip(headers).filter { (_, header) -> shown == null || header.key == shown }
+            .flatMap { (run, header) ->
+                listOf(header.numbered()) + run.second.map { it.copy(name = it.volume!!.titleOf(it.name)) }
+            }
+        shown == null -> this
+        else -> rows.filter { it.volume!!.key == shown }
+    }
     return VolumeView(chips.map { it.numbered() }, shown, items)
 }
 

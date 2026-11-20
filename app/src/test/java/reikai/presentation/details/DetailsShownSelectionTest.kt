@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -25,10 +26,14 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.DownloadTargets
 import reikai.presentation.ComposeTestHost
+import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.UndatedChapterDate
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -48,7 +53,7 @@ class DetailsShownSelectionTest {
 
     private val behavior = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
         every { fake.state } returns state
-        every { fake.downloadProgress } returns EntryDownloadProgress.Unsupported
+        every { fake.downloadProgress(any()) } returns DownloadProgress.Unsupported
         every { fake.duplicateMarking } returns noDuplicateMarking()
         every { fake.volumePicking } returns noVolumePicking()
         every { fake.toggleSelection(any(), any(), any()) } answers {
@@ -69,10 +74,77 @@ class DetailsShownSelectionTest {
         compose.onNodeWithText(COPIES.size.toString()).assertExists()
     }
 
+    @Test
+    fun `select all on a picked volume selects that volume's rows alone`() {
+        compose.setContent { ComposeTestHost { DetailsContentHost(inVolumes).Content() } }
+
+        compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Ch 3"))
+        compose.onNodeWithText("Ch 3").performTouchInput { longClick() }
+        compose.onNodeWithContentDescription("Select all").performClick()
+
+        compose.onNodeWithText("2").assertExists()
+    }
+
+    @Test
+    fun `select inverse on a picked volume flips that volume's rows alone`() {
+        compose.setContent { ComposeTestHost { DetailsContentHost(inVolumes).Content() } }
+
+        compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Ch 3"))
+        compose.onNodeWithText("Ch 3").performTouchInput { longClick() }
+        compose.onNodeWithContentDescription("Select inverse").performClick()
+
+        compose.onNodeWithText("1").assertExists()
+    }
+
     private fun select(ids: Set<Long>) = state.update { it.copy(selection = it.selection + ids) }
+
+    // A series in two volumes with the second picked, so the screen shows two of its four rows.
+    private val volumeState = MutableStateFlow(
+        loadedDetails(
+            items = listOf(
+                detailsChapter(1L, "Vol 1 - Ch 1", 1.0).copy(volume = VOL_1),
+                detailsChapter(2L, "Vol 1 - Ch 2", 2.0).copy(volume = VOL_1),
+                detailsChapter(3L, "Vol 2 - Ch 3", 3.0).copy(volume = VOL_2),
+                detailsChapter(4L, "Vol 2 - Ch 4", 4.0).copy(volume = VOL_2),
+            ),
+        ).let { it.copy(chapters = it.chapters.copy(volumes = listOf(VOL_1, VOL_2))) },
+    )
+
+    private val inVolumes = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
+        every { fake.state } returns volumeState
+        every { fake.downloadProgress(any()) } returns DownloadProgress.Unsupported
+        every { fake.duplicateMarking } returns noDuplicateMarking()
+        every { fake.volumePicking } returns VolumePicking(
+            object : VolumePickRepository {
+                override fun picks(type: ContentType) = MutableStateFlow(mapOf(100L to VOL_2.key))
+                override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
+                override suspend fun loadedPicks(type: ContentType) = mapOf(100L to VOL_2.key)
+                override suspend fun restore(type: ContentType, series: String, key: String) = Unit
+            },
+            NoLocalVolumes,
+            object : VolumeFiles {
+                override suspend fun cover(type: ContentType, series: String, key: String): Any? = null
+                override suspend fun description(type: ContentType, series: String, key: String): String? = null
+            },
+            mockk(relaxed = true),
+            mockk(relaxed = true),
+            CoroutineScope(Dispatchers.Unconfined),
+        )
+        every { fake.toggleSelection(any(), any(), any()) } answers {
+            volumeState.update { it.copy(selection = it.selection + firstArg<Long>()) }
+        }
+        every { fake.selectAll(any()) } answers {
+            volumeState.update { it.copy(selection = it.selection + firstArg<List<Long>>()) }
+        }
+        every { fake.invertSelection(any()) } answers {
+            volumeState.update { it.copy(selection = firstArg<List<Long>>().toSet() - it.selection) }
+        }
+    }
 
     private companion object {
         val COPIES = listOf(1L, 2L)
+        val VOL_1 = ChapterVolume("Saga", "Vol 1", VolumeLabel.Number(1.0), "Vol 1 - ")
+        val VOL_2 = ChapterVolume("Saga", "Vol 2", VolumeLabel.Number(2.0), "Vol 2 - ")
 
         fun loaded() = loadedDetails(
             items = listOf(

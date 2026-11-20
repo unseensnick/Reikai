@@ -5,7 +5,6 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DownloadTargets
-import reikai.presentation.components.UndatedChapterDate
 
 /** The page's download gate and cover anchoring derive from the one viewed member, for both types. */
 class EntryDetailsScreenStateTest {
@@ -74,52 +73,15 @@ class EntryDetailsScreenStateTest {
         items: List<EntryChapterListItem> = emptyList(),
         selection: Set<Long> = emptySet(),
         downloadTargets: DownloadTargets = DownloadTargets.OWN,
-    ) = EntryDetailsScreenState.Loaded(
-        entryId = EntryId.Manga(ANCHOR),
-        viewedEntryId = viewedEntryId,
-        details = EntryDetailsUiState(
-            header = EntryHeaderUi(
-                coverModel = Unit,
-                title = "",
-                author = null,
-                artist = null,
-                status = 0L,
-                sourceName = "",
-                sourceState = sourceState,
-                sourceQuery = null,
-            ),
-            favorite = true,
-            trackingCount = 0,
-            hasLoggedInTrackers = false,
-            nextUpdate = null,
-            isUserIntervalMode = false,
-            description = null,
-            tags = null,
-            notes = "",
-            descriptionDefaultExpanded = false,
-        ),
-        chapters = EntryChapterListUiState(
-            items = items,
-            missingChapterCount = 0,
-            showHidden = false,
-            hasHiddenChapters = false,
-            hiddenChapterIds = emptySet(),
-            undatedChapterDate = UndatedChapterDate.NotApplicable,
-        ),
-        capabilities = EntryCapabilities(),
-        mergeSources = emptyList(),
-        selectedSourceId = null,
-        hasActiveFilter = false,
-        isRefreshing = false,
-        selection = selection,
-        resumeChapterId = null,
-        hasStarted = false,
-        hasViewedDownloads = false,
-        showChapterNumberOnly = false,
-        seedColor = null,
-        webPage = null,
-        downloadTargets = downloadTargets,
-    )
+    ) = loadedDetails(items).let {
+        it.copy(
+            entryId = EntryId.Manga(ANCHOR),
+            viewedEntryId = viewedEntryId,
+            details = it.details.copy(header = it.details.header.copy(sourceState = sourceState)),
+            selection = selection,
+            downloadTargets = downloadTargets,
+        )
+    }
 
     private fun chapter(id: Long, downloadState: Download.State) = EntryChapterListItem.Chapter(
         id = id,

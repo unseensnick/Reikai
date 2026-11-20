@@ -57,6 +57,7 @@ import exh.eh.EHentaiUpdateHelper
 import exh.favorites.removeGallery
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
+import exh.pagepreview.previewChapterOf
 import exh.source.ExhPreferences
 import exh.source.getMainSource
 import exh.source.isEhBasedManga
@@ -191,6 +192,7 @@ import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
@@ -986,6 +988,12 @@ class MangaViewModel(
 
     // RK: hasDownloads / deleteDownloads moved into promptDeleteDownloadsOnRemoved, over the entries removed
 
+    // RK --> The chapter the anchor's page previews are pages of, which a preview tap opens.
+    suspend fun pagePreviewChapter(): Chapter? = withIOContext {
+        previewChapterOf(mangaId) { getMangaAndChapters.awaitChapters(it) }
+    }
+    // RK <--
+
     // RK --> The download directory the details overflow's Open folder opens.
     suspend fun viewedDownloadDir(): UniFile? {
         val owner = successState?.downloadFolderOwner ?: return null
@@ -1767,6 +1775,11 @@ class MangaViewModel(
 
     fun invertSelection(visible: List<Long>) {
         chapterSelection.update { EntrySelection.invert(EntrySelection.retain(it, visible), visible) }
+    }
+
+    /** Selects every row of [block], or drops them all when each one is selected: a bulk verb, like novels'. */
+    fun toggleBlock(block: List<Long>, visible: List<Long>) {
+        chapterSelection.update { EntrySelection.toggleBlock(EntrySelection.retain(it, visible), block) }
     }
 
     // Read from the selection, as the state catches up with a selection only after it's been made

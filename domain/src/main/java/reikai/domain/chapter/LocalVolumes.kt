@@ -8,6 +8,10 @@ import reikai.domain.local.VolumeOwner
 /** A local series' volume the user has ordered, named or written [notes] on, by its file or folder [key]. */
 data class LocalVolume(val key: String, val position: Long?, val label: String?, val notes: String? = null)
 
+/** The row the user saved for volume [key] of [series], among every series' saved volumes [this]. */
+fun Map<String, List<LocalVolume>>.savedVolume(series: String, key: String): LocalVolume? =
+    get(series)?.firstOrNull { it.key == key }
+
 /**
  * How a local manga series shows the chapter files loose beside its volume folders. A novel has none, since every
  * book of a local novel is a volume.

@@ -51,6 +51,7 @@ import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.decideAdd
+import reikai.presentation.components.DownloadProgress
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.updates.NovelUpdatesItem
@@ -341,7 +342,7 @@ internal fun novelDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val 
     is NovelUpdatesItem -> recentsDownloadUi(LocalNovelSource.isLocal(payload.update.source)) {
         RecentsDownloadUi(
             state = { payload.downloadState },
-            progress = RecentsDownloadProgress.Unsupported,
+            progress = DownloadProgress.Unsupported,
         )
     }
     else -> null

@@ -220,6 +220,24 @@ class EntryVolumesTest {
             .chips.map { it.key } shouldBe listOf("Vol 01", "Vol 02", "Vol 03")
     }
 
+    @Test
+    fun `a chapter filter leaving one volume keeps every chip`() {
+        listOf(row(1, v1)).inVolumes(picked = null, saved = emptyMap(), every = listOf(v1, v2))?.chips?.map {
+            it.key
+        } shouldBe listOf("Vol 01", "Vol 02")
+    }
+
+    @Test
+    fun `a chapter filter leaving only the picked volume keeps it picked`() {
+        listOf(row(3, v2)).inVolumes(picked = "Vol 02", saved = emptyMap(), every = listOf(v1, v2))?.picked shouldBe
+            "Vol 02"
+    }
+
+    @Test
+    fun `a series with one volume has no chips`() {
+        listOf(row(1, v1)).inVolumes(picked = null, saved = emptyMap(), every = listOf(v1)) shouldBe null
+    }
+
     // Two books of one series that both state volume 1, as after combining two series.
     private val book1 = novelChapterVolume("Series", "Series::Book%20One.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!
     private val other1 = novelChapterVolume("Series", "Series::Other.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!

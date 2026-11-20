@@ -88,6 +88,19 @@ class DetailsRoutesTest {
     }
 
     @Test
+    fun `a tap once the first page has opened opens its own`() = runTest {
+        val pushed = mutableListOf<NavKey>()
+        val opener = DetailsOpener(this, pushed::add, { novels }) {}
+
+        opener.open { NovelRoute(1L) }
+        advanceUntilIdle()
+        opener.open { NovelRoute(2L) }
+        advanceUntilIdle()
+
+        pushed shouldBe listOf(NovelRoute(1L), NovelRoute(2L))
+    }
+
+    @Test
     fun `a page that cannot be built says so`() = runTest {
         var failures = 0
         val opener = DetailsOpener(this, {}, { novels }) { failures++ }

@@ -11,56 +11,41 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
+import reikai.presentation.components.DownloadProgress
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
 /**
- * How far a chapter's download has got, where the engine can say. A typed slot rather than a number, as
- * recents' RecentsDownloadProgress is: novels cannot answer, and a zero there reads as a stalled download.
- */
-sealed interface EntryDownloadProgress {
-    fun interface Live : EntryDownloadProgress {
-        fun percentOf(chapterId: Long): Int
-    }
-
-    /** The novel downloader, which tracks no per-chapter progress. */
-    data object Unsupported : EntryDownloadProgress
-}
-
-/**
  * [source] and [duplicates] (which no model state carries) mapped to the neutral state, off the main
  * thread since every chapter row is mapped. Never seeded by mapping, which ran the whole list on Main in
- * composition: the seed is the last value this model's adapters mapped, so a re-entry (rotation, a screen
- * popped back to) renders at once and only a first open shows Loading. WhileSubscribed, not Eagerly: an
- * adapter is rebuilt per composition entry while this sharing coroutine lives in the model's scope, so an
- * eager start left one orphaned mapper running per re-entry.
+ * composition, so a first open shows Loading; a re-entry (rotation, a screen popped back to) reads the same
+ * adapter ([keptForScreen]) and renders its last state at once. WhileSubscribed, so the mapper stops while
+ * the screen is gone.
  */
 internal fun <S, D> ViewModel.neutralDetailsState(
     source: StateFlow<S>,
     duplicates: StateFlow<D>,
     toNeutral: (S, D) -> EntryDetailsScreenState,
-): StateFlow<EntryDetailsScreenState> {
-    val last = getCloseable(LastNeutralState.KEY) ?: LastNeutralState().also { addCloseable(LastNeutralState.KEY, it) }
-    return combine(source, duplicates, toNeutral)
-        .flowOn(Dispatchers.Default)
-        .onEach { last.value = it }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), last.value)
-}
+): StateFlow<EntryDetailsScreenState> = combine(source, duplicates, toNeutral)
+    .flowOn(Dispatchers.Default)
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), EntryDetailsScreenState.Loading)
 
-/** Held in the model's own keyed store, which outlives the adapters a screen rebuilds over it. */
-private class LastNeutralState : AutoCloseable {
-    @Volatile
-    var value: EntryDetailsScreenState = EntryDetailsScreenState.Loading
+/**
+ * What [build] made for this model's screen under [key], held in the model's own store, so every re-entry to
+ * the screen reuses it: each build starts sharing coroutines in the model's scope, which outlive the entry.
+ */
+internal fun <T : Any> ViewModel.keptForScreen(key: String, build: () -> T): T =
+    (getCloseable<KeptForScreen<T>>(key) ?: KeptForScreen(build()).also { addCloseable(key, it) }).value
 
+private class KeptForScreen<T>(val value: T) : AutoCloseable {
     override fun close() = Unit
-
-    companion object {
-        const val KEY = "reikai.details.lastNeutralState"
-    }
 }
+
+/** The keys both details screens keep their adapter and settings under. */
+internal const val DETAILS_ADAPTER_KEY = "reikai.details.adapter"
+internal const val DETAILS_SETTINGS_KEY = "reikai.details.settings"
 
 /**
  * The neutral behaviour both content types expose to the shared details UI: the state stream plus the
@@ -73,8 +58,8 @@ private class LastNeutralState : AutoCloseable {
 interface EntryDetailsBehavior {
     val state: StateFlow<EntryDetailsScreenState>
 
-    /** Read by each row's indicator alone, so a progress tick redraws the ring rather than the list. */
-    val downloadProgress: EntryDownloadProgress
+    /** Read by [chapterId]'s row indicator alone, so a progress tick redraws the ring rather than the list. */
+    fun downloadProgress(chapterId: Long): DownloadProgress
 
     // Chapter selection, over [shown]: the rows on screen, in their order, which the screen's own filters
     // (Only copies, a picked volume) narrow below the model's list.

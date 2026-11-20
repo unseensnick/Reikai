@@ -17,6 +17,7 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.library.ContentType
 import reikai.presentation.ComposeTestHost
+import reikai.presentation.components.DownloadProgress
 
 /** A picked volume heads the page with its own cover, so the cover tapped there opens that cover, not the series'. */
 @RunWith(RobolectricTestRunner::class)
@@ -49,7 +50,7 @@ class VolumeCoverViewerTest {
 
     private val behavior = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
         every { fake.state } returns MutableStateFlow(state)
-        every { fake.downloadProgress } returns EntryDownloadProgress.Unsupported
+        every { fake.downloadProgress(any()) } returns DownloadProgress.Unsupported
         every { fake.duplicateMarking } returns noDuplicateMarking()
         every { fake.volumePicking } returns VolumePicking(
             picks,

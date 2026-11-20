@@ -10,10 +10,14 @@ import reikai.domain.novel.model.sortedAndFiltered
 import reikai.presentation.details.HiddenChapterView
 import reikai.presentation.details.resolveHiddenChapterView
 
-/** A novel's chapter list as [novelShownRows] builds it, and the chapter its Resume button opens. */
+/**
+ * A novel's chapter list as [novelShownRows] builds it, the chapter its Resume button opens, and [unfiltered], the
+ * rows hiding leaves before the filters, which manga's list state holds too: the duplicate marks read those.
+ */
 data class NovelShownRows(
     val view: HiddenChapterView<NovelChapter>,
     val resume: NovelChapter?,
+    val unfiltered: List<NovelChapter>,
 )
 
 /**
@@ -41,5 +45,5 @@ fun novelShownRows(
         ReadingOrder.of(listed(chapters), novel.effectiveSortDescending(prefs)),
         isHidden = { keyOf(it) in hiddenKeys },
     ) { marks.isRead(it.id, it.read) }
-    return NovelShownRows(view.copy(visible = listed(view.visible)), resume)
+    return NovelShownRows(view.copy(visible = listed(view.visible)), resume, view.visible)
 }

@@ -49,6 +49,7 @@ import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Circle
+import reikai.presentation.components.asProvider
 import reikai.presentation.components.readProgressLabel
 import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 import tachiyomi.i18n.MR
@@ -463,12 +464,6 @@ private fun sectionLabel(section: RecentsLaneKind) = when (section) {
     RecentsLaneKind.ADDED -> MR.strings.recents_section_newly_added
 }
 
-/** An engine that cannot report progress draws none rather than a zero that reads as a stall. */
-internal fun RecentsDownloadProgress.asProvider(): () -> Int = when (this) {
-    is RecentsDownloadProgress.Live -> percent
-    RecentsDownloadProgress.Unsupported -> NO_PROGRESS
-}
-
 /**
  * The "library last updated" line above an updated feed, carried over from Mihon's updates list. It is
  * type-neutral: the engine derives one timestamp over whichever content types the chip is showing.
@@ -495,5 +490,3 @@ internal fun LastUpdatedHeader(lastUpdated: Long, modifier: Modifier = Modifier)
         )
     }
 }
-
-internal val NO_PROGRESS: () -> Int = { 0 }

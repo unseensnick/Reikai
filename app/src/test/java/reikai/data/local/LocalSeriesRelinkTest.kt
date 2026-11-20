@@ -90,6 +90,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() },
             owners = LocalVolumeRepositoryImpl(database, scope),
             volumePicks = VolumePickRepositoryImpl(database, scope),
+            appScope = scope,
         )
     }
 

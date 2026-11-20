@@ -3,6 +3,9 @@ package reikai.data.local
 import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.library.ContentType
@@ -48,6 +51,7 @@ class LocalSeriesRelink(
     private val owners: LocalVolumeRepository,
     // The volume chip a member's link renames too.
     private val volumePicks: VolumePickRepository,
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
 
     /**
@@ -149,9 +153,12 @@ class LocalSeriesRelink(
      * Links series [id]'s missing member [member] to [to]: every row keyed by the member's name, through the same row
      * step Organize files writes, under the lock on both names. Checked again there that [member] is still gone, [to]
      * is there and free, and the series holds [member] whole, since a folder another series lists from too is that
-     * series' to link.
+     * series' to link. On the app scope, so a screen closing does not cut it off.
      */
-    suspend fun relinkMember(type: ContentType, id: Long, member: String, to: String): LocalMoveResult = withIOContext {
+    suspend fun relinkMember(type: ContentType, id: Long, member: String, to: String): LocalMoveResult =
+        appScope.async { linkMember(type, id, member, to) }.await()
+
+    private suspend fun linkMember(type: ContentType, id: Long, member: String, to: String) = withIOContext {
         val series = address(type, id) ?: return@withIOContext failed("No such series")
         seriesLocks.withSeries(type, listOf(series, to)) {
             val names = storageManager.localRoot(type)?.listOrNull(context)?.mapNotNull { it.name }

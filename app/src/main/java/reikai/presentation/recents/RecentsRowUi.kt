@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.progressWhileUnread
 import reikai.presentation.selection.ChapterMarks
 
@@ -33,22 +34,10 @@ val EMPTY_RECENTS_ROW =
  */
 data class RecentsDownloadUi(
     val state: () -> Download.State,
-    val progress: RecentsDownloadProgress,
+    val progress: DownloadProgress,
     /** Whether the row draws its control at all: not for a chapter no installed source holds. */
     val offered: () -> Boolean = { true },
 )
-
-/**
- * How far a download has got, where the engine behind it can say. A typed slot rather than a number,
- * because one engine cannot answer at all and a zero there is indistinguishable from a download that
- * has genuinely made no progress.
- */
-sealed interface RecentsDownloadProgress {
-    data class Live(val percent: () -> Int) : RecentsDownloadProgress
-
-    /** The novel downloader, which tracks no per-chapter progress. */
-    data object Unsupported : RecentsDownloadProgress
-}
 
 /**
  * Everything a continue-reading row draws once its target is known: the chapter a tap will open,

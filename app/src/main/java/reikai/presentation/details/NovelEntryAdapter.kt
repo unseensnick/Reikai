@@ -15,6 +15,7 @@ import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
@@ -69,7 +70,7 @@ class NovelEntryAdapter(
         model.neutralDetailsState(model.state, duplicateMarking.marks) { state, marks -> state.toNeutral(marks) }
 
     // A novel chapter is one request, so there is no percentage to report while it runs.
-    override val downloadProgress = EntryDownloadProgress.Unsupported
+    override fun downloadProgress(chapterId: Long) = DownloadProgress.Unsupported
 
     private fun NovelDetailsState.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
         NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
@@ -125,10 +126,11 @@ class NovelEntryAdapter(
                 // Novel sources hardly ever date a chapter, so upstream's "N/A" would land on nearly
                 // every row and say nothing.
                 undatedChapterDate = UndatedChapterDate.Blank,
-                // The arguments the reader's skip-duplicate rule takes (NovelReaderViewModel)
+                // The arguments the reader's skip-duplicate rule takes (NovelReaderViewModel), over the rows
+                // before the filters, as manga's, so a filtered-out copy still marks the one shown.
                 duplicates = marks?.let {
-                    duplicatesMemo.get(chapters, it) {
-                        chapters.duplicateMarks(
+                    duplicatesMemo.get(unfilteredRows, it) {
+                        unfilteredRows.duplicateMarks(
                             it,
                             numberOf = { it.chapterNumber },
                             nameOf = { it.name },

@@ -19,7 +19,7 @@ data class DetailsChromePlacement(val jumpsInMenu: Boolean, val readButtonSide: 
 
 /**
  * The settings the shared details body reads and writes for both content types, so none is read in
- * composition. Built per screen entry over the model's [scope], so it shares only while collected.
+ * composition. Built once per model ([keptForScreen]) over its [scope], so it shares only while collected.
  */
 class DetailsSettings(
     private val ui: UiPreferences,

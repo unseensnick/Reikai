@@ -135,9 +135,9 @@ fun EntryDetailsDialogHost(
             )
         }
         is EntryDetailsDialog.Cover -> {
-            // The behavior returns the per-type subclass through the star-projected base. Voyager only
-            // used that type as a store key, but AndroidX's default factory would try to instantiate it
-            // reflectively, so the construction moves into an explicit initializer. An initializer
+            // The behavior returns the per-type subclass through the star-projected base, which AndroidX's
+            // default factory would try to instantiate reflectively, so the construction moves into an
+            // explicit initializer. An initializer
             // freezes the entry it captures, and both adapters build for the source chip's entry, so
             // the model is keyed by that entry: without the key the store would hand back the model
             // built for whichever chip opened the dialog first.

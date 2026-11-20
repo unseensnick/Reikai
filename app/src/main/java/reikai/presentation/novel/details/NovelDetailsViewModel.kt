@@ -29,6 +29,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,6 +49,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import mihon.core.metro.AppCoroutineScope
@@ -279,6 +281,8 @@ class NovelDetailsViewModel(
     /** Whether the opened id has no row, which shows a not-found page while nothing else can show. */
     private val notFound = MutableStateFlow(false)
 
+    // Set off the main thread by the first fetch, read on it by a pull to refresh.
+    @Volatile
     private var refreshJob: Job? = null
     private var seededCover: NovelCover? = null
 
@@ -491,26 +495,38 @@ class NovelDetailsViewModel(
         mergeGroup.observe(viewModelScope)
         viewModelScope.launchIO {
             val opened = novelRepo.getById(novelId)
-            if (opened == null) notFound.value = true else resolveSource(opened.source)
+            if (opened == null) notFound.value = true else resolveSource(opened)
         }
     }
 
-    /** Looks the opened novel's plugin up, then makes the first fetch when it has no chapters stored. */
-    private suspend fun resolveSource(sourceId: String) {
-        runCatchingCancellable { installer.ensureLoaded() }
-        val lookup = sourceManager.get(sourceId)?.let(SourceLookup::Resolved) ?: SourceLookup.Missing
-        anchorSource.value = lookup
-        if (lookup is SourceLookup.Resolved) firstFetch(lookup.source)
+    /**
+     * Looks the opened novel's plugin up, then makes the first fetch when it has no chapters stored (a listing
+     * opened from browsing). Decided from the stored rows, not the shown ones, so a filter hiding every chapter
+     * does not fetch again, and before the plugin loads, as manga's seed decides it, so the spinner shows from
+     * the first frame. The fetch is the refresh job, so a pull to refresh does not run a second one beside it.
+     */
+    private suspend fun resolveSource(opened: Novel) {
+        val fetches = chapterRepo.getByNovelId(opened.id).isEmpty()
+        if (fetches) {
+            refreshJob = currentCoroutineContext().job
+            isRefreshing.value = true
+        }
+        try {
+            runCatchingCancellable { installer.ensureLoaded() }
+            val lookup = sourceManager.get(opened.source)?.let(SourceLookup::Resolved) ?: SourceLookup.Missing
+            anchorSource.value = lookup
+            if (fetches && lookup is SourceLookup.Resolved) firstFetch(lookup.source)
+        } finally {
+            if (fetches) isRefreshing.value = false
+        }
     }
 
     /**
-     * Fetches a novel with no stored chapters (a listing opened from browsing), once. Decided from the
-     * stored rows, not the shown ones, so a filter hiding every chapter does not fetch again. A failure
-     * goes in a snackbar under the stored row, as manga's first fetch does, and a pull to refresh retries.
+     * Fetches the novel's details and chapters once. A failure goes in a snackbar under the stored row, as
+     * manga's first fetch does, and a pull to refresh retries.
      */
     private suspend fun firstFetch(source: NovelSource) {
         val stored = novelRepo.getById(novelId) ?: return
-        if (chapterRepo.getByNovelId(stored.id).isNotEmpty()) return
         runCatchingCancellable { fetchAndSync(source, stored) }
             .onFailure { e ->
                 val message = with(context) { e.refreshFailureMessage() }
@@ -835,6 +851,7 @@ class NovelDetailsViewModel(
             selectedSourceNovelId = group.selected,
             chapterSwipeActions = libraryPreferences.chapterSwipeActions(),
             storedRows = chapters,
+            unfilteredRows = rows.unfiltered,
         )
     }
 
@@ -1849,6 +1866,8 @@ sealed interface NovelDetailsState {
         /** The viewed list's rows before hiding, filters and sort (one page on a paged source). Not drawn:
          *  the download action reads it. */
         val storedRows: List<NovelChapter> = emptyList(),
+        /** [storedRows] with hidden ones dropped unless they are shown, before the filters and sort. */
+        val unfilteredRows: List<NovelChapter> = emptyList(),
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
 

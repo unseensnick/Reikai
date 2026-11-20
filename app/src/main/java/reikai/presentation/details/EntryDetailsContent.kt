@@ -51,6 +51,7 @@ import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.data.local.LocalMoveResult
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.LooseFiles
+import reikai.domain.chapter.savedVolume
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.entry.EntryId
@@ -59,6 +60,7 @@ import reikai.domain.local.VolumeOwner
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
+import reikai.presentation.components.asProvider
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.readProgressLabel
 import reikai.presentation.components.reportVolumeMove
@@ -66,7 +68,6 @@ import reikai.presentation.notes.VolumeNotesRoute
 import reikai.presentation.novel.details.novelPageText
 import reikai.presentation.reader.chapterRowTitle
 import reikai.presentation.reader.chapterTitleWords
-import reikai.presentation.recents.NO_PROGRESS
 import reikai.presentation.recommendation.RelatedMangaCarousel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -165,7 +166,7 @@ fun EntryDetailsContent(
         }
     }
     val volumeNotes = pickedVolume?.let { picked ->
-        savedVolumes[picked.series]?.firstOrNull { it.key == picked.key }?.notes
+        savedVolumes.savedVolume(picked.series, picked.key)?.notes
     }.orEmpty()
     val listed = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     val shown = if (pickedVolume == null) listed else listed.headedBy(volumeFiles, volumeNotes)
@@ -526,27 +527,7 @@ private fun EntryDetailsSmallContent(
         if (state.isMerged) mergeSourceChipsItem(state, behavior)
         state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = true) }
         state.capabilities.mangaPagePreviews?.let { pagePreviewsItem(it, nav) }
-        chapterHeaderItem(state, nav, extras.copies)
-        unfinishedOrganizeItem(extras.onForgetUnfinished)
-        missingVolumesItem(extras.missing, extras.onFixMissing)
-        extras.volumes?.let {
-            volumeChipsItem(
-                it,
-                extras.onPickVolume,
-                extras.onKeepDuplicates,
-                extras.onDeleteVolumes?.let { d ->
-                    { keys -> d(keys) }
-                },
-            )
-        }
-        entryChapterItems(
-            state,
-            behavior,
-            chapterSwipeStartAction,
-            chapterSwipeEndAction,
-            nav.perType.onOpenChapter,
-            extras.shownChapterIds,
-        )
+        chapterRegion(state, behavior, nav, extras, chapterSwipeStartAction, chapterSwipeEndAction)
     }
 }
 
@@ -602,28 +583,31 @@ private fun EntryDetailsLargeContent(
         endContent = {
             state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = false) }
             if (state.isMerged) mergeSourceChipsItem(state, behavior)
-            chapterHeaderItem(state, nav, extras.copies)
-            unfinishedOrganizeItem(extras.onForgetUnfinished)
-            missingVolumesItem(extras.missing, extras.onFixMissing)
-            extras.volumes?.let {
-                volumeChipsItem(
-                    it,
-                    extras.onPickVolume,
-                    extras.onKeepDuplicates,
-                    extras.onDeleteVolumes?.let { d ->
-                        { keys -> d(keys) }
-                    },
-                )
-            }
-            entryChapterItems(
-                state,
-                behavior,
-                chapterSwipeStartAction,
-                chapterSwipeEndAction,
-                nav.perType.onOpenChapter,
-                extras.shownChapterIds,
-            )
+            chapterRegion(state, behavior, nav, extras, chapterSwipeStartAction, chapterSwipeEndAction)
         },
+    )
+}
+
+/** The chapter region both layouts end on, the chapter rows last, which the header count relies on. */
+private fun LazyListScope.chapterRegion(
+    state: EntryDetailsScreenState.Loaded,
+    behavior: EntryDetailsBehavior,
+    nav: DetailsPageNav,
+    extras: ChapterListExtras,
+    chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
+    chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
+) {
+    chapterHeaderItem(state, nav, extras.copies)
+    unfinishedOrganizeItem(extras.onForgetUnfinished)
+    missingVolumesItem(extras.missing, extras.onFixMissing)
+    extras.volumes?.let { volumeChipsItem(it, extras.onPickVolume, extras.onKeepDuplicates, extras.onDeleteVolumes) }
+    entryChapterItems(
+        state,
+        behavior,
+        chapterSwipeStartAction,
+        chapterSwipeEndAction,
+        nav.perType.onOpenChapter,
+        extras.shownChapterIds,
     )
 }
 
@@ -931,11 +915,8 @@ private fun LazyListScope.entryChapterItems(
                     selected = isSelected,
                     downloadIndicatorEnabled = !selectionMode && chaptersDownloadable,
                     downloadStateProvider = { chapter.downloadState },
-                    downloadProgressProvider = when (val progress = behavior.downloadProgress) {
-                        is EntryDownloadProgress.Live -> {
-                            { progress.percentOf(chapter.id) }
-                        }
-                        EntryDownloadProgress.Unsupported -> NO_PROGRESS
+                    downloadProgressProvider = remember(behavior, chapter.id) {
+                        behavior.downloadProgress(chapter.id).asProvider()
                     },
                     chapterSwipeStartAction = chapterSwipeStartAction.whereDownloadOffered(offersDownload),
                     chapterSwipeEndAction = chapterSwipeEndAction.whereDownloadOffered(offersDownload),

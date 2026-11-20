@@ -18,6 +18,7 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.MergeScope
+import reikai.presentation.components.DownloadProgress
 
 /**
  * Every source's copy of [named], [named] first, resolved once with the row so drawing it probes only
@@ -93,8 +94,8 @@ internal fun recentsCopiesDownloadUi(
     return RecentsDownloadUi(
         state = state,
         progress = progress?.let { percent ->
-            RecentsDownloadProgress.Live { targets(copies()).queuedFor(chapterId, percent) ?: 0 }
-        } ?: RecentsDownloadProgress.Unsupported,
+            DownloadProgress.Live { targets(copies()).queuedFor(chapterId, percent) ?: 0 }
+        } ?: DownloadProgress.Unsupported,
         offered = { targets(copies()).offersDownload(chapterId, state()) },
     )
 }
@@ -109,7 +110,7 @@ internal fun recentsDownloadUi(isLocal: Boolean, ui: () -> RecentsDownloadUi): R
 
 private val LOCAL_DOWNLOAD_UI = RecentsDownloadUi(
     state = { Download.State.DOWNLOADED },
-    progress = RecentsDownloadProgress.Unsupported,
+    progress = DownloadProgress.Unsupported,
     offered = { false },
 )
 

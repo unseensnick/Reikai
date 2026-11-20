@@ -2,6 +2,7 @@ package reikai.presentation.details
 
 import androidx.lifecycle.ViewModel
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -45,14 +46,12 @@ class NeutralDetailsStateTest {
             EntryDetailsScreenState.Loading
     }
 
-    /** An adapter is rebuilt on every re-entry to the screen, which must not flash Loading. */
+    /** Each re-entry to the screen asks again, and a second adapter would leave its sharing coroutine behind. */
     @Test
-    fun `an adapter rebuilt over the same model starts from the last mapped state`() = runTest {
-        settle {
-            model.neutralDetailsState(source, duplicates) { value, _ -> neutral(value) }.first { it == neutral(1) }
-        }
+    fun `a screen entered again over the same model gets what it was given the first time`() {
+        val first = model.keptForScreen(KEY) { Any() }
 
-        model.neutralDetailsState(source, duplicates) { value, _ -> mappedOnTheSpot(value) }.value shouldBe neutral(1)
+        model.keptForScreen(KEY) { Any() } shouldBeSameInstanceAs first
     }
 
     @Test
@@ -64,5 +63,9 @@ class NeutralDetailsStateTest {
         collector.cancel()
 
         settle { source.subscriptionCount.first { it == 0 } } shouldBe 0
+    }
+
+    private companion object {
+        const val KEY = "test"
     }
 }

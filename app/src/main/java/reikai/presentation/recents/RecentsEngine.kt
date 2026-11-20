@@ -53,6 +53,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.stats.inMenus
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionStore
@@ -645,11 +646,11 @@ class RecentsEngine(
                 offeredPoll()
             },
             progress = when (val progress = progress) {
-                is RecentsDownloadProgress.Live -> RecentsDownloadProgress.Live {
+                is DownloadProgress.Live -> DownloadProgress.Live {
                     progressRevision.longValue
                     progress.percent()
                 }
-                RecentsDownloadProgress.Unsupported -> progress
+                DownloadProgress.Unsupported -> progress
             },
         )
     }

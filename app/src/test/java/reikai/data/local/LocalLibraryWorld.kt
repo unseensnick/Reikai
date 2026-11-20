@@ -383,6 +383,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             seriesLocks = locks,
             owners = volumes,
             volumePicks = volumePicks,
+            appScope = scope,
         )
         val replay = LocalFileJournalReplay(context, journal, locks, organizer)
 

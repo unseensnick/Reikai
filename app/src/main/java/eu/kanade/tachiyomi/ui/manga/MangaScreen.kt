@@ -24,6 +24,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import exh.pagepreview.PagePreviewRoute
+import exh.pagepreview.openPreviewPage
 import exh.source.configurableSource
 import exh.source.getMainSource
 import exh.ui.metadata.MetadataViewRoute
@@ -40,6 +41,8 @@ import reikai.domain.source.SourceKey
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.source.preferencesRoute
+import reikai.presentation.details.DETAILS_ADAPTER_KEY // RK
+import reikai.presentation.details.DETAILS_SETTINGS_KEY // RK
 import reikai.presentation.details.DetailsSettings // RK
 import reikai.presentation.details.DetailsViewedSource
 import reikai.presentation.details.DuplicateMarking // RK
@@ -54,6 +57,7 @@ import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.detailsRoute
 import reikai.presentation.details.editInfoDialog
+import reikai.presentation.details.keptForScreen // RK
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
@@ -88,19 +92,23 @@ fun MangaScreen(
     // RK --> the shared details body renders through the manga adapter over the live model.
     val coverViewModelFactory = remember { context.appGraph.mangaCoverViewModelFactory }
     val adapter = remember(viewModel) {
-        val graph = context.appGraph
-        val duplicates = DuplicateMarking(
-            ContentType.MANGA,
-            graph.chapterCopyMarks,
-            graph.reikaiLibraryPreferences.showSkippedDuplicates,
-            graph.readerPreferences.skipDupe,
-            viewModel.viewModelScope,
-            graph.appCoroutineScope,
-        )
-        MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
+        viewModel.keptForScreen(DETAILS_ADAPTER_KEY) {
+            val graph = context.appGraph
+            val duplicates = DuplicateMarking(
+                ContentType.MANGA,
+                graph.chapterCopyMarks,
+                graph.reikaiLibraryPreferences.showSkippedDuplicates,
+                graph.readerPreferences.skipDupe,
+                viewModel.viewModelScope,
+                graph.appCoroutineScope,
+            )
+            MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
+        }
     }
     val settings = remember(viewModel) {
-        context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
+        viewModel.keptForScreen(DETAILS_SETTINGS_KEY) {
+            context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
+        }
     }
     val neutralState by adapter.state.collectAsStateWithLifecycle()
 
@@ -176,11 +184,7 @@ fun MangaScreen(
                     navigator.push(RelatedMangasBrowseRoute(successState.manga.id))
                 }.takeIf { viewModel.recommendationsInMenu },
                 onOpenPagePreview = { page ->
-                    openPagePreview(
-                        context,
-                        successState.chapters.minByOrNull { it.chapter.sourceOrder }?.chapter,
-                        page,
-                    )
+                    scope.launch { viewModel.pagePreviewChapter()?.let { context.openPreviewPage(it, page) } }
                 },
                 onMorePreviews = { navigator.push(PagePreviewRoute(successState.manga.id)) },
                 onOpenFolder = { scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) } },
@@ -292,12 +296,6 @@ private fun openChapter(context: Context, chapter: Chapter, sourceScoped: Boolea
     context.startActivity(
         ReaderActivity.newIntent(context, chapter.mangaId, chapter.id, sourceScoped = sourceScoped),
     )
-}
-
-// RK: open the reader at a specific page from a gallery page preview.
-private fun openPagePreview(context: Context, chapter: Chapter?, page: Int) {
-    chapter ?: return
-    context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id, page))
 }
 
 // RK: getMangaUrl, openMangaInWebView and shareManga moved to EntryWebPage, shared with novels
