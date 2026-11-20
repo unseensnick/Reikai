@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import reikai.novel.host.LnPluginInfo
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 
@@ -64,11 +65,18 @@ class NovelSourcesFilterLanguagesTest {
         ).single().second shouldBe listOf(EN_SOURCE, off)
     }
 
+    // Its novels are the user's own files, never switched off, so a checkbox there would do nothing.
+    @Test
+    fun `the local source is not offered`() {
+        languages(listOf(source("Local", "other", id = LocalNovelSource.ID), EN_SOURCE)) shouldBe
+            listOf("en" to listOf(EN_SOURCE))
+    }
+
     private companion object {
         val EN_SOURCE = source("Site", "en")
 
-        fun source(name: String, lang: String) = mockk<NovelSource> {
-            every { id } returns "plugin:$name"
+        fun source(name: String, lang: String, id: String = "plugin:$name") = mockk<NovelSource> {
+            every { this@mockk.id } returns id
             every { this@mockk.lang } returns lang
             every { this@mockk.name } returns name
         }

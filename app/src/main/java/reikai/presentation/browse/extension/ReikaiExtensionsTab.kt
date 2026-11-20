@@ -73,13 +73,14 @@ import reikai.presentation.browse.components.ExtensionRowDetail
 import reikai.presentation.browse.components.NovelSourceIcon
 import reikai.presentation.browse.components.SourceNameRow
 import reikai.presentation.browse.components.failedInstall
+import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.retryInstall
 import reikai.presentation.browse.extension.details.NovelPluginDetailsRoute
 import reikai.presentation.browse.source.EntrySourcesFilterRoute
-import reikai.presentation.browse.sourceLanguageName
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.TypeBadge
+import reikai.presentation.components.listsBothTypes
 import reikai.presentation.components.rememberChipListState
 import reikai.presentation.webview.webViewRoute
 import tachiyomi.i18n.MR
@@ -187,7 +188,7 @@ fun reikaiExtensionsTab(
                         )
                         else -> ExtensionsList(
                             state = state,
-                            showContentType = state.contentType == ContentType.ALL,
+                            showContentType = state.contentType.listsBothTypes,
                             contentPadding = contentPadding,
                             extensionsViewModel = extensionsViewModel,
                             lnModel = lnModel,
@@ -293,7 +294,7 @@ private fun ExtensionsList(
                 is ExtensionsListItem.Row -> {
                     val badge: @Composable () -> Unit = {
                         // One pill at most: a phone row has no room for a type and a format side by side.
-                        val format = item.row.key.format?.takeIf { state.showsFormat }?.let { stringResource(it.label) }
+                        val format = formatLabel(item.row.key.format, state.showsFormat)
                         when {
                             format == null -> if (showContentType) ContentTypeBadge(item.row.key.contentType)
                             showContentType -> TypeBadge(
@@ -703,8 +704,7 @@ private fun PluginRow(
         Column(modifier = Modifier.weight(1f).padding(start = MaterialTheme.padding.medium)) {
             SourceNameRow(name, badge)
             repoName?.let { ExtensionRowDetail(it) }
-            val facts = listOfNotNull(sourceLanguageName(lang, LocalContext.current), version)
-            if (facts.isNotEmpty()) ExtensionRowDetail(facts.joinToString(" • "))
+            extensionFacts(lang, version, updateVersion = null, LocalContext.current)?.let { ExtensionRowDetail(it) }
         }
     }
 }

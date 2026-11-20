@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
+import eu.kanade.presentation.browse.ExtensionIncognitoSwitch
 import eu.kanade.presentation.browse.InfoDivider
 import eu.kanade.presentation.browse.InfoText
 import eu.kanade.presentation.browse.UninstallPromptDialog
@@ -103,6 +104,7 @@ fun NovelPluginDetailsScreen(pluginId: String) {
                     )
                 },
                 onUninstall = viewModel::uninstall,
+                onIncognitoChange = viewModel::setIncognito,
             )
         }
     }
@@ -114,6 +116,7 @@ private fun NovelPluginDetails(
     contentPadding: PaddingValues,
     onOpenSite: () -> Unit,
     onUninstall: () -> Unit,
+    onIncognitoChange: (Boolean) -> Unit,
 ) {
     val plugin = state.plugin
     val context = LocalContext.current
@@ -201,7 +204,9 @@ private fun NovelPluginDetails(
             }
         }
 
-        HorizontalDivider(modifier = Modifier.padding(top = MaterialTheme.padding.small))
+        ExtensionIncognitoSwitch(state.isIncognito, onIncognitoChange)
+
+        HorizontalDivider()
 
         if (settings != null) {
             TextPreferenceWidget(

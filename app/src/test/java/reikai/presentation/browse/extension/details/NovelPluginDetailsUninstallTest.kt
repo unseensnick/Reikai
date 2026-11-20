@@ -1,6 +1,7 @@
 package reikai.presentation.browse.extension.details
 
 import androidx.lifecycle.ViewModelStore
+import eu.kanade.domain.source.service.SourcePreferences
 import io.kotest.matchers.collections.shouldNotContain
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.novel.install.LnPluginHarness
+import reikai.presentation.recents.EmittingPreferenceStore
 import kotlin.time.Duration.Companion.seconds
 
 /** An uninstall confirmed on the page is a delete, so leaving the page must not cut it off. */
@@ -46,6 +48,9 @@ class NovelPluginDetailsUninstallTest {
                 harness.installer,
                 backgroundScope,
                 mockk(),
+                mockk(relaxed = true),
+                SourcePreferences(EmittingPreferenceStore()),
+                mockk(relaxed = true),
             )
         store.put("details", model)
         model.uninstall()

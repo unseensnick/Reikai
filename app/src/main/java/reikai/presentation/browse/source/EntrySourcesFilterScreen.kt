@@ -27,6 +27,7 @@ import mihon.core.navigation.LocalNavigator
 import reikai.domain.library.ContentType
 import reikai.domain.library.within
 import reikai.novel.source.NovelSource
+import reikai.novel.source.isDisabled
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.components.formatLabel
@@ -186,7 +187,7 @@ fun SourcesFilterViewModel.State.Success.toSections(): List<SourceFilterSection<
 fun NovelSourcesFilterViewModel.State.Success.toSections(): List<SourceFilterSection<NovelSource>> =
     items.map { (language, sources) ->
         section(language, enabled = language !in disabledLanguages, sources) {
-            SourceFilterEntry(it.id, it, checked = it.id !in disabledSources)
+            SourceFilterEntry(it.id, it, checked = !it.isDisabled(disabledSources, disabledLanguages))
         }
     }
 

@@ -31,6 +31,7 @@ import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
 import reikai.presentation.components.HeaderTabRow
 import reikai.presentation.components.LocalShownContent
+import reikai.presentation.components.listsBothTypes
 import reikai.presentation.components.rememberChipListState
 import reikai.presentation.details.detailsRoute
 import reikai.presentation.details.rememberDetailsOpener
@@ -198,7 +199,7 @@ fun EntryGlobalSearchScreen(
                     row = row,
                     // Only on All, where the rows are interleaved and nothing else says which
                     // kind a source is. The Browse lists badge their rows on the same rule.
-                    showContentType = state.contentType == ContentType.ALL,
+                    showContentType = state.contentType.listsBothTypes,
                     showsFormat = state.showsFormat,
                     selectedKeys = selection.selectedKeys,
                     onClickSource = { navigator.push(EntryCatalogueRoute(row.key, state.query)) },

@@ -23,29 +23,29 @@ class NovelPluginDetailsTest {
 
     @Test
     fun `the version is the one its install recorded, as the Extensions row shows`() {
-        novelPluginDetails(plugin, installed, emptyMap()).version shouldBe "2.0.0"
+        novelPluginDetails(plugin, installed, emptyMap(), isIncognito = false).version shouldBe "2.0.0"
     }
 
     @Test
     fun `a plugin with no install record shows its own version`() {
-        novelPluginDetails(plugin, emptyMap(), emptyMap()).version shouldBe "1.0.0"
+        novelPluginDetails(plugin, emptyMap(), emptyMap(), isIncognito = false).version shouldBe "1.0.0"
     }
 
     @Test
     fun `the repo is the added one that lists its script`() {
         val repos = mapOf("https://other/index.json" to listing(OTHER), REPO to listing(SCRIPT))
-        novelPluginDetails(plugin, installed, repos).repoName shouldBe "repo.example"
+        novelPluginDetails(plugin, installed, repos, isIncognito = false).repoName shouldBe "repo.example"
     }
 
     @Test
     fun `a repo served from its own host links to that host, not its index`() {
         val repos = mapOf(REPO to listing(SCRIPT))
-        novelPluginDetails(plugin, installed, repos).repoWebsite shouldBe "https://repo.example"
+        novelPluginDetails(plugin, installed, repos, isIncognito = false).repoWebsite shouldBe "https://repo.example"
     }
 
     @Test
     fun `a GitHub raw repo is named by its owner and links its GitHub page`() {
-        val details = novelPluginDetails(plugin, installed, mapOf(GITHUB_REPO to listing(SCRIPT)))
+        val details = novelPluginDetails(plugin, installed, mapOf(GITHUB_REPO to listing(SCRIPT)), isIncognito = false)
         (details.repoName to details.repoWebsite) shouldBe
             ("LNReader" to "https://github.com/LNReader/lnreader-plugins")
     }
@@ -53,7 +53,7 @@ class NovelPluginDetailsTest {
     @Test
     fun `a repo that did not answer names no repo`() {
         val repos = mapOf(REPO to LnRepoResult.Unreachable("offline"))
-        novelPluginDetails(plugin, installed, repos).repoName shouldBe null
+        novelPluginDetails(plugin, installed, repos, isIncognito = false).repoName shouldBe null
     }
 
     private companion object {

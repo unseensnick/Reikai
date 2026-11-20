@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.ToggleNovelSource
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.listedPlugins
 import reikai.novel.source.NovelExtensionFormat
@@ -104,7 +105,8 @@ class NovelSourcesFilterViewModel(
 /**
  * The installed [sources] by language, plus each language a listing declares with nothing installed in
  * it, as Mihon's extension filter lists every language its stores offer. Ordered as the manga half of the
- * screen is, by the sources filter's own order: switched-off languages and sources after the rest.
+ * screen is, by the sources filter's own order: switched-off languages and sources after the rest. The
+ * local source is left out, as manga's online-only list leaves its own: nothing can switch it off.
  */
 internal fun filterLanguages(
     sources: List<NovelSource>,
@@ -113,7 +115,10 @@ internal fun filterLanguages(
     disabledLanguages: Set<String>,
 ): List<Pair<String, List<NovelSource>>> {
     val sourceOrder = sourcesFilterSourceOrder<NovelSource>({ it.id in disabledSources }, { it.name })
-    val installed = sources.groupBy { it.lang }.mapValues { (_, inLanguage) -> inLanguage.sortedWith(sourceOrder) }
+    val installed = sources
+        .filterNot { LocalNovelSource.isLocal(it.id) }
+        .groupBy { it.lang }
+        .mapValues { (_, inLanguage) -> inLanguage.sortedWith(sourceOrder) }
     return (installed.keys + listed.map { it.toLangCode() })
         .sortedWith(sourcesFilterLanguageOrder { it in disabledLanguages })
         .map { it to installed[it].orEmpty() }

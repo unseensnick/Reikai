@@ -1,5 +1,6 @@
 package reikai.presentation.browse.extension.details
 
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkHelper
 import io.mockk.coEvery
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.install.LnPluginHarness
+import reikai.presentation.recents.EmittingPreferenceStore
 
 /** A plugin's page clears its site's cookies, as an extension's page does; plugin requests share the jar. */
 class NovelPluginClearCookiesTest {
@@ -37,6 +39,9 @@ class NovelPluginClearCookiesTest {
             harness.installer,
             backgroundScope,
             mockk<NetworkHelper> { every { cookieJar } returns jar },
+            mockk(relaxed = true),
+            SourcePreferences(EmittingPreferenceStore()),
+            mockk(relaxed = true),
         )
         backgroundScope.launch { model.state.collect {} }
         model.state.first { it is NovelPluginDetailsViewModel.State.Success }

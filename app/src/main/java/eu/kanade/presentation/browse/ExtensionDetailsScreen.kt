@@ -345,27 +345,34 @@ private fun DetailsHeader(
             }
         }
 
-        TextPreferenceWidget(
-            modifier = Modifier.padding(horizontal = MaterialTheme.padding.small),
-            title = stringResource(MR.strings.pref_incognito_mode),
-            subtitle = stringResource(MR.strings.pref_incognito_mode_extension_summary),
-            icon = MaterialSymbols.Rounded.Eyeglasses2,
-            widget = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Switch(
-                        checked = extIncognitoMode,
-                        onCheckedChange = onExtIncognitoChange,
-                        modifier = Modifier.padding(start = TrailingWidgetBuffer),
-                    )
-                }
-            },
-        )
+        ExtensionIncognitoSwitch(extIncognitoMode, onExtIncognitoChange) // RK: shared with the plugin page
 
         HorizontalDivider()
     }
 }
+
+// RK --> moved out of DetailsHeader, so NovelPluginDetailsScreen draws the same switch
+@Composable
+internal fun ExtensionIncognitoSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    TextPreferenceWidget(
+        modifier = Modifier.padding(horizontal = MaterialTheme.padding.small),
+        title = stringResource(MR.strings.pref_incognito_mode),
+        subtitle = stringResource(MR.strings.pref_incognito_mode_extension_summary),
+        icon = MaterialSymbols.Rounded.Eyeglasses2,
+        widget = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Switch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    modifier = Modifier.padding(start = TrailingWidgetBuffer),
+                )
+            }
+        },
+    )
+}
+// RK <--
 
 // RK: internal, NovelPluginDetailsScreen draws the same header row
 @Composable

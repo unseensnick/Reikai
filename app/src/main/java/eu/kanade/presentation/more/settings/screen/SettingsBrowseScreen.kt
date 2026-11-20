@@ -22,6 +22,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 
 @Serializable
 data object SettingsBrowseScreen : SearchableSettings {
@@ -44,16 +45,13 @@ data object SettingsBrowseScreen : SearchableSettings {
         val novelPreferences = remember { context.appGraph.novelPreferences }
         // RK --> the Feed tab's own switches, which the rest of its group hangs off
         val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
-        val showFeedTab by reikaiSourcePreferences.showFeedTab.changes()
-            .collectAsState(reikaiSourcePreferences.showFeedTab.get())
+        val showFeedTab by reikaiSourcePreferences.showFeedTab.collectAsState()
         // RK <--
 
-        val adultSourcesEnabled by exhPreferences.isHentaiEnabled().changes()
-            .collectAsState(exhPreferences.isHentaiEnabled().get())
+        val adultSourcesEnabled by exhPreferences.isHentaiEnabled().collectAsState() // RK
         // RK --> the delegated-sources switch, which also decides whether MangaDex's settings exist
         val delegateSourcePreferences = remember { context.appGraph.delegateSourcePreferences }
-        val delegateSources by delegateSourcePreferences.delegateSources().changes()
-            .collectAsState(delegateSourcePreferences.delegateSources().get())
+        val delegateSources by delegateSourcePreferences.delegateSources().collectAsState()
         // RK <--
 
         // RK: resolved once per delegated-sources flip, since the gate awaits the extension scan.
@@ -66,8 +64,7 @@ data object SettingsBrowseScreen : SearchableSettings {
         val uiPreferences = remember { context.appGraph.uiPreferences }
 
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
-        val novelRepoUrls by novelPreferences.addedRepoUrls().changes()
-            .collectAsState(novelPreferences.addedRepoUrls().get())
+        val novelRepoUrls by novelPreferences.addedRepoUrls().collectAsState() // RK
         val novelRepoCount = if (showsContent(ContentType.NOVELS)) novelRepoUrls.size else 0
 
         return listOfNotNull(

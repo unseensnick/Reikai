@@ -28,7 +28,6 @@ import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.TravelExplore
-import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntrySourceOptionsDialog
@@ -44,6 +43,7 @@ import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.browse.sourceLanguageLabel
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.listsBothTypes
 import reikai.presentation.components.rememberChipListState
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
@@ -118,7 +118,7 @@ fun reikaiSourcesTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
                     else -> SourcesList(
                         items = state.items,
                         listState = rememberChipListState(state.contentType),
-                        showContentType = state.contentType == ContentType.ALL,
+                        showContentType = state.contentType.listsBothTypes,
                         showsFormat = state.showsFormat,
                         showLatest = state.showLatest,
                         contentPadding = contentPadding,

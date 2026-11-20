@@ -1,6 +1,8 @@
 package reikai.presentation.browse.extension
 
+import android.content.Context
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import org.junit.jupiter.api.Test
 
 /**
@@ -38,6 +40,13 @@ class SectionExtensionsTest {
     @Test
     fun `a pending update shows the version it brings after the one installed`() {
         versionLabel("1.6.7", "1.6.8") shouldBe "1.6.7 → 1.6.8"
+    }
+
+    // The apk row and the plugin row write this line through one helper, so a tag Android cannot name
+    // reads as declared on both rather than as a blank on one of them.
+    @Test
+    fun `a language Android cannot name is shown as declared beside the version`() {
+        extensionFacts("Bahasa Melayu", "1.0", updateVersion = null, mockk<Context>()) shouldBe "Bahasa Melayu • 1.0"
     }
 
     /** Upstream lists what did not load ahead of what did, so the extensions that need a look lead. */

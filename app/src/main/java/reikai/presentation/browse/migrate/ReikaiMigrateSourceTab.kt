@@ -38,12 +38,12 @@ import mihon.icons.materialsymbols.rounded.ArrowDownward
 import mihon.icons.materialsymbols.rounded.ArrowUpward
 import mihon.icons.materialsymbols.rounded.Numbers
 import mihon.icons.materialsymbols.rounded.SortByAlpha
-import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.components.NovelSourceIcon
 import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.listsBothTypes
 import reikai.presentation.components.rememberChipListState
 import reikai.presentation.migrate.flow.EntryMigrationFavoritesRoute
 import tachiyomi.core.common.Constants
@@ -104,7 +104,7 @@ fun reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
                     )
                     else -> MigrateSourcesList(
                         state = state,
-                        showContentType = state.contentType == ContentType.ALL,
+                        showContentType = state.contentType.listsBothTypes,
                         contentPadding = contentPadding,
                         onClickItem = { row ->
                             navigator.push(

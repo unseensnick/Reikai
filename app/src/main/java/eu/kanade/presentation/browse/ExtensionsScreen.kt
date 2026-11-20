@@ -39,7 +39,6 @@ import eu.kanade.presentation.util.rememberRequestPackageInstallsPermissionState
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUiModel
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import mihon.core.navigation.ExtensionStoresRoute
@@ -59,7 +58,7 @@ import reikai.presentation.browse.components.NovelIconInset
 import reikai.presentation.browse.components.SourceNameRow
 import reikai.presentation.browse.components.failedInstall
 import reikai.presentation.browse.components.retryInstall
-import reikai.presentation.browse.extension.versionLabel
+import reikai.presentation.browse.extension.extensionFacts
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
@@ -253,17 +252,16 @@ private fun ExtensionItemMetadata(
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall / 2),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        val facts = listOfNotNull(
-            // RK: shown wherever the list asks, so an extension that did not load names it too
-            extension.lang
-                ?.takeIf { showsLanguage && it.isNotEmpty() }
-                ?.let { LocaleHelper.getSourceDisplayName(it, LocalContext.current) },
-            // RK: with the version a pending update brings
-            extension.versionName.takeIf { it.isNotEmpty() }?.let { versionLabel(it, updateVersion) },
-        )
-        if (facts.isNotEmpty()) {
-            ExtensionRowDetail(facts.joinToString(" • ")) // RK: shared with the novel plugin rows
-        }
+        // RK -->
+        // Shown wherever the list asks, so an extension that did not load names it too, with the version
+        // a pending update brings; written once with the novel plugin rows.
+        extensionFacts(
+            language = extension.lang?.takeIf { showsLanguage },
+            version = extension.versionName,
+            updateVersion = updateVersion,
+            context = LocalContext.current,
+        )?.let { ExtensionRowDetail(it) }
+        // RK <--
 
         val notable = listOfNotNull(
             when (installStep) {

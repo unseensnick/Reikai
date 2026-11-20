@@ -1,10 +1,12 @@
 package reikai.presentation.browse.extension
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.compareBrowseLanguages
 import reikai.presentation.browse.matchesBrowseQuery
+import reikai.presentation.browse.sourceLanguageName
 
 /** Identity for an installable source, whichever kind it is: a package name or a plugin id. */
 sealed interface ExtensionKey {
@@ -72,6 +74,13 @@ val ExtensionSection.namesLanguage: Boolean get() = this !is ExtensionSection.Av
 
 /** A row's version, followed by the one a pending update brings. */
 fun versionLabel(version: String, update: String?): String = if (update == null) version else "$version → $update"
+
+/** An extension row's language and version line, apk and plugin alike, or null when it has neither. */
+fun extensionFacts(language: String?, version: String?, updateVersion: String?, context: Context): String? =
+    listOfNotNull(
+        language?.let { sourceLanguageName(it, context) },
+        version?.takeIf { it.isNotEmpty() }?.let { versionLabel(it, updateVersion) },
+    ).joinToString(" • ").ifEmpty { null }
 
 /** A rendered Extensions list: section headings interleaved with the rows under them. */
 sealed interface ExtensionsListItem {

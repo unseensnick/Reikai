@@ -324,6 +324,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Light-novel plugins that fall back to a hidden browser page now load chapters from sites that check visitors first.** Downloads read them the same way, and a site that refuses the page shows an error, not an empty chapter.
 - **A light-novel plugin's page now has Clear cookies in its ⋮ menu, as an extension's page does.**
 - **Adding a repo at a plain http:// address now warns that anyone on your network can change what it serves.**
+- **A light-novel plugin's page now has its own Incognito mode switch, as an extension's page does.**
 
 #### Changed
 
@@ -385,6 +386,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **An enhanced source's Follows list no longer shows Open in WebView and Help buttons that do nothing.**
 - **An enhanced source's Follows list says the source is not installed, instead of loading forever.**
 - **Random in a source's filter sheet, while choosing what to migrate to, opens a catalogue that still picks the target.** Follows is hidden there, since it cannot pick one.
+- **An extension whose language Android cannot name now shows the language as written in Extensions, instead of a blank.**
+- **Screen readers now announce the Discord button on a repo's details as Open Discord.**
 
 ### Updates & History
 

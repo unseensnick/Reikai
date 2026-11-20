@@ -292,7 +292,7 @@ private fun statusText(card: RepoCardUi): String = when (val status = card.statu
 }
 
 @Composable
-private fun RepoDetailsSheet(
+internal fun RepoDetailsSheet(
     card: RepoCardUi,
     onOpenDiscord: () -> Unit,
     onDismissRequest: () -> Unit,
@@ -316,7 +316,10 @@ private fun RepoDetailsSheet(
             }
             if (card.discord != null) {
                 IconButton(onClick = onOpenDiscord) {
-                    Icon(imageVector = SimpleIcons.Discord, contentDescription = null)
+                    Icon(
+                        imageVector = SimpleIcons.Discord,
+                        contentDescription = stringResource(MR.strings.repo_open_discord),
+                    )
                 }
             }
         }

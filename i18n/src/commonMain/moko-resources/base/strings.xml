@@ -456,6 +456,7 @@
     <string name="action_add_repo">Add repo</string>
     <string name="repo_address">Address</string>
     <string name="repo_signing_key">Signing key</string>
+    <string name="repo_open_discord">Open Discord</string>
     <string name="repo_add_input">Repo address</string>
     <string name="repo_add_failed">Couldn\'t read a repo at this address</string>
     <string name="repo_add_unreachable">Couldn\'t reach this address</string>

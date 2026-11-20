@@ -61,6 +61,7 @@ class MangaFilterProbe : FilterProbe {
 class NovelFilterProbe : FilterProbe {
     private val source = mockk<NovelSource> {
         every { id } returns "plugin"
+        every { lang } returns "en"
         every { format } returns NovelExtensionFormat.JS
     }
 

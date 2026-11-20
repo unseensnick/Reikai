@@ -26,6 +26,12 @@ fun ContentTypeBadge(
     TypeBadge(stringResource(contentType.labelRes), modifier)
 }
 
+/**
+ * Whether a Browse list filtered to this chip interleaves both types, so its rows name theirs. The
+ * other half, the Show setting, is [ContentTypeBadge]'s own.
+ */
+val ContentType.listsBothTypes: Boolean get() = this == ContentType.ALL
+
 /** The badge's pill around any label, for a row that names more than its content type. */
 @Composable
 fun TypeBadge(
