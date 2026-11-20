@@ -283,12 +283,21 @@ function Get-EnclosingChain([string[]]$lines, [int]$at) {
     }
     $chain -join '.'
 }
-# A resolution may qualify its owner more or less than the declaration's own nesting spells it.
+# A resolution names its owner by the declaration's own nesting, or more (a package or an outer class in
+# front), never less: every route's nested model is called Model, so a bare one would match them all.
 function Test-Keyed([string]$resolved) {
     foreach ($k in $keyedFactories) {
-        if ($k -eq $resolved -or $k.EndsWith(".$resolved") -or $resolved.EndsWith(".$k")) { return $true }
+        if ($k -eq $resolved -or $resolved.EndsWith(".$k")) { return $true }
     }
     $false
+}
+# An owner imported by its nested name (import a.b.Route.Model, then Model) is read as the import spells it.
+function Resolve-Imported([string]$text, [string]$resolved) {
+    $head = ($resolved -split '\.')[0]
+    $import = [regex]::Match($text, "(?m)^import ([A-Za-z0-9_.]+\.$head)\s*$")
+    if (-not $import.Success) { return $resolved }
+    $owners = @(($import.Groups[1].Value -split '\.') | Where-Object { $_ -cmatch '^[A-Z]' })
+    (@($owners) + @(($resolved -split '\.') | Select-Object -Skip 1)) -join '.'
 }
 foreach ($file in $sources) {
     $text = [System.IO.File]::ReadAllText($file.FullName)
@@ -316,13 +325,13 @@ foreach ($file in $sources) {
         }
     }
     foreach ($m in [regex]::Matches($text, 'assistedMetroViewModel<\s*[A-Za-z0-9_.]+\s*,\s*([A-Za-z0-9_.]+)\.[A-Za-z0-9_]+\s*>')) {
-        [void]$resolvedFactories.Add($m.Groups[1].Value)
+        [void]$resolvedFactories.Add((Resolve-Imported $text $m.Groups[1].Value))
     }
     # The Compose helper above is not the only route: an Activity resolves a manual factory by name
     # through createManuallyAssistedFactory, which fails at run time rather than at build time when
     # the key is missing, exactly like the Compose case.
     foreach ($m in [regex]::Matches($text, 'createManuallyAssistedFactory\(\s*([A-Za-z0-9_.]+)\.[A-Za-z0-9_]+::class')) {
-        [void]$resolvedFactories.Add($m.Groups[1].Value)
+        [void]$resolvedFactories.Add((Resolve-Imported $text $m.Groups[1].Value))
     }
     foreach ($m in [regex]::Matches($text, '(?<!assisted)metroViewModel<\s*([A-Za-z0-9_.]+)')) {
         [void]$resolvedModels.Add(($m.Groups[1].Value -split '\.')[-1])

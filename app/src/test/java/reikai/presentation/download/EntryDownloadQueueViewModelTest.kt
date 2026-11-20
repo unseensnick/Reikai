@@ -1,10 +1,12 @@
 package reikai.presentation.download
 
+import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -43,6 +45,7 @@ class EntryDownloadQueueViewModelTest {
                 novelProvider = provider(ContentType.NOVELS, queued = type == ContentType.NOVELS),
                 sourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
                 getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(mapOf(custom)) },
+                appScope = main.trackScope(),
             ),
         )
 
@@ -84,6 +87,7 @@ class EntryDownloadQueueViewModelTest {
                 novelProvider = provider(ContentType.NOVELS, queued = false),
                 sourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
                 getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(emptyMap()) },
+                appScope = main.trackScope(),
             ),
         )
         backgroundScope.launch { viewModel.state.collect {} }
@@ -95,6 +99,40 @@ class EntryDownloadQueueViewModelTest {
         advanceUntilIdle()
 
         snapshot.value.chapters.map { it.seriesId } shouldBe listOf(SERIES, OTHER)
+    }
+
+    @Test
+    fun `a reorder waiting on the downloader lands after the screen closes`() = runTest {
+        val snapshot = MutableStateFlow(seriesSnapshot(listOf(SERIES, OTHER)))
+        val gate = CompletableDeferred<Unit>()
+        val manga = mockk<MangaDownloadQueueProvider>(relaxed = true) {
+            every { contentType } returns ContentType.MANGA
+            every { isRunning } returns flowOf(false)
+            every { snapshots } returns snapshot
+            coEvery { reorderSeries(any()) } coAnswers {
+                gate.await()
+                snapshot.value = seriesSnapshot(firstArg())
+            }
+        }
+        val viewModel = main.track(
+            EntryDownloadQueueViewModel(
+                mangaProvider = manga,
+                novelProvider = provider(ContentType.NOVELS, queued = false),
+                sourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
+                getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(emptyMap()) },
+                appScope = main.trackScope(),
+            ),
+        )
+        val collector = launch { viewModel.state.collect {} }
+        viewModel.state.first { s -> s.cards.map { it.seriesId } == listOf(SERIES, OTHER) }
+        viewModel.reorder(listOf(mangaKey(OTHER), mangaKey(SERIES)))
+
+        collector.cancel()
+        viewModel.viewModelScope.cancel()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        snapshot.value.chapters.map { it.seriesId } shouldBe listOf(OTHER, SERIES)
     }
 
     private fun mangaKey(seriesId: Long) = EntryDownloadCardUi.keyPrefix(ContentType.MANGA) + seriesId
@@ -120,6 +158,7 @@ class EntryDownloadQueueViewModelTest {
                 novelProvider = provider(ContentType.NOVELS, queued = false, restored = novelsRestored),
                 sourcePreferences = preferences,
                 getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(emptyMap()) },
+                appScope = main.trackScope(),
             ),
         )
         backgroundScope.launch { viewModel.state.collect {} }

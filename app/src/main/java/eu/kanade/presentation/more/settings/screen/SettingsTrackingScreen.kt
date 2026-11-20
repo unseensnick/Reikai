@@ -346,6 +346,7 @@ data object SettingsTrackingScreen : SearchableSettings {
         onDismissRequest: () -> Unit,
     ) {
         val context = LocalContext.current
+        // RK: scope, processing and inputError moved into TrackingLoginDialogShell, which runs the login
 
         val username = rememberTextFieldState(tracker.getUsername())
         val password = rememberTextFieldState(tracker.getPassword())

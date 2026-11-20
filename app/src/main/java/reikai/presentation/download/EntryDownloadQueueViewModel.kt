@@ -9,6 +9,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.ui.more.DownloadQueueState
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
@@ -44,6 +46,9 @@ class EntryDownloadQueueViewModel(
     novelProvider: NovelDownloadQueueProvider,
     private val sourcePreferences: ReikaiSourcePreferences,
     getEntryCustomInfo: GetEntryCustomInfo,
+    // Every queue write runs here, so closing the screen cuts none off, and the saved order the cards follow
+    // never says a reorder happened that the downloader did not get.
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val providers: Map<ContentType, DownloadQueueProvider> =
@@ -127,7 +132,7 @@ class EntryDownloadQueueViewModel(
         sourcePreferences.downloadQueueOrder.set(cardKeysInOrder.filter { it in known }.joinToString(ORDER_SEPARATOR))
         // The queue edits suspend for the downloader's lock, which a start or stop elsewhere may hold. One
         // at a time, so a reorder undoing one still waiting compares against the order that one applied.
-        viewModelScope.launch {
+        appScope.launch {
             reorderLock.withLock {
                 seriesOrders(cards, cardKeysInOrder).forEach { (type, seriesIds) ->
                     providers[type]?.reorderSeries(seriesIds)
@@ -137,11 +142,11 @@ class EntryDownloadQueueViewModel(
     }
 
     fun cancel(card: EntryDownloadCardUi) {
-        viewModelScope.launch { providers[card.contentType]?.cancelSeries(card.seriesId) }
+        appScope.launch { providers[card.contentType]?.cancelSeries(card.seriesId) }
     }
 
     fun cancelAll() {
-        viewModelScope.launch { providers.values.forEach { it.cancelAll() } }
+        appScope.launch { providers.values.forEach { it.cancelAll() } }
         sourcePreferences.downloadQueueOrder.set("")
     }
 
@@ -149,7 +154,7 @@ class EntryDownloadQueueViewModel(
     fun togglePause() {
         val running = isRunning.value
         if (queueState.value is DownloadQueueState.Downloading) {
-            viewModelScope.launch { providers.filterKeys { running[it] == true }.values.forEach { it.pause() } }
+            appScope.launch { providers.filterKeys { running[it] == true }.values.forEach { it.pause() } }
         } else {
             val queuedTypes = state.value.cards.mapTo(HashSet()) { it.contentType }
             providers.filterKeys { it in queuedTypes }.values.forEach { it.start() }
@@ -157,7 +162,7 @@ class EntryDownloadQueueViewModel(
     }
 
     fun sort(key: DownloadQueueSortKey, descending: Boolean) {
-        viewModelScope.launchIO { providers.values.forEach { it.sort(key, descending) } }
+        appScope.launchIO { providers.values.forEach { it.sort(key, descending) } }
     }
 
     fun openSeries(card: EntryDownloadCardUi) {
@@ -169,15 +174,15 @@ class EntryDownloadQueueViewModel(
     }
 
     fun cancelChapter(type: ContentType, chapterId: Long) {
-        viewModelScope.launch { providers[type]?.cancelChapter(chapterId) }
+        appScope.launch { providers[type]?.cancelChapter(chapterId) }
     }
 
     fun downloadNow(type: ContentType, chapterId: Long) {
-        viewModelScope.launch { providers[type]?.downloadNow(chapterId) }
+        appScope.launch { providers[type]?.downloadNow(chapterId) }
     }
 
     fun moveChapterToBottom(type: ContentType, chapterId: Long) {
-        viewModelScope.launch { providers[type]?.moveChapterToBottom(chapterId) }
+        appScope.launch { providers[type]?.moveChapterToBottom(chapterId) }
     }
 
     private suspend fun EntryDownloadCardUi.withChapterName(): EntryDownloadCardUi {
