@@ -20,8 +20,8 @@ import tachiyomi.core.common.util.lang.launchIO
 
 /**
  * An app icon the launcher can show: one `<activity-alias>` of [MainActivityTarget] per icon in the manifest, plus
- * the entry older versions had, which shows the build's own current icon (`launcher_icon_own`). Alias names are
- * permanent, since a launcher holds a picked icon by name (LauncherIconsTest).
+ * the entry older versions had, which shows a release build's own current icon (`launcher_icon_own`). Alias names
+ * are permanent, since a launcher holds a picked icon by name (LauncherIconsTest).
  */
 enum class LauncherIcon(
     val alias: String,
@@ -208,13 +208,11 @@ enum class LauncherIcon(
         const val THEMED_INSET = 0.208889f
     }
 
-    /** The launcher entry that shows this icon: the build's own is the entry older versions had, see the manifest. */
-    fun component(context: Context) = entry(context, if (this == context.ownIcon) LEGACY_ENTRY else alias)
+    /** The launcher entry that shows this icon: a release's own is the entry older versions had, see the manifest. */
+    fun component(context: Context) = entry(context, if (isOnLegacyEntry(context)) LEGACY_ENTRY else alias)
 
-    internal fun aliasComponent(context: Context) = entry(context, alias)
-
-    // Every entry this icon may be shown through: the build's own also through its alias, if picked before the update.
-    internal fun components(context: Context) = setOf(component(context), aliasComponent(context))
+    private fun isOnLegacyEntry(context: Context) =
+        this == context.ownIcon && context.resources.getBoolean(R.bool.launcher_own_on_legacy_entry)
 }
 
 // The manifest's package, spelled out: R8 may merge MainActivity into MainActivityTarget, renaming its class.
@@ -280,9 +278,7 @@ internal fun Context.rebadgeNotifications(icon: LauncherIcon) {
 }
 
 /** The icon the launcher shows now. Package manager calls are IPC, so call this off the main thread. */
-fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { icon ->
-    icon.components(this).any { isOn(it) }
-}
+fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { isOn(it.component(this)) }
 
 /**
  * Shows [icon] in the launcher in place of the one there now. The new entry goes on before the old one goes off,
@@ -290,7 +286,7 @@ fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { i
  * reopens from the new one rather than vanishing.
  */
 fun Context.setLauncherIcon(icon: LauncherIcon) {
-    val shown = LauncherIcon.entries.flatMap { it.components(this) }.filter { isOn(it) }
+    val shown = LauncherIcon.entries.map { it.component(this) }.filter { isOn(it) }
     val picked = icon.component(this)
     setOn(picked, true)
     // The open tasks close first: MainActivity is singleTop, so a start would otherwise land in the open screen and
@@ -303,18 +299,6 @@ fun Context.setLauncherIcon(icon: LauncherIcon) {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
     shown.filter { it != picked }.forEach { setOn(it, false) }
-}
-
-/**
- * Turns off the entry older versions had, which starts on, when an icon was picked before the update moved the
- * build's own icon onto it, so that pick stays the only icon. An icon is only ever picked by turning its alias on.
- */
-fun Context.keepPickedLauncherIcon() {
-    val picked = LauncherIcon.entries.any {
-        packageManager.getComponentEnabledSetting(it.aliasComponent(this)) ==
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-    }
-    if (picked) setOn(entry(this, LEGACY_ENTRY), false)
 }
 
 // An entry never switched reports DEFAULT, which the manifest's own value decides.

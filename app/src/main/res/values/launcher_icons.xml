@@ -6,4 +6,9 @@
     <!-- The build's own app icon, which the launcher entry older versions had shows; nightly and debug override it. -->
     <string name="launcher_icon_own" translatable="false">LauncherIconCurrentStable</string>
     <item name="ic_launcher_own" type="mipmap">@mipmap/ic_launcher_current_stable</item>
+    <!-- Which entry shows it: every release launched from MainActivity, every nightly and debug build since the
+         aliases from its own alias, and an update that turns a user's entry off drops their pinned shortcuts. -->
+    <bool name="launcher_own_on_legacy_entry">true</bool>
+    <bool name="launcher_icon_current_nightly">false</bool>
+    <bool name="launcher_icon_current_dev">false</bool>
 </resources>

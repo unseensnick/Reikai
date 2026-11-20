@@ -34,24 +34,27 @@ class LauncherIconsTest {
         0,
     ).map { it.activityInfo.name.substringAfterLast('.') }
 
-    private fun pick(alias: String) = context.packageManager.setComponentEnabledSetting(
-        ComponentName(context.packageName, "eu.kanade.tachiyomi.ui.main.$alias"),
-        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+    private fun setState(icon: LauncherIcon, state: Int) = context.packageManager.setComponentEnabledSetting(
+        ComponentName(context.packageName, "eu.kanade.tachiyomi.ui.main.${icon.alias}"),
+        state,
         PackageManager.DONT_KILL_APP,
     )
 
-    // A launcher drops every pinned shortcut of an entry that stops being one, so an update must keep this name on.
+    private fun shownAfterTheUpdate() = launcherEntries() to context.launcherIcon()
+
+    // A launcher drops every pinned shortcut of an entry that stops being one, and every debug and nightly build
+    // since the aliases launched from its own alias, so a never-picked install must keep that one on.
     @Test
-    fun `the debug build starts with exactly its own icon, on the entry older versions had`() {
-        launcherEntries() shouldBe listOf("MainActivity")
+    fun `an update with no icon picked keeps the debug build's own alias as its only entry`() {
+        shownAfterTheUpdate() shouldBe (listOf(LauncherIcon.CURRENT_DEV.alias) to LauncherIcon.CURRENT_DEV)
     }
 
     @Test
-    fun `picking the build's own icon again brings back the entry older versions had`() {
+    fun `picking the build's own icon again brings back its own alias`() {
         context.setLauncherIcon(LauncherIcon.FLAME_R_DEV)
         context.setLauncherIcon(LauncherIcon.CURRENT_DEV)
 
-        launcherEntries() shouldBe listOf("MainActivity")
+        launcherEntries() shouldBe listOf(LauncherIcon.CURRENT_DEV.alias)
     }
 
     @Test
@@ -64,30 +67,38 @@ class LauncherIconsTest {
             MainActivityTarget::class.java.name
     }
 
+    // What a pick on a build since the aliases left behind: its alias on, the own alias off. Read with nothing run
+    // first, as the startup read is.
     @Test
-    fun `an icon picked before the update stays the only one`() {
-        pick(LauncherIcon.MIHON_RE_DEV.alias)
+    fun `an icon picked before the update stays the only one and reads as shown`() {
+        setState(LauncherIcon.MIHON_RE_DEV, PackageManager.COMPONENT_ENABLED_STATE_ENABLED)
+        setState(LauncherIcon.CURRENT_DEV, PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
 
-        context.keepPickedLauncherIcon()
-
-        launcherEntries() shouldBe listOf(LauncherIcon.MIHON_RE_DEV.alias)
+        shownAfterTheUpdate() shouldBe (listOf(LauncherIcon.MIHON_RE_DEV.alias) to LauncherIcon.MIHON_RE_DEV)
     }
 
     @Test
     fun `the build's own icon picked before the update stays the only one and reads as shown`() {
-        pick(LauncherIcon.CURRENT_DEV.alias)
+        setState(LauncherIcon.CURRENT_DEV, PackageManager.COMPONENT_ENABLED_STATE_ENABLED)
 
-        context.keepPickedLauncherIcon()
-
-        (launcherEntries() to context.launcherIcon()) shouldBe
-            (listOf(LauncherIcon.CURRENT_DEV.alias) to LauncherIcon.CURRENT_DEV)
+        shownAfterTheUpdate() shouldBe (listOf(LauncherIcon.CURRENT_DEV.alias) to LauncherIcon.CURRENT_DEV)
     }
 
+    // Robolectric merges only the debug manifest, so the release and nightly entries are pinned by their resources.
     @Test
-    fun `an update with no icon picked keeps the entry older versions had`() {
-        context.keepPickedLauncherIcon()
+    fun `only a release build shows its own icon on the entry every release launched from`() {
+        val bools = listOf("main", "nightly", "debug").associateWith { variant ->
+            Regex("""<bool name="(launcher_[a-z_]+)">(true|false)</bool>""")
+                .findAll(File("src/$variant/res/values/launcher_icons.xml").readText())
+                .associate { it.groupValues[1] to it.groupValues[2].toBoolean() }
+        }
+        val onByDefault = bools.mapValues { (_, own) -> (bools.getValue("main") + own).filterValues { it }.keys }
 
-        launcherEntries() shouldBe listOf("MainActivity")
+        onByDefault shouldBe mapOf(
+            "main" to setOf("launcher_own_on_legacy_entry"),
+            "nightly" to setOf("launcher_icon_current_nightly"),
+            "debug" to setOf("launcher_icon_current_dev"),
+        )
     }
 
     @Test

@@ -133,10 +133,12 @@
 
         <!-- RK: one launcher entry per app icon, MainActivityTarget behind each, and Settings > Appearance >
              App icon switches between them. Names never change or go: a launcher keeps an icon the user picked
-             by its name, across updates. The build's own icon is .ui.main.MainActivity, the entry every older
-             version had, since a launcher drops the pinned shortcuts of an entry that stops being one. -->
+             by its name, across updates. A launcher drops the pinned shortcuts of an entry that stops being one,
+             so each build's own icon stays on the entry its shipped builds had: .ui.main.MainActivity on release,
+             the own alias on nightly and debug, whose builds launched from it since the aliases arrived. -->
         <activity-alias
             android:name=".ui.main.MainActivity"
+            android:enabled="@bool/launcher_own_on_legacy_entry"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_own"
             android:roundIcon="@mipmap/ic_launcher_own"
@@ -231,7 +233,7 @@
 
         <activity-alias
             android:name=".ui.main.LauncherIconCurrentNightly"
-            android:enabled="false"
+            android:enabled="@bool/launcher_icon_current_nightly"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_current_nightly"
             android:roundIcon="@mipmap/ic_launcher_current_nightly"
@@ -307,7 +309,7 @@
 
         <activity-alias
             android:name=".ui.main.LauncherIconCurrentDev"
-            android:enabled="false"
+            android:enabled="@bool/launcher_icon_current_dev"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_current_dev"
             android:roundIcon="@mipmap/ic_launcher_current_dev"

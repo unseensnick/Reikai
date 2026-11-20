@@ -2,4 +2,6 @@
 <resources>
     <string name="launcher_icon_own" translatable="false">LauncherIconCurrentNightly</string>
     <item name="ic_launcher_own" type="mipmap">@mipmap/ic_launcher_current_nightly</item>
+    <bool name="launcher_own_on_legacy_entry">false</bool>
+    <bool name="launcher_icon_current_nightly">true</bool>
 </resources>
