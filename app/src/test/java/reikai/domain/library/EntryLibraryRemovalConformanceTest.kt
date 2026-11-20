@@ -121,6 +121,19 @@ class EntryLibraryRemovalConformanceTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `an undone removal keeps the cover colour past the browse cap`(type: ContentType) = runTest {
+        val table = table(type).apply { put(ID) }
+        val key = table.entryId(ID).signedKey()
+        CoverColors.put(key, COLOR, inLibrary = true)
+
+        table.removal.restore(table.removal.takeOut(listOf(ID)))
+        (1L..CoverColors.CAP).forEach { CoverColors.put(BROWSE_BASE + it, COLOR, inLibrary = false) }
+
+        CoverColors[key] shouldBe COLOR
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a refused write takes none of the batch out`(type: ContentType) = runTest {
         val table = table(type).apply {
             put(ID)

@@ -1,9 +1,8 @@
 package reikai.domain.migration
 
 import dev.zacsweers.metro.Inject
-import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.signedKey
+import reikai.domain.library.libraryMembershipChanged
 import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelGroupCategories
@@ -37,8 +36,8 @@ class MigrationSwapEffects(
             is EntryId.Manga -> mangaCategories.fileMigrationTarget(to.rawId, categoryIds, mangaMerge)
             is EntryId.Novel -> novelCategories.fileMigrationTarget(to.rawId, categoryIds, novelMerge)
         }
-        if (replace) CoverColors.refile(from.signedKey(), inLibrary = false)
-        CoverColors.refile(to.signedKey(), inLibrary = true)
+        if (replace) sourceTracker.libraryMembershipChanged(from, inLibrary = false, tellSource = false)
+        sourceTracker.libraryMembershipChanged(to, inLibrary = true, tellSource = false)
         sourceTracker.migrated(from, to, replace, carriedChapters)
     }
 }

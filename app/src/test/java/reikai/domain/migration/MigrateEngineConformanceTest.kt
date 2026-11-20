@@ -550,6 +550,18 @@ class MigrateEngineConformanceTest {
         CoverColors[key] shouldBe null
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a migration target keeps its cover colour past the browse cap`(engine: MigrateEngine) = runTest {
+        val key = engine.entryId(TARGET).signedKey()
+        CoverColors.put(key, COLOR, inLibrary = false)
+
+        engine.migrate(Setup(), replace = true)
+        (1L..CoverColors.CAP).forEach { CoverColors.put(BROWSE_BASE + it, COLOR, inLibrary = false) }
+
+        CoverColors[key] shouldBe COLOR
+    }
+
     @AfterEach
     fun clearColors() {
         CoverColors.clear()

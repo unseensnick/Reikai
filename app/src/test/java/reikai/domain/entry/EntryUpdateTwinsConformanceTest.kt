@@ -7,10 +7,13 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.novel.expectedNextUpdate
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
@@ -21,7 +24,7 @@ import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
 import kotlin.time.Instant
 
-/** The novel halves of two of Mihon's manga rules, each run beside the manga original. */
+/** The novel halves of Mihon's manga rules, each run beside the manga original. */
 class EntryUpdateTwinsConformanceTest {
 
     @ParameterizedTest(name = "status {0}")
@@ -63,7 +66,42 @@ class EntryUpdateTwinsConformanceTest {
         ) shouldBe listOf(true to favorite, true to favorite, favorite to favorite)
     }
 
+    /** No cover load need follow an add, so the add itself moves the colour out from under the browse cap. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `an added entry keeps its cover colour past the browse cap`(type: ContentType) = runTest {
+        val tracker = mockk<SourceTrackerDispatcher>(relaxed = true)
+        val entry = when (type) {
+            ContentType.MANGA -> EntryId.Manga(ID)
+            else -> EntryId.Novel(ID)
+        }
+        CoverColors.put(entry.signedKey(), COLOR, inLibrary = false)
+
+        when (type) {
+            ContentType.MANGA -> UpdateManga(
+                mockk<MangaRepository> {
+                    coEvery { update(any()) } returns true
+                },
+                mockk(),
+                tracker,
+            )
+                .awaitUpdateFavorite(ID, favorite = true)
+            else -> UpdateNovel(mockk<NovelRepository> { coEvery { update(any<NovelUpdate>()) } returns true }, tracker)
+                .awaitUpdateFavorite(ID, favorite = true)
+        }
+        (1L..CoverColors.CAP).forEach { CoverColors.put(BROWSE_BASE + it, COLOR, inLibrary = false) }
+
+        CoverColors[entry.signedKey()] shouldBe COLOR
+    }
+
+    @AfterEach
+    fun clearColors() {
+        CoverColors.clear()
+    }
+
     private companion object {
+        const val COLOR = 0x123456
+        const val BROWSE_BASE = 10_000L
         const val ID = 7L
         val NEXT_UPDATE = Instant.fromEpochMilliseconds(1_000_000L)
     }

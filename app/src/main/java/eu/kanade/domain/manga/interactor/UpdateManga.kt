@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.entry.EntryId // RK
+import reikai.domain.library.libraryMembershipChanged // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.model.Manga
@@ -70,7 +71,7 @@ class UpdateManga(
             false -> MangaUpdate(mangaId) { favoriteAt = null }
         }
         return mangaRepository.update(update)
-            // RK: an extension syncing to its own site hears of an add or remove made through here
-            .also { updated -> if (updated) sourceTracker.favoriteChanged(EntryId.Manga(mangaId), favorite) }
+            // RK: an add or remove made through here refiles the cover colour and tells the source's tracker
+            .also { updated -> if (updated) sourceTracker.libraryMembershipChanged(EntryId.Manga(mangaId), favorite) }
     }
 }
