@@ -126,8 +126,9 @@ class CopyToOpen<T>(
 /**
  * The copy a download of each row fetches, as plain ids so a screen state can carry it: the row's own
  * while its source is installed, else the highest-ranked copy of it on an installed source that the
- * scope reaches, else none. The row shown stays the stitch's; [CopyToOpen] opens this copy when no copy
- * is on disk.
+ * scope reaches, else none. An empty stitch reaches no other copy, so each row fetches its own or nothing.
+ * The one rule every caller asks, so a row none can fetch draws no control and no bulk action queues it.
+ * The row shown stays the stitch's; [CopyToOpen] opens this copy when no copy is on disk.
  */
 data class DownloadTargets(
     private val moved: Map<Long, Long> = emptyMap(),

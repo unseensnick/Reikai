@@ -127,7 +127,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **In a merged series, a chapter that one source supplies no longer shows as missing when a filter or hide takes its row away.** The reader's chapter warning follows the same rule.
 - **Local series in a merge are now named by their titles instead of all reading Local source.** It shows on the source chips, in Manage sources and on each chapter, in the details screen and the reader.
 - **A merged novel opened through a second source now shows a new sort or filter right away.**
-
+- **Downloading a merged series from the library or the reader no longer queues chapters from an uninstalled source.** Manga and novels alike; an installed source's chapters still download.
 ### Downloads
 
 #### Added

@@ -115,17 +115,15 @@ class GetNextNovelChapter(
         val memberIds = ids.ifEmpty { listOf(novelId) }
         if (sourceScoped || pooled.isEmpty()) {
             val own = chapterRepository.getByNovelId(novelId)
-            return NovelReadingRows(own, memberIds, pooled, stitch, copies = null, DownloadTargets.OWN)
+            val installed = novelRepository.ownersOf(own).filterValues { isInstalled(it) }.keys
+            val fetched = DownloadTargets.of(MergeScope.Source, own, own, stitch, { it.id }) { it.novelId in installed }
+            return NovelReadingRows(own, memberIds, pooled, stitch, copies = null, fetched)
         }
         val owners = novelRepository.ownersOf(pooled)
-        // Gated as manga's reader gates it: with no stitch there is no other copy, so each row fetches its
-        // own rather than none.
-        val fetched = if (stitch.isEmpty()) {
-            DownloadTargets.OWN
-        } else {
-            val installed = owners.filterValues { isInstalled(it) }.keys
-            DownloadTargets.of(MergeScope.Group, pooled, pooled, stitch, { it.id }) { it.novelId in installed }
-        }
+        val installed = owners.filterValues { isInstalled(it) }.keys
+        val fetched = DownloadTargets.of(MergeScope.Group, pooled, pooled, stitch, {
+            it.id
+        }) { it.novelId in installed }
         val copies = CopyToOpen(MergeScope.Group, pooled, stitch, { it.id }, downloadedIds(pooled, owners), fetched)
         val rows = copies.inPlaceOf(mergedChapterProvider.merged(pooled, stitch)) { copy, row ->
             copy.copy(sourceOrder = row.sourceOrder)

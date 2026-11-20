@@ -1358,9 +1358,6 @@ class NovelReaderViewModel(
         val chapters = pooled.resolve(orderedIds)
         val sourceNames = chapterSourceNames()
         val novels = novelRepo.ownersOf(pooled + chapters)
-        val installed = novels.values.filter { isInstalled(it) }.mapTo(HashSet()) { it.id }
-        // The copies a download can fetch at all: those whose own source is installed.
-        val fetchable = (pooled + chapters).filter { it.novelId in installed }.mapTo(HashSet()) { it.id }
         val settings = getNextNovelChapter.chapterSettings(novelId)
         val numberOnly = settings?.effectiveHideChapterTitles(novelPreferences) == true
         emitAll(
@@ -1368,9 +1365,7 @@ class NovelReaderViewModel(
                 val flags = groupFlags(pooled, chapters, novels)
                 val queued = queue.associateBy { it.chapterId }
                 chapters.map {
-                    it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words, downloadTargets) { id ->
-                        id in fetchable
-                    }.let { row ->
+                    it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words, downloadTargets).let { row ->
                         val volume = novelChapterVolume(novels[it.novelId]?.url, it.url, it.name)
                         row.copy(
                             volume = volume?.shown(
@@ -1822,7 +1817,6 @@ internal fun NovelChapter.toReaderChapterRow(
     numberOnly: Boolean,
     words: ChapterTitleWords,
     targets: DownloadTargets = DownloadTargets.OWN,
-    canFetch: (Long) -> Boolean = { true },
 ): ReaderChapterRow {
     // A row whose download fetches another source's copy follows that copy through the queue.
     val downloadState = downloadStateOf(targets.queuedFor(id, queued::get)?.state?.toDownloadState()) {
@@ -1841,7 +1835,7 @@ internal fun NovelChapter.toReaderChapterRow(
         downloadState = downloadState,
         // A novel chapter is one request, so there is no percentage to report while it runs.
         downloadProgress = 0,
-        offersDownload = targets.offersDownload(id, downloadState, canFetch),
+        offersDownload = targets.offersDownload(id, downloadState),
     )
 }
 

@@ -363,14 +363,10 @@ class NovelLibraryViewModel(
                 val flags = group.groupFlags { novelDownloadCache.downloadedChapterIds(it, novelsById) }
                 val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
                 // A pick shown from a plugin that is gone fetches an installed one's copy, or nothing.
-                val copies = if (group.stitch.isEmpty()) {
-                    DownloadTargets.OWN
-                } else {
-                    val installed = novelsById.filterValues { sourceManager.isInstalled(it.source) }.keys
-                    DownloadTargets.of(MergeScope.Group, group.pooledChapters, group.chapters, group.stitch, {
-                        it.id
-                    }) { it.novelId in installed }
-                }
+                val installed = novelsById.filterValues { sourceManager.isInstalled(it.source) }.keys
+                val copies = DownloadTargets.of(MergeScope.Group, group.pooledChapters, group.chapters, group.stitch, {
+                    it.id
+                }) { it.novelId in installed }
                 // The interactor already hands them over in reading order.
                 val targets = DownloadCandidates.forGroup(
                     group.chapters,

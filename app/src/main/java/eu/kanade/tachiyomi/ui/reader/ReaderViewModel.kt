@@ -314,16 +314,12 @@ class ReaderViewModel(
     private var copiesToOpen: CopyToOpen<Chapter>? = null
 
     // RK: the copy a download of each chapter fetches, an installed source's in place of one whose source
-    // is gone. Resolved in init with the group and left fetching each chapter's own in source scope.
+    // is gone, or none when no installed source holds it. Resolved in init with the group, in either scope.
     var downloadTargets: DownloadTargets = DownloadTargets.OWN
         private set
 
     // RK: the last failed preload per chapter, which ChapterRetryCooldown reads, as the novel window does.
     private val preloadFailures = ChapterRetryCooldown.Failures()
-
-    // RK: the group's chapters whose own source is installed, the copies a download can fetch at all.
-    var fetchableChapterIds: Set<Long> = emptySet()
-        private set
 
     // RK: source scope narrows chapterList to the opened source's own chapters (Updates / a specific
     // source chip); group scope (default) shows the whole merge group. Read from the launching intent
@@ -651,13 +647,12 @@ class ReaderViewModel(
                 val installed = group.mangaById.values
                     .filter { sourceManager.isInstalled(it.source) }
                     .mapTo(HashSet()) { it.id }
-                fetchableChapterIds = group.pooledChapters.filter { it.mangaId in installed }.mapTo(HashSet()) { it.id }
+                val pooled = group.pooledChapters
+                downloadTargets = DownloadTargets.of(mergeScope, pooled, pooled, group.stitch, { it.id }) {
+                    it.mangaId in installed
+                }
                 if (mergeScope.copiesIn(group.stitch).isNotEmpty()) {
-                    val pooled = group.pooledChapters
                     val onDisk = downloadManager.downloadedChapterIds(pooled) { group.mangaById.getValue(it.mangaId) }
-                    downloadTargets = DownloadTargets.of(mergeScope, pooled, pooled, group.stitch, { it.id }) {
-                        it.mangaId in installed
-                    }
                     val copies = CopyToOpen(mergeScope, pooled, group.stitch, { it.id }, onDisk, downloadTargets)
                     copiesToOpen = copies
                     // A launch page or a restored one indexes the chapter it names, which another source

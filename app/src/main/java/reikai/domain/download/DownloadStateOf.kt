@@ -30,8 +30,8 @@ fun Download.State.swipeDownloadAction(): ChapterDownloadAction = when (this) {
  * Whether a row in [downloadState] draws its download control and takes a download swipe, for every
  * Reikai row of both content types: one on disk or queued always does, an idle one only when its
  * download can fetch a copy, so a chapter only an uninstalled source holds offers no control that
- * would do nothing. [canFetch] answers for the copy a download fetches, for a caller whose targets
- * were not built knowing which sources are installed.
+ * would do nothing. [canFetch] answers for a view whose targets are [DownloadTargets.OWN] (a details list showing one
+ * source, gated by that source), since targets the kernel built already leave an uninstalled copy out.
  */
 fun DownloadTargets.offersDownload(
     chapterId: Long,
