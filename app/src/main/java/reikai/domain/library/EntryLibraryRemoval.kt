@@ -1,6 +1,8 @@
 package reikai.domain.library
 
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.signedKey
 import reikai.domain.local.LocalVolumeHandBack
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.track.source.SourceTrackerDispatcher
@@ -51,6 +53,7 @@ abstract class EntryLibraryRemoval(
         if (written) {
             favoriteAt.forEach { (id, at) ->
                 sourceTracker.favoriteChanged(entryId(id), favorite = at != null)
+                CoverColors.refile(entryId(id).signedKey(), inLibrary = at != null)
             }
         }
     }

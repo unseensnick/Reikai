@@ -3,6 +3,7 @@ package reikai.presentation.browse.catalogue
 import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -134,6 +135,16 @@ class SavedSearchViewModelTest {
         model.routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH)
 
         model.appliedId.value shouldBe ROUTE_SEARCH
+    }
+
+    @Test
+    fun `a genre search sent back from details puts the saved search's chip out`() = runTest(dispatcher) {
+        val model = withRouteSearch()
+        model.routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH)
+
+        mockk<EntryBrowseBehavior>(relaxed = true).searchFromDetails(BrowseSearchEvent("Action", genre = true), model)
+
+        model.appliedId.value shouldBe null
     }
 
     private suspend fun withRouteSearch(): SavedSearchViewModel {

@@ -11,10 +11,14 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import mihon.core.metro.AppCoroutineScope
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RelatedLibraryKeys
@@ -37,6 +41,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
@@ -62,6 +67,8 @@ class RelatedMangasBrowseViewModel(
     private val libraryPreferences: LibraryPreferences,
     private val prepareRecommendationAssembly: PrepareRecommendationAssembly,
     private val getManga: GetManga,
+    private val getCustomMangaInfo: GetCustomMangaInfo,
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     val state: StateFlow<RelatedMangasBrowseViewModel.State>
@@ -81,9 +88,11 @@ class RelatedMangasBrowseViewModel(
 
     init {
         libraryPreferences.trackBrowseColumns(viewModelScope) { columns -> state.update { it.copy(columns = columns) } }
-        // Read by id, so an edited title shows here too, on a restored page as on an open one.
+        // Read by id with Edit info applied, as the details page shows it, on a restored page as on an open one.
         viewModelScope.launchIO {
-            getManga.subscribe(mangaId).collect { manga -> state.update { it.copy(title = manga.title) } }
+            getManga.subscribe(mangaId).combine(getCustomMangaInfo.subscribe(mangaId)) { manga, custom ->
+                manga.withCustomInfo(custom).title
+            }.collect { title -> state.update { it.copy(title = title) } }
         }
         viewModelScope.launchIO {
             val assembly = prepareRecommendationAssembly.await()
@@ -178,8 +187,13 @@ class RelatedMangasBrowseViewModel(
     }
 
     private suspend fun addAndReport(mangas: List<Manga>, categoryIds: List<Long>, skipped: Int) {
-        // Per entry, so one failing favorite write skips only that entry, and it reports as skipped.
-        val added = mangas.count { libraryAdder.addToBatch(it.id, categoryIds) == AddOutcome.Added }
+        // Per entry, so one failing favorite write skips only that entry, and it reports as skipped. On
+        // the app scope, so leaving See all mid-batch neither drops the rest nor stops one entry between
+        // its favorite and its filing. A launch, so a failure reaches the scope's handler.
+        var added = 0
+        appScope.launch {
+            mangas.forEach { if (libraryAdder.addToBatch(it.id, categoryIds) == AddOutcome.Added) added++ }
+        }.join()
         finishAdd(added, skipped + mangas.size - added)
     }
 

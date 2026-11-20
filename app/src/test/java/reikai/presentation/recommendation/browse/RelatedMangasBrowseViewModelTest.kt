@@ -1,6 +1,7 @@
 package reikai.presentation.recommendation.browse
 
 import android.content.Context
+import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
 import io.kotest.matchers.shouldBe
@@ -10,11 +11,17 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -46,6 +53,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import kotlin.time.Duration.Companion.seconds
@@ -161,10 +169,17 @@ class RelatedMangasBrowseViewModelTest {
             libraryPreferences = LibraryPreferences(store),
             prepareRecommendationAssembly = assembly,
             getManga = mockk { every { subscribe(MANGA_ID) } returns titles },
+            getCustomMangaInfo = mockk { every { subscribe(MANGA_ID) } returns customInfo },
+            appScope = appScope,
         ),
     )
 
     private val titles = MutableStateFlow(Manga.create().copy(id = MANGA_ID, title = "Before"))
+
+    private val customInfo = MutableStateFlow<CustomMangaInfo?>(null)
+
+    // Apart from the screen's, so a case can close the screen and still see what the app scope finishes.
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // The model loads on the IO dispatcher, so waits run in real time rather than the test clock.
     private suspend fun <T> settle(block: suspend () -> T): T =
@@ -191,6 +206,38 @@ class RelatedMangasBrowseViewModelTest {
         titles.value = titles.value.copy(title = "After")
 
         settle { viewModel.state.first { it.title == "After" } }.title shouldBe "After"
+    }
+
+    @Test
+    fun `the title is the one Edit info set`() = runTest {
+        val viewModel = viewModel()
+        settle { viewModel.state.first { it.title == "Before" } }
+
+        customInfo.value = CustomMangaInfo(MANGA_ID, title = "Edited")
+
+        settle { viewModel.state.first { it.title == "Edited" } }.title shouldBe "Edited"
+    }
+
+    /** Held at the first title's filing while the screen closes, then let go. */
+    @Test
+    fun `leaving See all mid-batch still adds the rest`() = runTest {
+        val viewModel = viewModel()
+        val rows = listOf(10L, 11L).map {
+            library.insert(Manga.create().copy(id = it, url = "$it", source = SOURCE_ID))
+        }
+        val held = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        library.beforeFiling = {
+            if (held.complete(Unit)) release.await()
+        }
+
+        viewModel.confirmCategories(rows, listOf(X), skipped = 0)
+        settle { held.await() }
+        viewModel.viewModelScope.cancel()
+        release.complete(Unit)
+        settle { appScope.coroutineContext.job.children.toList().joinAll() }
+
+        library.filed.keys shouldBe setOf(10L, 11L)
     }
 
     @Test

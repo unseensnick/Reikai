@@ -191,7 +191,6 @@ import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
-import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -530,7 +529,8 @@ class NovelDetailsViewModel(
         runCatchingCancellable { fetchAndSync(source, stored) }
             .onFailure { e ->
                 val message = with(context) { e.refreshFailureMessage() }
-                withUIContext { snackbarHostState.showSnackbar(message) }
+                // Launched, not awaited: the snackbar waits for a dismissal, and the spinner with it.
+                viewModelScope.launchUI { snackbarHostState.showSnackbar(message) }
             }
     }
 

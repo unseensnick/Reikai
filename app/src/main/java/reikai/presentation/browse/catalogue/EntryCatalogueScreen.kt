@@ -322,10 +322,7 @@ private fun Catalogue(
         behavior.applySearch(search.query, search.filtersJson)
     }
 
-    // A search sent from a details page this screen sits under; see searchGenreFromDetails.
-    ResultEffect<BrowseSearchEvent> {
-        if (it.genre) behavior.searchGenre(it.query) else behavior.search(it.query)
-    }
+    ResultEffect<BrowseSearchEvent> { behavior.searchFromDetails(it, savedSearchModel) }
 
     val loaded = state as? EntryBrowseScreenState.Loaded
     if (loaded == null) {
@@ -599,6 +596,15 @@ internal fun SourceUnavailable(state: EntryBrowseScreenState, navigateUp: () -> 
 
 /** Search the catalogue as text, or as a genre matched to its filters when [genre]. Upstream's shape. */
 data class BrowseSearchEvent(val query: String, val genre: Boolean = false)
+
+/**
+ * Runs a search sent from a details page this screen sits under (see searchGenreFromDetails). It
+ * replaces what a saved search put on screen, so that chip goes out, as it does for every other search.
+ */
+internal fun EntryBrowseBehavior.searchFromDetails(event: BrowseSearchEvent, savedSearches: SavedSearchViewModel) {
+    savedSearches.setApplied(null)
+    if (event.genre) searchGenre(event.query) else search(event.query)
+}
 
 /** The two saved-search dialogs the catalogue raises itself, neither of which any model owns. */
 private sealed interface SavedSearchDialog {

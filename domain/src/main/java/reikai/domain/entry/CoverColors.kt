@@ -33,6 +33,16 @@ object CoverColors {
         }
     }
 
+    /**
+     * Moves the colour kept for [key], if any, to the store [inLibrary] names, for a library change no cover
+     * load follows: a removed entry may never be seen again, and its colour would stay uncapped.
+     */
+    @Synchronized
+    fun refile(key: Long, inLibrary: Boolean) {
+        val color = library[key] ?: browse[key] ?: return
+        put(key, color, inLibrary)
+    }
+
     @Synchronized
     fun remove(key: Long) {
         library.remove(key)

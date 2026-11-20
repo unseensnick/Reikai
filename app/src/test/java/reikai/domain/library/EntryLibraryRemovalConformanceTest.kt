@@ -8,10 +8,13 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.signedKey
 import reikai.domain.local.LocalVolumeHandBack
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.RemoveMangaFromLibrary
@@ -100,6 +103,20 @@ class EntryLibraryRemovalConformanceTest {
         table.removal.await(listOf(ID))
 
         table.coverStamps shouldBe emptyList()
+    }
+
+    /** No cover load follows a removal, so the removal itself moves the colour under the browse cap. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a removed entry's cover colour is evicted by browsing past the cap`(type: ContentType) = runTest {
+        val table = table(type).apply { put(ID) }
+        val key = table.entryId(ID).signedKey()
+        CoverColors.put(key, COLOR, inLibrary = true)
+
+        table.removal.await(listOf(ID))
+        (1L..CoverColors.CAP).forEach { CoverColors.put(BROWSE_BASE + it, COLOR, inLibrary = false) }
+
+        CoverColors[key] shouldBe null
     }
 
     @ParameterizedTest
@@ -331,5 +348,12 @@ class EntryLibraryRemovalConformanceTest {
         const val ID = 5L
         const val OTHER_ID = 6L
         val JOINED_AT = Instant.fromEpochMilliseconds(100L)
+        const val COLOR = 0x123456
+        const val BROWSE_BASE = 10_000L
+    }
+
+    @AfterEach
+    fun clearColors() {
+        CoverColors.clear()
     }
 }

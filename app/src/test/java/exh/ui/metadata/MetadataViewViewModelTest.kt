@@ -1,9 +1,12 @@
 package exh.ui.metadata
 
+import android.content.Context
 import eu.kanade.domain.ui.UiPreferences
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
@@ -12,8 +15,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.signedKey
 import reikai.presentation.MainDispatcherExtension
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
@@ -49,14 +55,21 @@ class MetadataViewViewModelTest {
         ),
     )
 
+    /** Nothing kept, so the colour can only come from the model reading the cover itself. */
     @Test
     fun `the page tints from the manga's cover`() = runTest {
-        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null, inLibrary = true) { COLOR }
-        val viewModel = viewModel(themeCoverBased = true)
+        CoverColors.remove(EntryId.Manga(MANGA_ID).signedKey())
+        mockkStatic(SEED_COLOR)
+        coEvery { any<Context>().extractCoverColor(any()) } returns COLOR
+        try {
+            val viewModel = viewModel(themeCoverBased = true)
 
-        withContext(Dispatchers.Default) {
-            withTimeout(5.seconds) { viewModel.seedColor.first { it != null } }
-        } shouldBe COLOR
+            withContext(Dispatchers.Default) {
+                withTimeout(5.seconds) { viewModel.seedColor.first { it != null } }
+            } shouldBe COLOR
+        } finally {
+            unmockkStatic(SEED_COLOR)
+        }
     }
 
     @Test
@@ -82,5 +95,6 @@ class MetadataViewViewModelTest {
     private companion object {
         const val MANGA_ID = 5L
         const val COLOR = 0x123456
+        const val SEED_COLOR = "reikai.data.coil.EntrySeedColorKt"
     }
 }

@@ -218,6 +218,20 @@ class NovelDetailsFetchTest {
         message shouldBe "no connection"
     }
 
+    /** The snackbar stays up until dismissed, so a fetch that waited on it would hold the spinner as long. */
+    @Test
+    fun `a failed first fetch stops refreshing while its snackbar shows`() = runTest {
+        val refreshing = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val source = harness.source("alpha")
+            source.details = { throw IOException("no connection") }
+            val model = harness.openDetails(harness.novel(source))
+            model.snackbarWithin(10_000)
+            model.awaitLoaded { !it.isRefreshing }.isRefreshing
+        }
+
+        refreshing shouldBe false
+    }
+
     @Test
     fun `an empty page is asked of the source once however often the list rebuilds`() = runTest {
         val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->

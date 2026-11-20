@@ -95,6 +95,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Adding titles to your library from a Related "See all" list now finishes even if you leave the list first.**
 - **A notification or widget for a manga you have since deleted now opens a not-found page.**
 - **A novel opened from a notification or widget now opens over the Library tab, as a manga does.**
 - **Notes no longer lose your latest text when Android closes the app in the background while the notes are open.**
