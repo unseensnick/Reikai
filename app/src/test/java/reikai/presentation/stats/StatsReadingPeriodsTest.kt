@@ -71,6 +71,31 @@ class StatsReadingPeriodsTest {
     }
 
     @Test
+    fun `the week ending on the old day moves to end on the new one after midnight`() {
+        ReadingWindow.week(LocalDate(2026, 10, 18)).reanchored(LocalDate(2026, 10, 18), today).last shouldBe today
+    }
+
+    @Test
+    fun `a custom range ending on the old day moves to end on the new one after midnight`() {
+        ReadingWindow(ReadingPeriod.CUSTOM, LocalDate(2026, 10, 9), LocalDate(2026, 10, 18))
+            .reanchored(LocalDate(2026, 10, 18), today).let { it.first to it.last } shouldBe
+            (LocalDate(2026, 10, 10) to today)
+    }
+
+    @Test
+    fun `the month holding the old last day moves to the new month after midnight`() {
+        ReadingWindow.current(ReadingPeriod.MONTH, LocalDate(2026, 9, 30))
+            .reanchored(LocalDate(2026, 9, 30), LocalDate(2026, 10, 1)).first shouldBe LocalDate(2026, 10, 1)
+    }
+
+    @Test
+    fun `a window stepped back stays where it was after midnight`() {
+        val earlier = ReadingWindow.week(LocalDate(2026, 10, 11))
+
+        earlier.reanchored(LocalDate(2026, 10, 18), today) shouldBe earlier
+    }
+
+    @Test
     fun `stepping a week forward never runs past today`() {
         ReadingWindow.week(LocalDate(2026, 10, 15)).shifted(forward = true, today).last shouldBe today
     }

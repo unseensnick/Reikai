@@ -20,7 +20,7 @@ data class ReadingBar(val first: LocalDate, val last: LocalDate, val ms: Long)
 /** Dates [first] to [last], both included. */
 data class ReadingWindow(val period: ReadingPeriod, val first: LocalDate, val last: LocalDate) {
 
-    /** A bar per day up to two months, per month up to three years, per year past that, so bars stay tappable. */
+    /** A bar per day up to two months, per month up to three years, per year past that. */
     val unit: BarUnit
         get() = when {
             first.daysUntil(last) < 62 -> BarUnit.DAY
@@ -57,6 +57,19 @@ data class ReadingWindow(val period: ReadingPeriod, val first: LocalDate, val la
                 copy(first = newLast.minus(length - 1, DateTimeUnit.DAY), last = newLast)
             }
         }
+    }
+
+    /**
+     * This window once the date moves on from [before] to [today]: one that held [before] holds [today] instead,
+     * so a screen left open past midnight still reaches the new day; any other stays where the user stepped it.
+     */
+    fun reanchored(before: LocalDate, today: LocalDate): ReadingWindow = when {
+        today == before || before < first || before > last -> this
+        // A custom range never runs past today, so holding the old one means it ended on it.
+        period == ReadingPeriod.CUSTOM -> before.daysUntil(today).let { days ->
+            copy(first = first.plus(days, DateTimeUnit.DAY), last = last.plus(days, DateTimeUnit.DAY))
+        }
+        else -> current(period, today)
     }
 
     companion object {

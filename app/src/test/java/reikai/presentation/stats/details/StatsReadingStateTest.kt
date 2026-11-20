@@ -29,6 +29,13 @@ class StatsReadingStateTest {
         state(selected = today).titles.map { it.entryId to it.readMs } shouldBe listOf(a to 100L, b to 50L)
     }
 
+    @Test
+    fun `only the series read in the window have their covers read`() {
+        val earlier = mapOf(today.minus(30, DateTimeUnit.DAY) to mapOf<EntryId, Long>(EntryId.Manga(9L) to 10L))
+
+        seriesReadIn(byDay + earlier, ReadingWindow.week(today)) shouldBe setOf(a, b)
+    }
+
     private fun state(selected: LocalDate?) =
         readingState(byDay, names, ReadingWindow.week(today), selected, emptyMap(), today)
 }

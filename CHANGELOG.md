@@ -296,6 +296,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Statistics' Reading time period chips now wrap instead of squeezing at the largest text size.**
 
 ### Settings
+- **Statistics' Reading time screen left open past midnight now reaches the new day.**
+- **Statistics' Reading time bars can be picked by dragging along the chart, since a month's bars are too thin to tap.**
+- **Statistics' Reading time month names follow your language's date order.**
 
 #### Added
 

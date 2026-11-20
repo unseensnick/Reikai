@@ -13,10 +13,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.datetime.LocalDate
@@ -65,21 +68,15 @@ class StatsReadingViewModel(
 ) : ViewModel() {
 
     private val timeZone = TimeZone.currentSystemDefault()
-    private val today = Clock.System.now().toLocalDateTime(timeZone).date
+
+    // Read again on each refresh, so a screen kept across midnight reaches the new day.
+    private val today = MutableStateFlow(currentDate())
 
     private val library = StatsReload(viewModelScope, loader::load)
-    private val view = MutableStateFlow(View(ReadingWindow.week(today), selected = null))
-
-    // The list shows before its covers; a reload keeps the last covers until the new ones are read.
-    private val covers = library.value.filterNotNull()
-        .mapLatest { loaded ->
-            val ids = loaded.sessions(ContentType.ALL).mapTo(HashSet()) { it.entryId }
-            statsCovers(ids, loaded, mangaRepository, novelRepository)
-        }
-        .onStart { emit(emptyMap()) }
+    private val view = MutableStateFlow(View(ReadingWindow.week(today.value), selected = null))
 
     // Each day's time per series and each series' name, over the whole log: rebuilt only when the log or the
-    // content type changes, so a bar tap or a step only slices it.
+    // content type changes, so a bar tap or a step only slices it. Shared, since the covers read it too.
     private val byDayAndNames = combine(
         library.value.filterNotNull(),
         sourcePreferences.statsContentType.changes(),
@@ -87,19 +84,45 @@ class StatsReadingViewModel(
         val sessions = library.sessions(type)
         readingTimeByDayAndTitle(sessions, timeZone) to sessions.associate { it.entryId to it.name }
     }
+        .flowOn(Dispatchers.Default)
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), replay = 1)
+
+    // The covers of the series the window lists, since one outside the library costs a query of its own, read
+    // again only when the window or the log changes. The list shows before its covers; a reload keeps the last
+    // covers until the new ones are read.
+    private val covers = combine(
+        library.value.filterNotNull(),
+        byDayAndNames,
+        view.map { it.window }.distinctUntilChanged(),
+    ) { loaded, (byDay, _), window -> loaded to seriesReadIn(byDay, window) }
+        .mapLatest { (loaded, ids) -> statsCovers(ids, loaded, mangaRepository, novelRepository) }
+        .onStart { emit(emptyMap()) }
 
     /** Null while the library loads. */
-    val state: StateFlow<StatsReadingState?> = combine(byDayAndNames, view, covers) { (byDay, names), view, covers ->
+    val state: StateFlow<StatsReadingState?> = combine(byDayAndNames, view, covers, today) {
+            (byDay, names),
+            view,
+            covers,
+            today,
+        ->
         readingState(byDay, names, view.window, view.selected, covers, today)
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Called each time the screen comes back on screen, so it shows the library as it is now. */
-    fun refresh() = library.reload()
+    fun refresh() {
+        val before = today.value
+        val now = currentDate()
+        if (now != before) {
+            view.update { it.copy(window = it.window.reanchored(before, now)) }
+            today.value = now
+        }
+        library.reload()
+    }
 
     fun selectPeriod(period: ReadingPeriod) {
-        view.value = View(ReadingWindow.current(period, today), selected = null)
+        view.value = View(ReadingWindow.current(period, today.value), selected = null)
     }
 
     fun selectRange(first: LocalDate, last: LocalDate) {
@@ -111,10 +134,19 @@ class StatsReadingViewModel(
         it.copy(selected = if (it.selected == bar.first) null else bar.first)
     }
 
-    fun move(forward: Boolean) = view.update { View(it.window.shifted(forward, today), selected = null) }
+    /** Narrows the list to [bar]'s dates, as a drag along the chart does at each bar it crosses. */
+    fun pickBar(bar: ReadingBar) = view.update { it.copy(selected = bar.first) }
+
+    fun move(forward: Boolean) = view.update { View(it.window.shifted(forward, today.value), selected = null) }
+
+    private fun currentDate() = Clock.System.now().toLocalDateTime(timeZone).date
 
     private data class View(val window: ReadingWindow, val selected: LocalDate?)
 }
+
+/** The series [byDay] counts time for on any of [window]'s dates. */
+internal fun seriesReadIn(byDay: Map<LocalDate, Map<EntryId, Long>>, window: ReadingWindow): Set<EntryId> =
+    window.days().flatMapTo(HashSet()) { byDay[it]?.keys.orEmpty() }
 
 /**
  * The reading-time screen over [window], its list narrowed to the [selected] bar's dates when one is picked.

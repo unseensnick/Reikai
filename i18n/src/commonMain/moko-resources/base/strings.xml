@@ -2142,6 +2142,7 @@
     <string name="stats_period_week">Week</string>
     <string name="stats_period_month">Month</string>
     <string name="stats_period_year">Year</string>
+    <string name="stats_period_custom">Custom</string>
     <string name="stats_arrange_cards">Arrange cards</string>
     <string name="stats_arrange_hint">Drag to reorder, untick to hide</string>
     <string name="stats_cards_shown">%1$d of %2$d shown</string>
