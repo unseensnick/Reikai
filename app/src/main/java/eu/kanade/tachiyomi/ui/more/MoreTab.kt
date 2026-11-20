@@ -17,6 +17,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.more.MoreScreen
 import eu.kanade.presentation.more.settings.screen.SettingsDataScreen
+import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.more.settings.screen.openSettings
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.home.TopLevelRoute
@@ -28,7 +29,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import mihon.core.navigation.AboutRoute
 import mihon.core.navigation.CategoryRoute
 import mihon.core.navigation.DownloadQueueRoute
 import mihon.core.navigation.LocalNavigator
@@ -64,7 +64,7 @@ fun MoreTab() {
         showStats = viewModel.showStats,
         // RK <--
         onClickSettings = { navigator.openSettings(twoPane = isTabletUi) },
-        onClickAbout = { navigator.openSettings(AboutRoute, isTabletUi) },
+        onClickAbout = { navigator.openSettings(AboutScreen, isTabletUi) }, // RK: About is its searchable screen
     )
 
     ResultEffect<Unit>(resultKey = TopLevelRoute.More.reselectEventKey) {

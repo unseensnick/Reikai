@@ -34,7 +34,7 @@ private fun Navigator.pushDetails(payload: MigrationPayload) {
 internal fun MigrationCandidate.openDetails(opener: DetailsOpener) {
     when (val handle = handle) {
         is MangaCandidateHandle -> opener.open { EntryId.Manga(handle.manga.id).detailsRoute(fromSource = true) }
-        is NovelCandidateHandle -> opener.open { handle.item.storedDetailsRoute(sourceKey, it, fromSource = true) }
+        is NovelCandidateHandle -> opener.open { handle.item.storedDetailsRoute(sourceKey, it) }
     }
 }
 

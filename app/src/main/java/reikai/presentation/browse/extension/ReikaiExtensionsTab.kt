@@ -59,6 +59,7 @@ import mihon.icons.materialsymbols.rounded.Settings
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.library.labelRes
+import reikai.domain.source.SourceKey
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.install.description
@@ -81,7 +82,7 @@ import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.TypeBadge
 import reikai.presentation.components.rememberChipListState
-import reikai.presentation.webview.pluginWebViewRoute
+import reikai.presentation.webview.webViewRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
@@ -681,7 +682,7 @@ private fun NovelExtensionRow(
  * A plugin's site in the WebView, under the User-Agent the plugin's own fetches send, so a Cloudflare
  * check passed there clears them too. The site's storage is kept for the plugin if it is installed and asks.
  */
-private fun webViewFor(entry: LnRegistryEntry) = pluginWebViewRoute(entry.id, entry.site, entry.name)
+private fun webViewFor(entry: LnRegistryEntry) = SourceKey.Novel(entry.id).webViewRoute(entry.site, entry.name)
 
 /** A plugin's row, drawn as an apk extension row is: its repo, then its language and version. */
 @Composable

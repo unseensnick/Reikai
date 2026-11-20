@@ -38,6 +38,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
@@ -61,6 +62,7 @@ class RelatedMangasBrowseViewModel(
     private val networkToLocalManga: NetworkToLocalManga,
     private val libraryPreferences: LibraryPreferences,
     private val prepareRecommendationAssembly: PrepareRecommendationAssembly,
+    private val getManga: GetManga,
 ) : ViewModel() {
 
     val state: StateFlow<RelatedMangasBrowseViewModel.State>
@@ -80,6 +82,10 @@ class RelatedMangasBrowseViewModel(
 
     init {
         libraryPreferences.trackBrowseColumns(viewModelScope) { columns -> state.update { it.copy(columns = columns) } }
+        // Read by id, so an edited title shows here too, on a restored page as on an open one.
+        viewModelScope.launchIO {
+            getManga.subscribe(mangaId).collect { manga -> state.update { it.copy(title = manga.title) } }
+        }
         viewModelScope.launchIO {
             val assembly = prepareRecommendationAssembly.await()
             // Live off the cache, so a grid opened mid-load (the menu placement opens it before the load
@@ -198,6 +204,7 @@ class RelatedMangasBrowseViewModel(
     )
 
     data class State(
+        val title: String? = null,
         val items: List<BrowseItem> = emptyList(),
         val selectedUrls: Set<String> = emptySet(),
         val grouped: Boolean = false,

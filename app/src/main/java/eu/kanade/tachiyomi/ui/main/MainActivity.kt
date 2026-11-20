@@ -81,6 +81,7 @@ import eu.kanade.tachiyomi.ui.home.TabEvent
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
+import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import exh.debug.DebugModeOverlay
@@ -146,7 +147,6 @@ import reikai.util.toOwnTask
 import soup.compose.material.motion.animation.materialSharedAxisX
 import soup.compose.material.motion.animation.rememberSlideDistance
 import tachiyomi.core.common.Constants
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.release.interactor.GetApplicationRelease
@@ -425,9 +425,7 @@ open class MainActivity : BaseActivity() { // RK
         setSplashScreenExitAnimation(splashScreen)
 
         if (isLaunch && libraryPreferences.autoClearChapterCache.get()) {
-            lifecycleScope.launchIO {
-                chapterCache.clear()
-            }
+            lifecycleScope.launch { chapterCache.clear() }
         }
     }
 
@@ -616,17 +614,13 @@ open class MainActivity : BaseActivity() { // RK
                 TabEvent.Library(EntryId.Manga(idToOpen)) // RK
             }
             // RK: open a novel's details over the library as a manga's are; an older build's intent names
-            //     the novel by source and url, so only that one is looked up first, read only
-            Constants.SHORTCUT_NOVEL -> intent.novelToOpen()?.let {
+            //     the novel by source and url, so only that one is looked up first, read only, before the
+            //     splash goes. One with no saved row has no id to open the not-found page by, so it says so.
+            Constants.SHORTCUT_NOVEL -> (intent.novelToOpen() ?: intent.legacyNovelToOpen(novelRepository))?.let {
                 navigator.popToRoot()
                 TabEvent.Library(it)
             } ?: run {
-                lifecycleScope.launch {
-                    intent.legacyNovelToOpen(novelRepository)?.let {
-                        navigator.popToRoot()
-                        resultEventBus.sendResult<TabEvent>(TabEvent.Library(it))
-                    }
-                }
+                toast(MR.strings.details_not_found)
                 null
             }
             // RK: open the Update errors screen from a failed-update notification, on the type that

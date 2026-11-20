@@ -37,18 +37,14 @@ import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /**
- * "See all" browse grid for a manga's related-mangas pool. Constructor takes serializable args
- * only ([mangaId] + [mangaTitle]); the candidate pool is re-read from [reikai.domain.recommendation
- * .RelatedMangaCache] inside the view model.
+ * "See all" browse grid for a manga's related-mangas pool. The route carries only [mangaId]; the title
+ * and the candidate pool (from [reikai.domain.recommendation.RelatedMangaCache]) are read by the view model.
  */
 @Serializable
-data class RelatedMangasBrowseRoute(
-    val mangaId: Long,
-    val mangaTitle: String,
-) : NavKey
+data class RelatedMangasBrowseRoute(val mangaId: Long) : NavKey
 
 @Composable
-fun RelatedMangasBrowseScreen(mangaId: Long, mangaTitle: String) {
+fun RelatedMangasBrowseScreen(mangaId: Long) {
     val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
@@ -72,7 +68,7 @@ fun RelatedMangasBrowseScreen(mangaId: Long, mangaTitle: String) {
                 )
             } else {
                 AppBar(
-                    title = mangaTitle,
+                    title = state.title,
                     subtitle = stringResource(MR.strings.related_mangas),
                     navigateUp = navigator::pop,
                     actions = {

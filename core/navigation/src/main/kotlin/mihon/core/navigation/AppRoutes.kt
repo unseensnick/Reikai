@@ -28,59 +28,13 @@ data class MangaRoute(
 ) : NavKey
 
 @Serializable
-data class TrackInfoDialogRoute(
-    val mangaId: Long,
-    val mangaTitle: String,
-    val sourceId: Long,
-) : NavKey
-
-@Serializable
-data class GlobalSearchRoute(
-    val searchQuery: String = "",
-    val extensionFilter: String? = null,
-) : NavKey
-
-@Serializable
 data object UpcomingRoute : NavKey
-
-@Serializable
-data class BrowseSourceRoute(
-    val sourceId: Long,
-    val listingQuery: String?,
-) : NavKey
 
 @Serializable
 data class ExtensionDetailsRoute(val pkgName: String) : NavKey
 
 @Serializable
 data object ExtensionFilterRoute : NavKey
-
-@Serializable
-data class MigrateMangaRoute(val sourceId: Long) : NavKey
-
-@Serializable
-data class MigrateSearchRoute(val mangaId: Long) : NavKey
-
-@Serializable
-data class MigrateSourceSearchRoute(
-    val currentMangaId: Long,
-    val sourceId: Long,
-    val query: String?,
-) : NavKey
-
-@Serializable
-data class MigrationConfigRoute(val mangaIds: Collection<Long>) : NavKey {
-    constructor(mangaId: Long) : this(listOf(mangaId))
-}
-
-@Serializable
-data class MigrationListRoute(
-    val mangaIds: Collection<Long>,
-    val extraSearchQuery: String?,
-) : NavKey
-
-@Serializable
-data object SourcesFilterRoute : NavKey
 
 @Serializable
 data class SourcePreferencesRoute(val sourceId: Long) : NavKey
@@ -104,12 +58,6 @@ data object OnboardingRoute : NavKey
 
 @Serializable
 data object StatsRoute : NavKey
-
-@Serializable
-data object SupportUsRoute : NavKey
-
-@Serializable
-data object AboutRoute : NavKey
 
 @Serializable
 data object AppLanguageRoute : NavKey

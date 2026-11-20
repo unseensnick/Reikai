@@ -341,7 +341,7 @@ fun WebViewScreenContent(
                                     .clickable {
                                         uriHandler.openUri(
                                             // RK: Reikai's docs
-                                            "${Constants.URL_DOCS}/guides/troubleshooting/#cloudflare",
+                                            "${Constants.URL_HELP}#cloudflare",
                                         )
                                     },
                             )

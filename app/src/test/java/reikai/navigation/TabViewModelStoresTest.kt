@@ -1,6 +1,9 @@
 package reikai.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -18,7 +21,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Each tab keeps its own models across switches and pages pushed over Home, and loses them only with Home. */
+/**
+ * Each tab keeps its own models across switches and pages pushed over Home, and loses them with Home or when
+ * it leaves the bar.
+ */
 @RunWith(RobolectricTestRunner::class)
 class TabViewModelStoresTest {
 
@@ -28,6 +34,7 @@ class TabViewModelStoresTest {
     private lateinit var outer: Navigator
     private lateinit var tabs: Navigator
     private val seen = mutableMapOf<NavKey, Probe>()
+    private var dropped by mutableStateOf(emptyList<NavKey>())
 
     @Test
     fun `two tabs resolving one model type get one instance each`() {
@@ -59,6 +66,17 @@ class TabViewModelStoresTest {
         act { outer.pop() }
 
         ((seen.getValue(TabB) === b) to b.cleared) shouldBe (true to false)
+    }
+
+    @Test
+    fun `a tab that leaves the bar has its model cleared`() {
+        show()
+        switchTo(TabB)
+        val b = seen.getValue(TabB)
+        switchTo(TabC)
+        act { dropped = listOf(TabB) }
+
+        b.cleared shouldBe true
     }
 
     @Test
@@ -95,7 +113,7 @@ class TabViewModelStoresTest {
         tabs = rememberNavigator(TabA)
         NavigatorDisplay(
             navigator = tabs,
-            entryDecorators = listOf(rememberTabViewModelStoresDecorator()),
+            entryDecorators = listOf(rememberTabViewModelStoresDecorator(dropped)),
             entryProvider = entryProvider {
                 entry<TabA> { seen[TabA] = viewModel<Probe>() }
                 entry<TabB> { seen[TabB] = viewModel<Probe>() }

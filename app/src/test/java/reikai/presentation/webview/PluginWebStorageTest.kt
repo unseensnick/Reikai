@@ -87,7 +87,7 @@ class PluginWebStorageTest {
                 site
             }
             val host = mockk<LnPluginHost>(relaxed = true)
-            val model = PluginWebStorageViewModel("plugin", null, sourceManager, host, testAppScope())
+            val model = PluginWebStorageViewModel("plugin", sourceManager, host, testAppScope())
             model.onPageStorage("https://site.example/login", SITE_STORAGE)
 
             ViewModelStore().apply { put("browser", model) }.clear()
@@ -110,7 +110,7 @@ class PluginWebStorageTest {
                 LnPluginInfo(id = "plugin", name = "Plugin", site = "https://site.example", webStorageUtilized = true),
             )
             val host = mockk<LnPluginHost>(relaxed = true)
-            val model = PluginWebStorageViewModel("plugin", null, sourceManager, host, testAppScope())
+            val model = PluginWebStorageViewModel("plugin", sourceManager, host, testAppScope())
             model.onPageStorage("https://www.site.example/", OTHER_STORAGE)
             model.onPageStorage("https://m.site.example/", OTHER_STORAGE)
             model.onPageStorage("https://www.site.example/login", SITE_STORAGE)
@@ -130,7 +130,7 @@ class PluginWebStorageTest {
         try {
             val sourceManager = mockk<NovelSourceManager>()
             coEvery { sourceManager.get("plugin") } returns plugin(webStorageUtilized = false)
-            val model = PluginWebStorageViewModel("plugin", null, sourceManager, mockk(), testAppScope())
+            val model = PluginWebStorageViewModel("plugin", sourceManager, mockk(), testAppScope())
             val deadline = System.currentTimeMillis() + 5_000
             while (model.capturesStorage && System.currentTimeMillis() < deadline) Thread.sleep(10)
 

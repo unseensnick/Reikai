@@ -44,18 +44,20 @@ fun EntryId.detailsRoute(fromSource: Boolean = false): NavKey = when (this) {
 suspend fun EntryBrowseRow.detailsRoute(sourceKey: SourceKey, novels: NovelLibraryAdder): NavKey? =
     when (sourceKey) {
         is SourceKey.Manga -> EntryId.Manga(manga.id).detailsRoute(fromSource = true)
-        is SourceKey.Novel -> item.storedDetailsRoute(sourceKey.id, novels, fromSource = true)
+        is SourceKey.Novel -> item.storedDetailsRoute(sourceKey.id, novels)
     }
 
-/** The details page of this listed novel on [sourceId], once its row is stored; null when it cannot be. */
+/**
+ * The details page of this listed novel on [sourceId], opened from that source once its row is stored; null
+ * when it cannot be.
+ */
 suspend fun NovelItem.storedDetailsRoute(
     sourceId: String,
     novels: NovelLibraryAdder,
-    fromSource: Boolean = false,
 ): NavKey? = runCatchingCancellable { withIOContext { novels.materialize(this@storedDetailsRoute, sourceId) } }
     .onFailure { logcat(LogPriority.ERROR, it) { "Could not store a listed novel to open it" } }
     .getOrNull()
-    ?.let { EntryId.Novel(it.id).detailsRoute(fromSource) }
+    ?.let { EntryId.Novel(it.id).detailsRoute(fromSource = true) }
 
 /** Whether this route is [entry]'s details page. */
 fun NavKey.shows(entry: EntryId): Boolean = when (entry) {

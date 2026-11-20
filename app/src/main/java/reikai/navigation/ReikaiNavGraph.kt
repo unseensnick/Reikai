@@ -137,7 +137,7 @@ fun EntryProviderScope<NavKey>.reikaiEntries() {
     entry<LauncherIconRoute> { LauncherIconScreen() }
     entry<LocalImportRoute> { LocalImportScreen(it.initialUris) }
     entry<MangaDexFollowsRoute> { MangaDexFollowsScreen(it.sourceId) }
-    entry<MetadataViewRoute> { MetadataViewScreen(it.mangaId, it.sourceId, it.seedColor) }
+    entry<MetadataViewRoute> { MetadataViewScreen(it.mangaId, it.sourceId) }
     entry<NovelChapterSearchRoute> { NovelChapterSearchScreen(it.novelId, it.sourceScoped) }
     entry<NovelCodeSnippetsRoute> { NovelCodeSnippetsScreen(it.kind) }
     entry<NovelFontsRoute> { NovelFontsScreen() }
@@ -147,7 +147,7 @@ fun EntryProviderScope<NavKey>.reikaiEntries() {
     entry<PagePreviewRoute> { PagePreviewScreen(it.mangaId) }
     entry<PreferredSourcesRoute> { PreferredSourcesScreen() }
     entry<ReaderBottomButtonsRoute> { ReaderBottomButtonsScreen(it.scope) }
-    entry<RelatedMangasBrowseRoute> { RelatedMangasBrowseScreen(it.mangaId, it.mangaTitle) }
+    entry<RelatedMangasBrowseRoute> { RelatedMangasBrowseScreen(it.mangaId) }
     entry<SettingsDebugRoute> { SettingsDebugScreen() }
     entry<SourceDelaysRoute> { SourceDelaysScreen() }
     entry<StatsGroupRoute> { StatsGroupScreen(it.dimension) }

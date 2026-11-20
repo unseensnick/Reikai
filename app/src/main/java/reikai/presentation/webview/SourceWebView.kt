@@ -12,7 +12,3 @@ fun SourceKey.webViewRoute(url: String, title: String?, novelId: Long? = null): 
     is SourceKey.Manga -> WebViewRoute(url = url, initialTitle = title, sourceId = id)
     is SourceKey.Novel -> WebViewRoute(url = url, initialTitle = title, novel = NovelWebTarget.Page(id, novelId))
 }
-
-/** A light-novel plugin's site in the WebView, whose storage is kept for the plugin if it asks. */
-fun pluginWebViewRoute(pluginId: String, url: String, title: String): WebViewRoute =
-    WebViewRoute(url = url, initialTitle = title, novel = NovelWebTarget.Plugin(pluginId))

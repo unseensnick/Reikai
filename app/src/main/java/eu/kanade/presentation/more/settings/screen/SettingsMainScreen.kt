@@ -26,10 +26,10 @@ import androidx.navigation3.runtime.NavKey
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.more.settings.screen.about.getVersionName
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import kotlinx.serialization.Serializable
-import mihon.core.navigation.AboutRoute
 import mihon.core.navigation.LocalNavigator
 import mihon.core.navigation.Navigator
 import mihon.core.navigation.SettingsSearchRoute
@@ -259,7 +259,7 @@ data object SettingsMainScreen : NavKey {
                 "${stringResource(MR.strings.app_name)} ${getVersionName(buildTime = null)}"
             },
             icon = MaterialSymbols.Rounded.Info,
-            screen = AboutRoute,
+            screen = AboutScreen, // RK: the key settings search opens, so two panes mark it
         ),
     )
 }

@@ -207,7 +207,8 @@ fun HomeScreen() {
                         tabStateHolder.SaveableStateProvider(entry.contentKey) { entry.Content() }
                     }
                 },
-                rememberTabViewModelStoresDecorator(), // RK: each tab keeps its own models
+                // RK: each tab keeps its own models, dropped with the tab when it leaves the bar
+                rememberTabViewModelStoresDecorator(droppedTabs(tabs)),
             ),
             transitionSpec = { spec },
             popTransitionSpec = { spec },
@@ -249,12 +250,7 @@ fun HomeScreen() {
     ResultEffect<TabEvent> {
         tabNavigator.replaceAll(tabFor(it, combinedRecents, resultEventBus)) // RK
 
-        if (it is TabEvent.Library && it.entryToOpen != null) {
-            navigator.push(it.entryToOpen.detailsRoute()) // RK: either type
-        }
-        if (it is TabEvent.More && it.toDownloads) {
-            navigator.push(DownloadQueueRoute)
-        }
+        pageFor(it)?.let(navigator::push) // RK: the page a tab event opens over its tab
     }
 }
 
@@ -415,6 +411,17 @@ private fun recentsTarget(combinedRecents: Boolean, mode: RecentsMode, bus: Resu
     combinedRecents -> RecentsTabRoute.also { bus.sendResult(RecentsModeEvent(mode)) }
     mode == RecentsMode.HISTORY -> TopLevelRoute.History
     else -> TopLevelRoute.Updates
+}
+
+/** Every tab the bar can show that [shown], the bar's current set, leaves out. */
+internal fun droppedTabs(shown: List<TopLevelRoute>): List<TopLevelRoute> =
+    (tabs(combinedRecents = true, statsTab = true) + tabs(combinedRecents = false, statsTab = true)).distinct() - shown
+
+/** The page [event] opens over its tab: a series of either type, or the download queue. */
+internal fun pageFor(event: TabEvent): NavKey? = when {
+    event is TabEvent.Library && event.entryToOpen != null -> event.entryToOpen.detailsRoute()
+    event is TabEvent.More && event.toDownloads -> DownloadQueueRoute
+    else -> null
 }
 
 /** Where a tab that left the set sends the user, so nothing is left rendering unselected. */

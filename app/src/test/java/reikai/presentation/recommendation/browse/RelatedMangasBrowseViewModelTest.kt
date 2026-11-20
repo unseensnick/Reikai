@@ -11,6 +11,7 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -159,8 +160,11 @@ class RelatedMangasBrowseViewModelTest {
             },
             libraryPreferences = LibraryPreferences(store),
             prepareRecommendationAssembly = assembly,
+            getManga = mockk { every { subscribe(MANGA_ID) } returns titles },
         ),
     )
+
+    private val titles = MutableStateFlow(Manga.create().copy(id = MANGA_ID, title = "Before"))
 
     // The model loads on the IO dispatcher, so waits run in real time rather than the test clock.
     private suspend fun <T> settle(block: suspend () -> T): T =
@@ -177,6 +181,16 @@ class RelatedMangasBrowseViewModelTest {
         viewModel.toggleSelection("b")
 
         viewModel.state.value.selectedUrls shouldBe setOf("b")
+    }
+
+    @Test
+    fun `the title is the manga's current one, edits included`() = runTest {
+        val viewModel = viewModel()
+        settle { viewModel.state.first { it.title == "Before" } }
+
+        titles.value = titles.value.copy(title = "After")
+
+        settle { viewModel.state.first { it.title == "After" } }.title shouldBe "After"
     }
 
     @Test

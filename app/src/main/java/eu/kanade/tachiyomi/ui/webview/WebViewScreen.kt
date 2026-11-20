@@ -16,7 +16,6 @@ import mihon.core.navigation.WebViewRoute
 import reikai.navigation.NovelWebTarget
 import reikai.presentation.webview.rememberNovelPageActions
 import reikai.presentation.webview.rememberPluginStorageCapture
-import reikai.presentation.webview.webViewNovelSourceId
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -36,17 +35,14 @@ fun WebViewScreen(
         return
     }
 
-    // RK --> what the novel target carries, read once for the helpers below
-    val pluginId = (route.novel as? NovelWebTarget.Plugin)?.pluginId
-    val page = route.novel as? NovelWebTarget.Page
-    // RK <--
+    val page = route.novel as? NovelWebTarget.Page // RK: what the novel target carries, for the helpers below
     val viewModel =
         assistedMetroViewModel<WebViewViewModel, WebViewViewModel.Factory> {
-            // RK: a plugin's source id is its plugin id, so its site opens under the agent its fetches send
+            // RK: a novel source's page, a plugin's site among them, opens under the agent its fetches send
             create(
                 sourceId = route.sourceId,
                 url = route.url,
-                novelSourceId = webViewNovelSourceId(pluginId, page?.sourceId),
+                novelSourceId = page?.sourceId,
             )
         }
 
@@ -67,6 +63,6 @@ fun WebViewScreen(
         onOpenInBrowser = { viewModel.openInBrowser(context, it) },
         onClearCookies = viewModel::clearCookies,
         pageActions = rememberNovelPageActions(page?.novelId, page?.chapterId), // RK
-        onPageFinished = rememberPluginStorageCapture(pluginId, page?.sourceId), // RK
+        onPageFinished = rememberPluginStorageCapture(page?.sourceId), // RK
     )
 }

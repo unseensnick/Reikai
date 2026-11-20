@@ -12,7 +12,6 @@ import eu.kanade.presentation.more.settings.screen.SettingsMainScreen
 import eu.kanade.presentation.more.settings.screen.SettingsSearchScreen
 import eu.kanade.presentation.more.settings.screen.SettingsSecurityScreen
 import eu.kanade.presentation.more.settings.screen.SettingsTrackingScreen
-import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.more.settings.screen.about.OpenSourceLicensesScreen
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
 import eu.kanade.presentation.more.settings.screen.appearance.AppLanguageScreen
@@ -98,9 +97,7 @@ fun EntryProviderScope<NavKey>.appEntries() {
         StatsScreen()
     }
 
-    entry<AboutRoute> {
-        AboutScreen.Content() // RK: Reikai's About is a searchable settings page
-    }
+    // RK: About is registered as AboutScreen in reikaiEntries, the searchable settings page that replaces AboutRoute
     entry<AppLanguageRoute> {
         AppLanguageScreen()
     }

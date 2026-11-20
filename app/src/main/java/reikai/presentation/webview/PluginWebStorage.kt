@@ -28,14 +28,14 @@ import tachiyomi.core.common.util.lang.launchIO
 
 /**
  * What the in-app browser runs after each page load so a light-novel plugin can read the site's storage,
- * as LNReader's WebView does: the latest page's storage is kept for [pluginId], or for [novelSourceId]
- * when that is a plugin, once the browser closes, if the plugin asks for it. A no-op for any other page.
+ * as LNReader's WebView does: the latest page's storage is kept for [novelSourceId] when that is a plugin,
+ * once the browser closes, if the plugin asks for it. A no-op for any other page.
  */
 @Composable
-fun rememberPluginStorageCapture(pluginId: String?, novelSourceId: String?): (WebView) -> Unit {
-    if (pluginId == null && novelSourceId == null) return {}
+fun rememberPluginStorageCapture(novelSourceId: String?): (WebView) -> Unit {
+    if (novelSourceId == null) return {}
     val model = assistedMetroViewModel<PluginWebStorageViewModel, PluginWebStorageViewModel.Factory> {
-        create(pluginId, novelSourceId)
+        create(novelSourceId)
     }
     return remember(model) {
         { webView: WebView ->
@@ -51,8 +51,7 @@ fun rememberPluginStorageCapture(pluginId: String?, novelSourceId: String?): (We
 /** Holds the latest page's storage and hands it to the plugin host when the browser screen goes away. */
 @AssistedInject
 class PluginWebStorageViewModel(
-    @Assisted pluginId: String?,
-    @Assisted novelSourceId: String?,
+    @Assisted private val novelSourceId: String,
     private val sourceManager: NovelSourceManager,
     private val host: LnPluginHost,
     @AppCoroutineScope private val appScope: CoroutineScope,
@@ -62,7 +61,7 @@ class PluginWebStorageViewModel(
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
-        fun create(pluginId: String?, novelSourceId: String?): PluginWebStorageViewModel
+        fun create(novelSourceId: String): PluginWebStorageViewModel
     }
 
     @Volatile
@@ -78,14 +77,10 @@ class PluginWebStorageViewModel(
     // plugin's site is known only once its source resolves, so the choice waits for the close.
     private val storageByHost = LinkedHashMap<String, Pair<String, WebStorageSnapshot>>()
 
-    private val id = webViewNovelSourceId(pluginId, novelSourceId)
-
     init {
-        if (id != null) {
-            viewModelScope.launchIO {
-                target = webStoragePlugin(sourceManager.get(id))
-                resolved = true
-            }
+        viewModelScope.launchIO {
+            target = webStoragePlugin(sourceManager.get(novelSourceId))
+            resolved = true
         }
     }
 
@@ -100,11 +95,10 @@ class PluginWebStorageViewModel(
     // scope, since the plugin may still be resolving (the browser restored before the first plugin load),
     // and this model's own scope is cancelled by now.
     override fun onCleared() {
-        val id = id ?: return
         val pages = storageByHost.values.toList()
         if (pages.isEmpty()) return
         appScope.launchIO {
-            val plugin = target ?: webStoragePlugin(sourceManager.get(id)) ?: return@launchIO
+            val plugin = target ?: webStoragePlugin(sourceManager.get(novelSourceId)) ?: return@launchIO
             pluginSiteStorage(plugin.site, pages)?.let { host.storeWebStorage(plugin.id, it) }
         }
     }
@@ -124,9 +118,3 @@ internal fun pluginSiteStorage(site: String, pages: Collection<Pair<String, WebS
  */
 internal fun webStoragePlugin(source: NovelSource?): LnPluginSource? =
     (source as? LnPluginSource)?.takeIf { it.webStorageUtilized }
-
-/**
- * The novel source a browser opened with [pluginId] or [novelSourceId] belongs to, for its headers and its
- * storage alike. A plugin's source id is its plugin id, so either names the same one.
- */
-fun webViewNovelSourceId(pluginId: String?, novelSourceId: String?): String? = novelSourceId ?: pluginId

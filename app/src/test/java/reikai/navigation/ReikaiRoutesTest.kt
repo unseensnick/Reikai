@@ -2,6 +2,7 @@ package reikai.navigation
 
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import androidx.test.core.app.ApplicationProvider
 import eu.kanade.presentation.more.settings.screen.SettingsAdvancedScreen
 import eu.kanade.presentation.more.settings.screen.SettingsAppearanceScreen
 import eu.kanade.presentation.more.settings.screen.SettingsBrowseScreen
@@ -23,6 +24,7 @@ import eu.kanade.tachiyomi.ui.home.RecentsTabRoute
 import eu.kanade.tachiyomi.ui.home.StatsTabRoute
 import eu.kanade.tachiyomi.ui.home.TopLevelRoute
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import exh.debug.SettingsDebugRoute
 import exh.md.follows.MangaDexFollowsRoute
 import exh.pagepreview.PagePreviewRoute
@@ -30,7 +32,30 @@ import exh.ui.batchadd.BatchAddRoute
 import exh.ui.metadata.MetadataViewRoute
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
+import mihon.core.navigation.AppLanguageRoute
+import mihon.core.navigation.BackupSchemaRoute
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.ClearDatabaseRoute
+import mihon.core.navigation.CreateBackupRoute
+import mihon.core.navigation.DebugInfoRoute
+import mihon.core.navigation.DeepLinkRoute
+import mihon.core.navigation.DownloadQueueRoute
+import mihon.core.navigation.ExtensionDetailsRoute
+import mihon.core.navigation.ExtensionFilterRoute
+import mihon.core.navigation.ExtensionStoresRoute
+import mihon.core.navigation.HomeRoute
+import mihon.core.navigation.MangaNotesRoute
+import mihon.core.navigation.MangaRoute
+import mihon.core.navigation.NewUpdateRoute
+import mihon.core.navigation.OnboardingRoute
+import mihon.core.navigation.OpenSourceLicensesRoute
+import mihon.core.navigation.RestoreBackupRoute
+import mihon.core.navigation.SettingsSearchRoute
+import mihon.core.navigation.SourcePreferencesRoute
+import mihon.core.navigation.StatsRoute
+import mihon.core.navigation.UpcomingRoute
 import mihon.core.navigation.WebViewRoute
+import mihon.core.navigation.WorkerInfoRoute
 import mihon.core.navigation.appEntries
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -171,7 +196,7 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
             LauncherIconRoute to DrawnBy.MAIN,
             LocalImportRoute(listOf("content://files/a.cbz")) to DrawnBy.MAIN,
             MangaDexFollowsRoute(1L) to DrawnBy.MAIN,
-            MetadataViewRoute(1L, 2L, seedColor = 0xFF0000) to DrawnBy.MAIN,
+            MetadataViewRoute(1L, 2L) to DrawnBy.MAIN,
             NovelChapterSearchRoute(1L, sourceScoped = true) to DrawnBy.MAIN,
             NovelCodeSnippetsRoute(NovelSnippetKind.JS) to DrawnBy.MAIN,
             NovelFontsRoute to DrawnBy.MAIN,
@@ -181,7 +206,7 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
             PagePreviewRoute(1L) to DrawnBy.MAIN,
             PreferredSourcesRoute to DrawnBy.MAIN,
             ReaderBottomButtonsRoute(ReaderBottomButton.Scope.Novel) to DrawnBy.MAIN,
-            RelatedMangasBrowseRoute(1L, "Title") to DrawnBy.MAIN,
+            RelatedMangasBrowseRoute(1L) to DrawnBy.MAIN,
             SettingsDebugRoute to DrawnBy.MAIN,
             SourceDelaysRoute to DrawnBy.MAIN,
             StatsGroupRoute(StatsDimension.SCORE) to DrawnBy.MAIN,
@@ -190,6 +215,30 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
             StatsSeriesRoute(StatsGroupKey.Score(null), "None", ContentType.ALL) to DrawnBy.MAIN,
             UpdateErrorsRoute(ContentType.NOVELS) to DrawnBy.MAIN,
             VolumeNotesRoute(ContentType.MANGA, "Series", "Vol. 1") to DrawnBy.MAIN,
+            HomeRoute to DrawnBy.MAIN,
+            DeepLinkRoute("q") to DrawnBy.MAIN,
+            WebViewRoute("https://example.org", "T", 1L) to DrawnBy.MAIN,
+            MangaNotesRoute(1L) to DrawnBy.MAIN,
+            MangaRoute(1L, fromSource = true) to DrawnBy.MAIN,
+            UpcomingRoute to DrawnBy.MAIN,
+            ExtensionDetailsRoute("pkg") to DrawnBy.MAIN,
+            ExtensionFilterRoute to DrawnBy.MAIN,
+            SourcePreferencesRoute(1L) to DrawnBy.MAIN,
+            CategoryRoute to DrawnBy.MAIN,
+            DownloadQueueRoute to DrawnBy.MAIN,
+            NewUpdateRoute("1.0", "notes", "https://example.org/r", "https://example.org/d") to DrawnBy.MAIN,
+            OnboardingRoute to DrawnBy.MAIN,
+            StatsRoute to DrawnBy.MAIN,
+            AppLanguageRoute to DrawnBy.MAIN,
+            BackupSchemaRoute to DrawnBy.MAIN,
+            ClearDatabaseRoute to DrawnBy.MAIN,
+            CreateBackupRoute to DrawnBy.MAIN,
+            DebugInfoRoute to DrawnBy.MAIN,
+            ExtensionStoresRoute to DrawnBy.MAIN,
+            OpenSourceLicensesRoute to DrawnBy.MAIN,
+            RestoreBackupRoute("content://backup") to DrawnBy.MAIN,
+            SettingsSearchRoute to DrawnBy.MAIN,
+            WorkerInfoRoute to DrawnBy.MAIN,
             TopLevelRoute.Library to DrawnBy.TABS,
             TopLevelRoute.Updates to DrawnBy.TABS,
             TopLevelRoute.History to DrawnBy.TABS,
@@ -215,14 +264,17 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
     }
 }
 
-/** Every serializable route the app module declares is in [ReikaiRoutesTest.routes]. */
+/**
+ * Every serializable route the app module and core/navigation declare is in [ReikaiRoutesTest.routes], so a
+ * route upstream declares and Reikai draws nowhere fails here rather than crashing the push.
+ */
 class RouteListGuardTest {
 
     @Test
     fun `every declared route is listed`() {
-        val root = File("src/main/java")
-        root.isDirectory shouldBe true
-        val declared = root.walkTopDown()
+        val roots = listOf(File("src/main/java"), File("../core/navigation/src/main/kotlin"))
+        roots.all { it.isDirectory } shouldBe true
+        val declared = roots.asSequence().flatMap { it.walkTopDown() }
             .filter { it.isFile && it.extension == "kt" }
             .flatMap { file -> routesIn(file.readLines()) }
             .toSortedSet()
@@ -271,9 +323,30 @@ class WebViewRouteEncodingTest {
             """{"url":"https://example.org","initialTitle":"T","sourceId":1}"""
     }
 
+    // The intent carries the route as JSON, which WebViewActivity decodes; chapterId drives the page actions.
+    @Test
+    fun `a novel chapter's intent opens that chapter's page`() {
+        val intent = WebViewActivity.newNovelChapterIntent(
+            ApplicationProvider.getApplicationContext(),
+            "https://example.org/c/3",
+            "Chapter 3",
+            novelId = 2L,
+            chapterId = 3L,
+            novelSourceId = "plugin",
+        )
+
+        Json.decodeFromString<WebViewRoute>(intent.getStringExtra("route_key")!!).novel shouldBe
+            NovelWebTarget.Page("plugin", novelId = 2L, chapterId = 3L)
+    }
+
     @Test
     fun `a novel page survives a save and restore`() {
-        val route = WebViewRoute("https://example.org", "T", novel = NovelWebTarget.Page("plugin", novelId = 2L))
+        val route =
+            WebViewRoute(
+                "https://example.org",
+                "T",
+                novel = NovelWebTarget.Page("plugin", novelId = 2L, chapterId = 3L),
+            )
 
         roundTrip(route) shouldBe route
     }

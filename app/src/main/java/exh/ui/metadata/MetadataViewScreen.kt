@@ -1,6 +1,5 @@
 package exh.ui.metadata
 
-import androidx.annotation.ColorInt
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -40,17 +39,17 @@ import tachiyomi.presentation.core.util.plus
 data class MetadataViewRoute(
     val mangaId: Long,
     val sourceId: Long,
-    @ColorInt val seedColor: Int?,
 ) : NavKey
 
 @Composable
-fun MetadataViewScreen(mangaId: Long, sourceId: Long, seedColor: Int?) {
+fun MetadataViewScreen(mangaId: Long, sourceId: Long) {
     val viewModel = assistedMetroViewModel<MetadataViewViewModel, MetadataViewViewModel.Factory> {
         create(mangaId = mangaId, sourceId = sourceId)
     }
     val navigator = LocalNavigator.current
 
     val state by viewModel.state.collectAsState()
+    val seedColor by viewModel.seedColor.collectAsState()
 
     @Composable
     fun content() = Scaffold(
@@ -114,7 +113,7 @@ fun MetadataViewScreen(mangaId: Long, sourceId: Long, seedColor: Int?) {
     }
 
     TachiyomiTheme(
-        seedColor = seedColor?.let { Color(seedColor) }.takeIf { viewModel.themeCoverBased },
+        seedColor = seedColor?.let(::Color),
     ) {
         content()
     }

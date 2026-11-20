@@ -40,11 +40,12 @@ import kotlinx.serialization.Serializable
 import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Settings
+import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.NovelSourceIcon
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
-import reikai.presentation.webview.pluginWebViewRoute
+import reikai.presentation.webview.webViewRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -97,7 +98,9 @@ fun NovelPluginDetailsScreen(pluginId: String) {
                 state = current,
                 contentPadding = contentPadding,
                 onOpenSite = {
-                    navigator.push(pluginWebViewRoute(current.plugin.id, current.plugin.site, current.plugin.name))
+                    navigator.push(
+                        SourceKey.Novel(current.plugin.id).webViewRoute(current.plugin.site, current.plugin.name),
+                    )
                 },
                 onUninstall = viewModel::uninstall,
             )

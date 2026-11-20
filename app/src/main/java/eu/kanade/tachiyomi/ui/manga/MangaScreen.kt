@@ -9,7 +9,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -169,12 +168,12 @@ fun MangaScreen(
                     }
                 },
                 onRelatedSeeAll = {
-                    navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
+                    navigator.push(RelatedMangasBrowseRoute(successState.manga.id))
                 },
                 // Recommendations moved to the overflow menu (Settings > Library > Recommendations):
                 // open the same browse grid "See all" uses. Null keeps it off when placed inline.
                 onRecommendations = {
-                    navigator.push(RelatedMangasBrowseRoute(successState.manga.id, successState.manga.title))
+                    navigator.push(RelatedMangasBrowseRoute(successState.manga.id))
                 }.takeIf { viewModel.recommendationsInMenu },
                 onOpenPagePreview = { page ->
                     openPagePreview(
@@ -198,7 +197,6 @@ fun MangaScreen(
                         MetadataViewRoute(
                             mangaId = successState.shownManga.id,
                             sourceId = successState.shownSource.id,
-                            seedColor = successState.seedColor?.toArgb(),
                         ),
                     )
                 }.takeIf { successState.shownSource.getMainSource<MetadataSource<*, *>>() != null },
