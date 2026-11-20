@@ -1,0 +1,8 @@
+-- Every manga sharing a merge group with one hidden from the library, the hidden one included. With series
+-- merging on, the Updates feeds leave these out as the library does; the novel feed keeps the same rule inline
+-- in getRecentNovelUpdatesWithFilters, and UpdatesFeedFilterConformanceTest pins both.
+CREATE VIEW mergeHiddenManga AS
+SELECT own.manga_id
+FROM merge_group_manga own
+JOIN merge_group_manga member ON member.group_id = own.group_id
+JOIN library_hidden_manga ON library_hidden_manga.manga_id = member.manga_id;

@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.ReconcileMergedChapters
@@ -48,6 +49,17 @@ class MergedChapterProvider(
         val pooledChapters: List<Chapter> = chapters,
     ) {
         val isMerged: Boolean get() = mangaById.size > 1
+
+        /** The copy a download of each of [shown] fetches in [scope], a copy counting as fetchable while
+         *  its member's source [isInstalled]. The library and the reader build theirs here, stitch or none. */
+        inline fun downloadTargets(
+            scope: MergeScope,
+            shown: List<Chapter>,
+            isInstalled: (Manga) -> Boolean,
+        ): DownloadTargets {
+            val installed = mangaById.values.filter(isInstalled).mapTo(HashSet()) { it.id }
+            return DownloadTargets.of(scope, pooledChapters, shown, stitch, { it.id }) { it.mangaId in installed }
+        }
     }
 
     suspend fun load(anchor: Manga): Group {

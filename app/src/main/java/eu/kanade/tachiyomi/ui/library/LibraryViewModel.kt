@@ -426,14 +426,8 @@ class LibraryViewModel(
     ) {
         val ownerOf = { chapter: Chapter -> group?.mangaById?.get(chapter.mangaId) ?: anchor }
         val flags = group.groupFlags(chapters) { downloadManager.downloadedChapterIds(it, ownerOf) }
-        val targets = group?.let { merged ->
-            val installed = merged.mangaById.values
-                .filter { sourceManager.isInstalled(it.source) }
-                .mapTo(HashSet()) { it.id }
-            DownloadTargets.of(MergeScope.Group, merged.pooledChapters, chapters, merged.stitch, { it.id }) {
-                it.mangaId in installed
-            }
-        } ?: DownloadTargets.OWN
+        val targets = group?.downloadTargets(MergeScope.Group, chapters) { sourceManager.isInstalled(it.source) }
+            ?: DownloadTargets.OWN
         // One snapshot, since searching the queue for each chapter of a long list adds up
         val queued = downloadManager.getQueuedDownloadsByChapterId()
         DownloadCandidates.forGroup(

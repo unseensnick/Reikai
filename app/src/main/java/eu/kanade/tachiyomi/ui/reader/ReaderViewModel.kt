@@ -644,13 +644,8 @@ class ReaderViewModel(
                 // the viewer, and auto-webtoon has to see every merged member to classify.
                 val group = mergedChapterProvider.load(manga)
                 mergedGroup = group
-                val installed = group.mangaById.values
-                    .filter { sourceManager.isInstalled(it.source) }
-                    .mapTo(HashSet()) { it.id }
                 val pooled = group.pooledChapters
-                downloadTargets = DownloadTargets.of(mergeScope, pooled, pooled, group.stitch, { it.id }) {
-                    it.mangaId in installed
-                }
+                downloadTargets = group.downloadTargets(mergeScope, pooled) { sourceManager.isInstalled(it.source) }
                 if (mergeScope.copiesIn(group.stitch).isNotEmpty()) {
                     val onDisk = downloadManager.downloadedChapterIds(pooled) { group.mangaById.getValue(it.mangaId) }
                     val copies = CopyToOpen(mergeScope, pooled, group.stitch, { it.id }, onDisk, downloadTargets)

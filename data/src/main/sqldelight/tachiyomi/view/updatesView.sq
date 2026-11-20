@@ -47,12 +47,7 @@ AND (
 AND (:bookmarked IS NULL OR bookmark = :bookmarked)
 AND (excludedScanlator IS NULL OR :hideExcludedScanlators = 0)
 -- RK: with series merging on, a merged series with any hidden member is left out, as the library leaves it out
-AND (:seriesMerging = 0 OR NOT EXISTS (
-    SELECT 1 FROM merge_group_manga own
-    JOIN merge_group_manga member ON member.group_id = own.group_id
-    JOIN library_hidden_manga ON library_hidden_manga.manga_id = member.manga_id
-    WHERE own.manga_id = mangaId
-))
+AND (:seriesMerging = 0 OR mangaId NOT IN (SELECT manga_id FROM mergeHiddenManga))
 AND (
     -- includedEmpty being true expresses "don't care" state and bypasses the membership filter
     :includedEmpty
@@ -92,12 +87,7 @@ FROM updatesView
 WHERE read = 1
 AND dateUpload > :after
 -- RK: with series merging on, a merged series with any hidden member is left out, as the library leaves it out
-AND (:seriesMerging = 0 OR NOT EXISTS (
-    SELECT 1 FROM merge_group_manga own
-    JOIN merge_group_manga member ON member.group_id = own.group_id
-    JOIN library_hidden_manga ON library_hidden_manga.manga_id = member.manga_id
-    WHERE own.manga_id = mangaId
-))
+AND (:seriesMerging = 0 OR mangaId NOT IN (SELECT manga_id FROM mergeHiddenManga))
 ORDER BY dateFetch DESC
 LIMIT :limit;
 
@@ -110,11 +100,6 @@ FROM updatesView
 WHERE read = 0
 AND dateUpload > :after
 -- RK: with series merging on, a merged series with any hidden member is left out, as the library leaves it out
-AND (:seriesMerging = 0 OR NOT EXISTS (
-    SELECT 1 FROM merge_group_manga own
-    JOIN merge_group_manga member ON member.group_id = own.group_id
-    JOIN library_hidden_manga ON library_hidden_manga.manga_id = member.manga_id
-    WHERE own.manga_id = mangaId
-))
+AND (:seriesMerging = 0 OR mangaId NOT IN (SELECT manga_id FROM mergeHiddenManga))
 ORDER BY dateFetch DESC
 LIMIT :limit;

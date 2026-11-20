@@ -21,8 +21,10 @@ fun Map<Long, LibraryItem>.anyMerged(ids: Collection<Long>): Boolean = ids.any {
 
 /**
  * Whether [item] is hidden from the library view: hiding any member hides the series, so a merged row
- * shows hidden through any of its sources. The one rule every hidden-entry reader asks. Members are raw
- * ids of the row's own type, typed through [LibraryItem.entryId], since manga and novel ids collide.
+ * shows hidden through any of its sources. Members are raw ids of the row's own type, typed through
+ * [LibraryItem.entryId], since manga and novel ids collide. The rule has twins where there is no row: the
+ * badge's [reikai.data.library.hiddenWithGroups], pinned by HiddenFromLibraryTest, and the Updates feeds' SQL,
+ * pinned by UpdatesFeedFilterConformanceTest.
  */
 fun isHiddenFromLibrary(item: LibraryItem, hidden: Set<EntryId>): Boolean {
     if (hidden.isEmpty()) return false

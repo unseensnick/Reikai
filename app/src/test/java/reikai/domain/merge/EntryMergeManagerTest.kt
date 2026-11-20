@@ -9,6 +9,7 @@ import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -64,7 +65,7 @@ class EntryMergeManagerTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `relatedIdsOf resolves each id as computeRelatedIds does`(type: ContentType) = runTest {
+    fun `relatedIdsOf resolves a removed member and an ungrouped id on their own`(type: ContentType) = runTest {
         // 4 is grouped but has left the library, 3 is in no group.
         val repo = mockk<MergeGroupRepository> {
             coEvery { getAllMemberships(type) } returns mapOf(1L to 7L, 2L to 7L, 4L to 7L)
@@ -73,6 +74,26 @@ class EntryMergeManagerTest {
 
         manager(type, repo).relatedIdsOf(listOf(1L, 3L, 4L)) shouldBe
             mapOf(1L to listOf(1L, 2L), 3L to listOf(3L), 4L to listOf(4L))
+    }
+
+    @ParameterizedTest
+    @CsvSource("MANGA, true", "MANGA, false", "NOVELS, true", "NOVELS, false")
+    fun `relatedIdsOf answers what computeRelatedIds answers for each id`(
+        type: ContentType,
+        mergingEnabled: Boolean,
+    ) = runTest {
+        // 4 is grouped but has left the library, 3 is in no group, 5's group has no library member left.
+        val memberships = mapOf(1L to 7L, 2L to 7L, 4L to 7L, 5L to 8L)
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getAllMemberships(type) } returns memberships
+            coEvery { getGroupId(type, any()) } answers { memberships[secondArg()] }
+            coEvery { getFavoriteMembers(type, 7L) } returns listOf(1L, 2L)
+            coEvery { getFavoriteMembers(type, 8L) } returns emptyList()
+        }
+        val manager = manager(type, repo, mergingEnabled)
+        val ids = listOf(1L, 2L, 3L, 4L, 5L)
+
+        manager.relatedIdsOf(ids) shouldBe ids.associateWith { manager.computeRelatedIds(it).toList() }
     }
 
     @ParameterizedTest

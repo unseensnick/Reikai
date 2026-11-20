@@ -36,10 +36,9 @@ open class EntryMergeManager(
      * Every display and aggregation read resolves through here; data operations read
      * [MergeGroupRepository.getMembers] instead. See docs/dev/subsystems/merged-series.md "The group".
      */
-    suspend fun computeRelatedIds(targetId: Long): LongArray {
-        val members = groupLibraryMembers(targetId)
-        return if (targetId in members) members.toLongArray() else longArrayOf(targetId)
-    }
+    suspend fun computeRelatedIds(targetId: Long): LongArray = resolveRelated(listOf(targetId)) { id ->
+        repository.getGroupId(contentType, id)?.let { repository.getFavoriteMembers(contentType, it) }
+    }.getValue(targetId).toLongArray()
 
     /** The library members of [targetId]'s group in order, whether or not [targetId] is one; just
      *  [targetId] when it is ungrouped or merging is off. What an entry outside the library would rejoin. */
@@ -51,14 +50,22 @@ open class EntryMergeManager(
 
     /** [computeRelatedIds] for each of [ids], from one membership read plus one per group they reach. */
     suspend fun relatedIdsOf(ids: List<Long>): Map<Long, List<Long>> {
-        if (!preferences.seriesMergingEnabled.get()) return ids.associateWith { listOf(it) }
-        val memberships = repository.getAllMemberships(contentType)
+        var memberships: Map<Long, Long>? = null
         val groups = HashMap<Long, List<Long>>()
-        return ids.associateWith { id ->
-            val groupId = memberships[id] ?: return@associateWith listOf(id)
-            val members = groups.getOrPut(groupId) { repository.getFavoriteMembers(contentType, groupId) }
-            if (id in members) members else listOf(id)
+        return resolveRelated(ids) { id ->
+            val all = memberships ?: repository.getAllMemberships(contentType).also { memberships = it }
+            all[id]?.let { groupId -> groups.getOrPut(groupId) { repository.getFavoriteMembers(contentType, groupId) } }
         }
+    }
+
+    /** The one resolution rule behind [computeRelatedIds] and [relatedIdsOf], which differ only in how they read
+     *  a group's library members ([groupMembersOf], null when ungrouped); unread while merging is off. */
+    private suspend inline fun resolveRelated(
+        ids: List<Long>,
+        groupMembersOf: (Long) -> List<Long>?,
+    ): Map<Long, List<Long>> {
+        if (!preferences.seriesMergingEnabled.get()) return ids.associateWith { listOf(it) }
+        return ids.associateWith { id -> groupMembersOf(id)?.takeIf { id in it } ?: listOf(id) }
     }
 
     /** Every group's library members, each in order; empty while merging is off, as [groupLibraryMembers] is. */

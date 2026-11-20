@@ -102,7 +102,13 @@ suspend fun visibleArrivalCount(
     return arrivals.filter { it.first !in hiddenIds }.sumOf { it.second }
 }
 
-private fun hiddenWithGroups(hidden: Set<Long>, memberships: Map<Long, Long>): Set<Long> {
+/**
+ * [hidden] widened to every entry sharing a merge group with one: the id-set form of
+ * [reikai.presentation.library.isHiddenFromLibrary], pinned to it by HiddenFromLibraryTest. The Updates
+ * feeds hold the same rule in SQL (mergeHiddenManga, getRecentNovelUpdatesWithFilters), pinned by
+ * UpdatesFeedFilterConformanceTest.
+ */
+internal fun hiddenWithGroups(hidden: Set<Long>, memberships: Map<Long, Long>): Set<Long> {
     val hiddenGroups = hidden.mapNotNullTo(HashSet()) { memberships[it] }
     if (hiddenGroups.isEmpty()) return hidden
     return hidden + memberships.filterValues { it in hiddenGroups }.keys

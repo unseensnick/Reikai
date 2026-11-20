@@ -87,7 +87,20 @@ class UpdatesFeedFilterConformanceTest {
     ) = runTest {
         type.seed(driver, type.statements + type.hideEntryThree + type.groupThreeAndFour)
 
-        type.unreadWidgetFeed(database, seriesMerging).sorted() shouldBe expected
+        type.readStateFeed(database, read = false, seriesMerging).sorted() shouldBe expected
+    }
+
+    /** The read feed (getReadUpdates on manga): chapter 12 of entry 4 is read, as are 1 (entry 1) and 5 (entry 3). */
+    @ParameterizedTest
+    @MethodSource("mergedHideReadCases")
+    fun `the read feed follows the library's hiding of a merged series`(
+        type: Type,
+        seriesMerging: Boolean,
+        expected: List<Long>,
+    ) = runTest {
+        type.seed(driver, type.statements + type.hideEntryThree + type.groupThreeAndFour + type.readOnEntryFour)
+
+        type.readStateFeed(database, read = true, seriesMerging).sorted() shouldBe expected
     }
 
     /** Entry 5 was added at 100 and its chapter 8 fetched and uploaded at 300, both before the cutoff. */
@@ -149,6 +162,7 @@ class UpdatesFeedFilterConformanceTest {
         val beforeCutoff: List<String>,
         val fetchedBeforeAdded: String,
         val newest: String,
+        val readOnEntryFour: String,
     ) {
         MANGA(
             listOf(
@@ -189,6 +203,10 @@ class UpdatesFeedFilterConformanceTest {
             ),
             fetchedBeforeAdded = mangaChapter(id = 9, mangaId = 1, at = 900),
             newest = mangaChapter(id = 10, mangaId = 1, at = 3000) + ", " + mangaChapterValues(11, 1, 4000),
+            readOnEntryFour =
+            "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, user_read, " +
+                "user_bookmark, user_last_page_read, remote_chapter_number, remote_order, state_date_fetch, " +
+                "remote_date_upload, remote_memo) VALUES (12, 4, 'c12', 'n', NULL, 1, 0, 0, 2.0, 1, 2000, 2000, '{}')",
         ) {
             // The excluded-scanlator filter is manga only, so it stays off to compare like with like.
             override suspend fun query(database: Database, case: Case, limit: Long, seriesMerging: Boolean) =
@@ -207,10 +225,10 @@ class UpdatesFeedFilterConformanceTest {
                     .first()
                     .map { it.chapterId }
 
-            override suspend fun unreadWidgetFeed(database: Database, seriesMerging: Boolean) =
+            override suspend fun readStateFeed(database: Database, read: Boolean, seriesMerging: Boolean) =
                 UpdatesRepositoryImpl(database)
                     .subscribeWithRead(
-                        read = false,
+                        read = read,
                         after = AFTER,
                         limit = Long.MAX_VALUE,
                         seriesMerging = seriesMerging,
@@ -250,6 +268,9 @@ class UpdatesFeedFilterConformanceTest {
             ),
             fetchedBeforeAdded = novelChapter(id = 9, novelId = 1, at = 900),
             newest = novelChapter(id = 10, novelId = 1, at = 3000) + ", " + novelChapterValues(11, 1, 4000),
+            readOnEntryFour =
+            "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, last_text_progress, " +
+                "chapter_number, source_order, date_fetch, date_upload) VALUES (12, 4, 'c12', 'n', 1, 0, 0, 2.0, 1, 2000, 2000)",
         ) {
             override suspend fun query(database: Database, case: Case, limit: Long, seriesMerging: Boolean) =
                 NovelRepositoryImpl(database)
@@ -266,8 +287,8 @@ class UpdatesFeedFilterConformanceTest {
                     .first()
                     .map { it.chapterId }
 
-            override suspend fun unreadWidgetFeed(database: Database, seriesMerging: Boolean) =
-                query(database, Case.UNREAD, Long.MAX_VALUE, seriesMerging)
+            override suspend fun readStateFeed(database: Database, read: Boolean, seriesMerging: Boolean) =
+                query(database, if (read) Case.READ else Case.UNREAD, Long.MAX_VALUE, seriesMerging)
         },
         ;
 
@@ -279,8 +300,9 @@ class UpdatesFeedFilterConformanceTest {
             seriesMerging: Boolean = true,
         ): List<Long>
 
-        /** The updates widgets' feed: Mihon's unread read on manga, the unread filter on novels (unifiedWidgetUpdates). */
-        abstract suspend fun unreadWidgetFeed(database: Database, seriesMerging: Boolean): List<Long>
+        /** The feed by read state: Mihon's read-state queries on manga (the widgets read unread, unifiedWidgetUpdates),
+         *  the read filter on novels. */
+        abstract suspend fun readStateFeed(database: Database, read: Boolean, seriesMerging: Boolean): List<Long>
 
         suspend fun chapterIds(database: Database, case: Case, seriesMerging: Boolean = true) =
             query(database, case, seriesMerging = seriesMerging).sorted()
@@ -309,6 +331,11 @@ class UpdatesFeedFilterConformanceTest {
         @JvmStatic
         fun mergedHideWidgetCases() = Type.entries.flatMap {
             listOf(Arguments.of(it, true, listOf(2L, 3L)), Arguments.of(it, false, listOf(2L, 3L, 6L)))
+        }
+
+        @JvmStatic
+        fun mergedHideReadCases() = Type.entries.flatMap {
+            listOf(Arguments.of(it, true, listOf(1L)), Arguments.of(it, false, listOf(1L, 12L)))
         }
     }
 }
