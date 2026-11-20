@@ -36,17 +36,19 @@ open class EntryMergeManager(
      * Every display and aggregation read resolves through here; data operations read
      * [MergeGroupRepository.getMembers] instead. See docs/dev/subsystems/merged-series.md "The group".
      */
-    suspend fun computeRelatedIds(targetId: Long): LongArray = resolveRelated(listOf(targetId)) { id ->
-        repository.getGroupId(contentType, id)?.let { repository.getFavoriteMembers(contentType, it) }
-    }.getValue(targetId).toLongArray()
+    suspend fun computeRelatedIds(targetId: Long): LongArray =
+        resolveRelated(listOf(targetId)) { favoriteMembersOf(it) }.getValue(targetId).toLongArray()
 
     /** The library members of [targetId]'s group in order, whether or not [targetId] is one; just
      *  [targetId] when it is ungrouped or merging is off. What an entry outside the library would rejoin. */
     suspend fun groupLibraryMembers(targetId: Long): List<Long> {
         if (!preferences.seriesMergingEnabled.get()) return listOf(targetId)
-        val groupId = repository.getGroupId(contentType, targetId) ?: return listOf(targetId)
-        return repository.getFavoriteMembers(contentType, groupId)
+        return favoriteMembersOf(targetId) ?: listOf(targetId)
     }
+
+    /** The library members of [id]'s group in order, null when it is ungrouped; ignores the merging switch. */
+    private suspend fun favoriteMembersOf(id: Long): List<Long>? =
+        repository.getGroupId(contentType, id)?.let { repository.getFavoriteMembers(contentType, it) }
 
     /** [computeRelatedIds] for each of [ids], from one membership read plus one per group they reach. */
     suspend fun relatedIdsOf(ids: List<Long>): Map<Long, List<Long>> {
