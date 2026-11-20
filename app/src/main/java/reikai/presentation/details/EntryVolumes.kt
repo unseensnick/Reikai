@@ -34,7 +34,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
-import reikai.domain.local.localVolumeKey
+import reikai.domain.local.localShownVolumeKey
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localChapterUnit
 import tachiyomi.core.common.util.lang.launchIO
@@ -65,15 +65,9 @@ data class ChapterVolume(
      */
     fun under(mode: LooseFiles?): ChapterVolume? {
         val loose = loose ?: return this
-        val own =
-            localVolumeKey(series, localGroupUnit(series, key).first, VolumeOwner.LOOSE, loose.file, eachLoose = true)
-        // Not loose in the series' own folder, which is all the setting rules.
-        if (own == key) return this
-        return when (mode ?: LooseFiles.ONE_VOLUME) {
-            LooseFiles.ONE_VOLUME -> this
-            LooseFiles.NO_VOLUME -> null
-            LooseFiles.EACH_ITS_OWN -> copy(key = own, label = VolumeLabel.Name(loose.title))
-        }
+        val folder = localGroupUnit(series, key).first
+        val shown = localShownVolumeKey(series, folder, VolumeOwner.LOOSE, loose.file, mode) ?: return null
+        return if (shown == key) this else copy(key = shown, label = VolumeLabel.Name(loose.title))
     }
 
     /**

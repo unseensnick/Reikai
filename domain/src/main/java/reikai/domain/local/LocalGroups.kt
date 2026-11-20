@@ -1,6 +1,7 @@
 package reikai.domain.local
 
 import kotlinx.serialization.Serializable
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.library.ContentType
 
 /**
@@ -96,6 +97,18 @@ fun localGroupKey(owner: String, folder: String, volume: String): String =
  */
 fun localVolumeKey(owner: String, folder: String, volume: String, file: String, eachLoose: Boolean): String =
     localGroupKey(owner, folder, if (eachLoose && folder == owner && volume == VolumeOwner.LOOSE) file else volume)
+
+/**
+ * The key [owner] shows a manga chapter [file] of [folder]'s [volume] under, by the owner's Loose files [mode]
+ * (null reads one volume): none for one loose in its own folder under No volume, else [localVolumeKey]'s. The
+ * details page and a combine's notes, Undo included, all read it here, so a note lands where the page shows it.
+ */
+fun localShownVolumeKey(owner: String, folder: String, volume: String, file: String, mode: LooseFiles?): String? =
+    if (mode == LooseFiles.NO_VOLUME && folder == owner && volume == VolumeOwner.LOOSE) {
+        null
+    } else {
+        localVolumeKey(owner, folder, volume, file, eachLoose = mode == LooseFiles.EACH_ITS_OWN)
+    }
 
 /**
  * The folders under the local root that hold volume [volume] of [folder]: none for a novel book named like its

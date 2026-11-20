@@ -20,7 +20,6 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
-import reikai.domain.chapter.LooseFiles
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.SetEntryTitle
 import reikai.domain.library.ContentType
@@ -37,6 +36,7 @@ import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
+import reikai.domain.local.localShownVolumeKey
 import reikai.domain.local.localVolumeContainer
 import reikai.domain.local.localVolumeKey
 import reikai.domain.manga.RemoveMangaFromLibrary
@@ -169,6 +169,8 @@ class CombineLocalVolumes(
                         add += VolumeOwner(other.folder, VolumeOwner.WHOLE, kept.folder)
                     }
                     volumeRows.next(other.folder)
+                    // A loose file Each its own showed as a volume is parked under `folder/file`, unread while its
+                    // folder's loose files are one volume here, and comes home with them.
                     saved[other.folder].orEmpty().forEach { row ->
                         val (folder, volume) = localGroupUnit(other.folder, row.key)
                         volumeRows.move(row.key, localGroupKey(kept.folder, folder, volume))
@@ -179,7 +181,7 @@ class CombineLocalVolumes(
                 // own only on its first combine, so a later Add volumes cannot refill a volume note emptied since.
                 val firstCombine = before.none { it.owner == kept.folder }
                 val notes = (others + listOfNotNull(kept.takeIf { firstCombine }))
-                    .map { SeriesNotes(it.folder, seriesNotes(type, it.id), volumeKeysIn(type, it.id, kept)) }
+                    .map { SeriesNotes(it.folder, seriesNotes(type, it.id), volumeKeysIn(type, it, kept)) }
                 val move = regroup(
                     type = type,
                     folders = folders,
@@ -206,16 +208,22 @@ class CombineLocalVolumes(
         notes: List<SeriesNotes>,
         move: LocalVolumeMove,
     ): LocalVolumeMove {
-        val written = try {
+        // Each copy counts once it has landed, so one that fails partway leaves the Undo the ones before it.
+        val written = mutableListOf<CopiedNote>()
+        try {
             val held = notesOf(type, kept)
             notes.filter { it.text.isNotBlank() }
-                .flatMap { series -> series.keys.filter { held[it].isNullOrBlank() }.map { CopiedNote(it, series) } }
+                .flatMap { series ->
+                    series.keys.keys.filter { held[it].isNullOrBlank() }.map { CopiedNote(it, series) }
+                }
                 .distinctBy { it.key }
-                .onEach { localVolumes.setNotes(type, kept, it.key, it.series.text) }
+                .forEach {
+                    localVolumes.setNotes(type, kept, it.key, it.series.text)
+                    written += it
+                }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             logcat(LogPriority.ERROR, e) { "Copying combined series' notes onto their volumes failed" }
-            emptyList()
         }
         if (written.isEmpty()) return move
         return LocalVolumeMove(
@@ -242,20 +250,28 @@ class CombineLocalVolumes(
 
     /**
      * An edited copy whose volume had no saved row before the combine stays under [kept] after the Undo moved the
-     * volume back, since only saved rows move; it goes to the volume's own series, which it was written for.
+     * volume back, since only saved rows move; it goes to the volume's own series, which it was written for, under
+     * each key that series shows the volume's chapters by and that has no notes of its own. Where that series shows
+     * them in no volume, or every such key has notes, the copy stays where it was written.
      */
     private suspend fun carryEditsHome(type: ContentType, kept: String, edited: List<CopiedNote>) {
         val left = notesOf(type, kept)
         edited.filter { it.series.folder != kept }.forEach { copy ->
             val text = left[copy.key]?.takeIf { it.isNotBlank() } ?: return@forEach
-            val (folder, volume) = localGroupUnit(kept, copy.key)
-            localVolumes.setNotes(type, copy.series.folder, localGroupKey(copy.series.folder, folder, volume), text)
+            val home = copy.series.folder
+            val there = notesOf(type, home)
+            val keys = copy.series.keys[copy.key].orEmpty().filter { there[it].isNullOrBlank() }
+            if (keys.isEmpty()) return@forEach
+            keys.forEach { localVolumes.setNotes(type, home, it, text) }
             localVolumes.setNotes(type, kept, copy.key, "")
         }
     }
 
-    /** A combined series' [folder], its own [text] notes, and the [keys] its volumes go by in the kept series. */
-    private class SeriesNotes(val folder: String, val text: String, val keys: List<String>)
+    /**
+     * A combined series' [folder], its own [text] notes, and the [keys] its volumes go by in the kept series, each
+     * to the keys the series' own page shows the same chapters under.
+     */
+    private class SeriesNotes(val folder: String, val text: String, val keys: Map<String, Set<String>>)
 
     private class CopiedNote(val key: String, val series: SeriesNotes)
 
@@ -268,34 +284,32 @@ class CombineLocalVolumes(
     }
 
     /**
-     * The keys [id]'s volumes are shown under once it is part of [kept]: a manga chapter loose in the kept folder by
-     * that series' Loose files setting, as the details page heads it (`ChapterVolume.under`), and none when it says
-     * no volume.
+     * The keys [series]' volumes are shown under once it is part of [kept], each to the keys [series] showed them
+     * under: both by their own Loose files setting, as the details page heads them, so a key goes when it says no
+     * volume.
      */
-    private suspend fun volumeKeysIn(type: ContentType, id: Long, kept: CombinableSeries): List<String> {
-        val loose = if (type == ContentType.NOVELS) null else localVolumes.loadedLooseFiles()[kept.folder]
-        return localChapterUrls(type, id, novelChapterRepository, chapterRepository).mapNotNull { url ->
-            val (folder, volume) = chapterVolumeUnit(type, url) ?: return@mapNotNull null
-            val ownLoose = folder == kept.folder && volume == VolumeOwner.LOOSE
-            when {
-                !ownLoose -> localGroupKey(kept.folder, folder, volume)
-                loose == LooseFiles.NO_VOLUME -> null
-                else -> localVolumeKey(
-                    kept.folder,
-                    folder,
-                    volume,
-                    localChapterFile(url),
-                    eachLoose = loose == LooseFiles.EACH_ITS_OWN,
-                )
-            }
-        }.distinct()
+    private suspend fun volumeKeysIn(
+        type: ContentType,
+        series: CombinableSeries,
+        kept: CombinableSeries,
+    ): Map<String, Set<String>> {
+        val loose = if (type == ContentType.NOVELS) emptyMap() else localVolumes.loadedLooseFiles()
+        val keys = LinkedHashMap<String, MutableSet<String>>()
+        localChapterUrls(type, series.id, novelChapterRepository, chapterRepository).forEach { url ->
+            val (folder, volume) = chapterVolumeUnit(type, url) ?: return@forEach
+            val file = localChapterFile(url)
+            val key = localShownVolumeKey(kept.folder, folder, volume, file, loose[kept.folder]) ?: return@forEach
+            val home = localShownVolumeKey(series.folder, folder, volume, file, loose[series.folder])
+            keys.getOrPut(key) { LinkedHashSet() }.addAll(listOfNotNull(home))
+        }
+        return keys
     }
 
     /**
      * Applies a backup's owner rows as a combine applies its own: a volume the backup puts in another series moves
-     * there with its chapters' rows and kept state, a series whose own folder the backup lends whole to another
-     * leaves the library, and the owners list again. The backup wins over the device, as it does for merge groups,
-     * and a restore offers no Undo. A row the device already holds changes nothing. Each series' rows come back
+     * there with its chapters' rows, kept state and saved rows, a series whose own folder the backup lends whole to
+     * another leaves the library, and the owners list again. The backup wins over the device, as it does for merge
+     * groups, and a restore offers no Undo. A row the device already holds changes nothing. Each series' rows come back
      * under their own lock, so one waiting for a repair, or failing, holds back only its own, and the throw names it.
      * Then each [restored] series the device groups otherwise follows the device ([settleRestored]).
      */
@@ -329,18 +343,66 @@ class CombineLocalVolumes(
                 chapterMoves.localSeriesId(type, name)?.let { name to it }
             }.toMap()
             val restoredId = series[folder] ?: return@withSeries null
+            val groups = LocalGroups(localVolumes.all(type))
+            val saved = localVolumes.loadedVolumes(type)
+            // Its restored rows of a lent volume came from the backup, which wins where the two rows differ.
+            val folds = foldRows(
+                saved,
+                saved[folder].orEmpty().mapNotNull { row ->
+                    val (from, volume) = localGroupUnit(folder, row.key)
+                    val to = groups.ownerOf(from, volume)
+                    RowFollowing(folder, row, to).takeIf { to != folder && to in series }
+                },
+                backupAtTarget = false,
+            )
             regroup(
                 type = type,
                 folders = folders,
                 series = series,
                 remove = emptyList(),
                 add = emptyList(),
-                volumes = emptyList(),
+                volumes = folds.map { it.move },
                 relist = (series - folder).values.toList(),
-                leaving = listOf(restoredId).filter { LocalGroups(localVolumes.all(type)).isLentWhole(folder) },
-            ).also { it.finish() }.result
+                leaving = listOf(restoredId).filter { groups.isLentWhole(folder) },
+            ).also { it.finish() }.result.also { if (it is LocalMoveResult.Moved) writeFolded(type, folds) }
         }
     }
+
+    /** A saved row of series [from] whose volume series [to] lists. */
+    private data class RowFollowing(val from: String, val row: LocalVolume, val to: String)
+
+    /** [move] takes a row to the series that lists its volume, where it is given [fields]' label and notes. */
+    private class FoldedRow(val move: VolumeRowPair, val to: String, val fields: LocalVolume)
+
+    /**
+     * Each of [rows] moved to the key its new series reads it by, as a combine moves them, folded per field onto a
+     * row already there: the backup's side wins, the target when [backupAtTarget]. The position is the target row's,
+     * else the moved one's placed after the target's own, as a combine places it.
+     */
+    private fun foldRows(
+        saved: Map<String, List<LocalVolume>>,
+        rows: List<RowFollowing>,
+        backupAtTarget: Boolean,
+    ): List<FoldedRow> = rows.map { (from, row, to) ->
+        val (folder, volume) = localGroupUnit(from, row.key)
+        val key = localGroupKey(to, folder, volume)
+        val there = saved[to]?.firstOrNull { it.key == key }
+        val end = saved[to]?.mapNotNull { it.position }?.maxOrNull()?.plus(1)
+        val position = there?.position ?: row.position?.let { p -> end?.plus(p) }
+        val (won, lost) = if (backupAtTarget) there to row else row to there
+        FoldedRow(
+            VolumeRowPair(
+                VolumeRowMove(from, row.key, to, key, position),
+                VolumeRowMove(to, key, from, row.key, row.position),
+            ),
+            to,
+            LocalVolume(key, null, won?.label ?: lost?.label, won?.notes ?: lost?.notes),
+        )
+    }
+
+    // A moved row replaces the one at its key, so the fields that row won go back on after the regroup.
+    private suspend fun writeFolded(type: ContentType, folds: List<FoldedRow>) =
+        folds.groupBy({ it.to }, { it.fields }).forEach { (series, rows) -> localVolumes.restore(type, series, rows) }
 
     private suspend fun restoreGroup(type: ContentType, fresh: List<VolumeOwner>): LocalMoveResult {
         val units = fresh.mapTo(HashSet()) { it.folder to it.volume }
@@ -358,16 +420,33 @@ class CombineLocalVolumes(
             }.toMap()
             val leaving = fresh.filter { it.volume == VolumeOwner.WHOLE && it.folder != it.owner }
                 .mapNotNull { series[it.folder] }
+            // A volume changing hands takes its saved order, name and notes, as a combine's do; the row the backup
+            // restored at the new owner's key wins where both have one.
+            val held = LocalGroups(now)
+            val restored = LocalGroups(now - replaced.toSet() + fresh)
+            val saved = localVolumes.loadedVolumes(type)
+            val folds = foldRows(
+                saved,
+                series.keys.flatMap { from ->
+                    saved[from].orEmpty().mapNotNull { row ->
+                        val (folder, volume) = localGroupUnit(from, row.key)
+                        val to = restored.ownerOf(folder, volume)
+                        RowFollowing(from, row, to)
+                            .takeIf { to != from && to in series && held.ownerOf(folder, volume) == from }
+                    }
+                },
+                backupAtTarget = true,
+            )
             regroup(
                 type = type,
                 folders = folders,
                 series = series,
                 remove = replaced,
                 add = fresh,
-                volumes = emptyList(),
+                volumes = folds.map { it.move },
                 relist = (fresh.map { it.owner } + replaced.map { it.owner }).distinct().mapNotNull { series[it] },
                 leaving = leaving,
-            ).also { it.finish() }.result
+            ).also { it.finish() }.result.also { if (it is LocalMoveResult.Moved) writeFolded(type, folds) }
         }
     }
 
@@ -409,7 +488,20 @@ class CombineLocalVolumes(
                         }.toDomainManga(LocalSource.ID),
                     ).id
                 }
-                val volumes = localVolumes.loadedVolumes(type)[series.folder].orEmpty().filter { it.key in volumeKeys }
+                // A loose file Each its own showed as a volume keeps its row under its own name, which goes with the
+                // loose files, parked under the folder's key, to come home with them (local-novels.md, Loose files).
+                val ownLoose = series.folder to VolumeOwner.LOOSE
+                val eachLoose = if (ownLoose !in units) {
+                    emptySet()
+                } else {
+                    localChapterUrls(type, series.id, novelChapterRepository, chapterRepository)
+                        .filter { chapterVolumeUnit(type, it) == ownLoose }
+                        .mapTo(HashSet()) {
+                            localVolumeKey(series.folder, series.folder, VolumeOwner.LOOSE, localChapterFile(it), true)
+                        }
+                }
+                val volumes = localVolumes.loadedVolumes(type)[series.folder].orEmpty()
+                    .filter { it.key in volumeKeys || it.key in eachLoose }
                     .map { row ->
                         val (from, volume) = localGroupUnit(series.folder, row.key)
                         val key = localGroupKey(folder, from, volume)

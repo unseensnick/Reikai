@@ -492,25 +492,6 @@ class LocalMovesUnderLockTest {
             listOf(true, true, listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1"), listOf("Other/Vol 1/Ch 1"))
     }
 
-    // The novel half of this rule is LocalNovelVolumesTest's; one combine serves both types.
-    @Test
-    fun `a combine shows each series' notes under its own volumes and Undo takes them back off`() = runTest {
-        driver.exec("UPDATE manga SET user_notes = 'Kept notes' WHERE id = $KEPT")
-        driver.exec("UPDATE manga SET user_notes = 'Other notes' WHERE id = $OTHER")
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
-        }
-        val combined = keptVolumeNotes()
-
-        withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
-
-        (combined to keptVolumeNotes()) shouldBe
-            (mapOf("Vol 1" to "Kept notes", "Other/Vol 1" to "Other notes") to emptyMap())
-    }
-
-    private suspend fun keptVolumeNotes() = volumes.loadedVolumes(ContentType.MANGA)["Kept"].orEmpty()
-        .mapNotNull { volume -> volume.notes?.let { volume.key to it } }.toMap()
-
     @Test
     fun `a combined folder is no series of its own in Browse, and what is put there later lists under the kept one`() =
         runTest {

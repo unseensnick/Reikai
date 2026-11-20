@@ -127,6 +127,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     private val loose = LinkedHashSet<String>()
     private val pending = mutableListOf<Pair<LocalVolumeMove, List<String>>>()
 
+    /** The combines among [pending], each with its kept folder and the notes of the series it took in. */
+    private val combines = HashMap<LocalVolumeMove, Pair<String, Set<String>>>()
+
     /** The moves among [pending] that are a Rename files. */
     private val renames = HashSet<LocalVolumeMove>()
 
@@ -473,6 +476,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         faults.killAt = -1
         faults.sticky.clear()
         pending.clear()
+        combines.clear()
         // Whatever the dead process still ran dies at its next call, before anything new starts.
         runCatching { app.settle() }
         app.scope.cancel()
@@ -588,10 +592,15 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val others = all.drop(1).take(1 + rng.nextInt(2))
         val touched = groupFolders(listOf(kept.second) + others.map { it.second })
         structural(touched)
+        val copied = notesOf(others.map { it.first })
         inApp("combine ${others.map { it.second }} into ${kept.second}") {
             val series = app.combine.series(ContentType.MANGA, listOf(kept.first) + others.map { it.first })
             val move = app.combine.combine(ContentType.MANGA, series.first(), series.drop(1))
             moved(move, touched)
+            if (move.result is LocalMoveResult.Moved) combines[move] = kept.second to copied
+        }
+        if (!faults.dead && combines.values.any { it.first == kept.second }) {
+            trace += "    -> ${volumeNotes(kept.second).values.count { it in copied }} notes copied onto its volumes"
         }
     }
 
@@ -629,6 +638,8 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             if (landed) renames += move
             moved(move, touched + names.series.to)
         }
+        // Its files have moved, so a combine's Undo after it leaves the copies on volumes now the kept series' own.
+        combines.values.removeAll { it.first in touched }
         if (!landed) astray(touched)
     }
 
@@ -736,18 +747,52 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val (move, series) = pending.randomOrNull(rng) ?: return
         pending.removeIf { it.first === move }
         structural(series)
+        val combined = combines.remove(move)
+        val before = combined?.let { volumeNotes(it.first) }
         var landed = false
+        var refused = false
         inApp("undo the move over $series") {
             val result = move.undo()
             landed = result is LocalMoveResult.Moved
+            refused = result is LocalMoveResult.Failed
             trace += "    -> $result"
         }
+        if (combined != null && !faults.dead) checkNotesUndone(combined, before.orEmpty(), landed, refused)
         if (!landed && move in renames) astray(series)
     }
+
+    /**
+     * (d) A combine's Undo that went through leaves the kept series none of the notes it copied from the series it
+     * took in, and one that was refused leaves its volumes' notes as they were.
+     */
+    private suspend fun checkNotesUndone(
+        combined: Pair<String, Set<String>>,
+        before: Map<String, String>,
+        landed: Boolean,
+        refused: Boolean,
+    ) {
+        val (kept, copied) = combined
+        val after = volumeNotes(kept)
+        if (landed) {
+            after.filterValues { it in copied }.forEach { (key, text) ->
+                violations += "(d) $kept's volume $key keeps \"$text\" after the combine's Undo"
+            }
+        } else if (refused && after != before) {
+            violations += "(d) a refused Undo changed $kept's volume notes from $before to $after"
+        }
+    }
+
+    private suspend fun volumeNotes(series: String): Map<String, String> =
+        app.volumes.loadedVolumes(ContentType.MANGA)[series].orEmpty()
+            .mapNotNull { volume -> volume.notes?.let { volume.key to it } }.toMap()
+
+    private suspend fun notesOf(ids: List<Long>): Set<String> =
+        ids.map { app.mangaRepository.getMangaById(it).notes }.filterTo(HashSet()) { it.isNotBlank() }
 
     private suspend fun finishStep() {
         val (move, series) = pending.randomOrNull(rng) ?: return
         pending.removeIf { it.first === move }
+        combines -= move
         inApp("finish the move over $series") {
             move.finish()
             app.settle()
@@ -982,6 +1027,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             real.exec("DELETE FROM local_volume")
             real.exec("DELETE FROM local_manga_loose")
             pending.clear()
+            combines.clear()
         }
         mangaRestorer(database, localVolumes = app.volumes, volumePicks = app.volumePicks).restore(
             batch.map {
@@ -1054,7 +1100,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         "INSERT INTO manga(source_id, remote_url, remote_title, remote_status, state_initialized, " +
             "user_reader_flags, user_chapter_flags, user_favorite_at, remote_update_strategy, " +
             "state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
-            "(${LocalSource.ID}, '$folder', '$folder', 0, 0, 0, 0, 0, 0, 0, '', '{}')",
+            "(${LocalSource.ID}, '$folder', '$folder', 0, 0, 0, 0, 0, 0, 0, 'notes of $folder', '{}')",
     )
 
     /** An edit to [series]' layout: a chapter deleted before it no longer has one address to come back to. */

@@ -45,7 +45,6 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
-import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
@@ -211,57 +210,6 @@ class LocalNovelVolumesTest {
                     listOf(OTHER),
                 )
         }
-
-    @Test
-    fun `a combine shows each novel's notes under its own volume and keeps the series' own`() = runTest {
-        novels.update(NovelUpdate(KEPT) { notes = "Kept notes" })
-        novels.update(NovelUpdate(OTHER) { notes = "Other notes" })
-
-        onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
-
-        (volumeNotes() to novels.getById(KEPT)!!.notes) shouldBe
-            (mapOf("Kept 1.epub" to "Kept notes", "Other/Other 1.epub" to "Other notes") to "Kept notes")
-    }
-
-    @Test
-    fun `a combine keeps a volume's own notes and Undo takes the copied ones back off`() = runTest {
-        novels.update(NovelUpdate(KEPT) { notes = "Kept notes" })
-        novels.update(NovelUpdate(OTHER) { notes = "Other notes" })
-        volumes.setNotes(ContentType.NOVELS, "Kept", "Kept 1.epub", "Own")
-        val move = onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
-        val combined = volumeNotes()
-
-        onApp { move.undo() }
-
-        (combined to volumeNotes()) shouldBe
-            (mapOf("Kept 1.epub" to "Own", "Other/Other 1.epub" to "Other notes") to mapOf("Kept 1.epub" to "Own"))
-    }
-
-    @Test
-    fun `Undo keeps a copied note the user edited since`() = runTest {
-        novels.update(NovelUpdate(OTHER) { notes = "Other notes" })
-        val move = onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
-        volumes.setNotes(ContentType.NOVELS, "Kept", "Other/Other 1.epub", "Edited")
-
-        onApp { move.undo() }
-
-        volumes.loadedVolumes(ContentType.NOVELS)["Other"].orEmpty().single { it.key == "Other 1.epub" }.notes shouldBe
-            "Edited"
-    }
-
-    @Test
-    fun `adding more volumes later does not refill a volume note emptied since`() = runTest {
-        book("Third/Third 1.epub")
-        addSeries(THIRD, "Third")
-        refresh(THIRD)
-        novels.update(NovelUpdate(KEPT) { notes = "Kept notes" })
-        onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
-        volumes.setNotes(ContentType.NOVELS, "Kept", "Kept 1.epub", "")
-
-        onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(THIRD))) }
-
-        volumeNotes()["Kept 1.epub"] shouldBe null
-    }
 
     @Test
     fun `a combine's Undo gives the other series its books back, read`() = runTest {
@@ -445,10 +393,6 @@ class LocalNovelVolumesTest {
             "VALUES ($id, '${LocalNovelSource.ID}', '$url', '$url', 0, 0, 0, 0)",
     )
 
-    /** The kept series' volumes that have notes, by key. */
-    private suspend fun volumeNotes() = volumes.loadedVolumes(ContentType.NOVELS)["Kept"].orEmpty()
-        .mapNotNull { volume -> volume.notes?.let { volume.key to it } }.toMap()
-
     private suspend fun series(id: Long) = combine.series(ContentType.NOVELS, listOf(id)).single()
 
     /** Each chapter row's series folder and book, which is what a volume move changes. */
@@ -481,7 +425,6 @@ class LocalNovelVolumesTest {
     private companion object {
         const val KEPT = 1L
         const val OTHER = 2L
-        const val THIRD = 3L
         const val LONE = 3L
     }
 }
