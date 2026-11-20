@@ -8,6 +8,9 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mihon.core.metro.AppCoroutineScope
 import okio.BufferedSource
 import tachiyomi.core.common.util.lang.launchIO
@@ -28,25 +31,40 @@ class MangaCoverMetadata(
     private val coverCache: CoverCache,
 ) {
 
-    /** Restore the persisted cover colors at app startup. */
-    fun load() {
-        val colors = uiPreferences.coverVibrantColors.get()
-        MangaCover.vibrantCoverColorMap.putAll(
-            colors.mapNotNull {
+    // Startup and every pause reach here, so both run on the app scope rather than the first frame or Main.
+    private val loaded: Job by lazy {
+        scope.launchIO {
+            val colors = uiPreferences.coverVibrantColors.get().mapNotNull {
                 val splits = it.split("|")
                 val id = splits.getOrNull(0)?.toLongOrNull()
                 val color = splits.getOrNull(1)?.toIntOrNull()
                 if (id != null && color != null) id to color else null
-            }.toMap(),
-        )
+            }
+            // A colour a cover load found before this ran is newer than the stored one.
+            colors.forEach { (id, color) -> MangaCover.vibrantCoverColorMap.putIfAbsent(id, color) }
+            saveMutex.withLock { lastSaved = uiPreferences.coverVibrantColors.get() }
+        }
     }
+    private val saveMutex = Mutex()
+    private var lastSaved: Set<String>? = null
 
-    /** Persist the in-memory cover colors (called on app pause). */
-    fun savePrefs() {
-        val copy = MangaCover.vibrantCoverColorMap.toMap()
-        uiPreferences.coverVibrantColors.set(
-            copy.mapNotNull { (id, color) -> color?.let { "$id|$it" } }.toSet(),
-        )
+    /** Restore the persisted cover colors at app startup. */
+    fun load(): Job = loaded
+
+    /**
+     * Persist the in-memory cover colors (called on app pause), skipping the write when nothing changed.
+     * Waits for [load], or a pause before it finished would store a partial map over the full one.
+     */
+    fun savePrefs(): Job = scope.launchIO {
+        loaded.join()
+        val encoded = synchronized(MangaCover.vibrantCoverColorMap) {
+            MangaCover.vibrantCoverColorMap.mapNotNullTo(HashSet()) { (id, color) -> color?.let { "$id|$it" } }
+        }
+        saveMutex.withLock {
+            if (encoded == lastSaved) return@launchIO
+            uiPreferences.coverVibrantColors.set(encoded)
+            lastSaved = encoded
+        }
     }
 
     /** Extract the vibrant color in the background, skipping work when the feature is off or already known. */

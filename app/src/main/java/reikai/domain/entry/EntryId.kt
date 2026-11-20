@@ -45,9 +45,9 @@ fun EntryId.customCoverKey(): String = when (this) {
 
 /**
  * One [Long] per entry across both types, novels negated: row ids are positive, so the halves never
- * meet. For Long-keyed structures that never persist: upstream's `MangaCover.vibrantCoverColorMap`
- * (a colour the next cover load recomputes) and the mixed library's Random rank. Never store it or
- * use it as an identity; that is what [EntryId] itself is for.
+ * meet. For Long-keyed structures: the mixed library's Random rank, and `MangaCover.vibrantCoverColorMap`,
+ * which `MangaCoverMetadata` stores to preferences by this key, so the encoding is a stored format and
+ * must not change. Never use it as an identity; that is what [EntryId] itself is for.
  */
 fun EntryId.signedKey(): Long = when (this) {
     is EntryId.Manga -> rawId

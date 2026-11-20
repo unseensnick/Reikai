@@ -17,6 +17,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A Custom theme builds the app's colors from one color you pick in Settings -> Appearance -> Custom theme color (from Komikku).**
 - **Hide manga or novels across the app with Settings -> Appearance -> Content shown.** A hidden type skips library updates, and nothing is deleted.
 
+#### Fixed
+
+- **Opening Reikai or leaving it no longer stalls on saved cover colors, which browsing used to grow without limit.**
+
 ### Local files
 
 #### Added
