@@ -40,6 +40,7 @@ class LocalImportViewModelTest {
     private val second = mockk<Uri>()
     private val broken = mockk<Uri>()
     private val importing = CompletableDeferred<Unit>()
+    private val importStarted = CompletableDeferred<Unit>()
 
     // The file system and the database are the boundary: previews answer from a table, imports wait on a gate.
     private val localImport = mockk<LocalImport> {
@@ -49,6 +50,7 @@ class LocalImportViewModelTest {
         coEvery { preview(listOf(broken)) } returns
             (emptyList<ImportGroup>() to listOf(ImportProblem("bad.epub", ImportProblem.Reason.Protected, broken)))
         coEvery { import(any(), any(), any()) } coAnswers {
+            importStarted.complete(Unit)
             importing.await()
             ImportResult(emptyList(), emptyList())
         }
@@ -100,7 +102,8 @@ class LocalImportViewModelTest {
         model.add(listOf(first))
         model.state.first { !it.isReading }
         model.startImport()
-        model.state.first { it.isImporting }
+        // The import, not just the tap: what it copies is chosen once reads settle, after the tap.
+        importStarted.await()
         model.add(listOf(second))
         model.state.first { !it.isReading }
 
