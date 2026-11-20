@@ -189,6 +189,26 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         driver.rows(tombstoneUrls(id)) { it.getString(0)!! } shouldBe listOf(chapterUrls("Saga Renamed").last())
     }
 
+    /** A picked folder answers each isDirectory with a provider query, which a file that names no volume need not pay. */
+    @Test
+    fun `finding a renamed series' folder asks the provider nothing about a file that names no volume`() = runTest {
+        val id = seeded("Saga")
+        File(root, "Saga").renameTo(File(root, "Saga Renamed"))
+        File(root, "Saga Renamed/Notes.txt").writeText("notes")
+        var asked = 0
+        FakeSafProvider.onCall = { call, target -> if (call == "queryDocument" && target.name == "Notes.txt") asked++ }
+
+        relink.candidates(type, id)
+        FakeSafProvider.onCall = null
+
+        asked shouldBe 0
+    }
+
+    @Test
+    fun `a relink of a series with no row fails rather than throws`() = runTest {
+        relink.relink(type, 999L, "Saga").javaClass shouldBe LocalMoveResult.Failed::class.java
+    }
+
     @Test
     fun `two folders holding the files are both offered and neither is taken`() = runTest {
         val id = seeded("Saga")

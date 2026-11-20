@@ -23,4 +23,4 @@ suspend fun localNamesGrouped(type: ContentType, owners: LocalVolumeOwnerReposit
     owners.all(type).flatMapTo(HashSet()) { listOf(it.folder, it.owner) }
 
 /** A novel name that is a loose book, a series of one; a manga folder is never one, whatever it is called. */
-fun isLooseBook(type: ContentType, name: String): Boolean = type == ContentType.NOVELS && name.endsWith(EPUB, true)
+fun isLooseBook(type: ContentType, name: String): Boolean = type == ContentType.NOVELS && isEpubBook(name)

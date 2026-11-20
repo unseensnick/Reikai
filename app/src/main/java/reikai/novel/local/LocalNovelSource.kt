@@ -13,6 +13,8 @@ import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import kotlinx.serialization.json.Json
 import mihon.core.archive.archiveReader
 import mihon.domain.extension.model.ContentWarning
+import reikai.data.local.EPUB
+import reikai.data.local.isEpubBook
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.inUserOrder
@@ -136,8 +138,7 @@ class LocalNovelSource(
         // A member folder listed whole with no book left gives no volume, as a manga member folder gives no
         // chapter; one its query cannot find, or the series' own, fails the refresh, since a hiccup reads as absent.
         val members = folders.filterNot { it in missing }.mapNotNull { folder ->
-            val entry = folder.takeIf(::isChildName)?.let { storageManager.getLocalNovelsDirectory()?.findFile(it) }
-                ?: throw LocalNovelMissingException(folder)
+            val entry = seriesEntry(folder) ?: throw LocalNovelMissingException(folder)
             seriesOf(entry) ?: if (folder == novelPath) throw LocalNovelMissingException(folder) else null
         }
         val series = members.firstOrNull { it.path == novelPath }
@@ -193,8 +194,7 @@ class LocalNovelSource(
     override suspend fun parseChapter(chapterPath: String): String = withIOContext {
         val (seriesPath, volumeName, key) = parseChapterPath(chapterPath)
             ?: throw LocalNovelMissingException(chapterPath)
-        val file = seriesAt(seriesPath)?.volumes?.firstOrNull { it.name == volumeName }
-            ?: throw LocalNovelMissingException(chapterPath)
+        val file = volumeFile(seriesPath, volumeName) ?: throw LocalNovelMissingException(chapterPath)
         val opened = open(file)
         val index = opened.chapters.indexOfFirst { it.key == key }.takeIf { it >= 0 }
             ?: throw LocalNovelMissingException(chapterPath)
@@ -210,7 +210,7 @@ class LocalNovelSource(
      */
     suspend fun picture(address: String): LocalNovelPicture? = withIOContext {
         val (series, volume, entry) = parsePictureAddress(address) ?: return@withIOContext null
-        val file = seriesAt(series)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
+        val file = volumeFile(series, volume) ?: return@withIOContext null
         val bytes = file.archiveReader(context).use { it.readEntries(setOf(entry))[entry] }
             ?: return@withIOContext null
         LocalNovelPicture(bytes, runCatching { book(file) }.getOrNull()?.imageType(entry))
@@ -234,10 +234,15 @@ class LocalNovelSource(
         }
     }
 
-    // A path from a chapter row or a picture address is a name in the folder, never a way out of it.
-    private fun seriesAt(path: String): Series? = path.takeIf(::isChildName)
-        ?.let { storageManager.getLocalNovelsDirectory()?.findFile(it) }
-        ?.let(::seriesOf)
+    // A path from a chapter row, a picture address or a novel's url is a name in the folder, never a way out of it.
+    private fun seriesEntry(path: String): UniFile? =
+        path.takeIf(::isChildName)?.let { storageManager.getLocalNovelsDirectory()?.findFile(it) }
+
+    private fun seriesAt(path: String): Series? = seriesEntry(path)?.let(::seriesOf)
+
+    /** The book named [volume] among the series at [seriesPath]'s volumes. */
+    private fun volumeFile(seriesPath: String, volume: String): UniFile? =
+        seriesAt(seriesPath)?.volumes?.firstOrNull { it.name == volume }
 
     private fun seriesOf(entry: UniFile): Series? {
         val name = entry.name ?: return null
@@ -284,7 +289,7 @@ class LocalNovelSource(
     private fun Series.toItem(): NovelItem {
         val first = volumes.firstNotNullOfOrNull { file -> runCatching { book(file) }.getOrNull()?.let { file to it } }
         return NovelItem(
-            name = details()?.title ?: first?.let { title(it.second) } ?: path.removeSuffix(EPUB_SUFFIX),
+            name = details()?.title ?: first?.let { title(it.second) } ?: path.removeSuffix(EPUB),
             path = path,
             cover = first?.let { (file, book) -> coverAddress(file, book) },
         )
@@ -294,7 +299,7 @@ class LocalNovelSource(
     private fun Series.title(first: EpubBook): String {
         val meta = first.metadata
         val fromBooks = if (volumes.size > 1) meta.series ?: meta.title else meta.title ?: meta.series
-        return fromBooks ?: path.removeSuffix(EPUB_SUFFIX)
+        return fromBooks ?: path.removeSuffix(EPUB)
     }
 
     private fun Series.details(): MangaDetails? = files
@@ -327,7 +332,7 @@ class LocalNovelSource(
 
     private fun volumeBook(seriesPath: String, key: String): Triple<String, UniFile, EpubBook>? {
         val (folder, volume) = localGroupUnit(seriesPath, key)
-        val file = seriesAt(folder)?.volumes?.firstOrNull { it.name == volume } ?: return null
+        val file = volumeFile(folder, volume) ?: return null
         val book = runCatching { book(file) }.getOrNull() ?: return null
         return Triple(folder, file, book)
     }
@@ -349,8 +354,7 @@ class LocalNovelSource(
      * one. Twin of `LocalCoverManager.update`, pinned by writeLocalCover, which both write through.
      */
     suspend fun writeCover(novelPath: String, stream: InputStream): String? = withIOContext {
-        val folder = storageManager.getLocalNovelsDirectory()?.findFile(novelPath)?.takeIf { it.isDirectory }
-            ?: return@withIOContext null
+        val folder = seriesEntry(novelPath)?.takeIf { it.isDirectory } ?: return@withIOContext null
         val written = writeLocalCover(context, folder, stream)
         // The folder cover now wins, so the book covers copied for this series are never read again.
         dropCoverCopies(novelPath)
@@ -419,10 +423,11 @@ class LocalNovelSource(
 
         private const val BOOK_CACHE_SIZE = 256
         private const val CHAPTER_CACHE_SIZE = 8
-        private const val DETAILS_FILE = "details.json"
+
+        /** The file a local novel series folder carries its own details in. */
+        const val DETAILS_FILE = "details.json"
         private const val COVER_DIR = "local_novel_covers"
         private const val PARTIAL_SUFFIX = ".part"
-        private const val EPUB_SUFFIX = ".epub"
         private const val PATH_SEPARATOR = "::"
         private const val PICTURE_SCHEME = "rk-local-picture:"
 
@@ -430,7 +435,7 @@ class LocalNovelSource(
 
         private val BY_NAME = Comparator<Series> { a, b -> a.path.compareToCaseInsensitiveNaturalOrder(b.path) }
 
-        private fun UniFile.isEpub(): Boolean = name.orEmpty().endsWith(EPUB_SUFFIX, ignoreCase = true)
+        private fun UniFile.isEpub(): Boolean = isEpubBook(name.orEmpty())
 
         /**
          * The volumes of a series that open, with their files. Only a book that is protected or not an EPUB

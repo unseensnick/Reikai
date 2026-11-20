@@ -153,6 +153,36 @@ class LocalSeriesLocksTest {
         (beforeExtra to listing.await()) shouldBe (false to "listed")
     }
 
+    /** A holder that blocks the series on its way out, as an organize it cannot put back does, under its own hold. */
+    @Test
+    fun `a listing queued behind a holder that blocks the series is refused once it gets the lock`() = runTest {
+        val locks = LocalSeriesLocks(Owners()).apply { open() }
+        val release = CompletableDeferred<Unit>()
+        launch {
+            locks.withSeries(ContentType.MANGA, "Saga") {
+                release.await()
+                locks.block(ContentType.MANGA, 1L, listOf("Saga"))
+            }
+        }
+        repeat(3) { yield() }
+        val listing = async { runCatching { locks.withSeries(ContentType.MANGA, "Saga") { "listed" } } }
+        repeat(3) { yield() }
+        release.complete(Unit)
+
+        listing.await().exceptionOrNull()?.javaClass shouldBe LocalSeriesBlockedException::class.java
+    }
+
+    @Test
+    fun `a folder two unresolved rows refuse stays refused until both are resolved`() = runTest {
+        val locks = LocalSeriesLocks(Owners()).apply { open() }
+        locks.block(ContentType.NOVELS, 1L, listOf("Saga"))
+        locks.block(ContentType.NOVELS, 2L, listOf("saga", "Other"))
+
+        locks.unblock(1L)
+
+        listOf("Saga", "Other").map { locks.isBlocked(ContentType.NOVELS, listOf(it)) } shouldBe listOf(true, true)
+    }
+
     private class Owners(var rows: List<VolumeOwner> = emptyList()) : LocalVolumeOwnerRepository {
         override suspend fun all(type: ContentType) = rows
     }

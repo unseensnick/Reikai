@@ -66,10 +66,12 @@ class LocalOrganizer(
 
     /** Runs [plan] from its first step; the caller holds the lock on every folder it names. */
     suspend fun run(type: ContentType, plan: Organize): LocalMoveResult {
-        // Before the journal, so a folder whose query hiccups fails the organize with nothing to put back.
-        reach(plan.root) ?: return LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
+        // Before the journal, so a folder whose query hiccups fails the organize with nothing to put back. Read once:
+        // a second query failing after the row is written would refuse the series with nothing done.
+        val root = reach(plan.root)
+            ?: return LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
         val id = journal.insert(type, plan)
-        return carryOn(type, id, plan)
+        return carryOn(type, id, plan, root)
     }
 
     /** Takes up [plan], journal row [id], where a kill left it, before any listing can read the half-done state. */
@@ -80,26 +82,42 @@ class LocalOrganizer(
         val cut = plan.steps.getOrNull(plan.done)?.takeIf { it !is FileStep.Rows && it !is FileStep.SetAside }
         val landed = cut?.let { landed(root, it) ?: return block(type, id, plan) }
         val at = if (landed == true) plan.copy(done = plan.done + 1).also { journal.update(id, it) } else plan
-        val result = carryOn(type, id, at)
+        val result = carryOn(type, id, at, root)
         if (result is LocalMoveResult.Failed) logcat(LogPriority.WARN, result.error) { "Organize $id left for later" }
     }
 
-    private suspend fun carryOn(type: ContentType, id: Long, plan: Organize): LocalMoveResult {
+    private suspend fun carryOn(type: ContentType, id: Long, plan: Organize, root: UniFile): LocalMoveResult {
         var at = plan
-        val root = reach(plan.root) ?: return blocked(type, id, plan, IllegalStateException("The local folder is gone"))
+        // The names each move's target folder holds, read once for a run of moves: loose chapters go one by one
+        // into one folder, and re-listing it for each would grow with the square of their count.
+        val named = HashMap<List<String>, MutableSet<String>>()
         while (at.done < at.steps.size) {
             val step = at.steps[at.done]
             val next = at.copy(done = at.done + 1)
+            if (step !is FileStep.Move) named.clear()
             try {
-                if (step is FileStep.Rows) {
+                when (step) {
                     // The note goes in the rows' own transaction, so a kill leaves both or neither.
-                    writeRows(type, plan, step.forward) { journal.update(id, next) }
-                } else {
-                    check(apply(root, step)) { "Could not $step" }
+                    is FileStep.Rows -> writeRows(type, plan, step.forward) { journal.update(id, next) }
+                    is FileStep.Rename -> {
+                        val document = renamed(root, step)
+                        if (document?.rename(step.to) != true) {
+                            // The provider can dodge a taken name and then the put back onto another, leaving a
+                            // third name; noted as a landed step, so the putting back and every retry find it.
+                            val now = document?.name
+                            if (now != null && now != step.path.last()) {
+                                at = at.strayed(now)
+                                journal.update(id, at)
+                            }
+                            error("Could not $step")
+                        }
+                    }
+                    is FileStep.Move -> check(move(root, step, named)) { "Could not $step" }
+                    else -> check(apply(root, step)) { "Could not $step" }
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                return putBack(type, id, at, e)
+                return putBack(type, id, at, e, root)
             }
             at = next
             // A step that landed is put back with the rest when its note fails, never left out of them.
@@ -108,7 +126,7 @@ class LocalOrganizer(
                     journal.update(id, next)
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    return putBack(type, id, next, e)
+                    return putBack(type, id, next, e, root)
                 }
             }
         }
@@ -116,7 +134,13 @@ class LocalOrganizer(
         return LocalMoveResult.Moved
     }
 
-    private suspend fun putBack(type: ContentType, id: Long, plan: Organize, failure: Exception): LocalMoveResult {
+    private suspend fun putBack(
+        type: ContentType,
+        id: Long,
+        plan: Organize,
+        failure: Exception,
+        root: UniFile,
+    ): LocalMoveResult {
         if (plan.isPutBack) return blocked(type, id, plan, failure)
         val back = plan.putBack()
         // Unnoted, the row still reads as the forward run at [plan]'s step, which a retry or the next start resumes.
@@ -126,7 +150,7 @@ class LocalOrganizer(
             if (e is CancellationException) throw e
             return blocked(type, id, plan, failure)
         }
-        val result = carryOn(type, id, back)
+        val result = carryOn(type, id, back, root)
         return if (result is LocalMoveResult.Moved) LocalMoveResult.Failed(failure) else result
     }
 
@@ -157,7 +181,7 @@ class LocalOrganizer(
             .forEach { (id, held) ->
                 locks.repairing(type, held.second) { journal.delete(id) }
                 holding -= id
-                locks.unblock(type, held.second)
+                locks.unblock(id)
             }
     }
 
@@ -173,8 +197,8 @@ class LocalOrganizer(
         folders: List<String>,
         repair: suspend (LocalFileJournalPlan) -> Unit,
     ) {
-        locks.block(type, folders)
-        holding[id] = type to folders
+        locks.block(type, id, folders)
+        holding.merge(id, type to folders) { held, more -> type to (held.second + more.second).distinct() }
         if (!retrying.add(id)) return
         scope.launch {
             try {
@@ -194,7 +218,7 @@ class LocalOrganizer(
                     wait = (wait * 2).coerceAtMost(LAST_RETRY)
                 }
                 holding -= id
-                locks.unblock(type, folders)
+                locks.unblock(id)
             } finally {
                 retrying -= id
             }
@@ -215,8 +239,12 @@ class LocalOrganizer(
         ) { organizedUrl(type, it, rules, from, to) }
     }
 
+    // A case-only rename a kill cut off waits at its in-flight name.
+    private fun renamed(root: UniFile, step: FileStep.Rename): UniFile? =
+        resolve(root, step.path) ?: resolve(root, step.path.dropLast(1) + step.to.inFlightName())
+
     private fun apply(root: UniFile, step: FileStep): Boolean = when (step) {
-        is FileStep.Rows -> error("Rows are written, not applied")
+        is FileStep.Rows, is FileStep.Rename, is FileStep.Move -> error("$step is not a plain file step")
         is FileStep.MakeFolder ->
             resolve(root, step.path.dropLast(1))?.createNew(context, step.path.last(), directory = true) != null
         is FileStep.SetAside -> {
@@ -224,25 +252,20 @@ class LocalOrganizer(
             resolve(root, step.path)?.parkIfSpent(context) { it.holdsOnlyDetails() }
             true
         }
-        // A case-only rename a kill cut off waits at its in-flight name.
-        is FileStep.Rename -> (
-            resolve(
-                root,
-                step.path,
-            ) ?: resolve(root, step.path.dropLast(1) + step.to.inFlightName())
-            )
-            ?.rename(step.to) == true
-        is FileStep.Move -> {
-            val from = resolve(root, step.path.dropLast(1))
-            val into = resolve(root, step.into)
-            val document = from?.findFile(step.path.last())
-            if (from == null || into == null || document == null) {
-                false
-            } else {
-                into.listOrNull(context)?.none { it.name == step.path.last() } == true &&
-                    document.moveTo(context, from, into) != null
-            }
-        }
+    }
+
+    /** Moves [step]'s document unless its target holds the name, by the target's names as [named] has them. */
+    private fun move(root: UniFile, step: FileStep.Move, named: MutableMap<List<String>, MutableSet<String>>): Boolean {
+        val name = step.path.last()
+        val from = resolve(root, step.path.dropLast(1)) ?: return false
+        val into = resolve(root, step.into) ?: return false
+        val document = from.findFile(name) ?: return false
+        val taken = named[step.into]
+            ?: into.listOrNull(context)?.mapNotNullTo(HashSet()) { it.name }?.also { named[step.into] = it }
+            ?: return false
+        if (name in taken || document.moveTo(context, from, into) == null) return false
+        taken += name
+        return true
     }
 
     /** Whether [step] is through on disk, by the names its parents' trusted listings hold; null when unreadable. */
@@ -289,9 +312,22 @@ class LocalOrganizer(
     }
 }
 
-/** Every series folder an organize names, before and after, which its holder locks and a failure blocks. */
-fun Organize.folders(): List<String> =
-    (listOf(fromSeries, toSeries) + (ownersBefore + ownersAfter).flatMap { listOf(it.folder, it.owner) }).distinct()
+/**
+ * Every series folder an organize names, before and after, which its holder locks and a failure blocks: with the
+ * names its series folder renames pass through, a third name a dodged rename left one at ([strayed]) among them.
+ */
+fun Organize.folders(): List<String> = (
+    listOf(fromSeries, toSeries) + (ownersBefore + ownersAfter).flatMap { listOf(it.folder, it.owner) } +
+        steps.filterIsInstance<FileStep.Rename>().filter { it.path.size == 1 }.flatMap { it.path + it.to }
+    ).distinct()
+
+/** This plan with its cut rename's document found at [name]: that much as landed, then the rest of it from there. */
+private fun Organize.strayed(name: String): Organize {
+    val cut = steps[done] as FileStep.Rename
+    val landed = FileStep.Rename(cut.path, name)
+    val rest = FileStep.Rename(cut.path.dropLast(1) + name, cut.to)
+    return copy(steps = steps.take(done) + landed + rest + steps.drop(done + 1), done = done + 1)
+}
 
 /** Every chapter address series [id] of [type] lists. */
 internal suspend fun localChapterUrls(
@@ -336,12 +372,14 @@ internal fun looseBookRules(type: ContentType, from: String, to: String): List<U
 
 /**
  * Whether a file left in a series folder is only its cover or details: the local source writes a ComicInfo.xml
- * into a series folder when it reads one from an archive, and a relist writes a cover.
+ * into a series folder when it reads one from an archive, and a relist writes a cover. Any `cover.` file counts,
+ * wider than [reikai.storage.localCover]: a cover write a kill cut off is debris too, and no chapter.
  */
 internal fun UniFile.holdsOnlyDetails(): Boolean {
     val name = this.name.orEmpty()
     return isFile && (
-        name.startsWith("cover.", ignoreCase = true) || name.equals("details.json", ignoreCase = true) ||
+        name.startsWith("cover.", ignoreCase = true) ||
+            name.equals(LocalNovelSource.DETAILS_FILE, ignoreCase = true) ||
             name == COMIC_INFO_FILE || name.startsWith(".")
         )
 }

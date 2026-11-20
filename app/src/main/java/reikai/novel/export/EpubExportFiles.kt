@@ -3,6 +3,7 @@ package reikai.novel.export
 import android.content.Context
 import android.graphics.Bitmap
 import com.hippo.unifile.UniFile
+import reikai.data.local.EPUB
 import reikai.storage.openTruncatingOutputStream
 import reikai.storage.replace
 import reikai.storage.validFileName
@@ -58,7 +59,7 @@ internal suspend fun UniFile.writeBookNamed(context: Context, name: String, writ
  * extension and number always fit the name limit: cutting the whole name dropped `.epub` from a long title.
  */
 internal fun epubFileName(title: String, number: Int = 1): String {
-    val tail = (if (number > 1) " ($number)" else "") + EPUB_EXTENSION
+    val tail = (if (number > 1) " ($number)" else "") + EPUB
     return validFileName(title, tail)
 }
 
@@ -72,8 +73,6 @@ internal class EpubFileNames {
     fun next(title: String): String =
         generateSequence(1) { it + 1 }.map { epubFileName(title, it) }.first { taken.add(it.lowercase()) }
 }
-
-private const val EPUB_EXTENSION = ".epub"
 
 /**
  * The cover as a book carries it, and a picture as the viewer's Save writes it: a JPEG, or a PNG when it has

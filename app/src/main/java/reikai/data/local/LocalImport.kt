@@ -258,7 +258,7 @@ class LocalImport(
 
     /** The folder's books by [bookIdentity], each read from its package; one that will not open is left out. */
     private fun heldBooks(present: List<UniFile>): Map<String, String> = present
-        .filter { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
+        .filter { isEpubBook(it.name.orEmpty()) }
         .mapNotNull { file ->
             val meta = runCatching {
                 file.archiveReader(context).use { EpubBook.parse(EpubArchive(it::readEntries)).metadata }
@@ -339,7 +339,7 @@ class LocalImport(
             return null
         }
         val taken = present.mapNotNull { it.name }.toMutableSet()
-        var books = present.count { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
+        var books = present.count { isEpubBook(it.name.orEmpty()) }
         // A replaced book keeps its chapters' kept reading state: a newer copy is the same book by the
         // import's own match, so a chapter back in it finds its state at its address, as after any return.
         group.files.forEach { file ->

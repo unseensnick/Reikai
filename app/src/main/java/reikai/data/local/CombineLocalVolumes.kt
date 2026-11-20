@@ -56,6 +56,7 @@ import reikai.storage.canMoveAndRename
 import reikai.storage.deleteTree
 import reikai.storage.freeName
 import reikai.storage.listOrNull
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -68,6 +69,25 @@ import kotlin.time.Instant
 
 /** A local series a combine can take in, by its library id, title and folder (or loose book). */
 data class CombinableSeries(val id: Long, val title: String, val folder: String)
+
+/** A library row as the local layer reads it, either type: the series, its own notes, and whether it is local. */
+internal data class LocalSeriesRow(val series: CombinableSeries, val notes: String, val isLocal: Boolean)
+
+/** Series [id]'s row of [type], or null where there is none, for both types alike. */
+internal suspend fun localSeriesRow(
+    type: ContentType,
+    id: Long,
+    mangaRepository: MangaRepository,
+    novelRepository: NovelRepository,
+): LocalSeriesRow? = when (type) {
+    ContentType.NOVELS -> novelRepository.getById(id)?.let {
+        LocalSeriesRow(CombinableSeries(id, it.title, it.url), it.notes.orEmpty(), LocalNovelSource.isLocal(it.source))
+    }
+    // Mihon's lookup throws on a missing row, which its own GetManga.await reads as none too.
+    else -> runCatchingCancellable { mangaRepository.getMangaById(id) }.getOrNull()?.let {
+        LocalSeriesRow(CombinableSeries(id, it.title, it.url), it.notes, it.source == LocalSource.ID)
+    }
+}
 
 /**
  * A change to local volumes that went through or failed as [result]. [undo] puts the rows (and, for Organize files,
@@ -139,12 +159,10 @@ class CombineLocalVolumes(
             .map { CombinableSeries(it.id, it.title, it.url) }
     }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
 
-    suspend fun series(type: ContentType, ids: List<Long>): List<CombinableSeries> = when (type) {
-        ContentType.NOVELS -> ids.mapNotNull { id ->
-            novelRepository.getById(id)?.let { CombinableSeries(id, it.title, it.url) }
-        }
-        else -> ids.map { id -> mangaRepository.getMangaById(id).let { CombinableSeries(id, it.title, it.url) } }
-    }
+    suspend fun series(type: ContentType, ids: List<Long>): List<CombinableSeries> =
+        ids.mapNotNull { row(type, it)?.series }
+
+    private suspend fun row(type: ContentType, id: Long) = localSeriesRow(type, id, mangaRepository, novelRepository)
 
     /** Makes every volume [others] list volumes of [kept]; they leave the library. */
     suspend fun combine(type: ContentType, kept: CombinableSeries, others: List<CombinableSeries>): LocalVolumeMove =
@@ -278,10 +296,7 @@ class CombineLocalVolumes(
     private suspend fun notesOf(type: ContentType, series: String): Map<String, String?> =
         localVolumes.loadedVolumes(type)[series].orEmpty().associate { it.key to it.notes }
 
-    private suspend fun seriesNotes(type: ContentType, id: Long): String = when (type) {
-        ContentType.NOVELS -> novelRepository.getById(id)?.notes.orEmpty()
-        else -> mangaRepository.getMangaById(id).notes
-    }
+    private suspend fun seriesNotes(type: ContentType, id: Long): String = row(type, id)?.notes.orEmpty()
 
     /**
      * The keys [series]' volumes are shown under once it is part of [kept], each to the keys [series] showed them
@@ -574,6 +589,10 @@ class CombineLocalVolumes(
             logcat(LogPriority.ERROR, e) { "Updating the library after a local volume move failed" }
         }
         relist.forEach { relist(type, it) }
+        // An organize since that kept every owner row (one that renamed nothing) shows only in these addresses:
+        // the Undo hands chapters back by folder, so it would find none there and report a hand-back that moved none.
+        val regrouped = (remove + add).mapTo(HashSet()) { it.folder }
+        val addresses = chaptersIn(type, series.values, regrouped)
         return LocalVolumeMove(
             result = LocalMoveResult.Moved,
             undoing = {
@@ -584,6 +603,9 @@ class CombineLocalVolumes(
                     val now = localVolumes.all(type)
                     if (!now.containsAll(add) || now.filterTo(HashSet()) { it.folder in handed } != left) {
                         return@undo LocalMoveResult.Failed(IllegalStateException("The volumes changed since"))
+                    }
+                    if (!chaptersIn(type, series.values, regrouped).containsAll(addresses)) {
+                        return@undo LocalMoveResult.Failed(IllegalStateException("The files changed since"))
                     }
                     try {
                         chapterMoves.regroup(
@@ -607,6 +629,18 @@ class CombineLocalVolumes(
             appScope = appScope,
             created = joining,
         )
+    }
+
+    /**
+     * The chapter addresses in [folders], on a row or kept for a removed chapter, of series [ids] and of whichever
+     * series lists those folders now, since a split since may have handed a volume to a series this move never named.
+     */
+    private suspend fun chaptersIn(type: ContentType, ids: Collection<Long>, folders: Set<String>): Set<String> {
+        val listing = localVolumes.all(type).filter { it.folder in folders }.map { it.owner } + folders
+        val owners = ids + listing.distinct().mapNotNull { chapterMoves.localSeriesId(type, it) }
+        return owners.distinct().flatMap { id ->
+            localChapterUrls(type, id, novelChapterRepository, chapterRepository) + tombstones.byOwner(type, id)
+        }.filterTo(HashSet()) { chapterVolumeUnit(type, it)?.first in folders }
     }
 
     private fun removal(type: ContentType): EntryLibraryRemoval =
@@ -777,12 +811,7 @@ class CombineLocalVolumes(
      * folders show in Browse and their chapters carry their reading state.
      */
     override suspend fun handBack(type: ContentType, ids: List<Long>) {
-        val local = when (type) {
-            ContentType.NOVELS -> ids.mapNotNull { id -> novelRepository.getById(id) }
-                .filter { LocalNovelSource.isLocal(it.source) }.map { CombinableSeries(it.id, it.title, it.url) }
-            else -> ids.map { id -> mangaRepository.getMangaById(id) }
-                .filter { it.source == LocalSource.ID }.map { CombinableSeries(it.id, it.title, it.url) }
-        }
+        val local = ids.mapNotNull { row(type, it) }.filter { it.isLocal }.map { it.series }
         for (owner in local) {
             seriesLocks.withSeries(type, owner.folder) {
                 val rows = localVolumes.all(type).filter { it.owner == owner.folder }

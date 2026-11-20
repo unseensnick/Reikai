@@ -42,19 +42,20 @@ class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
         while (true) {
             val keys = keysOf(type, folders)
             val repairing = currentCoroutineContext()[Repairing] != null
-            if (isOpen && !repairing &&
-                keys.any { it in blocked }
-            ) {
-                throw LocalSeriesBlockedException(keys.map { it.second })
-            }
+            refuseBlocked(keys, repairing)
             val wanted = keys - held
             if (wanted.isEmpty()) return block()
             // Taking a series after others are already held is the one way two holders can wait on each other,
             // so it fails here rather than hanging: a move names every series it touches before it starts.
             check(held.isEmpty()) { "Local series ${wanted.map { it.second }} were not named up front" }
-            // A group that grew while this waited (a combine took a folder in) is taken again whole.
+            // A group that grew while this waited (a combine took a folder in) is taken again whole. Asked again
+            // once held, since the holder this waited on may have blocked the series on its way out.
             val got = withContext(HeldSeries(keys)) {
-                acquire(wanted.toList(), 0) { if (keysOf(type, folders) == keys) Held(block()) else null }
+                acquire(wanted.toList(), 0) {
+                    if (keysOf(type, folders) != keys) return@acquire null
+                    refuseBlocked(keys, repairing)
+                    Held(block())
+                }
             }
             if (got != null) return got.value
         }
@@ -80,25 +81,33 @@ class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
 
     val isOpen: Boolean get() = replayed.isCompleted
 
-    private val blocked = ConcurrentHashMap.newKeySet<Pair<ContentType, String>>()
+    // The folders each unresolved journal row refuses, by row id, so one row resolving never opens another's.
+    private val blocked = ConcurrentHashMap<Long, Set<Pair<ContentType, String>>>()
+
+    private fun isRefused(key: Pair<ContentType, String>) = blocked.values.any { key in it }
+
+    private fun refuseBlocked(keys: Collection<Pair<ContentType, String>>, repairing: Boolean) {
+        if (isOpen && !repairing && keys.any(::isRefused)) throw LocalSeriesBlockedException(keys.map { it.second })
+    }
 
     /**
-     * Refuses every later hold on [folders] in this process: their files and rows disagree after an organize that
-     * could neither finish nor be put back, or an import Replace that left the old book aside, and a listing would
-     * read that as chapters gone. The journal keeps the row, which a retry in this process ([repairing]) or the next
-     * start's replay finishes or reverses.
+     * Refuses every later hold on [folders] in this process, on behalf of journal row [holder]: their files and rows
+     * disagree after an organize that could neither finish nor be put back, or an import Replace that left the old
+     * book aside, and a listing would read that as chapters gone. The journal keeps the row, which a retry in this
+     * process ([repairing]) or the next start's replay finishes or reverses. A row blocked again adds its folders.
      */
-    fun block(type: ContentType, folders: Collection<String>) {
-        folders.forEach { blocked += type to it.lowercase() }
+    fun block(type: ContentType, holder: Long, folders: Collection<String>) {
+        val keys = folders.mapTo(HashSet()) { type to it.lowercase() }
+        blocked.merge(holder, keys) { held, more -> held + more }
     }
 
     /** Whether any folder of [folders]' groups is refused ([block]). */
     suspend fun isBlocked(type: ContentType, folders: Collection<String>): Boolean =
-        keysOf(type, folders).any { it in blocked }
+        keysOf(type, folders).any(::isRefused)
 
-    /** Lets [folders] be held again, once the organize that blocked them has been finished or put back. */
-    fun unblock(type: ContentType, folders: Collection<String>) {
-        folders.forEach { blocked -= type to it.lowercase() }
+    /** Lets row [holder]'s folders be held again, once it is resolved; a folder another row refuses stays refused. */
+    fun unblock(holder: Long) {
+        blocked.remove(holder)
     }
 
     /** [locked] for the repair of a blocked organize, the one holder its own block lets through. */

@@ -443,7 +443,7 @@ class LocalMovesUnderLockTest {
 
     @Test
     fun `a series waiting for a repair keeps no other group of a restored backup from coming back`() = runTest {
-        locks.block(ContentType.MANGA, listOf("Stuck"))
+        locks.block(ContentType.MANGA, 1L, listOf("Stuck"))
 
         withContext(Dispatchers.Default) { withTimeout(20_000) { runCatching { restoreWithStuck() } } }
 
@@ -452,7 +452,7 @@ class LocalMovesUnderLockTest {
 
     @Test
     fun `a restored group a repair holds back fails the restore phase, naming its folder`() = runTest {
-        locks.block(ContentType.MANGA, listOf("Stuck"))
+        locks.block(ContentType.MANGA, 1L, listOf("Stuck"))
 
         val failure = withContext(Dispatchers.Default) {
             withTimeout(20_000) { runCatching { restoreWithStuck() }.exceptionOrNull() }
@@ -781,6 +781,20 @@ class LocalMovesUnderLockTest {
                 0L,
             )
         }
+
+    /** The organize kept every owner row, so only the chapters' addresses show the files left the combined folder. */
+    @Test
+    fun `a combine's Undo after an organize moved its volumes is refused rather than reported done`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        val move = combined()
+        organized()
+        val layout = files()
+
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+
+        listOf(undone is LocalMoveResult.Failed, files() == layout, readUrls(KEPT)) shouldBe
+            listOf(true, true, listOf("Kept/Kept - Vol. 2/Ch 1"))
+    }
 
     @Test
     fun `an organize Undo puts every file and row back`() = runTest {

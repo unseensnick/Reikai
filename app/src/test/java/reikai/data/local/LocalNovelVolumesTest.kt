@@ -348,6 +348,24 @@ class LocalNovelVolumesTest {
             listOf(true, listOf("Kept", "Lone.epub", "Other"), listOf("Lone.epub/Lone.epub"))
     }
 
+    /** The organize kept every owner row, so only the chapters' addresses show the books left the combined folder. */
+    @Test
+    fun `a combine's Undo after an organize moved its books is refused rather than reported done`() = runTest {
+        markRead("Other", "Other 1.epub")
+        val move = onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
+        val names = combine.organizePlan(
+            ContentType.NOVELS,
+            series(KEPT),
+            "Kept",
+            listOf("Kept 1.epub" to "1", "Other/Other 1.epub" to "2"),
+        )
+        onApp { combine.organizeFiles(ContentType.NOVELS, series(KEPT), names) }
+
+        val undone = onApp { move.undo() }
+
+        listOf(undone is LocalMoveResult.Failed, readBooks(KEPT)) shouldBe listOf(true, listOf("Kept/Kept - 2.epub"))
+    }
+
     /** A loose book with a read chapter, listed as its own series. */
     private suspend fun lone(): Long {
         book("Lone.epub")

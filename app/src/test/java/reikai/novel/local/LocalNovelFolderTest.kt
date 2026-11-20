@@ -61,6 +61,25 @@ class LocalNovelFolderTest {
             "FolderUnreadableException"
     }
 
+    /** A plain folder's lookup follows "..", so a novel address naming a way out reaches a folder beside the root. */
+    @Test
+    fun `a cover for a novel whose address leaves the folder is written nowhere`() = runTest {
+        val library = File(root, "Library").apply { mkdirs() }
+        val outside = File(root, "Outside").apply { mkdirs() }
+        val source = LocalNovelSource(
+            context,
+            mockk<StorageManager> { every { getLocalNovelsDirectory() } returns UniFile.fromFile(library) },
+            Json,
+            mockk(relaxed = true),
+            mockk(relaxed = true),
+            LocalSeriesLocks(NoLocalVolumes).apply { open() },
+        )
+
+        val written = source.writeCover("../Outside", byteArrayOf(1, 2).inputStream())
+
+        (written to outside.list()!!.toList()) shouldBe (null to emptyList<String>())
+    }
+
     /** The hold a refresh takes through the source is the series' own lock, so a move of the series waits on it. */
     @Test
     fun `the source's hold on a series keeps another holder of it waiting until the hold ends`() = runTest {

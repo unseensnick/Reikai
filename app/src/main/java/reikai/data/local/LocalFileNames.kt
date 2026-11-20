@@ -66,3 +66,6 @@ fun organizedLabel(name: String, title: String, folder: String): String =
 private const val LABEL_PROBE = "x"
 
 internal const val EPUB = ".epub"
+
+/** Whether a file named [name] is a book, by the name alone, as the novel source lists a series' volumes. */
+internal fun isEpubBook(name: String): Boolean = name.endsWith(EPUB, ignoreCase = true)

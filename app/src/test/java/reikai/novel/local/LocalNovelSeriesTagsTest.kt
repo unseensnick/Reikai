@@ -26,7 +26,10 @@ import reikai.novel.local.epub.xhtml
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 
-/** A local novel series carries every volume's tags, so a first book with none hides nothing the others have. */
+/**
+ * A local novel series carries every volume's tags, its own folder's and those another folder lends it, so a first
+ * book with none hides nothing the others have; a details file still names them over the books.
+ */
 @RunWith(RobolectricTestRunner::class)
 class LocalNovelSeriesTagsTest {
 
@@ -74,18 +77,34 @@ class LocalNovelSeriesTagsTest {
         source().parseNovel("A").genres shouldBe "Fantasy,Action,Romance"
     }
 
+    @Test
+    fun `a series' details file names its tags over every volume's own`() = runTest {
+        book("A/A 1.epub", "Fantasy")
+        File(root, "A/details.json").writeText("""{"genre":["Mystery","Drama"]}""")
+
+        source().parseNovel("A").genres shouldBe "Mystery,Drama"
+    }
+
+    @Test
+    fun `a grouped series lists the tags of the books another folder lends it`() = runTest {
+        book("A/A 1.epub", "Fantasy")
+        book("B/B 1.epub", "Horror")
+
+        source(VolumeOwner("B", VolumeOwner.WHOLE, "A")).parseNovel("A").genres shouldBe "Fantasy,Horror"
+    }
+
     private fun book(path: String, vararg tags: String) {
         File(root, path).apply { parentFile!!.mkdirs() }.writeText("epub")
         subjects[path.substringAfterLast('/')] = tags.toList()
     }
 
-    private fun source() = LocalNovelSource(
+    private fun source(vararg owners: VolumeOwner) = LocalNovelSource(
         context,
         mockk<StorageManager> { every { getLocalNovelsDirectory() } returns UniFile.fromFile(root) },
         Json,
         mockk(relaxed = true),
         object : LocalVolumeRepository by NoLocalVolumes {
-            override suspend fun all(type: ContentType) = emptyList<VolumeOwner>()
+            override suspend fun all(type: ContentType) = owners.toList()
         },
         LocalSeriesLocks(NoLocalVolumes).apply { open() },
     )

@@ -136,8 +136,13 @@ class LocalSeriesRelink(
         val listed = storageManager.localRoot(type)?.listOrNull(context) ?: return@withIOContext emptyList()
         val taken = localNamesHeld(type, chapterMoves, owners)
         val book = isLooseBook(type, member)
-        listed.filter { if (book) it.isFile && isLooseBook(type, it.name.orEmpty()) else it.isDirectory }
-            .mapNotNull { it.name }.filter { isLocalSeriesName(it) && it !in taken }.sorted()
+        // The names first: a picked folder answers isFile and isDirectory with a provider query each.
+        listed.filter { entry ->
+            val name = entry.name ?: return@filter false
+            isLocalSeriesName(name) && name !in taken &&
+                if (book) isLooseBook(type, name) && entry.isFile else entry.isDirectory
+        }
+            .mapNotNull { it.name }.sorted()
     }
 
     /**
@@ -209,8 +214,9 @@ class LocalSeriesRelink(
         val entries = dir.listOrNull(context) ?: return null
         return entries.flatMap { entry ->
             val name = entry.name.orEmpty()
+            // The name first, so only an entry named as a volume pays isDirectory's provider query.
             when {
-                !entry.isDirectory || name.lowercase() !in volumes -> listOf(name)
+                name.lowercase() !in volumes || !entry.isDirectory -> listOf(name)
                 else -> listOf(name) +
                     (entry.listOrNull(context) ?: return null).map { "$name/${it.name.orEmpty()}" }
             }
@@ -224,8 +230,6 @@ class LocalSeriesRelink(
         else -> localVolumeChapter(url)?.let { "${it.volume}/${it.file}" } ?: url.substringAfter('/')
     }
 
-    private suspend fun address(type: ContentType, id: Long): String? = when (type) {
-        ContentType.NOVELS -> novelRepository.getById(id)?.url
-        else -> mangaRepository.getMangaById(id).url
-    }
+    private suspend fun address(type: ContentType, id: Long): String? =
+        localSeriesRow(type, id, mangaRepository, novelRepository)?.series?.folder
 }
