@@ -317,7 +317,7 @@ dependencies {
 
     implementation(libs.bundles.androidx.lifecycle)
     implementation(libs.bundles.androidx.navigation3)
-    implementation(libs.androidx.compose.runtimeRetain)
+    implementation(libs.androidx.compose.runtimeRetain) // RK: retain, for the result bus
 
     // Job scheduling
     implementation(libs.androidx.work)
@@ -369,7 +369,6 @@ dependencies {
     }
     implementation(libs.composeRichEditor)
     implementation(libs.aboutLibraries.compose)
-    implementation(libs.bundles.voyager)
     implementation(libs.composeMaterialMotion)
     implementation(libs.swipe)
     implementation(libs.composeWebview)

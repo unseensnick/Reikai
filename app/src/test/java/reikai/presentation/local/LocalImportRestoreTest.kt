@@ -10,7 +10,6 @@ import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import cafe.adriel.voyager.navigator.Navigator
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -82,8 +81,8 @@ class LocalImportRestoreTest {
 
     private fun show() = restoration.setContent {
         ComposeTestHost(assistedFactories = mapOf(LocalImportViewModel.Factory::class to { factory })) {
-            Navigator(LocalImportRoute(listOf(file.toString()))) { navigator ->
-                CompositionLocalProvider(LocalViewModelStoreOwner provides owner) { navigator.lastItem.Content() }
+            CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
+                LocalImportScreen(listOf(file.toString()))
             }
         }
     }

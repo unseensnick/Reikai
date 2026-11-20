@@ -49,6 +49,7 @@ import exh.source.EH_PACKAGE
 import exh.source.ExhPreferences
 import exh.ui.login.EhLoginActivity
 import exh.util.nullIfBlank
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.app.di.appGraph
@@ -78,7 +79,8 @@ import kotlin.time.Duration.Companion.seconds
  * (uconfig), and the favorited-gallery update checker. The favorites two-way sync group
  * depends on a later EXH phase and is intentionally omitted for now.
  */
-object SettingsEhScreen : SearchableSettings {
+@Serializable
+data object SettingsEhScreen : SearchableSettings {
     private fun readResolve(): Any = SettingsEhScreen
 
     @ReadOnlyComposable

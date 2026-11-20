@@ -113,7 +113,7 @@ title in the app.
 
 ## Add a ViewModel
 
-Every screen is a Voyager `Screen` backed by an AndroidX `ViewModel` from the Metro graph
+Every screen is a route and a screen function backed by an AndroidX `ViewModel` from the Metro graph
 ([.claude/rules/screen-conventions.md](../../.claude/rules/screen-conventions.md)).
 
 - **Graph dependencies only:** annotate the class `@Inject`, `@ViewModelKey` and

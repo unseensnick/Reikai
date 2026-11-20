@@ -8,13 +8,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.stack.Stack
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.manga.components.MangaNotesTextArea
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.Navigator
 import reikai.domain.entry.EntryId
 import reikai.presentation.details.shows
 import tachiyomi.i18n.MR
@@ -69,7 +68,7 @@ fun <S : Any> EntryNotesScreen(
     subtitle: @Composable (S) -> String,
     series: EntryId?,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val missing by editor.missing.collectAsState()
     LaunchedEffect(missing) {
         if (missing) navigator.closeMissingNotes(series)
@@ -91,7 +90,7 @@ fun <S : Any> EntryNotesScreen(
  * Closes a notes page whose subject is gone, and [series]' details page under it, which cannot load it either,
  * as upstream's manga notes page does. A volume's passes none, since its series may still be there.
  */
-fun Stack<Screen>.closeMissingNotes(series: EntryId?) {
+fun Navigator.closeMissingNotes(series: EntryId?) {
     pop()
-    if (series != null) popUntil { !it.shows(series) }
+    if (series != null) popTo { !it.shows(series) }
 }

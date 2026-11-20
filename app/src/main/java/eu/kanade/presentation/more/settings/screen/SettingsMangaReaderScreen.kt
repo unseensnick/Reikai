@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterTitleFormat
@@ -46,7 +47,8 @@ import java.text.NumberFormat
  * not twin debt: docs/dev/subsystems/architecture.md. Load ahead only on Wi-Fi has no novel twin either
  * (docs/dev/subsystems/reader.md).
  */
-object SettingsMangaReaderScreen : SearchableSettings {
+@Serializable
+data object SettingsMangaReaderScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable

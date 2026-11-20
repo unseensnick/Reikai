@@ -36,8 +36,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import com.github.skydoves.colorpicker.compose.AlphaTile
 import com.github.skydoves.colorpicker.compose.BrightnessSlider
 import com.github.skydoves.colorpicker.compose.HsvColorPicker
@@ -45,9 +44,10 @@ import com.github.skydoves.colorpicker.compose.rememberColorPickerController
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
 import reikai.presentation.components.toHexRgb
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -60,16 +60,13 @@ import kotlin.math.roundToInt
  * theme and recreates the activity, as the theme picker does. From Kuukiyomi via Komikku.
  */
 // no ViewModel: two preference writes on tap, no async state.
-class CustomThemeColorRoute : Screen() {
-
-    @Composable
-    override fun Content() = CustomThemeColorScreen()
-}
+@Serializable
+data object CustomThemeColorRoute : NavKey
 
 @Composable
 fun CustomThemeColorScreen() {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val uiPreferences = remember { context.appGraph.uiPreferences }
     val initialColor = remember { Color(uiPreferences.customThemeSeed.get()) }
     val controller = rememberColorPickerController()

@@ -336,10 +336,6 @@ class MangaEntryAdapter(
         model.resetMangaInfo(manga)
     }
 
-    override fun showTrackDialog() {
-        model.showTrackDialog()
-    }
-
     override suspend fun mergedSourceTags(): List<String>? = model.mergedSourceTags()
 
     override suspend fun autofillCandidates(): List<Pair<Track, Tracker>> = model.autofillCandidates()

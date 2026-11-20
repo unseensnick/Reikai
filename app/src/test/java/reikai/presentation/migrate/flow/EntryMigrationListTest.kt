@@ -2,19 +2,19 @@ package reikai.presentation.migrate.flow
 
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
+import androidx.navigation3.runtime.NavKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.serialization.Serializable
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -22,6 +22,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.presentation.ComposeTestHost
+import reikai.presentation.TestNavHost
+import reikai.presentation.testNavigator
 
 /**
  * The migration list over a real model, with a screen below it to leave to: every way out while rows
@@ -42,7 +44,17 @@ class EntryMigrationListTest {
 
     @Before
     fun showList() {
-        compose.setContent { ComposeTestHost { Navigator(listOf(Below, ListHost(model))) } }
+        compose.setContent {
+            ComposeTestHost {
+                TestNavHost(remember { testNavigator(Below, ListHost) }) {
+                    entry<Below> { Text(BELOW) }
+                    entry<ListHost> {
+                        val state by model.state.collectAsState()
+                        EntryMigrationList(state = state, viewModel = model, flowId = 1L)
+                    }
+                }
+            }
+        }
         compose.waitUntil { model.state.value.let { !it.isLoading && it.rows.isNotEmpty() } }
     }
 
@@ -77,16 +89,10 @@ class EntryMigrationListTest {
         const val BELOW = "the screen the flow started from"
     }
 
-    private object Below : Screen {
-        @Composable
-        override fun Content() = Text(BELOW)
-    }
+    @Serializable
+    data object Below : NavKey
 
-    private class ListHost(private val model: EntryMigrationListViewModel) : Screen, MigrationFlowRoute {
-        @Composable
-        override fun Content() {
-            val state by model.state.collectAsState()
-            EntryMigrationList(state = state, viewModel = model, flowId = 1L)
-        }
-    }
+    /** The list itself, inside the flow, over the test's own model. */
+    @Serializable
+    data object ListHost : NavKey, MigrationFlowRoute
 }

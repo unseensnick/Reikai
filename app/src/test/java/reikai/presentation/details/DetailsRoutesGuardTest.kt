@@ -7,8 +7,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 
 /**
- * A details page and a source's settings screen are each built in one home ([homes]), so a change to how
- * one is addressed lands once for both types. Scans every line of every source file outside the home, Mihon's
+ * A details page's route and a source's settings route are each built in one home ([homes]), so a change to
+ * how one is addressed lands once for both types. Scans every line of every source file outside the home, Mihon's
  * and Reikai's alike, so a new construction anywhere fails; upstream's own are listed by text in
  * [Home.upstream], since a sync keeps them as upstream wrote them.
  */
@@ -27,7 +27,7 @@ class DetailsRoutesGuardTest {
 
     @ParameterizedTest
     @MethodSource("homes")
-    fun `a screen is constructed only in its home`(home: Home) {
+    fun `a route is constructed only in its home`(home: Home) {
         // Unit tests run from the module directory, so the source tree resolves relative to it.
         val root = File("src/main/java")
         root.isDirectory shouldBe true
@@ -58,19 +58,18 @@ class DetailsRoutesGuardTest {
             Home(
                 "details pages",
                 setOf("DetailsRoutes.kt"),
-                Regex("""\b(MangaScreen|NovelRoute)\(|::(MangaScreen|NovelRoute)\b"""),
-                Regex("""\bclass (MangaScreen|NovelRoute)\("""),
+                Regex("""\b(MangaRoute|NovelRoute)\(|::(MangaRoute|NovelRoute)\b"""),
+                Regex("""\bclass (MangaRoute|NovelRoute)\("""),
                 upstream = setOf(
-                    "eu/kanade/tachiyomi/ui/deeplink/DeepLinkScreen.kt: MangaScreen(",
-                    "mihon/feature/upcoming/UpcomingScreen.kt: onClickUpcoming = { navigator.push(MangaScreen(it.id)) },",
+                    "eu/kanade/tachiyomi/ui/deeplink/DeepLinkScreen.kt: navigator.replace(MangaRoute(result.manga.id, true))",
+                    "mihon/feature/upcoming/UpcomingScreen.kt: onClickUpcoming = { navigator.push(MangaRoute(it.id)) },",
                 ),
             ),
-            // The screen's own file keeps forNovel, the one builder the home calls for a novel source.
             Home(
                 "source settings",
-                setOf("SourcePreferencesScreens.kt", "SourcePreferencesScreen.kt"),
-                Regex("""\bSourcePreferencesScreen(\(|\.forNovel\b)|::SourcePreferencesScreen\b"""),
-                Regex("""\bclass SourcePreferencesScreen\("""),
+                setOf("SourcePreferencesScreens.kt"),
+                Regex("""\b(Novel)?SourcePreferencesRoute\(|::(Novel)?SourcePreferencesRoute\b"""),
+                Regex("""\bclass (Novel)?SourcePreferencesRoute\("""),
             ),
         )
     }

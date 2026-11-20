@@ -6,8 +6,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -17,7 +15,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.manga.MangaNotesScreen
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.entry.EntryId
 import reikai.presentation.notes.closeMissingNotes
 import tachiyomi.domain.manga.interactor.GetManga
@@ -32,17 +30,9 @@ import tachiyomi.domain.manga.interactor.UpdateMangaNotes
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.presentation.core.screens.LoadingScreen
 
-// RK --> upstream's Navigation 3 notes page (mihon c0d3aeaeb) ported ahead of that sync, hosted by this Voyager
-// screen until it lands; upstream's route is `MangaNotesRoute(mangaId)`.
-class MangaNotesRoute(val mangaId: Long) : Screen() {
-    @Composable
-    override fun Content() = MangaNotesScreen(mangaId)
-}
-// RK <--
-
 @Composable
 fun MangaNotesScreen(mangaId: Long) {
-    val navigator = LocalNavigator.currentOrThrow // RK: Voyager's navigator
+    val navigator = LocalNavigator.current
 
     val viewModel = assistedMetroViewModel<MangaNotesViewModel, MangaNotesViewModel.Factory> {
         create(mangaId = mangaId)
@@ -51,7 +41,7 @@ fun MangaNotesScreen(mangaId: Long) {
     LaunchedEffect(mangaMissing) {
         // The manga screen below can't load a missing manga either
         if (mangaMissing) {
-            // RK: the notes rule both types close by, over Voyager's stack where upstream pops its routes
+            // RK: the notes rule both types close by
             navigator.closeMissingNotes(EntryId.Manga(mangaId))
         }
     }

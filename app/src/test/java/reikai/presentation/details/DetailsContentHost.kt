@@ -13,8 +13,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.mockk.every
@@ -40,9 +38,9 @@ import tachiyomi.domain.library.service.LibraryPreferences
 internal class DetailsContentHost(
     private val behavior: EntryDetailsBehavior,
     private val snackbarHostState: SnackbarHostState = SnackbarHostState(),
-) : Screen {
+) {
     @Composable
-    override fun Content() {
+    fun Content() {
         val loaded by behavior.state.collectAsState()
         val store = InMemoryPreferenceStore()
         EntryDetailsContent(

@@ -19,15 +19,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.library.ContentType
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.library.LibraryItemsLayout
 import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsRefreshOnResume
@@ -44,19 +44,16 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * library draws them, under the row's own summary card. [name] is the row's own, so the title reads as the
  * row did.
  */
-class StatsSeriesRoute(
-    private val groupKey: StatsGroupKey,
-    private val name: String?,
-    private val contentType: ContentType,
-) : Screen() {
-
-    @Composable
-    override fun Content() = StatsSeriesScreen(groupKey, name, contentType)
-}
+@Serializable
+data class StatsSeriesRoute(
+    val groupKey: StatsGroupKey,
+    val name: String?,
+    val contentType: ContentType,
+) : NavKey
 
 @Composable
 fun StatsSeriesScreen(groupKey: StatsGroupKey, name: String?, contentType: ContentType) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -112,7 +109,7 @@ fun StatsSeriesScreen(groupKey: StatsGroupKey, name: String?, contentType: Conte
                     contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding()),
                     selection = emptySet(),
                     onClick = { item ->
-                        navigator.push(item.entryId.detailsScreen())
+                        navigator.push(item.entryId.detailsRoute())
                     },
                     onLongClick = {},
                     onClickContinueReading = onContinueReading.takeIf { showContinueReading },

@@ -1,16 +1,18 @@
 package reikai.presentation.details
 
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.result.ResultEventBus
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.stack.Stack
-import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
-import eu.kanade.tachiyomi.ui.setting.SettingsScreen
+import eu.kanade.presentation.more.settings.screen.SettingsTrackingScreen
+import eu.kanade.presentation.more.settings.screen.openSettings
+import mihon.core.navigation.MangaNotesRoute
+import mihon.core.navigation.Navigator
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
 import reikai.presentation.novel.notes.NovelNotesRoute
+import reikai.presentation.track.EntryTrackSheetRoute
 
 /** The viewed member's source, which a genre on the page searches and the header's source row browses. */
 data class DetailsViewedSource(
@@ -34,8 +36,10 @@ internal data class SharedDetailsPushes(
     val onTagSearch: (genre: String) -> Unit,
     /** The header source row; null when nothing can be browsed. */
     val onBrowseSource: (() -> Unit)?,
-    /** The Tracking tap with no tracker logged in; with one, the body opens the track sheet itself. */
+    /** The Tracking tap with no tracker logged in, to log in to one. */
     val onOpenTrackingSettings: () -> Unit,
+    /** The Tracking tap once a tracker is logged in. */
+    val onOpenTrackSheet: () -> Unit,
     val onEditNotes: () -> Unit,
     /** Library entries only ([forState]). */
     val onMigrate: (() -> Unit)?,
@@ -57,8 +61,10 @@ internal data class DetailsPageNav(
  */
 internal fun EntryDetailsNavigation.withSharedPushes(
     state: EntryDetailsScreenState.Loaded,
-    stack: Stack<Screen>,
+    stack: Navigator,
     bus: ResultEventBus,
+    /** Whether settings open beside their list, as a tablet's do. */
+    twoPane: Boolean,
 ): SharedDetailsPushes {
     val type = state.entryId.contentType
     return SharedDetailsPushes(
@@ -68,7 +74,8 @@ internal fun EntryDetailsNavigation.withSharedPushes(
             stack.searchGenreFromDetails(bus, genre, viewedSource.key, type, viewedSource.filterable)
         },
         onBrowseSource = { stack.push(EntryCatalogueRoute(viewedSource.key)) }.takeIf { viewedSource.browsable },
-        onOpenTrackingSettings = { stack.push(SettingsScreen(SettingsScreen.Destination.Tracking)) },
+        onOpenTrackingSettings = { stack.openSettings(SettingsTrackingScreen, twoPane) },
+        onOpenTrackSheet = { stack.push(EntryTrackSheetRoute(state.entryId, state.details.header.title)) },
         onEditNotes = {
             stack.push(
                 when (val viewed = EntryId.of(type, state.viewedEntryId)) {

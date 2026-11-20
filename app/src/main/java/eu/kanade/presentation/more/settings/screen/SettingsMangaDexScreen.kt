@@ -8,8 +8,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
@@ -17,7 +15,9 @@ import exh.md.MangaDexSyncWorker
 import exh.md.utils.FollowStatus
 import exh.md.utils.MdUtil
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
@@ -28,7 +28,8 @@ import uy.kohesive.injekt.api.get
  * actions. Login lives under Settings > Tracking (the MDList tracker), reached via the Account row.
  * Hidden until a MangaDex language source is enabled.
  */
-object SettingsMangaDexScreen : SearchableSettings {
+@Serializable
+data object SettingsMangaDexScreen : SearchableSettings {
     private fun readResolve(): Any = SettingsMangaDexScreen
 
     @ReadOnlyComposable
@@ -43,7 +44,7 @@ object SettingsMangaDexScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
         val sourcePreferences = remember { context.appGraph.sourcePreferences }
         val reikaiSourcePreferences = remember { context.appGraph.reikaiSourcePreferences }
         val trackerManager = remember { context.appGraph.trackerManager }

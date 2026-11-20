@@ -1,8 +1,8 @@
 package reikai.presentation.recommendation
 
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import io.kotest.matchers.shouldBe
+import mihon.core.navigation.MangaRoute
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
@@ -23,7 +23,7 @@ class RelatedDestinationTest {
 
     @Test
     fun `a card resolved to a stored manga opens that manga`() {
-        (relatedDestination(candidate, localId = 7L) as? MangaScreen)?.mangaId shouldBe 7L
+        (relatedDestination(candidate, localId = 7L) as? MangaRoute)?.mangaId shouldBe 7L
     }
 
     @Test

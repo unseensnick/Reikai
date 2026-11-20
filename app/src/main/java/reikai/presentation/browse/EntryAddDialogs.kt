@@ -5,11 +5,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.system.toast
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.LocalNavigator
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.EntryRemoveDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
@@ -22,7 +21,7 @@ import tachiyomi.i18n.MR
  */
 @Composable
 fun EntryAddDialogs(flow: EntryAddFlow<*>) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     LaunchedEffect(flow) {
         flow.failures.collect { context.toast(MR.strings.add_to_library_failed) }
@@ -38,7 +37,7 @@ fun EntryAddDialogs(flow: EntryAddFlow<*>) {
         is EntryAddDialog.ChangeCategory -> ChangeCategoryDialog(
             initialSelection = current.initialSelection,
             onDismissRequest = flow::dismiss,
-            onEditCategories = { navigator.push(CategoryScreen()) },
+            onEditCategories = { navigator.push(CategoryRoute) },
             onConfirm = { include, _ -> flow.confirmCategories(include) },
         )
         is EntryAddDialog.AddDuplicate -> EntryDuplicateDialog(

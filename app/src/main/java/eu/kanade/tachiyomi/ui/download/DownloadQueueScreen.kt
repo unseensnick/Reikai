@@ -26,19 +26,17 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.more.DownloadQueueState // RK
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import reikai.domain.entry.EntryId
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.download.DownloadQueueSortSheet
 import reikai.presentation.download.EntryDownloadCardList
 import reikai.presentation.download.EntryDownloadQueueViewModel
@@ -49,161 +47,158 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 
-object DownloadQueueScreen : Screen() {
+@Composable
+fun DownloadQueueScreen() {
+    val navigator = LocalNavigator.current
+    // RK --> one list over both content types, on the shared card list (see EntryDownloadQueueViewModel)
+    val screenModel = metroViewModel<EntryDownloadQueueViewModel>()
+    val state by screenModel.state.collectAsStateWithLifecycle()
+    val queueState by screenModel.queueState.collectAsStateWithLifecycle()
+    val sheet by screenModel.sheet.collectAsStateWithLifecycle()
+    val isRunning = queueState is DownloadQueueState.Downloading
+    // Pending chapters across both content types, the count the pause button and the More row read
+    val downloadCount = when (val queue = queueState) {
+        DownloadQueueState.Stopped -> 0
+        is DownloadQueueState.Paused -> queue.pending
+        is DownloadQueueState.Downloading -> queue.pending
+    }
+    val hasQueue = state.cards.isNotEmpty()
+    var showSortSheet by remember { mutableStateOf(false) }
+    // RK <--
 
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        // RK --> one list over both content types, on the shared card list (see EntryDownloadQueueViewModel)
-        val screenModel = metroViewModel<EntryDownloadQueueViewModel>()
-        val state by screenModel.state.collectAsStateWithLifecycle()
-        val queueState by screenModel.queueState.collectAsStateWithLifecycle()
-        val sheet by screenModel.sheet.collectAsStateWithLifecycle()
-        val isRunning = queueState is DownloadQueueState.Downloading
-        // Pending chapters across both content types, the count the pause button and the More row read
-        val downloadCount = when (val queue = queueState) {
-            DownloadQueueState.Stopped -> 0
-            is DownloadQueueState.Paused -> queue.pending
-            is DownloadQueueState.Downloading -> queue.pending
-        }
-        val hasQueue = state.cards.isNotEmpty()
-        var showSortSheet by remember { mutableStateOf(false) }
-        // RK <--
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    var fabExpanded by remember { mutableStateOf(true) }
+    val nestedScrollConnection = remember {
+        // All this lines just for fab state :/
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                fabExpanded = available.y >= 0
+                return scrollBehavior.nestedScrollConnection.onPreScroll(available, source)
+            }
 
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
-        var fabExpanded by remember { mutableStateOf(true) }
-        val nestedScrollConnection = remember {
-            // All this lines just for fab state :/
-            object : NestedScrollConnection {
-                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                    fabExpanded = available.y >= 0
-                    return scrollBehavior.nestedScrollConnection.onPreScroll(available, source)
-                }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                return scrollBehavior.nestedScrollConnection.onPostScroll(consumed, available, source)
+            }
 
-                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                    return scrollBehavior.nestedScrollConnection.onPostScroll(consumed, available, source)
-                }
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                return scrollBehavior.nestedScrollConnection.onPreFling(available)
+            }
 
-                override suspend fun onPreFling(available: Velocity): Velocity {
-                    return scrollBehavior.nestedScrollConnection.onPreFling(available)
-                }
-
-                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                    return scrollBehavior.nestedScrollConnection.onPostFling(consumed, available)
-                }
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                return scrollBehavior.nestedScrollConnection.onPostFling(consumed, available)
             }
         }
+    }
 
-        Scaffold(
-            topBar = {
-                AppBar(
-                    titleContent = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = stringResource(MR.strings.label_download_queue),
-                                maxLines = 1,
-                                modifier = Modifier.weight(1f, false),
-                                overflow = TextOverflow.Ellipsis,
+    Scaffold(
+        topBar = {
+            AppBar(
+                titleContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(MR.strings.label_download_queue),
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f, false),
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (downloadCount > 0) {
+                            val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
+                            Pill(
+                                text = "$downloadCount",
+                                modifier = Modifier.padding(start = 4.dp),
+                                color = MaterialTheme.colorScheme.onBackground
+                                    .copy(alpha = pillAlpha),
+                                fontSize = 14.sp,
                             )
-                            if (downloadCount > 0) {
-                                val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
-                                Pill(
-                                    text = "$downloadCount",
-                                    modifier = Modifier.padding(start = 4.dp),
-                                    color = MaterialTheme.colorScheme.onBackground
-                                        .copy(alpha = pillAlpha),
-                                    fontSize = 14.sp,
-                                )
-                            }
                         }
-                    },
-                    navigateUp = navigator::pop,
-                    actions = {
-                        // RK: a standard sort modal (matching the library / chapter sort sheets); a sort
-                        // orders chapters within each series, for both content types at once.
-                        if (hasQueue) {
-                            AppBarActions(
-                                listOf(
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_sort),
-                                        icon = MaterialSymbols.Rounded.FilterList, // RK: opens the sort sheet
-                                        onClick = { showSortSheet = true },
-                                    ),
-                                    AppBar.OverflowAction(
-                                        title = stringResource(MR.strings.action_cancel_all),
-                                        onClick = screenModel::cancelAll, // RK
-                                    ),
+                    }
+                },
+                navigateUp = navigator::pop,
+                actions = {
+                    // RK: a standard sort modal (matching the library / chapter sort sheets); a sort
+                    // orders chapters within each series, for both content types at once.
+                    if (hasQueue) {
+                        AppBarActions(
+                            listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_sort),
+                                    icon = MaterialSymbols.Rounded.FilterList, // RK: opens the sort sheet
+                                    onClick = { showSortSheet = true },
                                 ),
-                            )
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-            floatingActionButton = {
-                // RK: one FAB pauses every running downloader, or starts every one with a queue.
-                SmallExtendedFloatingActionButton(
-                    text = {
-                        val id = if (isRunning) MR.strings.action_pause else MR.strings.action_resume
-                        Text(text = stringResource(id))
-                    },
-                    icon = {
-                        val icon = if (isRunning) {
-                            MaterialSymbols.RoundedFilled.Pause
-                        } else {
-                            MaterialSymbols.RoundedFilled.PlayArrow
-                        }
-                        Icon(imageVector = icon, contentDescription = null)
-                    },
-                    onClick = screenModel::togglePause, // RK
-                    expanded = fabExpanded,
-                    modifier = Modifier.animateFloatingActionButton(
-                        visible = hasQueue, // RK
-                        alignment = Alignment.BottomEnd,
-                    ),
-                )
-            },
-        ) { contentPadding ->
-            // RK --> one shared card list for every queued series, manga and novels together
-            if (!hasQueue) {
-                EmptyScreen(
-                    stringRes = MR.strings.information_no_downloads,
-                    modifier = Modifier.padding(contentPadding),
-                )
-            } else {
-                EntryDownloadCardList(
-                    items = state.cards,
-                    showTypeBadge = state.showTypeBadge,
-                    onReorder = screenModel::reorder,
-                    onCancel = screenModel::cancel,
-                    onOpen = screenModel::openSeries,
-                    contentPadding = contentPadding,
-                    // Feed the FAB-collapse-on-scroll connection.
-                    modifier = Modifier.nestedScroll(nestedScrollConnection),
-                )
-            }
-
-            sheet?.let { opened ->
-                EntryDownloadSeriesSheet(
-                    sheet = opened,
-                    onShowEntry = {
-                        screenModel.closeSeries()
-                        navigator.push(EntryId.of(opened.card.contentType, opened.card.seriesId).detailsScreen())
-                    },
-                    onDownloadNow = { screenModel.downloadNow(opened.card.contentType, it) },
-                    onMoveToBottom = { screenModel.moveChapterToBottom(opened.card.contentType, it) },
-                    onCancel = { screenModel.cancelChapter(opened.card.contentType, it) },
-                    onDismissRequest = screenModel::closeSeries,
-                )
-            }
-
-            if (showSortSheet) {
-                DownloadQueueSortSheet(
-                    onSort = { screenModel.sort(it.key, it.descending) },
-                    onDismissRequest = { showSortSheet = false },
-                )
-            }
-            // RK <--
+                                AppBar.OverflowAction(
+                                    title = stringResource(MR.strings.action_cancel_all),
+                                    onClick = screenModel::cancelAll, // RK
+                                ),
+                            ),
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+        floatingActionButton = {
+            // RK: one FAB pauses every running downloader, or starts every one with a queue.
+            SmallExtendedFloatingActionButton(
+                text = {
+                    val id = if (isRunning) MR.strings.action_pause else MR.strings.action_resume
+                    Text(text = stringResource(id))
+                },
+                icon = {
+                    val icon = if (isRunning) {
+                        MaterialSymbols.RoundedFilled.Pause
+                    } else {
+                        MaterialSymbols.RoundedFilled.PlayArrow
+                    }
+                    Icon(imageVector = icon, contentDescription = null)
+                },
+                onClick = screenModel::togglePause, // RK
+                expanded = fabExpanded,
+                modifier = Modifier.animateFloatingActionButton(
+                    visible = hasQueue, // RK
+                    alignment = Alignment.BottomEnd,
+                ),
+            )
+        },
+    ) { contentPadding ->
+        // RK --> one shared card list for every queued series, manga and novels together
+        if (!hasQueue) {
+            EmptyScreen(
+                stringRes = MR.strings.information_no_downloads,
+                modifier = Modifier.padding(contentPadding),
+            )
+        } else {
+            EntryDownloadCardList(
+                items = state.cards,
+                showTypeBadge = state.showTypeBadge,
+                onReorder = screenModel::reorder,
+                onCancel = screenModel::cancel,
+                onOpen = screenModel::openSeries,
+                contentPadding = contentPadding,
+                // Feed the FAB-collapse-on-scroll connection.
+                modifier = Modifier.nestedScroll(nestedScrollConnection),
+            )
         }
+
+        sheet?.let { opened ->
+            EntryDownloadSeriesSheet(
+                sheet = opened,
+                onShowEntry = {
+                    screenModel.closeSeries()
+                    navigator.push(EntryId.of(opened.card.contentType, opened.card.seriesId).detailsRoute())
+                },
+                onDownloadNow = { screenModel.downloadNow(opened.card.contentType, it) },
+                onMoveToBottom = { screenModel.moveChapterToBottom(opened.card.contentType, it) },
+                onCancel = { screenModel.cancelChapter(opened.card.contentType, it) },
+                onDismissRequest = screenModel::closeSeries,
+            )
+        }
+
+        if (showSortSheet) {
+            DownloadQueueSortSheet(
+                onSort = { screenModel.sort(it.key, it.descending) },
+                onDismissRequest = { showSortSheet = false },
+            )
+        }
+        // RK <--
     }
 }

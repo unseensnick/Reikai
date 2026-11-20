@@ -35,8 +35,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
@@ -53,15 +51,16 @@ import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import eu.kanade.tachiyomi.util.lang.toTimestampString
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import mihon.app.di.appGraph
-import mihon.feature.upcoming.UpcomingScreen
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.StatsRoute
+import mihon.core.navigation.UpcomingRoute
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Favorite
@@ -79,7 +78,7 @@ import reikai.presentation.components.KeepListAtTop
 import reikai.presentation.components.LibraryUpdatePullRefresh
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.readProgressLabel
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.selection.chapterSelectionOffers
 import reikai.presentation.updates.EntryUpdatesRow
@@ -115,7 +114,7 @@ fun RecentsScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
     var filterSheetOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -184,7 +183,7 @@ fun RecentsScreen(
         }
     }
 
-    fun openDetails(entry: EntryId) = navigator.push(entry.detailsScreen())
+    fun openDetails(entry: EntryId) = navigator.push(entry.detailsRoute())
 
     fun clearHistory() {
         scope.launchIO {
@@ -226,14 +225,14 @@ fun RecentsScreen(
                 filterActive = filterActive,
                 onFilterClicked = { filterSheetOpen = true },
                 showsCalendar = RecentsTypeCapability.UPCOMING in chipCapabilities && showsUpdated,
-                onCalendarClicked = { navigator.push(UpcomingScreen()) },
+                onCalendarClicked = { navigator.push(UpcomingRoute) },
                 // Both are the updated lane's: History has never offered either, and a takeover that
                 // added them would be inventing an affordance rather than carrying one across.
                 showsRefresh = showsUpdated,
                 onRefresh = { scope.launch { refresh() } },
                 showsClearHistory = showsRead,
                 onClearHistory = { engine.openDialog(RecentsDialog.ClearHistory) },
-                onStatsClicked = { navigator.push(StatsScreen()) }.takeIf { statsInMenus },
+                onStatsClicked = { navigator.push(StatsRoute) }.takeIf { statsInMenus },
             )
         },
         bottomBar = {
@@ -1007,7 +1006,7 @@ private fun RecentsDialogs(
     onOpenDetails: (EntryId) -> Unit,
     onClearHistory: () -> Unit,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val dialog by engine.dialog.collectAsState()
     val onDismiss = engine::dismissDialog
     when (val open = dialog) {
@@ -1048,7 +1047,7 @@ private fun RecentsDialogs(
         is RecentsDialog.ChangeCategory -> ChangeCategoryDialog(
             initialSelection = open.initialSelection,
             onDismissRequest = onDismiss,
-            onEditCategories = { navigator.push(CategoryScreen()) },
+            onEditCategories = { navigator.push(CategoryRoute) },
             onConfirm = { include, _ -> engine.applyAddCategories(open.entry, include) },
         )
         is RecentsDialog.Migrate -> EntryMigrateFor(

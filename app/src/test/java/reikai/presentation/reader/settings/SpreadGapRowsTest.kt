@@ -5,8 +5,6 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.presentation.more.settings.screen.SettingsNovelReaderScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
@@ -41,15 +39,15 @@ class SpreadGapRowsTest {
     private fun shown(rows: @Composable () -> List<Pair<String, Boolean>>): List<String> {
         var titles = emptyList<String>()
         compose.setContent {
-            ComposeTestHost { Navigator(Rows { titles = rows().filter { it.second }.map { it.first } }) }
+            ComposeTestHost { Rows { titles = rows().filter { it.second }.map { it.first } }.Content() }
         }
         compose.waitForIdle()
         return titles
     }
 
-    private class Rows(val read: @Composable () -> Unit) : Screen {
+    private class Rows(val read: @Composable () -> Unit) {
         @Composable
-        override fun Content() = read()
+        fun Content() = read()
     }
 
     private fun mangaSettings(dualPageView: DualPageView): List<String> {

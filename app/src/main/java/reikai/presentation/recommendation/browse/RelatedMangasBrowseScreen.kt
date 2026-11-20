@@ -14,14 +14,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredroundedfilled.ViewList
 import mihon.icons.materialsymbols.rounded.SelectAll
@@ -41,18 +41,15 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * only ([mangaId] + [mangaTitle]); the candidate pool is re-read from [reikai.domain.recommendation
  * .RelatedMangaCache] inside the view model.
  */
-class RelatedMangasBrowseRoute(
-    private val mangaId: Long,
-    private val mangaTitle: String,
-) : Screen() {
-
-    @Composable
-    override fun Content() = RelatedMangasBrowseScreen(mangaId, mangaTitle)
-}
+@Serializable
+data class RelatedMangasBrowseRoute(
+    val mangaId: Long,
+    val mangaTitle: String,
+) : NavKey
 
 @Composable
 fun RelatedMangasBrowseScreen(mangaId: Long, mangaTitle: String) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val viewModel = assistedMetroViewModel<RelatedMangasBrowseViewModel, RelatedMangasBrowseViewModel.Factory> {
@@ -166,7 +163,7 @@ fun RelatedMangasBrowseScreen(mangaId: Long, mangaTitle: String) {
             ChangeCategoryDialog(
                 initialSelection = dialog.initialSelection,
                 onDismissRequest = viewModel::dismissDialog,
-                onEditCategories = { navigator.push(CategoryScreen()) },
+                onEditCategories = { navigator.push(CategoryRoute) },
                 onConfirm = { include, _ ->
                     viewModel.confirmCategories(dialog.target, include, dialog.skippedTrackerCount)
                 },

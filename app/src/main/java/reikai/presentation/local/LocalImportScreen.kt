@@ -51,18 +51,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.result.ResultEffect
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
-import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
@@ -78,7 +78,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.readableColumn
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -89,15 +89,12 @@ import tachiyomi.presentation.core.i18n.stringResource
  * Picks EPUB books and comic archives, shows them as the series they will become, and copies them into the
  * local sources. [initialUris] are files another app handed over, opened with or shared to Reikai.
  */
-class LocalImportRoute(private val initialUris: List<String> = emptyList()) : Screen() {
-
-    @Composable
-    override fun Content() = LocalImportScreen(initialUris)
-}
+@Serializable
+data class LocalImportRoute(val initialUris: List<String> = emptyList()) : NavKey
 
 @Composable
 fun LocalImportScreen(initialUris: List<String>) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     // Saved with the screen: its arguments outlive process death, and the model made on restore would offer
     // files already imported again. Taken once the import finishes, so one cut off by process death offers them
     // again. Files shared in later arrive as events, so they are never taken twice.
@@ -123,7 +120,7 @@ fun LocalImportScreen(initialUris: List<String>) {
         val entry = only.entry
         if (state.result?.problems?.isNotEmpty() == true || entry == null) return@LaunchedEffect
         if (!state.addToLibrary || state.groups.isNotEmpty()) return@LaunchedEffect
-        navigator.replace(entry.detailsScreen())
+        navigator.replace(entry.detailsRoute())
     }
 
     Scaffold(
@@ -172,7 +169,7 @@ fun LocalImportScreen(initialUris: List<String>) {
                 onDuplicateChoice = viewModel::setDuplicateChoice,
                 onNewerCopyChoice = viewModel::setNewerCopyChoice,
                 onAddTo = { adding = it },
-                onOpen = { navigator.push(it.detailsScreen()) },
+                onOpen = { navigator.push(it.detailsRoute()) },
             )
         }
     }
@@ -203,7 +200,7 @@ fun LocalImportScreen(initialUris: List<String>) {
         ChangeCategoryDialog(
             initialSelection = pick.initialSelection,
             onDismissRequest = viewModel::dismissCategories,
-            onEditCategories = { navigator.push(CategoryScreen()) },
+            onEditCategories = { navigator.push(CategoryRoute) },
             onConfirm = { include, _ -> viewModel.confirmCategories(pick.type, include) },
             title = stringResource(pick.type.labelRes),
         )

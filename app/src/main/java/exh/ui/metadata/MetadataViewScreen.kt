@@ -20,13 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.theme.TachiyomiTheme
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -36,21 +36,19 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.clickableNoIndication
 import tachiyomi.presentation.core.util.plus
 
-class MetadataViewRoute(
-    private val mangaId: Long,
-    private val sourceId: Long,
-    @ColorInt private val seedColor: Int?,
-) : Screen() {
-    @Composable
-    override fun Content() = MetadataViewScreen(mangaId, sourceId, seedColor)
-}
+@Serializable
+data class MetadataViewRoute(
+    val mangaId: Long,
+    val sourceId: Long,
+    @ColorInt val seedColor: Int?,
+) : NavKey
 
 @Composable
 fun MetadataViewScreen(mangaId: Long, sourceId: Long, seedColor: Int?) {
     val viewModel = assistedMetroViewModel<MetadataViewViewModel, MetadataViewViewModel.Factory> {
         create(mangaId = mangaId, sourceId = sourceId)
     }
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
 
     val state by viewModel.state.collectAsState()
 

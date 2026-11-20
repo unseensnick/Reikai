@@ -125,7 +125,7 @@ The recommendations client rate-limits per host (`RecommendationProviders`): Ani
 - **Never fetch genres per title.** Every library pull must carry genres in the list call; a per-title fetch multiplies requests into rate-limit bans.
 - **The recommendations client is one lazy app-scoped `OkHttpClient`.** Its per-host limit windows live on it, so building a client per fetch resets them. Shikimori IP-bans a missing or browser User-Agent, so its provider sends `REIKAI_TRACKER_USER_AGENT`.
 - **Providers use public endpoints over the shared client**, never a tracker's authenticated client, which throws for a logged-out user.
-- **See all reads the cache by manga id.** Voyager constructor args must be serializable, and after process death the cache is empty, so the grid shows its empty state until the manga is reopened.
+- **See all reads the cache by manga id.** A route carries identity only, and after process death the cache is empty, so the grid shows its empty state until the manga is reopened.
 
 ## Decisions
 

@@ -7,10 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEffect
 import androidx.navigation3.runtime.result.ResultEventBus
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.entry.EntryId
-import java.io.Serializable
+import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 
 /** A target picked on a pushed browse screen for [current], as the stored row [target]; upstream's event, typed. */
 data class MatchOverrideEvent(val current: EntryId, val target: Long)
@@ -20,7 +20,8 @@ data class MatchOverrideEvent(val current: EntryId, val target: Long)
  * asked. [flowId] is a field of the asking screen, saved with it, so a pick made after process death
  * still reaches the restored screen, and a pick from another flow lands on a key nobody collects.
  */
-data class MigrationPickFor(val entry: EntryId, val flowId: Long) : Serializable
+@Serializable
+data class MigrationPickFor(val entry: EntryId, val flowId: Long)
 
 private fun migrationPickKey(flowId: Long) = "migrationPick:$flowId"
 
@@ -29,20 +30,21 @@ fun ResultEventBus.sendMigrationPick(request: MigrationPickFor, targetRawId: Lon
 
 /**
  * Sends a target picked on the catalogue [migrateFor] opened to the screen that asked, then pops back to it, as
- * upstream's migration search does. Only while that catalogue is on top: a second tap, or a novel pick landing
- * as it leaves, would otherwise pop the asking screen too, past its exit guard.
+ * upstream's migration search does. Only while a catalogue picking for [migrateFor] is on top: a second tap, or a
+ * novel pick landing as it leaves, would otherwise pop the asking screen too, past its exit guard. Read off the
+ * route on top at the tap, since a back gesture over the catalogue draws it before the page above has popped.
  */
 @Composable
 fun rememberMigrationPickReport(migrateFor: MigrationPickFor?): (target: Long) -> Unit {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val bus = LocalResultEventBus.current
     return remember(navigator, bus, migrateFor) {
-        // The catalogue drawing this, which is on top when it first composes.
-        val picker = navigator.lastItem
         val report: (Long) -> Unit = report@{ target ->
-            if (migrateFor == null || navigator.lastItem !== picker) return@report
+            if (migrateFor == null || (navigator.current as? EntryCatalogueRoute)?.migrateFor != migrateFor) {
+                return@report
+            }
             bus.sendMigrationPick(migrateFor, target)
-            navigator.popUntil { it is MigrationFlowRoute }
+            navigator.popTo { it is MigrationFlowRoute }
         }
         report
     }

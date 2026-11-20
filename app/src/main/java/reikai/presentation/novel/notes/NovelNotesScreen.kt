@@ -3,6 +3,7 @@ package reikai.presentation.novel.notes
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -11,8 +12,8 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.serialization.Serializable
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
@@ -24,10 +25,8 @@ import reikai.presentation.notes.NotesEditor
  * Full-screen markdown notes editor for a novel, rendered through the shared [EntryNotesScreen] and edited through
  * [NotesEditor]. Saves surgically via a [NovelUpdate] patch.
  */
-class NovelNotesRoute(val novelId: Long) : Screen() {
-
-    @Composable
-    override fun Content() = NovelNotesScreen(novelId)
+@Serializable
+data class NovelNotesRoute(val novelId: Long) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject

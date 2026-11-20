@@ -20,13 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.RestartAlt
 import reikai.domain.download.DownloadPacing
@@ -42,15 +42,12 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 
 /** Each installed source's delay between downloaded chapters, manga and novels in one list. */
-class SourceDelaysRoute : Screen() {
-
-    @Composable
-    override fun Content() = SourceDelaysScreen()
-}
+@Serializable
+data object SourceDelaysRoute : NavKey
 
 @Composable
 fun SourceDelaysScreen() {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = metroViewModel<SourceDelaysViewModel>()
     val state by viewModel.state.collectAsStateWithLifecycle()
 

@@ -44,8 +44,7 @@ import tachiyomi.i18n.MR
 
 /**
  * "See all" browse grid for the related-mangas carousel. Re-reads the whole pool from
- * [RelatedMangaCache] by manga id (never passed through the Voyager constructor, which only takes
- * serializable args) and offers multi-select bulk add-to-library + an origin-grouping toggle.
+ * [RelatedMangaCache] by manga id (never passed through the route, which carries identity only) and offers multi-select bulk add-to-library + an origin-grouping toggle.
  *
  * The pool is in-memory only, so after process death the cache is empty and the screen shows an
  * empty state (the user reopens the manga to repopulate it).

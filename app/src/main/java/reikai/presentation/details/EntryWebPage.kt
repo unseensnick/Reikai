@@ -5,8 +5,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -20,11 +18,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.domain.source.mangaUrlOrNull
 import reikai.novel.source.NovelSource
-import reikai.presentation.webview.toWebViewScreen
+import reikai.presentation.webview.webViewRoute
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.manga.model.Manga
 import java.util.concurrent.ConcurrentHashMap
@@ -89,11 +88,11 @@ internal class EntryWebActions(
 @Composable
 internal fun rememberEntryWebActions(page: EntryWebPage?, title: String): EntryWebActions {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     return remember(page, title, context, navigator) {
         EntryWebActions(
             openWebView = page?.let {
-                { navigator.push(it.source.toWebViewScreen(it.url, title, (it.viewed as? EntryId.Novel)?.rawId)) }
+                { navigator.push(it.source.webViewRoute(it.url, title, (it.viewed as? EntryId.Novel)?.rawId)) }
             },
             share = page?.let {
                 {

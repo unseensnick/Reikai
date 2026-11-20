@@ -83,7 +83,6 @@ tapmoc = "0.5.0"
 unifile = "08f224c8f9"
 valkyrie = "0.5.2"
 vico = "3.3.1"
-voyager = "2.2.21-1.10.3"
 webgpuviewer = "58.1.5" # RK: Reikai's fork (settings.gradle.kts), upstream 58 plus the spread gap and viewer hooks
 xmlutil = "1.0.2"
 
@@ -223,9 +222,6 @@ subsamplingScaleImageView = { module = "com.github.mihonapp:subsampling-scale-im
 swipe = { module = "me.saket.swipe:swipe", version.ref = "swipe" }
 tapmoc-gradle = { module = "com.gradleup.tapmoc:tapmoc-gradle-plugin", version.ref = "tapmoc" }
 unifile = { module = "com.github.mihon:unifile", version.ref = "unifile" }
-voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
-voyager-tabNavigator = { module = "cafe.adriel.voyager:voyager-tab-navigator", version.ref = "voyager" }
-voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", version.ref = "voyager" }
 webgpuviewer = { module = "ca.mpreg:webgpuviewer", version.ref = "webgpuviewer" }
 xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core-android", version.ref = "xmlutil" }
 xmlutil-serialization = { module = "io.github.pdvrieze.xmlutil:serialization", version.ref = "xmlutil" }
@@ -263,4 +259,3 @@ serialization = ["kotlinx-serialization-json", "kotlinx-serialization-jsonOkio",
 shizuku = ["shizuku-api", "shizuku-provider"]
 sqldelight = ["sqldelight-androidxDriver", "sqldelight-async", "sqldelight-coroutines", "sqldelight-androidxPaging"]
 test = ["junit-jupiter", "kotest-assertions", "mockk"]
-voyager = ["voyager-navigator", "voyager-tabNavigator", "voyager-transitions"]

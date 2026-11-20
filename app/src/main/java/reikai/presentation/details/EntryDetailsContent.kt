@@ -37,8 +37,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.result.LocalResultEventBus
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.GalleryInfoBox
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
@@ -47,6 +45,7 @@ import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.data.local.LocalMoveResult
@@ -135,9 +134,9 @@ fun EntryDetailsContent(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val bus = LocalResultEventBus.current
-    val shared = nav.withSharedPushes(state, navigator, bus)
+    val shared = nav.withSharedPushes(state, navigator, bus, twoPane = isTabletUi)
     var onlyCopies by rememberSaveable { mutableStateOf(false) }
     val copies = CopiesFilter(on = onlyCopies && !state.chapters.duplicates?.copies.isNullOrEmpty()) {
         onlyCopies = !onlyCopies
@@ -473,9 +472,9 @@ internal fun DetailsPageNav.forState(state: EntryDetailsScreenState.Loaded) = co
 /** The Tracking button: the track sheet once a tracker is logged in, else tracker settings to log in to one. */
 internal fun trackingTap(
     state: EntryDetailsScreenState.Loaded,
-    behavior: EntryDetailsBehavior,
     nav: DetailsPageNav,
-): () -> Unit = if (state.details.hasLoggedInTrackers) behavior::showTrackDialog else nav.shared.onOpenTrackingSettings
+): () -> Unit =
+    if (state.details.hasLoggedInTrackers) nav.shared.onOpenTrackSheet else nav.shared.onOpenTrackingSettings
 
 @Composable
 private fun EntryDetailsSmallContent(
@@ -762,7 +761,7 @@ private fun LazyListScope.entryInfoBlock(
         librarySearch = nav.shared.onLibrarySearch,
         onBrowseSource = nav.shared.onBrowseSource,
         onAddToLibraryClicked = onAddToLibrary,
-        onTrackingClicked = trackingTap(state, behavior, nav),
+        onTrackingClicked = trackingTap(state, nav),
         onEditCategory = { behavior.showChangeCategoryDialog() }.takeIf { state.details.favorite },
         onEditIntervalClicked = nav.perType.onEditInterval,
         onWebViewClicked = web.openWebView,

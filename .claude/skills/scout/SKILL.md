@@ -25,7 +25,7 @@ These are the behavior on every invocation. The owner should never have to prepe
 Use `/scout` for non-trivial work where shallow context is expensive:
 
 - Porting an upstream change from Mihon (`refs/mihon/`), or a Reikai feature from the `design/library-compose` branch (the old Yōkai base) re-typed onto Mihon's models.
-- Adding or reworking a Compose + Voyager screen in an unfamiliar area.
+- Adding or reworking a Compose screen and its route in an unfamiliar area.
 - Touching cross-cutting infrastructure (DI modules, preferences, theme bridges, coroutine helpers).
 - Working in modules the recent session hasn't touched.
 - Acting on a claim from memory or a Handoff that mentions specific files / functions / flags by name.
@@ -57,7 +57,7 @@ These run on the main thread (cheap) so the subagents you spawn next get briefed
 1. Check `Handoff.md` in the project root if present (untracked is fine). Note the branch, what shipped, what was deferred, which legacy files are off-limits.
 2. `git log --oneline -20` for recent shape of work. If the task references a phase, `git log --oneline -50 --grep="<phase keyword>"` to find prior commits in the same series.
 3. Look for a plan file in `C:\Users\<user>\.claude\plans\` matching the task (Reikai stores plans there; latest plan often has a "what really shipped" rewrite).
-4. Skim `.claude/rules/architecture.md` and `.claude/rules/screen-conventions.md` for the conventions the affected surface must follow (Mihon is Compose + Voyager throughout; the reader's page views and the novel renderers are the only View-based holdouts).
+4. Skim `.claude/rules/architecture.md` and `.claude/rules/screen-conventions.md` for the conventions the affected surface must follow (Mihon is Compose + Navigation 3 throughout; the reader's page views and the novel renderers are the only View-based holdouts).
 
 Write down for Step 3 (briefing the subagents):
 
@@ -74,7 +74,7 @@ Decide which of these areas the task touches. Skip the ones that don't apply, br
 |---|---|---|
 | Current Reikai code | Always | Target files, callers, callees, related ViewModel, tests. |
 | Reference source | Ports, parity checks | Upstream port: the matching Mihon file(s) + history (`git -C refs/mihon log -- <path>`). If the Mihon file has no local counterpart, check `docs/dev/off-path-manifest.md`: a deleted-and-manifested file's change lands in its Reikai twin instead. Reikai-feature port: the Yōkai-era source on `design/library-compose`. API differences from current code. |
-| Framework bridges | Theme, Compose, Voyager, DI | The relevant layer (e.g., Voyager screen lifecycle, `PreferenceStore`, the Metro graph). Specifically: what's mapped, what isn't, what falls through. |
+| Framework bridges | Theme, Compose, Navigation 3, DI | The relevant layer (e.g., a route's entry lifecycle, `PreferenceStore`, the Metro graph). Specifically: what's mapped, what isn't, what falls through. |
 | Existing helpers (DRY) | Always | For every symbol the plan may add, the existing equivalent (`file:line`) or the searches run: name stem, receiver and return type, the rule it encodes, across all modules, the `reikai/domain/**` kernels and `refs/mihon`. |
 | Test coverage | Behavior changes, refactors | What's tested, what isn't, which test class to extend. |
 
@@ -129,5 +129,5 @@ Then stop. Do not start editing and do not call `EnterPlanMode`. The owner answe
 - Cap each subagent at ~500 words. Output follows [.claude/rules/plan-output.md](../../rules/plan-output.md), including its word cap; a bigger task needs decomposition, not a longer report.
 - No interim narration: one sentence when the agents are spawned, then nothing until the report.
 - No em dashes in the report. Commas, parentheses, periods, colons.
-- No assumptions about framework defaults. If the report relies on a framework behavior, the citation points to the source of that behavior (Compose library, Material3, Voyager) or to a project-side test that verifies it.
+- No assumptions about framework defaults. If the report relies on a framework behavior, the citation points to the source of that behavior (Compose library, Material3, Navigation 3) or to a project-side test that verifies it.
 - If an Explore agent comes back vague or generic, the brief was too loose. Re-spawn with a sharper scope before synthesizing.

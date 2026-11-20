@@ -27,12 +27,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.manga.components.MangaCover
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Button
@@ -41,17 +41,14 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
 
-class BatchAddRoute : Screen() {
-
-    @Composable
-    override fun Content() = BatchAddScreen()
-}
+@Serializable
+data object BatchAddRoute : NavKey
 
 @Composable
 fun BatchAddScreen() {
     val viewModel = metroViewModel<BatchAddViewModel>()
     val state by viewModel.state.collectAsState()
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
 
     Scaffold(

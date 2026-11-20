@@ -13,14 +13,17 @@ import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.Navigator
+import mihon.core.navigation.rememberNavigator
 import kotlin.reflect.KClass
 
 /**
  * Hosts a composable as the app's setComposeContent does, without the app graph: the preview theme
  * reads no preferences, [viewModels] stands in for the graph's view-model factory, so a screen
  * that calls metroViewModel gets the model the test built, [assistedFactories] does the same for
- * assistedMetroViewModel, and [resultEventBus] stands in for the
- * activity's result bus.
+ * assistedMetroViewModel, [resultEventBus] stands in for the activity's result bus, and [navigator] for its
+ * navigator, which a screen drawn straight into the host reads.
  */
 @Composable
 fun ComposeTestHost(
@@ -28,6 +31,7 @@ fun ComposeTestHost(
     assistedFactories: Map<KClass<out ManualViewModelAssistedFactory>, () -> ManualViewModelAssistedFactory> =
         emptyMap(),
     resultEventBus: ResultEventBus = remember { ResultEventBus() },
+    navigator: Navigator = rememberNavigator(TestRootRoute),
     content: @Composable () -> Unit,
 ) {
     TachiyomiPreviewTheme {
@@ -36,6 +40,7 @@ fun ComposeTestHost(
             LocalContentColor provides MaterialTheme.colorScheme.onBackground,
             LocalMetroViewModelFactory provides TestViewModelFactory(viewModels, assistedFactories),
             LocalResultEventBus provides resultEventBus,
+            LocalNavigator provides navigator,
             content = content,
         )
     }

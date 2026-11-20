@@ -21,14 +21,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.DragHandle
 import reikai.presentation.components.rememberSettledReorder
@@ -45,15 +45,12 @@ import eu.kanade.presentation.more.settings.Preference as SettingsPreference
  * Which buttons one reader's bottom bar shows, and in what order. One screen serves both readers, each
  * editing its own buttons. The Settings gear is listed to be moved, never switched off.
  */
-data class ReaderBottomButtonsRoute(private val scope: ReaderBottomButton.Scope) : Screen() {
-
-    @Composable
-    override fun Content() = ReaderBottomButtonsScreen(scope)
-}
+@Serializable
+data class ReaderBottomButtonsRoute(val scope: ReaderBottomButton.Scope) : NavKey
 
 @Composable
 fun ReaderBottomButtonsScreen(scope: ReaderBottomButton.Scope) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
@@ -130,7 +127,7 @@ private fun ReaderBottomButtonsList(
 fun readerBottomButtonsPreference(
     preferences: ReaderBottomButton.BarPreferences,
 ): SettingsPreference.PreferenceItem.TextPreference {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val scope = preferences.scope
     val selected by preferences.selection.collectAsState()
     val arranged by preferences.order.collectAsState()

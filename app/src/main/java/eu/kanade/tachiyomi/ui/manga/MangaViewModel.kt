@@ -1798,7 +1798,6 @@ class MangaViewModel(
         // RK: a local series whose folder is gone, and the folders holding its files it may be linked to
         data class RelinkSeries(val title: String, val candidates: List<String>) : Dialog
         data object SettingsSheet : Dialog
-        data object TrackSheet : Dialog
         data class FullCover(val volume: EntryChapterListItem.Volume?) : Dialog // RK: a picked volume's cover
 
         // RK: manage the grouped sources (reorder / split / remove). Rows arrive trunk-first (primary on
@@ -2009,10 +2008,6 @@ class MangaViewModel(
 
     fun showSettingsDialog() {
         dialog.value = Dialog.SettingsSheet
-    }
-
-    fun showTrackDialog() {
-        dialog.value = Dialog.TrackSheet
     }
 
     fun showCoverDialog(volume: EntryChapterListItem.Volume?) { // RK: volume

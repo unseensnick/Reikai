@@ -7,97 +7,77 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
-import cafe.adriel.voyager.navigator.tab.TabOptions
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.TabbedScreen
-import eu.kanade.presentation.util.Tab
-import eu.kanade.presentation.util.rememberAnimatedVectorPainter
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
+import eu.kanade.tachiyomi.ui.home.TopLevelRoute
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import mihon.core.navigation.LocalNavigator
 import reikai.presentation.browse.ReikaiBrowseViewModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
 import reikai.presentation.browse.feed.reikaiFeedTab
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
-import reikai.presentation.components.cachedAnimatedVector
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.stringResource
 
-data object BrowseTab : Tab {
+@Composable
+fun BrowseTab() {
+    val context = LocalContext.current
+    val navigator = LocalNavigator.current
 
-    override val options: TabOptions
-        @Composable
-        get() {
-            val isSelected = LocalTabNavigator.current.current.key == key
-            val enter = cachedAnimatedVector(R.drawable.animated_browse_enter) // RK
-            val exit = cachedAnimatedVector(R.drawable.animated_browse_exit) // RK
-            return TabOptions(
-                index = 3u,
-                title = stringResource(MR.strings.browse),
-                icon = rememberAnimatedVectorPainter(enter, exit, isSelected),
-            )
-        }
+    // RK: shared content-type filter, search query and LN update badge across the tabs. The
+    //     search bar drives one list serving both content types, so its query is Browse-level
+    //     rather than the manga model's.
+    val browseViewModel = metroViewModel<ReikaiBrowseViewModel>()
+    val searchQuery by browseViewModel.searchQuery.collectAsStateWithLifecycle()
+    // Hoisted for extensions tab's search bar
+    val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
 
-    override suspend fun onReselect(navigator: Navigator) {
-        navigator.push(EntryGlobalSearchRoute()) // RK: the shared manga + novel global search
+    // RK --> the Feed tab is opt-in, and can be asked to lead
+    val showFeed by browseViewModel.showFeedTab.collectAsStateWithLifecycle()
+    val feedFirst by browseViewModel.feedTabInFront.collectAsStateWithLifecycle()
+    // Built only when it is shown. Resolving the model is what starts the feed loading, so the
+    // call has to sit inside the condition rather than have its result filtered afterwards.
+    val feedTab = if (showFeed) reikaiFeedTab() else null
+    // RK <--
+
+    val tabs = listOfNotNull(
+        // RK: chip-switched manga + light-novel sources / extensions.
+        feedTab.takeIf { feedFirst },
+        reikaiSourcesTab(browseViewModel),
+        feedTab.takeUnless { feedFirst },
+        reikaiExtensionsTab(extensionsViewModel, browseViewModel),
+        // RK: chip-switched manga + light-novel migrate-source list.
+        reikaiMigrateSourceTab(browseViewModel),
+    )
+
+    val state = rememberPagerState { tabs.size }
+
+    TabbedScreen(
+        titleRes = MR.strings.browse,
+        tabs = tabs,
+        state = state,
+        // RK --> the Browse-level query, which the shared list serving both content types reads
+        searchQuery = searchQuery,
+        onChangeSearchQuery = browseViewModel::search,
+        // RK <--
+    )
+
+    LaunchedEffect(Unit) {
+        (context as? MainActivity)?.ready = true
     }
 
-    // RK: the switch to Extensions is BrowseShowExtensionsEvent on the result bus, upstream's event
+    // RK: derived, not the literal 1 upstream uses: the Feed tab can sit ahead of Extensions,
+    //     and can be turned off again, so the index moves under this at runtime.
+    val extensionsPage = tabs.indexOfFirst { it.titleRes == MR.strings.label_extensions }
+    ResultEffect<BrowseShowExtensionsEvent> {
+        state.scrollToPage(extensionsPage) // RK
+    }
 
-    @Composable
-    override fun Content() {
-        val context = LocalContext.current
-
-        // RK: shared content-type filter, search query and LN update badge across the tabs. The
-        //     search bar drives one list serving both content types, so its query is Browse-level
-        //     rather than the manga model's.
-        val browseViewModel = metroViewModel<ReikaiBrowseViewModel>()
-        val searchQuery by browseViewModel.searchQuery.collectAsStateWithLifecycle()
-        // Hoisted for extensions tab's search bar
-        val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
-
-        // RK --> the Feed tab is opt-in, and can be asked to lead
-        val showFeed by browseViewModel.showFeedTab.collectAsStateWithLifecycle()
-        val feedFirst by browseViewModel.feedTabInFront.collectAsStateWithLifecycle()
-        // Built only when it is shown. Resolving the model is what starts the feed loading, so the
-        // call has to sit inside the condition rather than have its result filtered afterwards.
-        val feedTab = if (showFeed) reikaiFeedTab() else null
-        // RK <--
-
-        val tabs = listOfNotNull(
-            // RK: chip-switched manga + light-novel sources / extensions.
-            feedTab.takeIf { feedFirst },
-            reikaiSourcesTab(browseViewModel),
-            feedTab.takeUnless { feedFirst },
-            reikaiExtensionsTab(extensionsViewModel, browseViewModel),
-            // RK: chip-switched manga + light-novel migrate-source list.
-            reikaiMigrateSourceTab(browseViewModel),
-        )
-
-        val state = rememberPagerState { tabs.size }
-
-        TabbedScreen(
-            titleRes = MR.strings.browse,
-            tabs = tabs,
-            state = state,
-            // RK --> the Browse-level query, which the shared list serving both content types reads
-            searchQuery = searchQuery,
-            onChangeSearchQuery = browseViewModel::search,
-            // RK <--
-        )
-        // RK: derived, not the literal 1 upstream uses: the Feed tab can sit ahead of Extensions,
-        //     and can be turned off again, so the index moves under this at runtime.
-        val extensionsPage = tabs.indexOfFirst { it.titleRes == MR.strings.label_extensions }
-        ResultEffect<BrowseShowExtensionsEvent> { state.scrollToPage(extensionsPage) } // RK
-
-        LaunchedEffect(Unit) {
-            (context as? MainActivity)?.ready = true
-        }
+    ResultEffect<Unit>(resultKey = TopLevelRoute.Browse.reselectEventKey) {
+        navigator.push(EntryGlobalSearchRoute()) // RK: the shared manga + novel global search
     }
 }
 
-data object BrowseShowExtensionsEvent // RK
+data object BrowseShowExtensionsEvent

@@ -166,8 +166,7 @@ interface EntryDetailsBehavior {
     /** Every tag the merged series' sources carry, for Collate tags; null when the entry is not merged. */
     suspend fun mergedSourceTags(): List<String>?
 
-    // Tracking (the two suspend calls back the shared "Fill from tracker" button).
-    fun showTrackDialog()
+    // Tracking: the two suspend calls back the shared "Fill from tracker" button.
     suspend fun autofillCandidates(): List<Pair<Track, Tracker>>
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata
 

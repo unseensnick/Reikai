@@ -13,8 +13,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.mockk.every
@@ -61,7 +59,7 @@ class DetailsShownSelectionTest {
 
     @Test
     fun `select all under Only copies selects the copies alone`() {
-        compose.setContent { ComposeTestHost { Navigator(DetailsContentHost(behavior)) } }
+        compose.setContent { ComposeTestHost { DetailsContentHost(behavior).Content() } }
 
         compose.onNodeWithText("Show only these", substring = true).performClick()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Copy one"))

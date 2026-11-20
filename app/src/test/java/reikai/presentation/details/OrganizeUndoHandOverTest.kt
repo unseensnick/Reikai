@@ -2,7 +2,6 @@ package reikai.presentation.details
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.test.junit4.createComposeRule
-import cafe.adriel.voyager.navigator.Navigator
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -40,7 +39,7 @@ class OrganizeUndoHandOverTest {
         val snackbar = SnackbarHostState()
         val move =
             mockk<LocalVolumeMove>(relaxed = true) { every { result } returns LocalMoveResult.Moved }
-        compose.setContent { ComposeTestHost { Navigator(DetailsContentHost(behavior, snackbar)) } }
+        compose.setContent { ComposeTestHost { DetailsContentHost(behavior, snackbar).Content() } }
 
         picking.requestOrganize(EntryId.Manga(100L), undo = VolumeMoveUndo(move, "Split out"))
 

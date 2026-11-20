@@ -1,23 +1,24 @@
 package reikai.presentation.notes
 
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performTextInput
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.result.LocalResultEventBus
+import androidx.navigation3.runtime.result.ResultEventBus
 import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.data.backup.MangaRestoreHarness
-import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
+import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesViewModel
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +26,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.MangaNotesRoute
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -40,16 +43,17 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
+import reikai.presentation.TestNavHost
+import reikai.presentation.notes.VolumeNotesScreen
 import reikai.presentation.novel.notes.NovelNotesRoute
+import reikai.presentation.novel.notes.NovelNotesScreen
+import reikai.presentation.roundTrip
+import reikai.presentation.testNavigator
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.interactor.UpdateMangaNotes
 import tachiyomi.domain.manga.model.Manga
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.ObjectInputStream
-import java.io.ObjectOutputStream
 import kotlin.reflect.KClass
 import kotlin.time.Instant
 
@@ -117,8 +121,7 @@ class NotesRestoreTest(private val editor: Editor) {
     fun `a notes page restored after the app was closed keeps the notes written before`() {
         val pushed = screen()
         write("Alpha")
-        val restored = processDeath(pushed)
-        host { Navigator(restored) }
+        host(roundTrip(pushed))
 
         typeAndLeave("Beta ")
 
@@ -132,7 +135,7 @@ class NotesRestoreTest(private val editor: Editor) {
             Editor.NOVEL -> NovelNotesRoute(novelId + 100)
             Editor.VOLUME -> VolumeNotesRoute(ContentType.NOVELS, "Gone", BOOK)
         }
-        host { Navigator(listOf(Below, gone)) }
+        host(Below, gone)
 
         compose.waitUntil { compose.onAllNodes(hasText(BELOW)).fetchSemanticsNodes().isNotEmpty() }
     }
@@ -145,7 +148,7 @@ class NotesRestoreTest(private val editor: Editor) {
         compose.waitForIdle()
     }
 
-    private fun screen(): Screen = when (editor) {
+    private fun screen(): NavKey = when (editor) {
         Editor.MANGA -> MangaNotesRoute(mangaId)
         Editor.NOVEL -> NovelNotesRoute(novelId)
         Editor.VOLUME -> VolumeNotesRoute(ContentType.NOVELS, SERIES, BOOK)
@@ -204,28 +207,27 @@ class NotesRestoreTest(private val editor: Editor) {
             )
     }
 
-    /** What a saved screen stack goes through when Android closes the app: serialized, then read back. */
-    @Suppress("UNCHECKED_CAST")
-    private fun <T> processDeath(screen: T): T {
-        val bytes = ByteArrayOutputStream().also { ObjectOutputStream(it).use { out -> out.writeObject(screen) } }
-        return ObjectInputStream(ByteArrayInputStream(bytes.toByteArray())).use { it.readObject() } as T
-    }
-
-    private fun host(content: @Composable () -> Unit) = compose.setContent {
+    private fun host(vararg routes: NavKey) = compose.setContent {
         TachiyomiPreviewTheme {
-            CompositionLocalProvider(LocalMetroViewModelFactory provides factory) {
-                if (shown) content()
+            CompositionLocalProvider(
+                LocalMetroViewModelFactory provides factory,
+                LocalResultEventBus provides remember { ResultEventBus() },
+            ) {
+                if (shown) {
+                    TestNavHost(remember { testNavigator(*routes) }) {
+                        entry<Below> { Text(BELOW) }
+                        entry<MangaNotesRoute> { MangaNotesScreen(it.mangaId) }
+                        entry<NovelNotesRoute> { NovelNotesScreen(it.novelId) }
+                        entry<VolumeNotesRoute> { VolumeNotesScreen(it.type, it.series, it.volumeKey) }
+                    }
+                }
             }
         }
     }
 
-    /** The screen a notes page was opened over. */
-    private object Below : Screen {
-        private fun readResolve(): Any = Below
-
-        @Composable
-        override fun Content() = Text(BELOW)
-    }
+    /** The page a notes page was opened over. */
+    @Serializable
+    data object Below : NavKey
 
     private companion object {
         const val SERIES = "Series"

@@ -24,11 +24,11 @@ Installed extensions compile against `source-api`, which resolves its dependenci
 
 ### ViewModels
 
-A screen model extends `androidx.lifecycle.ViewModel` directly and declares its own `val state: StateFlow<S>` with an explicit backing field; there is no state base class and no Voyager `ScreenModel`. Resolution goes through `ReikaiViewModelFactory`, the graph's `MetroViewModelFactory`, which `setComposeContent` provides as `LocalMetroViewModelFactory`:
+A screen model extends `androidx.lifecycle.ViewModel` directly and declares its own `val state: StateFlow<S>` with an explicit backing field; there is no state base class and no `ScreenModel`. Resolution goes through `ReikaiViewModelFactory`, the graph's `MetroViewModelFactory`, which `setComposeContent` provides as `LocalMetroViewModelFactory`:
 
 - A model whose dependencies all come from the graph carries `@ViewModelKey` and is resolved with `metroViewModel<T>()`.
 - A model that needs a call-site value (an entry id, a source id) is `@AssistedInject` with an `@AssistedFactory` keyed by `@ManualViewModelAssistedFactoryKey`, resolved with `assistedMetroViewModel<T, F> { create(...) }`.
-- The reader's models live outside any Voyager `Navigator`, so `ReaderActivity` scopes them to itself: `ReaderViewModel` with `by viewModels { graph.viewModelFactory }`, and the assisted `NovelReaderViewModel` and `ReaderEngine` through a `viewModelFactory { initializer { } }` that calls the graph's `createManuallyAssistedFactory`.
+- The reader's models live outside the navigator's display, so `ReaderActivity` scopes them to itself: `ReaderViewModel` with `by viewModels { graph.viewModelFactory }`, and the assisted `NovelReaderViewModel` and `ReaderEngine` through a `viewModelFactory { initializer { } }` that calls the graph's `createManuallyAssistedFactory`.
 - Three models are still built by hand through `viewModelFactory`, without the graph: upstream's `ReaderSettingsViewModel` in `ReaderActivity`, the cover model in `EntryDetailsDialog` (star-projected, built from the behavior object and keyed by `coverKey`, the source chip's entry) and `NovelSourceSettingsModel`.
 
 Under a `Navigator`, `viewModel()` resolves against that Screen's own store, cleared on pop; tabs each get their own store that survives tab switches. The full scoping rule is in screen-conventions.md.
@@ -41,7 +41,7 @@ A preference migration implements `Migration` with a `version` and joins the set
 
 ### Settings screens and search
 
-Each top-level Settings screen is a `SearchableSettings` object (a Voyager `Screen`) returning a list of `Preference` groups; `SettingsMainScreen` lists the root entries. Settings search builds its index from the `settingScreens` list in `SettingsSearchScreen.kt`, one entry per screen, and indexes every row with a non-blank title under a `HighlightKey` of (group, title), which is what scrolls to and highlights the row a result opens. A group heading that matches is a result of its own, keyed `HighlightKey.heading`, and opens the screen at that heading. A `CustomPreference` with a blank title (the About logo, its link icons) never becomes a result.
+Each top-level Settings screen is a `SearchableSettings` data object (a route) returning a list of `Preference` groups; `SettingsMainScreen` lists the root entries. Settings search builds its index from the `settingScreens` list in `SettingsSearchScreen.kt`, one entry per screen, and indexes every row with a non-blank title under a `HighlightKey` of (group, title), which is what scrolls to and highlights the row a result opens. A group heading that matches is a result of its own, keyed `HighlightKey.heading`, and opens the screen at that heading. A `CustomPreference` with a blank title (the About logo, its link icons) never becomes a result.
 
 `SearchableSettings.isEnabled()` suspends, because the MangaDex gate waits for the extension scan. Search resolves every gate once with `produceState` and shows nothing until they answer; Browse and sources reads the MangaDex gate the same way.
 

@@ -14,8 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -26,7 +25,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +40,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.Serializable
 import logcat.LogPriority
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
 import mihon.icons.materialsymbols.rounded.FlipToBack
@@ -70,18 +70,15 @@ import kotlin.time.Duration.Companion.seconds
  * Back and the up arrow clear a selection before they leave, as Mihon's picker does; Continue keeps
  * it where Mihon clears it, since backing out of config is the only way to adjust the set.
  */
-class EntryMigrationFavoritesRoute(
-    private val contentType: ContentType,
-    private val sourceKey: String,
-) : Screen(), MigrationFlowRoute {
-
-    @Composable
-    override fun Content() = EntryMigrationFavoritesScreen(contentType, sourceKey)
-}
+@Serializable
+data class EntryMigrationFavoritesRoute(
+    val contentType: ContentType,
+    val sourceKey: String,
+) : NavKey, MigrationFlowRoute
 
 @Composable
 fun EntryMigrationFavoritesScreen(contentType: ContentType, sourceKey: String) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val adapter = rememberMigrationAdapter(contentType)
     val viewModel =
         assistedMetroViewModel<EntryMigrationFavoritesViewModel, EntryMigrationFavoritesViewModel.Factory> {

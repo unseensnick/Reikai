@@ -8,15 +8,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.fastMap
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.core.content.ContextCompat
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.LocalNavigator
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -38,7 +38,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
-object SettingsLibraryScreen : SearchableSettings {
+@Serializable
+data object SettingsLibraryScreen : SearchableSettings {
 
     @Composable
     @ReadOnlyComposable
@@ -66,7 +67,6 @@ object SettingsLibraryScreen : SearchableSettings {
         return listOf(
             // RK: pass novel prefs + categories so the Categories group also hosts the novel default category
             getCategoriesGroup(
-                LocalNavigator.currentOrThrow,
                 allCategories,
                 libraryPreferences,
                 novelPreferences,
@@ -77,7 +77,7 @@ object SettingsLibraryScreen : SearchableSettings {
             getNovelUpdateGroup(novelPreferences, novelCategories, reikaiLibraryPreferences),
             getBehaviorGroup(libraryPreferences, novelPreferences, taskBannerPreferences), // RK
             // RK: merge-group preferred-source ranking
-            getSourcesGroup(LocalNavigator.currentOrThrow, reikaiLibraryPreferences),
+            getSourcesGroup(reikaiLibraryPreferences),
         )
     }
 
@@ -132,9 +132,9 @@ object SettingsLibraryScreen : SearchableSettings {
     // RK -->
     @Composable
     private fun getSourcesGroup(
-        navigator: Navigator,
         reikaiLibraryPreferences: ReikaiLibraryPreferences,
     ): Preference.PreferenceGroup {
+        val navigator = LocalNavigator.current
         return Preference.PreferenceGroup(
             // RK: named for what it holds. Every row here is about merging a series across its
             // sources, including the preferred-sources ranking, which only the merge path reads.
@@ -169,7 +169,7 @@ object SettingsLibraryScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_preferred_sources),
                     subtitle = stringResource(MR.strings.pref_preferred_sources_summary),
-                    onClick = { navigator.push(PreferredSourcesRoute()) },
+                    onClick = { navigator.push(PreferredSourcesRoute) },
                 ),
             ),
         )
@@ -178,7 +178,6 @@ object SettingsLibraryScreen : SearchableSettings {
 
     @Composable
     private fun getCategoriesGroup(
-        navigator: Navigator,
         allCategories: List<Category>,
         libraryPreferences: LibraryPreferences,
         // RK: novel default-category pref + novel categories, so both defaults sit in one group
@@ -186,6 +185,7 @@ object SettingsLibraryScreen : SearchableSettings {
         novelCategories: List<Category>,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
+        val navigator = LocalNavigator.current
         val scope = rememberCoroutineScope()
         // RK: the edit-categories screen lists every category of both libraries, so this counts them all
         val everyCategory by remember { context.appGraph.categoryRepository.getUnfilteredAsFlow() }
@@ -214,7 +214,7 @@ object SettingsLibraryScreen : SearchableSettings {
                         count = userCategoriesCount,
                         userCategoriesCount,
                     ),
-                    onClick = { navigator.push(CategoryScreen()) },
+                    onClick = { navigator.push(CategoryRoute) },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = libraryPreferences.defaultCategory,

@@ -12,7 +12,6 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.tagKey
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.recommendation.taste.TrackStatus
-import java.io.Serializable
 import kotlin.math.roundToInt
 import kotlin.time.Instant
 
@@ -98,10 +97,10 @@ enum class StatsDimension { STATUS, SCORE, LENGTH, TRACKER, SOURCE, CATEGORY, TA
 
 /**
  * One details row's identity; a null value is the "none" row (unscored, untracked, unknown). Serializable
- * (Java for the Voyager screen the row's series list is, kotlinx for its route) because that screen takes one.
+ * because the route of the row's series list carries one.
  */
 @kotlinx.serialization.Serializable
-sealed interface StatsGroupKey : Serializable {
+sealed interface StatsGroupKey {
     @kotlinx.serialization.Serializable
     data class Status(val code: Long) : StatsGroupKey
 

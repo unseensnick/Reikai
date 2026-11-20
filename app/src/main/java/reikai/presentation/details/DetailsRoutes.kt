@@ -4,16 +4,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import androidx.navigation3.runtime.NavKey
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.MangaRoute
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.novel.host.NovelItem
@@ -32,8 +31,8 @@ import tachiyomi.i18n.MR
 // A page is addressed by its row id, so a listing that has no row yet stores one before it opens.
 
 /** The details page of [this] entry; one since removed opens on a not-found page. */
-fun EntryId.detailsScreen(fromSource: Boolean = false): Screen = when (this) {
-    is EntryId.Manga -> MangaScreen(rawId, fromSource)
+fun EntryId.detailsRoute(fromSource: Boolean = false): NavKey = when (this) {
+    is EntryId.Manga -> MangaRoute(rawId, fromSource)
     is EntryId.Novel -> NovelRoute(rawId, fromSource)
 }
 
@@ -42,51 +41,52 @@ fun EntryId.detailsScreen(fromSource: Boolean = false): Screen = when (this) {
  * A manga result is stored already; a novel's row is stored first, outside the library. Null when it
  * cannot be.
  */
-suspend fun EntryBrowseRow.detailsScreen(sourceKey: SourceKey, novels: NovelLibraryAdder): Screen? =
+suspend fun EntryBrowseRow.detailsRoute(sourceKey: SourceKey, novels: NovelLibraryAdder): NavKey? =
     when (sourceKey) {
-        is SourceKey.Manga -> EntryId.Manga(manga.id).detailsScreen(fromSource = true)
-        is SourceKey.Novel -> item.storedDetailsScreen(sourceKey.id, novels, fromSource = true)
+        is SourceKey.Manga -> EntryId.Manga(manga.id).detailsRoute(fromSource = true)
+        is SourceKey.Novel -> item.storedDetailsRoute(sourceKey.id, novels, fromSource = true)
     }
 
 /** The details page of this listed novel on [sourceId], once its row is stored; null when it cannot be. */
-suspend fun NovelItem.storedDetailsScreen(
+suspend fun NovelItem.storedDetailsRoute(
     sourceId: String,
     novels: NovelLibraryAdder,
     fromSource: Boolean = false,
-): Screen? = runCatchingCancellable { withIOContext { novels.materialize(this@storedDetailsScreen, sourceId) } }
+): NavKey? = runCatchingCancellable { withIOContext { novels.materialize(this@storedDetailsRoute, sourceId) } }
     .onFailure { logcat(LogPriority.ERROR, it) { "Could not store a listed novel to open it" } }
     .getOrNull()
-    ?.let { EntryId.Novel(it.id).detailsScreen(fromSource) }
+    ?.let { EntryId.Novel(it.id).detailsRoute(fromSource) }
 
-/** Whether this screen is [entry]'s details page. */
-fun Screen.shows(entry: EntryId): Boolean = when (entry) {
-    is EntryId.Manga -> (this as? MangaScreen)?.mangaId == entry.rawId
+/** Whether this route is [entry]'s details page. */
+fun NavKey.shows(entry: EntryId): Boolean = when (entry) {
+    is EntryId.Manga -> (this as? MangaRoute)?.mangaId == entry.rawId
     is EntryId.Novel -> (this as? NovelRoute)?.novelId == entry.rawId
 }
 
 /**
  * Opens the details page a tap asks for, one at a time: a second tap while a novel's row is still being
- * stored opens nothing, since Voyager would push the page twice. A page that cannot be built says so.
+ * stored opens nothing, since its page would land over whatever the first one opened. A page that cannot be
+ * built says so.
  */
 class DetailsOpener(
     private val scope: CoroutineScope,
-    private val push: (Screen) -> Unit,
+    private val push: (NavKey) -> Unit,
     // Read at the tap, so drawing a screen that holds an opener never reaches the graph.
     private val novels: () -> NovelLibraryAdder,
     private val onFailure: () -> Unit,
 ) {
     private var pending: Job? = null
 
-    fun open(row: EntryBrowseRow, sourceKey: SourceKey) = open { row.detailsScreen(sourceKey, it) }
+    fun open(row: EntryBrowseRow, sourceKey: SourceKey) = open { row.detailsRoute(sourceKey, it) }
 
     /**
      * Opens the page [screen] builds through [navigate], a push unless the caller opens it another way. One
      * that cannot be built is reported, then [afterFailure] runs, for a caller that waited on it.
      */
     fun open(
-        navigate: (Screen) -> Unit = push,
+        navigate: (NavKey) -> Unit = push,
         afterFailure: () -> Unit = {},
-        screen: suspend (NovelLibraryAdder) -> Screen?,
+        screen: suspend (NovelLibraryAdder) -> NavKey?,
     ) {
         if (pending?.isActive == true) return
         pending = scope.launch {
@@ -102,7 +102,7 @@ class DetailsOpener(
 @Composable
 fun rememberDetailsOpener(): DetailsOpener {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
     return remember(navigator, scope) {
         DetailsOpener(scope, navigator::push, { context.appGraph.novelLibraryAdder }) {

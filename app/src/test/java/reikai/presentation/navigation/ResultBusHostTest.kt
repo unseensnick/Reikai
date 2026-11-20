@@ -5,31 +5,32 @@ import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEffect
 import androidx.navigation3.runtime.result.ResultEventBus
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
-import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.Navigator
+import mihon.core.navigation.rememberNavigator
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import reikai.presentation.TestNavHost
 
 /**
- * The result bus as MainActivity hosts it under Voyager: a screen's collector runs only while that
- * screen is on top, as it will under Navigation 3's display, and the app's bus outlives a recreate.
+ * The result bus as MainActivity hosts it: a route's collector runs only while that route is shown, and the
+ * app's bus outlives a recreate, so a result sent just before one still arrives.
  */
 @RunWith(RobolectricTestRunner::class)
-class ResultBusOnVoyagerTest {
+class ResultBusHostTest {
 
     @get:Rule
     val compose = createEmptyComposeRule()
@@ -40,7 +41,7 @@ class ResultBusOnVoyagerTest {
     fun close() = scenario.close()
 
     @Test
-    fun `a result sent before the sender pops reaches the screen below exactly once`() {
+    fun `a result sent before the sender pops reaches the route below exactly once`() {
         launch()
         act { navigator.push(Sender) }
         act {
@@ -52,7 +53,7 @@ class ResultBusOnVoyagerTest {
     }
 
     @Test
-    fun `a covered screen collects nothing until it is back on top`() {
+    fun `a covered route collects nothing until it is back on top`() {
         launch()
         act { navigator.push(Sender) }
         act { bus.sendResult(Picked(7)) }
@@ -93,17 +94,11 @@ class ResultBusOnVoyagerTest {
 
     data class Picked(val id: Long)
 
-    data object Receiver : Screen {
-        @Composable
-        override fun Content() {
-            ResultEffect<Picked> { received += it }
-        }
-    }
+    @Serializable
+    data object Receiver : NavKey
 
-    data object Sender : Screen {
-        @Composable
-        override fun Content() = Unit
-    }
+    @Serializable
+    data object Sender : NavKey
 
     companion object {
         val received = mutableListOf<Picked>()
@@ -118,11 +113,15 @@ class BusHostActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val bus = retainAppResultEventBus()
-            ResultBusOnVoyagerTest.bus = bus
+            ResultBusHostTest.bus = bus
+            val navigator = rememberNavigator(ResultBusHostTest.Receiver)
+            ResultBusHostTest.navigator = navigator
             CompositionLocalProvider(LocalResultEventBus provides bus) {
-                Navigator(ResultBusOnVoyagerTest.Receiver) {
-                    ResultBusOnVoyagerTest.navigator = it
-                    DefaultNavigatorScreenTransition(it)
+                TestNavHost(navigator) {
+                    entry<ResultBusHostTest.Receiver> {
+                        ResultEffect<ResultBusHostTest.Picked> { ResultBusHostTest.received += it }
+                    }
+                    entry<ResultBusHostTest.Sender> {}
                 }
             }
         }

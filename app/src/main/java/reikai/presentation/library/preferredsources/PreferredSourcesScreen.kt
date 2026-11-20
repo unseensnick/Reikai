@@ -13,12 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.library.labelRes
@@ -32,15 +32,12 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * Settings sub-screen for ranking sources, split into Manga / Light novels tabs. Each tab ranks its
  * own content type; the rankings drive the trunk of a merged chapter list (manga + novel aggregators).
  */
-class PreferredSourcesRoute : Screen() {
-
-    @Composable
-    override fun Content() = PreferredSourcesScreen()
-}
+@Serializable
+data object PreferredSourcesRoute : NavKey
 
 @Composable
 fun PreferredSourcesScreen() {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val model = metroViewModel<PreferredSourcesViewModel>()
     val shown = LocalShownContent.current
     val tabs = listOf(ContentType.MANGA to model.manga, ContentType.NOVELS to model.novels)

@@ -36,14 +36,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.result.ResultEffect
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.openInBrowser
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.ContentCopy
@@ -66,24 +65,19 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
 import tachiyomi.presentation.core.util.shouldExpandFAB
 
-/** Every extension store and LN plugin repo; [url] is an address a deep link asks to add. */
-class RepositoriesRoute(private val url: String? = null) : Screen() {
+/** An address a deep link asks the repos screen to add, sent after it is opened, as upstream's store link is. */
+data class ExtensionStoreDeepLinkEvent(val url: String)
 
-    @Composable
-    override fun Content() = RepositoriesScreen(url)
-}
-
+/** Every extension store and LN plugin repo, which upstream's extension store route opens. */
 @Composable
-fun RepositoriesScreen(url: String?) {
+fun RepositoriesScreen() {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val model = metroViewModel<RepositoriesViewModel>()
     val state by model.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(url) {
-        url?.let(model::showAdd)
-    }
+    ResultEffect<ExtensionStoreDeepLinkEvent> { model.showAdd(it.url) }
 
     Scaffold(
         topBar = { scrollBehavior ->

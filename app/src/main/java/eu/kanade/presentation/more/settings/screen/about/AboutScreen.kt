@@ -22,8 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.more.LogoHeader
 import eu.kanade.presentation.more.settings.Preference
@@ -31,7 +29,6 @@ import eu.kanade.presentation.more.settings.screen.SearchableSettings
 import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
-import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
 import eu.kanade.tachiyomi.util.lang.toDateTimestampString
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.isNightlyBuildType
@@ -42,8 +39,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.Serializable
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.NewUpdateRoute
+import mihon.core.navigation.OpenSourceLicensesRoute
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.simpleicons.Github
@@ -66,7 +67,8 @@ import kotlin.time.Instant
  * The logo and the link row are [Preference.PreferenceItem.CustomPreference]s with a blank title,
  * which the search index skips (it filters on a non-blank title), so neither becomes a junk result.
  */
-object AboutScreen : SearchableSettings {
+@Serializable
+data object AboutScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
@@ -77,7 +79,7 @@ object AboutScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
         val crashLogUtil = remember { context.appGraph.crashLogUtil }
         val is24HourSystem = rememberIs24HourSystem()
         var isCheckingUpdates by remember { mutableStateOf(false) }
@@ -111,7 +113,7 @@ object AboutScreen : SearchableSettings {
                                 context = context,
                                 onAvailableUpdate = { result ->
                                     navigator.push(
-                                        NewUpdateScreen(
+                                        NewUpdateRoute(
                                             versionName = result.release.version,
                                             changelogInfo = result.release.info,
                                             releaseLink = result.release.releaseLink,
@@ -134,7 +136,7 @@ object AboutScreen : SearchableSettings {
                 preferenceItems = listOf(
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(MR.strings.licenses),
-                        onClick = { navigator.push(OpenSourceLicensesScreen()) },
+                        onClick = { navigator.push(OpenSourceLicensesRoute) },
                     ),
                     // RK: Reikai's own privacy policy, on the docs site.
                     Preference.PreferenceItem.TextPreference(
@@ -206,54 +208,55 @@ object AboutScreen : SearchableSettings {
             }
         }
     }
+}
 
-    fun getVersionName(buildTime: String?): String {
-        return when {
-            BuildConfig.DEBUG -> {
-                "Debug ${BuildConfig.COMMIT_SHA}".let {
-                    if (buildTime != null) {
-                        "$it ($buildTime)"
-                    } else {
-                        it
-                    }
+// RK: top level, as upstream keeps them, since the settings and debug pages read them too
+fun getVersionName(buildTime: String?): String {
+    return when {
+        BuildConfig.DEBUG -> {
+            "Debug ${BuildConfig.COMMIT_SHA}".let {
+                if (buildTime != null) {
+                    "$it ($buildTime)"
+                } else {
+                    it
                 }
             }
-            isNightlyBuildType -> {
-                "Nightly r${BuildConfig.COMMIT_COUNT}".let {
-                    if (buildTime != null) {
-                        "$it (${BuildConfig.COMMIT_SHA}, $buildTime)"
-                    } else {
-                        "$it (${BuildConfig.COMMIT_SHA})"
-                    }
+        }
+        isNightlyBuildType -> {
+            "Nightly r${BuildConfig.COMMIT_COUNT}".let {
+                if (buildTime != null) {
+                    "$it (${BuildConfig.COMMIT_SHA}, $buildTime)"
+                } else {
+                    "$it (${BuildConfig.COMMIT_SHA})"
                 }
             }
-            else -> {
-                "Stable ${BuildConfig.VERSION_NAME}".let {
-                    if (buildTime != null) {
-                        "$it ($buildTime)"
-                    } else {
-                        it
-                    }
+        }
+        else -> {
+            "Stable ${BuildConfig.VERSION_NAME}".let {
+                if (buildTime != null) {
+                    "$it ($buildTime)"
+                } else {
+                    it
                 }
             }
         }
     }
+}
 
-    internal fun getFormattedBuildTime(context: Context): String {
-        return try {
-            val uiPreferences = context.appGraph.uiPreferences
-            Instant.parse(BuildConfig.BUILD_TIME)
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .toDateTimestampString(
-                    UiPreferences.dateTimeFormat(
-                        uiPreferences.dateFormat.get(),
-                        uiPreferences.timeFormat.get(),
-                        Locale.getDefault(),
-                        DateFormat.is24HourFormat(context),
-                    ),
-                )
-        } catch (_: Exception) {
-            BuildConfig.BUILD_TIME
-        }
+internal fun getFormattedBuildTime(context: Context): String {
+    return try {
+        val uiPreferences = context.appGraph.uiPreferences
+        Instant.parse(BuildConfig.BUILD_TIME)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .toDateTimestampString(
+                UiPreferences.dateTimeFormat(
+                    uiPreferences.dateFormat.get(),
+                    uiPreferences.timeFormat.get(),
+                    Locale.getDefault(),
+                    DateFormat.is24HourFormat(context),
+                ),
+            )
+    } catch (_: Exception) {
+        BuildConfig.BUILD_TIME
     }
 }

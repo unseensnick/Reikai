@@ -25,14 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Refresh
@@ -44,7 +44,7 @@ import reikai.domain.novel.model.NovelCover
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.rememberChipListState
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -57,18 +57,15 @@ import tachiyomi.presentation.core.util.selectedBackground
 import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 
 /** Opens on the [initialContentType] chip (e.g. Novels when reached from the novel library). */
-class UpdateErrorsRoute(
-    private val initialContentType: ContentType = ContentType.ALL,
-) : Screen() {
-
-    @Composable
-    override fun Content() = UpdateErrorsScreen(initialContentType)
-}
+@Serializable
+data class UpdateErrorsRoute(
+    val initialContentType: ContentType = ContentType.ALL,
+) : NavKey
 
 @Composable
 fun UpdateErrorsScreen(initialContentType: ContentType) {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<UpdateErrorsViewModel, UpdateErrorsViewModel.Factory> {
         create(initialContentType = initialContentType)
     }
@@ -194,9 +191,9 @@ fun UpdateErrorsScreen(initialContentType: ContentType) {
                                 } else {
                                     when (entry) {
                                         is UpdateErrorEntry.Manga ->
-                                            navigator.push(EntryId.Manga(entry.error.mangaId).detailsScreen())
+                                            navigator.push(EntryId.Manga(entry.error.mangaId).detailsRoute())
                                         is UpdateErrorEntry.Novel ->
-                                            navigator.push(EntryId.Novel(entry.error.novelId).detailsScreen())
+                                            navigator.push(EntryId.Novel(entry.error.novelId).detailsRoute())
                                     }
                                 }
                             },

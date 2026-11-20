@@ -28,8 +28,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.InfoDivider
 import eu.kanade.presentation.browse.InfoText
@@ -37,14 +36,15 @@ import eu.kanade.presentation.browse.UninstallPromptDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
-import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Settings
 import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.NovelSourceIcon
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
+import reikai.presentation.webview.pluginWebViewRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -57,15 +57,12 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * opens Mihon's `ExtensionDetailsScreen`. A plugin is not a package the system can remove, so its
  * Uninstall is confirmed here.
  */
-data class NovelPluginDetailsRoute(private val pluginId: String) : Screen() {
-
-    @Composable
-    override fun Content() = NovelPluginDetailsScreen(pluginId)
-}
+@Serializable
+data class NovelPluginDetailsRoute(val pluginId: String) : NavKey
 
 @Composable
 fun NovelPluginDetailsScreen(pluginId: String) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<NovelPluginDetailsViewModel, NovelPluginDetailsViewModel.Factory> {
         create(pluginId)
     }
@@ -100,13 +97,7 @@ fun NovelPluginDetailsScreen(pluginId: String) {
                 state = current,
                 contentPadding = contentPadding,
                 onOpenSite = {
-                    navigator.push(
-                        WebViewScreen(
-                            url = current.plugin.site,
-                            initialTitle = current.plugin.name,
-                            pluginId = current.plugin.id,
-                        ),
-                    )
+                    navigator.push(pluginWebViewRoute(current.plugin.id, current.plugin.site, current.plugin.name))
                 },
                 onUninstall = viewModel::uninstall,
             )

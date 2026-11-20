@@ -1,18 +1,17 @@
 package reikai.presentation.details
 
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.stack.mutableStateStackOf
-import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.home.TabEvent
 import io.kotest.matchers.shouldBe
-import io.mockk.mockk
+import mihon.core.navigation.HomeRoute
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
+import reikai.presentation.OtherTestRoute
 import reikai.presentation.RecordingResultBus
 import reikai.presentation.browse.catalogue.BrowseSearchEvent
 import reikai.presentation.browse.catalogue.EntryCatalogueRoute
 import reikai.presentation.resultKey
+import reikai.presentation.testNavigator
 
 /** A genre tapped on a details page returns to its own source's catalogue, and never another's. */
 class DetailsGenreSearchTest {
@@ -44,17 +43,17 @@ class DetailsGenreSearchTest {
 
     @Test
     fun `a library search walks back past a catalogue to the library and searches it`() {
-        val stack = mutableStateStackOf(HomeScreen, EntryCatalogueRoute(own), mockk<Screen>(), minSize = 1)
+        val stack = testNavigator(HomeRoute, EntryCatalogueRoute(own), OtherTestRoute)
         stack.searchLibraryFromDetails(recorder.bus, "query", ContentType.NOVELS)
 
         val search = TabEvent.Library(query = "query", contentType = ContentType.NOVELS)
-        (stack.lastItemOrNull to recorder.sent) shouldBe (HomeScreen to listOf(resultKey<TabEvent>() to search))
+        (stack.current to recorder.sent) shouldBe (HomeRoute to listOf(resultKey<TabEvent>() to search))
     }
 
     @Test
     fun `a genre with no catalogue of its source behind it searches the library`() {
         val stack =
-            mutableStateStackOf(HomeScreen, EntryCatalogueRoute(SourceKey.Manga(2L)), mockk<Screen>(), minSize = 1)
+            testNavigator(HomeRoute, EntryCatalogueRoute(SourceKey.Manga(2L)), OtherTestRoute)
         stack.searchGenreFromDetails(recorder.bus, "Action", own, ContentType.MANGA)
 
         recorder.sent shouldBe
@@ -64,16 +63,16 @@ class DetailsGenreSearchTest {
     @Test
     fun `a genre returns to its source's catalogue and searches it as a genre`() {
         val catalogue = EntryCatalogueRoute(own)
-        val stack = mutableStateStackOf(HomeScreen, catalogue, mockk<Screen>(), minSize = 1)
+        val stack = testNavigator(HomeRoute, catalogue, OtherTestRoute)
         stack.searchGenreFromDetails(recorder.bus, "Action", own, ContentType.MANGA)
 
-        (stack.lastItemOrNull to recorder.sent) shouldBe
+        (stack.current to recorder.sent) shouldBe
             (catalogue to listOf(resultKey<BrowseSearchEvent>() to BrowseSearchEvent("Action", genre = true)))
     }
 
     @Test
     fun `a source with no filters searches the genre as text`() {
-        val stack = mutableStateStackOf(HomeScreen, EntryCatalogueRoute(own), mockk<Screen>(), minSize = 1)
+        val stack = testNavigator(HomeRoute, EntryCatalogueRoute(own), OtherTestRoute)
         stack.searchGenreFromDetails(recorder.bus, "Action", own, ContentType.MANGA, filterable = false)
 
         recorder.sent shouldBe listOf(resultKey<BrowseSearchEvent>() to BrowseSearchEvent("Action", genre = false))
@@ -81,7 +80,7 @@ class DetailsGenreSearchTest {
 
     @Test
     fun `nothing is sent when the library is not on the stack`() {
-        val stack = mutableStateStackOf(mockk<Screen>(), mockk<Screen>(), minSize = 1)
+        val stack = testNavigator(OtherTestRoute, OtherTestRoute)
         stack.searchLibraryFromDetails(recorder.bus, "query", ContentType.MANGA)
 
         recorder.sent shouldBe emptyList()

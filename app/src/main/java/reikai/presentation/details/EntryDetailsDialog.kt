@@ -13,7 +13,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
@@ -25,7 +24,6 @@ import reikai.domain.merge.DetailsRemoval
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.ManageMergeSourcesDialog
-import reikai.presentation.track.EntryTrackInfoDialogHomeRoute
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -56,8 +54,6 @@ sealed interface EntryDetailsDialog {
         val sources: List<EntryManageSourceInfo>,
         val isOverridden: Boolean,
     ) : EntryDetailsDialog
-
-    data class TrackSheet(val entry: EntryId, val entryTitle: String) : EntryDetailsDialog
 
     /** Confirm a bulk chapter delete; [chapterIds] are the rows captured when the dialog opened. */
     data class DeleteChapters(val chapterIds: List<Long>) : EntryDetailsDialog
@@ -221,18 +217,6 @@ fun EntryDetailsDialogHost(
             onRemoveAll = behavior.mergeActions::removeAllSourcesFromLibrary,
             onCombineVolumes = behavior.mergeActions::combineAsVolumes.takeIf { dialog.sources.all { it.isLocal } },
         )
-        is EntryDetailsDialog.TrackSheet -> {
-            // Remember the screen so the merge collectors' frequent recompositions don't rebuild it and reset
-            // its navigator mid-write (the manga side hit an UpsertTrack JobCancellationException here).
-            val trackScreen = remember(dialog.entry) {
-                EntryTrackInfoDialogHomeRoute(entry = dialog.entry, entryTitle = dialog.entryTitle)
-            }
-            NavigatorAdaptiveSheet(
-                screen = trackScreen,
-                enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeRoute },
-                onDismissRequest = onDismissRequest,
-            )
-        }
         is EntryDetailsDialog.DeleteChapters -> DeleteChaptersDialog(
             onDismissRequest = onDismissRequest,
             onConfirm = { behavior.deleteChapters(dialog.chapterIds) },

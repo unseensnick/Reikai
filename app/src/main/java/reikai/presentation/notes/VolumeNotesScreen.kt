@@ -3,6 +3,7 @@ package reikai.presentation.notes
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -11,8 +12,8 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.serialization.Serializable
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.library.ContentType
@@ -33,14 +34,12 @@ import tachiyomi.source.local.LocalSource
  * The notes of one volume of a local series, either content type, which its page shows while that volume's
  * chip is picked. Keyed as the volume's saved order and name are, so they follow it through a move.
  */
-class VolumeNotesRoute(
-    private val type: ContentType,
-    private val series: String,
-    private val volumeKey: String,
-) : Screen() {
-
-    @Composable
-    override fun Content() = VolumeNotesScreen(type, series, volumeKey)
+@Serializable
+data class VolumeNotesRoute(
+    val type: ContentType,
+    val series: String,
+    val volumeKey: String,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject

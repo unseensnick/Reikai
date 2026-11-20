@@ -1,6 +1,5 @@
 package reikai.presentation.browse
 
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineScope
@@ -10,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import mihon.core.navigation.MangaRoute
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.novel.host.NovelItem
@@ -264,7 +264,7 @@ class MangaAddFlowProbe : AddFlowProbe() {
     override fun entryId() = ENTRY
     override fun entryCategories() = library.filed[ENTRY]
 
-    override fun openedDuplicate(duplicateId: Long) = (flow.duplicateScreen(duplicateId) as? MangaScreen)?.mangaId
+    override fun openedDuplicate(duplicateId: Long) = (flow.duplicateScreen(duplicateId) as? MangaRoute)?.mangaId
     override val expectedDuplicate: Any = DUPLICATE
 
     private companion object {

@@ -14,18 +14,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.category.CategoryScreen
 import eu.kanade.presentation.category.components.CategoryCreateDialog
 import eu.kanade.presentation.category.components.CategoryDeleteDialog
 import eu.kanade.presentation.category.components.CategoryDeleteSelectedDialog
 import eu.kanade.presentation.category.components.CategoryRenameDialog
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.category.toCategoryContentType
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.i18n.pluralStringResource
@@ -35,37 +33,34 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 // RK: one list spanning both libraries; each row carries the content type it applies to.
-class CategoryScreen : Screen() {
-
-    @Composable
-    override fun Content() {
-        val viewModel = metroViewModel<CategoryViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
-        CategoryManager(
-            state = state,
-            events = viewModel.events,
-            onClickCreate = { viewModel.showDialog(CategoryDialog.Create) },
-            onClickRename = { viewModel.showDialog(CategoryDialog.Rename(it)) },
-            onClickDelete = { viewModel.showDialog(CategoryDialog.Delete(it)) },
-            onToggleHidden = viewModel::toggleHidden,
-            onChangeOrder = viewModel::changeOrder,
-            onMoveToEnd = viewModel::moveToEnd, // RK
-            onDismissDialog = viewModel::dismissDialog,
-            onCreate = viewModel::createCategory,
-            onRename = viewModel::renameCategory,
-            onDelete = viewModel::deleteCategory,
-            onSelectContentType = viewModel::setContentType,
-            onToggleSelection = { viewModel.toggleSelection(it.id) },
-            onToggleRangeSelection = { viewModel.toggleRangeSelection(it.id) },
-            onSelectAll = viewModel::selectAll,
-            onInvertSelection = viewModel::invertSelection,
-            onClearSelection = viewModel::clearSelection,
-            onDeleteSelected = viewModel::deleteSelected,
-            onUndoDelete = viewModel::undoPendingDelete,
-            onCommitDelete = viewModel::commitPendingDelete,
-            onCommitAllDeletes = viewModel::commitAllPendingDeletes,
-        )
-    }
+@Composable
+fun CategoryScreen() {
+    val viewModel = metroViewModel<CategoryViewModel>()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    CategoryManager(
+        state = state,
+        events = viewModel.events,
+        onClickCreate = { viewModel.showDialog(CategoryDialog.Create) },
+        onClickRename = { viewModel.showDialog(CategoryDialog.Rename(it)) },
+        onClickDelete = { viewModel.showDialog(CategoryDialog.Delete(it)) },
+        onToggleHidden = viewModel::toggleHidden,
+        onChangeOrder = viewModel::changeOrder,
+        onMoveToEnd = viewModel::moveToEnd, // RK
+        onDismissDialog = viewModel::dismissDialog,
+        onCreate = viewModel::createCategory,
+        onRename = viewModel::renameCategory,
+        onDelete = viewModel::deleteCategory,
+        onSelectContentType = viewModel::setContentType,
+        onToggleSelection = { viewModel.toggleSelection(it.id) },
+        onToggleRangeSelection = { viewModel.toggleRangeSelection(it.id) },
+        onSelectAll = viewModel::selectAll,
+        onInvertSelection = viewModel::invertSelection,
+        onClearSelection = viewModel::clearSelection,
+        onDeleteSelected = viewModel::deleteSelected,
+        onUndoDelete = viewModel::undoPendingDelete,
+        onCommitDelete = viewModel::commitPendingDelete,
+        onCommitAllDeletes = viewModel::commitAllPendingDeletes,
+    )
 }
 
 @Composable
@@ -96,7 +91,7 @@ private fun CategoryManager(
     // RK <--
 ) {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     // RK: the action-mode toolbar's Delete asks first; this gates the deferred delete
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteSelectedConfirm by remember { mutableStateOf(false) }

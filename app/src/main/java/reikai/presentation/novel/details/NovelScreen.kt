@@ -9,19 +9,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
-import eu.kanade.presentation.util.AssistContentScreen
-import eu.kanade.presentation.util.LocalAssistUrl
-import eu.kanade.presentation.util.Screen
-import mihon.presentation.core.util.isTabletUi
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.LocalAssistUrl
+import mihon.core.navigation.LocalNavigator
+import mihon.presentation.core.util.isTabletUi
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -35,7 +34,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
-import reikai.presentation.browse.source.preferencesScreen
+import reikai.presentation.browse.source.preferencesRoute
 import reikai.presentation.details.DetailsSettings
 import reikai.presentation.details.DetailsViewedSource
 import reikai.presentation.details.DuplicateMarking
@@ -48,7 +47,7 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.chapterToOpen
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.migrate.flow.EntryMigrateFor
@@ -62,27 +61,16 @@ import reikai.presentation.novel.search.NovelChapterSearchRoute
  * reader, the page selector, chapter text search) and the per-type dialogs live here; the shared dialogs go through
  * [EntryDetailsDialogHost].
  */
-class NovelRoute(
-    // Public so the migrate flow can identity-check the screen below it before replacing.
+@Serializable
+data class NovelRoute(
     val novelId: Long,
     // Opened from a source listing: starts the synopsis expanded, and closes when incognito ends.
     val fromSource: Boolean = false,
-) : Screen(), AssistContentScreen {
-
-    private var assistUrl: String? = null
-
-    override fun onProvideAssistUrl() = assistUrl
-
-    @Composable
-    override fun Content() {
-        val setAssistUrl = remember { { url: String? -> assistUrl = url } }
-        CompositionLocalProvider(LocalAssistUrl provides setAssistUrl) { NovelScreen(novelId, fromSource) }
-    }
-}
+) : NavKey
 
 @Composable
 fun NovelScreen(novelId: Long, fromSource: Boolean) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val setAssistUrl = LocalAssistUrl.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -195,12 +183,12 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
  *  [EntryDetailsDialogHost]. */
 @Composable
 private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: NovelDetailsViewModel) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> ChangeCategoryDialog(
             initialSelection = dialog.initialSelection,
             onDismissRequest = viewModel::dismissDialog,
-            onEditCategories = { navigator.push(CategoryScreen()) },
+            onEditCategories = { navigator.push(CategoryRoute) },
             onConfirm = { include, _ -> viewModel.applyCategories(include) },
         )
         is NovelDetailsDialog.DuplicateNovel -> EntryDuplicateDialog(
@@ -208,7 +196,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: Nove
             card = NovelWithChapterCount::toDuplicateCard,
             onDismissRequest = viewModel::dismissDialog,
             onConfirm = viewModel::addFavoriteAnyway,
-            onOpen = { navigator.push(EntryId.Novel(it.novel.id).detailsScreen()) },
+            onOpen = { navigator.push(EntryId.Novel(it.novel.id).detailsRoute()) },
             onMigrate = { viewModel.startMigrate(it.novel.id) },
             onAddToGroup = viewModel::addToExistingGroup,
         )
@@ -232,7 +220,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: Nove
             // A screen of its own rather than a sheet, so the dialog only hands over to it.
             is NovelSettings.PreferenceScreen -> LaunchedEffect(dialog) {
                 viewModel.dismissDialog()
-                navigator.push(SourceKey.Novel(dialog.source.id).preferencesScreen())
+                navigator.push(SourceKey.Novel(dialog.source.id).preferencesRoute())
             }
             null -> {}
         }
@@ -287,7 +275,6 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
             sources = d.sources,
             isOverridden = d.isOverridden,
         )
-        NovelDetailsDialog.TrackSheet -> EntryDetailsDialog.TrackSheet(EntryId.Novel(novel.id), novel.title)
         is NovelDetailsDialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
         is NovelDetailsDialog.ClearDownloads -> EntryDetailsDialog.ClearDownloads(d.target)
         is NovelDetailsDialog.RemoveFromLibrary -> EntryDetailsDialog.RemoveFromLibrary(

@@ -23,8 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -35,7 +34,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +44,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.SOURCE_SEARCH_CONCURRENCY
 import reikai.presentation.browse.globalsearch.SearchSourceFilter
@@ -65,22 +65,19 @@ import kotlin.random.Random
  * straight to the results, and tapping one opens the shared migrate dialog. The batch list serves
  * everything else.
  */
-class EntryMigrationSearchRoute(
-    private val contentType: ContentType,
-    private val entryId: Long,
+@Serializable
+data class EntryMigrationSearchRoute(
+    val contentType: ContentType,
+    val entryId: Long,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
-    private val extraQuery: String?,
-    /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. */
+    val extraQuery: String?,
+    /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. Saved with the route. */
     internal val flowId: Long = Random.nextLong(),
-) : Screen(), MigrationFlowRoute {
-
-    @Composable
-    override fun Content() = EntryMigrationSearchScreen(contentType, entryId, extraQuery, flowId)
-}
+) : NavKey, MigrationFlowRoute
 
 @Composable
 fun EntryMigrationSearchScreen(contentType: ContentType, entryId: Long, extraQuery: String?, flowId: Long) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val opener = rememberDetailsOpener()
     val context = LocalContext.current
     val adapter = rememberMigrationAdapter(contentType)
@@ -204,7 +201,7 @@ fun EntryMigrationSearchScreen(contentType: ContentType, entryId: Long, extraQue
                 viewModel.dismissDialog()
                 // Leave the whole flow behind before landing, so back does not return to
                 // results (or a stale config step) for a migration that already happened.
-                navigator.popUntil(::isOutsideMigrationFlow)
+                navigator.popTo(::isOutsideMigrationFlow)
                 // The resolved candidate, not the raw pick: replace-detection needs the
                 // stored row behind it to swap out the migrated-away details page.
                 resolved.openDetailsAfterCommit(navigator, replaced, migrated = entry)

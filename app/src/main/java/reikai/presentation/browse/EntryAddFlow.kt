@@ -1,6 +1,6 @@
 package reikai.presentation.browse
 
-import cafe.adriel.voyager.core.screen.Screen
+import androidx.navigation3.runtime.NavKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.BufferOverflow
@@ -96,7 +96,7 @@ abstract class EntryAddFlow<D : Any>(
     abstract fun startMigrate(duplicateId: Long)
 
     /** The details screen a duplicate card opens. */
-    abstract fun duplicateScreen(entryId: Long): Screen
+    abstract fun duplicateScreen(entryId: Long): NavKey
 
     protected abstract fun D.toNeutral(): EntryAddDialog
 

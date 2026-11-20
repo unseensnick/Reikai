@@ -48,16 +48,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
-import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.DoneAll
@@ -80,18 +80,15 @@ import kotlin.random.Random
  * The shared migration list: one row per entry being migrated, with the batch commit at the bottom.
  * Serves both content types through [MigrationFlowAdapter]; nothing here branches on a content type.
  */
-class EntryMigrationListRoute(
-    private val contentType: ContentType,
-    private val entryIds: List<Long>,
+@Serializable
+data class EntryMigrationListRoute(
+    val contentType: ContentType,
+    val entryIds: List<Long>,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
-    private val extraQuery: String?,
-    /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. */
+    val extraQuery: String?,
+    /** Keys the picks a pushed catalogue sends back; see [MigrationPickFor]. Saved with the route. */
     internal val flowId: Long = Random.nextLong(),
-) : Screen(), MigrationFlowRoute {
-
-    @Composable
-    override fun Content() = EntryMigrationListScreen(contentType, entryIds, extraQuery, flowId)
-}
+) : NavKey, MigrationFlowRoute
 
 @Composable
 fun EntryMigrationListScreen(
@@ -100,7 +97,7 @@ fun EntryMigrationListScreen(
     extraQuery: String?,
     flowId: Long,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val adapter = rememberMigrationAdapter(contentType)
     val viewModel = assistedMetroViewModel<EntryMigrationListViewModel, EntryMigrationListViewModel.Factory> {
@@ -124,7 +121,7 @@ fun EntryMigrationListScreen(
         LaunchedEffect(Unit) {
             if (migratedCount > 0) context.toast(migratedMessage)
             // Unwind the whole flow, not one step: the screen below is a stale flow step.
-            navigator.popUntil(::isOutsideMigrationFlow)
+            navigator.popTo(::isOutsideMigrationFlow)
         }
         return
     }
@@ -142,7 +139,7 @@ internal fun EntryMigrationList(
     viewModel: EntryMigrationListViewModel,
     flowId: Long,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     // One for the screen: a row's own would be cancelled as it scrolls away, and would not hold off a tap on another.
     val opener = rememberDetailsOpener()
 
@@ -169,7 +166,7 @@ internal fun EntryMigrationList(
                     if (guardExit) {
                         viewModel.showExitConfirm()
                     } else {
-                        navigator.popUntil(::isOutsideMigrationFlow)
+                        navigator.popTo(::isOutsideMigrationFlow)
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -234,7 +231,7 @@ internal fun EntryMigrationList(
             // A commit still running would otherwise be cancelled halfway by the pop, with
             // nothing said about what had already been written.
             viewModel.cancelCommit()
-            navigator.popUntil(::isOutsideMigrationFlow)
+            navigator.popTo(::isOutsideMigrationFlow)
         },
     )
 }
@@ -282,7 +279,7 @@ private fun MigrationRow(
     flowId: Long,
     modifier: Modifier = Modifier,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     // Collected inside the item so one row settling recomposes that row, not the whole list.
     val search by row.search.collectAsState()
     val commit by row.commit.collectAsState()
@@ -357,7 +354,7 @@ private fun OverridePicker(
     opener: DetailsOpener,
     flowId: Long,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val overrides by row.overrides.collectAsState()
     var query by rememberSaveable(row.entry.id.toString()) { mutableStateOf(row.entry.title) }

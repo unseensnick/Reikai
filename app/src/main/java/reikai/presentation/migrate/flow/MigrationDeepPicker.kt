@@ -1,7 +1,7 @@
 package reikai.presentation.migrate.flow
 
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.stack.Stack
+import androidx.navigation3.runtime.NavKey
+import mihon.core.navigation.Navigator
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryCatalogueRoute
@@ -15,7 +15,7 @@ import reikai.presentation.browse.catalogue.EntryCatalogueRoute
  * caller can say so rather than push a screen that cannot load.
  */
 internal fun openDeepPicker(
-    navigator: Stack<Screen>,
+    navigator: Navigator,
     entry: MigrationEntry,
     sourceKey: String,
     query: String,

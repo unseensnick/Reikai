@@ -1,9 +1,9 @@
 package reikai.presentation.browse.globalsearch
 
-import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import mihon.core.navigation.DeepLinkRoute
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 
@@ -14,29 +14,29 @@ class SearchIntentScreenTest {
 
     @Test
     fun `a novel app's link opens through the shared-link tiers`() = runTest {
-        searchIntentScreen(LINK, NOVEL_APP, novelPackages).shouldBeInstanceOf<DeepLinkScreen>()
+        searchIntentRoute(LINK, NOVEL_APP, novelPackages).shouldBeInstanceOf<DeepLinkRoute>()
     }
 
     @Test
     fun `a manga extension's search stays a global search`() = runTest {
-        searchIntentScreen(LINK, "eu.kanade.tachiyomi.extension.en.manga", novelPackages)
+        searchIntentRoute(LINK, "eu.kanade.tachiyomi.extension.en.manga", novelPackages)
             .shouldBeInstanceOf<EntryGlobalSearchRoute>()
     }
 
     @Test
     fun `a search naming no extension stays a global search`() = runTest {
-        searchIntentScreen("query", null, novelPackages).shouldBeInstanceOf<EntryGlobalSearchRoute>()
+        searchIntentRoute("query", null, novelPackages).shouldBeInstanceOf<EntryGlobalSearchRoute>()
     }
 
     @Test
     fun `a search naming no extension opens on every content type`() = runTest {
-        searchIntentScreen("query", null, novelPackages)
+        searchIntentRoute("query", null, novelPackages)
             .shouldBeInstanceOf<EntryGlobalSearchRoute>().scopedContentType shouldBe ContentType.ALL
     }
 
     @Test
     fun `a search naming no extension covers every source`() = runTest {
-        searchIntentScreen("query", null, novelPackages)
+        searchIntentRoute("query", null, novelPackages)
             .shouldBeInstanceOf<EntryGlobalSearchRoute>().sourceFilter shouldBe SearchSourceFilter.All
     }
 

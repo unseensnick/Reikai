@@ -7,8 +7,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.presentation.more.settings.Preference
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
@@ -38,7 +36,7 @@ class SettingsNovelReaderScreenTest {
         val preferences = NovelPreferences(EmittingPreferenceStore()).apply { readerPageLayout().set(layout) }
         var titles = emptyList<String>()
         // Under a navigator, which the bottom buttons row opens its screen through.
-        compose.setContent { ComposeTestHost { Navigator(ReadingRows(preferences) { titles = it }) } }
+        compose.setContent { ComposeTestHost { ReadingRows(preferences) { titles = it }.Content() } }
         compose.waitForIdle()
         return titles
     }
@@ -72,14 +70,12 @@ class SettingsNovelReaderScreenTest {
         compose.setContent {
             CompositionLocalProvider(LocalContext provides context) {
                 ComposeTestHost {
-                    Navigator(
-                        Rows({
-                            SettingsNovelReaderScreen.getPreferences()
-                                .filterIsInstance<Preference.PreferenceGroup>()
-                                .filter { it.visible }
-                                .flatMap { group -> group.preferenceItems.filter { it.visible }.map { it.title } }
-                        }) { titles = it },
-                    )
+                    Rows({
+                        SettingsNovelReaderScreen.getPreferences()
+                            .filterIsInstance<Preference.PreferenceGroup>()
+                            .filter { it.visible }
+                            .flatMap { group -> group.preferenceItems.filter { it.visible }.map { it.title } }
+                    }) { titles = it }.Content()
                 }
             }
         }
@@ -96,16 +92,16 @@ class SettingsNovelReaderScreenTest {
         override fun getApplicationContext(): Context = this
     }
 
-    private class ReadingRows(val preferences: NovelPreferences, val read: (List<String>) -> Unit) : Screen {
+    private class ReadingRows(val preferences: NovelPreferences, val read: (List<String>) -> Unit) {
         @Composable
-        override fun Content() {
+        fun Content() {
             read(SettingsNovelReaderScreen.getReadingGroup(preferences).preferenceItems.map { it.title })
         }
     }
 
-    private class Rows(val rows: @Composable () -> List<String>, val read: (List<String>) -> Unit) : Screen {
+    private class Rows(val rows: @Composable () -> List<String>, val read: (List<String>) -> Unit) {
         @Composable
-        override fun Content() {
+        fun Content() {
             read(rows())
         }
     }

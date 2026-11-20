@@ -1,44 +1,44 @@
 package reikai.presentation.local
 
 import android.net.Uri
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.stack.mutableStateStackOf
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import reikai.presentation.OtherTestRoute
 import reikai.presentation.RecordingResultBus
+import reikai.presentation.TestRootRoute
 import reikai.presentation.resultKey
+import reikai.presentation.testNavigator
 
 /** Files opened with the app join an open import screen's picks, else open one of their own. */
 class ImportFilesTest {
 
     private val recorder = RecordingResultBus()
     private val files = listOf(mockk<Uri>())
-    private val root = mockk<Screen>()
 
     @Test
     fun `files join the import screen already open, which is shown again`() {
         val open = LocalImportRoute()
-        val stack = mutableStateStackOf(root, open, mockk<Screen>(), minSize = 1)
+        val stack = testNavigator(TestRootRoute, open, OtherTestRoute)
 
         stack.importFiles(files, recorder.bus)
 
-        (stack.lastItemOrNull to recorder.sent) shouldBe
+        (stack.current to recorder.sent) shouldBe
             (open to listOf(resultKey<ImportFilesEvent>() to ImportFilesEvent(files)))
     }
 
     @Test
     fun `with no import screen open the files open a new one over the library`() {
-        val stack = mutableStateStackOf(root, mockk<Screen>(), minSize = 1)
+        val stack = testNavigator(TestRootRoute, OtherTestRoute)
 
         stack.importFiles(files, recorder.bus)
 
-        stack.items.map { it::class } shouldBe listOf(root::class, LocalImportRoute::class)
+        stack.routes.map { it::class } shouldBe listOf(TestRootRoute::class, LocalImportRoute::class)
     }
 
     @Test
     fun `a new import screen is not also sent the files`() {
-        val stack = mutableStateStackOf(root, minSize = 1)
+        val stack = testNavigator(TestRootRoute)
 
         stack.importFiles(files, recorder.bus)
 

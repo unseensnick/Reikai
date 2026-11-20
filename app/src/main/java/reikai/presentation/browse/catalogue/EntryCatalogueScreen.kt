@@ -32,21 +32,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.result.ResultEffect
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.AssistContentScreen
-import eu.kanade.presentation.util.LocalAssistUrl
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.follows.MangaDexFollowsRoute
 import exh.source.getMainSource
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalAssistUrl
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.FilterList
@@ -66,7 +65,7 @@ import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.browse.PendingBulkCategoryDialog
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.rememberEntryGestures
-import reikai.presentation.browse.source.preferencesScreen
+import reikai.presentation.browse.source.preferencesRoute
 import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.local.LocalImportRoute
 import reikai.presentation.migrate.flow.MigrationPickFor
@@ -75,7 +74,7 @@ import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
-import reikai.presentation.webview.toWebViewScreen
+import reikai.presentation.webview.webViewRoute
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -117,29 +116,17 @@ internal fun savedSearchToOpen(
  * The per-type branches below resolve their own models and supply the leaves nothing neutral can
  * cover: the filter sheet, the source settings, and where a tap goes.
  */
-class EntryCatalogueRoute(
+@Serializable
+data class EntryCatalogueRoute(
     val sourceKey: SourceKey,
-    private val initialQuery: String? = null,
+    val initialQuery: String? = null,
     /** Open on the source's Latest listing rather than Popular, for the Sources row's button. */
-    private val startLatest: Boolean = false,
+    val startLatest: Boolean = false,
     /** Set when the screen was opened to choose what an entry migrates to. */
-    internal val migrateFor: MigrationPickFor? = null,
+    val migrateFor: MigrationPickFor? = null,
     /** Open showing this saved search, for a feed row built on one. */
-    private val savedSearchId: Long? = null,
-) : Screen(), AssistContentScreen {
-
-    private var assistUrl: String? = null
-
-    override fun onProvideAssistUrl() = assistUrl
-
-    @Composable
-    override fun Content() {
-        val setAssistUrl = remember { { url: String? -> assistUrl = url } }
-        CompositionLocalProvider(LocalAssistUrl provides setAssistUrl) {
-            EntryCatalogueScreen(sourceKey, initialQuery, startLatest, migrateFor, savedSearchId)
-        }
-    }
-}
+    val savedSearchId: Long? = null,
+) : NavKey
 
 @Composable
 fun EntryCatalogueScreen(
@@ -164,7 +151,7 @@ private fun MangaCatalogue(
     savedSearchId: Long?,
 ) {
     val sourceId = sourceKey.id
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
         create(sourceId = sourceId, listingQuery = mangaListingQuery(startLatest, initialQuery))
     }
@@ -195,7 +182,7 @@ private fun MangaCatalogue(
         savedSearchId = savedSearchId,
         behavior = adapter,
         bulk = bulk,
-        onOpenSettings = { navigator.push(sourceKey.preferencesScreen()) },
+        onOpenSettings = { navigator.push(sourceKey.preferencesRoute()) },
         isLocal = isLocal,
     ) { onDismiss ->
         SourceFilterDialog(
@@ -223,7 +210,7 @@ private fun NovelCatalogue(
     savedSearchId: Long?,
 ) {
     val sourceId = sourceKey.id
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val viewModel = assistedMetroViewModel<NovelBrowseViewModel, NovelBrowseViewModel.Factory> {
         create(sourceId = sourceId, initialQuery = initialQuery.orEmpty(), startLatest = startLatest)
@@ -251,7 +238,7 @@ private fun NovelCatalogue(
         // A preference screen is a screen of its own; the LNReader schema is a sheet over this one.
         onOpenSettings = {
             when (source?.settings) {
-                is NovelSettings.PreferenceScreen -> navigator.push(sourceKey.preferencesScreen())
+                is NovelSettings.PreferenceScreen -> navigator.push(sourceKey.preferencesRoute())
                 else -> viewModel.openSettingsSheet()
             }
         },
@@ -301,7 +288,7 @@ private fun Catalogue(
     extraSheets: @Composable () -> Unit = {},
     filterSheet: @Composable (onDismiss: () -> Unit) -> Unit,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val setAssistUrl = LocalAssistUrl.current
     val opener = rememberDetailsOpener()
     val state by behavior.state.collectAsState()
@@ -354,7 +341,7 @@ private fun Catalogue(
     val onWebViewClick: (String?) -> Unit = f@{ challengeUrl ->
         val url = challengeUrl ?: loaded.webUrl ?: return@f
         refreshOnReturn()
-        navigator.push(sourceKey.toWebViewScreen(url, loaded.sourceName))
+        navigator.push(sourceKey.webViewRoute(url, loaded.sourceName))
     }
     val uriHandler = LocalUriHandler.current
     val onHelpClick = { uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP) }

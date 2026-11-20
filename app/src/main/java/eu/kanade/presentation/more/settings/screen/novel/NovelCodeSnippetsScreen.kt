@@ -19,9 +19,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.more.settings.screen.novel.components.NovelToggleList
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippetKind
 import tachiyomi.i18n.MR
@@ -34,11 +35,8 @@ import java.util.UUID
  * The WebView reader's CSS or JavaScript snippets. Novel-only and WebView-only by mechanism: the text
  * renderer has no stylesheet or script to add them to, and a manga page is an image.
  */
-data class NovelCodeSnippetsRoute(private val kind: NovelSnippetKind) : Screen() {
-
-    @Composable
-    override fun Content() = NovelCodeSnippetsScreen(kind)
-}
+@Serializable
+data class NovelCodeSnippetsRoute(val kind: NovelSnippetKind) : NavKey
 
 @Composable
 fun NovelCodeSnippetsScreen(kind: NovelSnippetKind) {

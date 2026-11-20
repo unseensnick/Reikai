@@ -6,8 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -16,10 +15,11 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.singleContentType
@@ -35,10 +35,11 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * migrating them all, so the choice is asked before anything is searched. Nothing merged in the
  * selection means nothing to choose, and the screen forwards itself to [EntryMigrationConfigScreen].
  */
-class EntryMigrationSourcePickRoute(
+@Serializable
+data class EntryMigrationSourcePickRoute(
     val contentType: ContentType,
     val entryIds: List<Long>,
-) : Screen(), MigrationFlowRoute {
+) : NavKey, MigrationFlowRoute {
 
     companion object {
         /**
@@ -51,14 +52,11 @@ class EntryMigrationSourcePickRoute(
             return EntryMigrationSourcePickRoute(type, selection.map { it.rawId })
         }
     }
-
-    @Composable
-    override fun Content() = EntryMigrationSourcePickScreen(contentType, entryIds)
 }
 
 @Composable
 fun EntryMigrationSourcePickScreen(contentType: ContentType, entryIds: List<Long>) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val adapter = rememberMigrationAdapter(contentType)
     val viewModel =
         assistedMetroViewModel<EntryMigrationSourcePickViewModel, EntryMigrationSourcePickViewModel.Factory> {

@@ -1,62 +1,44 @@
 package eu.kanade.tachiyomi.ui.updates
 
-import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
-import cafe.adriel.voyager.navigator.tab.TabOptions
-import eu.kanade.presentation.util.Tab
-import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import androidx.navigation3.runtime.result.ResultEffect
+import eu.kanade.tachiyomi.ui.home.TopLevelRoute
+import mihon.core.navigation.DownloadQueueRoute
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.category.RecentsSurface
-import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.recents.RecentsTabBody
-import reikai.presentation.recents.ShowsUpdatesBadge
 import reikai.presentation.recents.mangaUpdatesModel
 import reikai.presentation.recents.rememberUpdatesEngine
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
-// RK: the badge marker, since which tab shows Updates is now a setting.
-data object UpdatesTab : Tab, ShowsUpdatesBadge {
+@Composable
+fun UpdatesTab() {
+    val navigator = LocalNavigator.current
+    // RK --> the shared recents screen draws the tab, over the Updates engine
+    val engine = rememberUpdatesEngine()
+    // RK: held only for the badge reset below. The engine resolves the same instance out of this
+    //     tab's store, so this costs no second model, and asks for it with the same surface.
+    val viewModel = mangaUpdatesModel(RecentsSurface.UPDATES)
 
-    override val options: TabOptions
-        @Composable
-        get() {
-            val isSelected = LocalTabNavigator.current.current.key == key
-            val image = cachedAnimatedVector(R.drawable.animated_updates) // RK
-            return TabOptions(
-                index = 1u,
-                title = stringResource(MR.strings.label_recent_updates),
-                icon = rememberAnimatedVectorPainter(image, isSelected),
-            )
-        }
+    RecentsTabBody(
+        engine = engine,
+        title = stringResource(MR.strings.label_recent_updates),
+    )
 
-    override suspend fun onReselect(navigator: Navigator) {
-        navigator.push(DownloadQueueScreen)
-    }
+    // The badge is the one host behaviour that is this tab's alone: it counts what the updated
+    // lane shows, and no other tab draws that lane.
+    DisposableEffect(Unit) {
+        viewModel.resetNewUpdatesCount()
 
-    @Composable
-    override fun Content() {
-        val engine = rememberUpdatesEngine()
-        // RK: held only for the badge reset below. The engine resolves the same instance out of this
-        //     tab's store, so this costs no second model, and asks for it with the same surface.
-        val viewModel = mangaUpdatesModel(RecentsSurface.UPDATES)
-
-        RecentsTabBody(
-            engine = engine,
-            title = stringResource(MR.strings.label_recent_updates),
-        )
-
-        // The badge is the one host behaviour that is this tab's alone: it counts what the updated
-        // lane shows, and no other tab draws that lane.
-        DisposableEffect(Unit) {
+        onDispose {
             viewModel.resetNewUpdatesCount()
-
-            onDispose {
-                viewModel.resetNewUpdatesCount()
-            }
         }
+    }
+    // RK <--
+
+    ResultEffect<Unit>(resultKey = TopLevelRoute.Updates.reselectEventKey) {
+        navigator.push(DownloadQueueRoute)
     }
 }

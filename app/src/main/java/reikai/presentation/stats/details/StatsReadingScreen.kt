@@ -46,21 +46,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toJavaLocalDate
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowBack
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.stats.BarUnit
 import reikai.presentation.stats.ReadingBar
 import reikai.presentation.stats.ReadingPeriod
@@ -84,15 +84,12 @@ import kotlin.time.Instant
  * Reading time over a week, a month, a year or a picked range; tapping a bar narrows the series list to
  * its dates.
  */
-class StatsReadingRoute : Screen() {
-
-    @Composable
-    override fun Content() = StatsReadingScreen()
-}
+@Serializable
+data object StatsReadingRoute : NavKey
 
 @Composable
 fun StatsReadingScreen() {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = metroViewModel<StatsReadingViewModel>()
     StatsRefreshOnResume(viewModel::refresh)
     val state by viewModel.state.collectAsState()
@@ -155,7 +152,7 @@ fun StatsReadingScreen() {
                         max = READING_MAX_WIDTH,
                     ).padding(horizontal = MaterialTheme.padding.medium),
                 ) {
-                    navigator.push(title.entryId.detailsScreen())
+                    navigator.push(title.entryId.detailsRoute())
                 }
             }
         }

@@ -8,23 +8,23 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.source.AndroidSourceManager
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.ExtensionStoresRoute
+import mihon.core.navigation.LocalNavigator
 import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
-import reikai.presentation.browse.repos.RepositoriesRoute
 import reikai.presentation.components.LocalShownContent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
-object SettingsBrowseScreen : SearchableSettings {
+@Serializable
+data object SettingsBrowseScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
@@ -33,7 +33,7 @@ object SettingsBrowseScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
 
         val sourcePreferences = remember { context.appGraph.sourcePreferences }
         // RK: the adult-sources gate, moved here from Advanced so it sits above the settings group it
@@ -99,7 +99,7 @@ object SettingsBrowseScreen : SearchableSettings {
                             pluralStringResource(MR.plurals.repo_count, it, it)
                         },
                         onClick = {
-                            navigator.push(RepositoriesRoute())
+                            navigator.push(ExtensionStoresRoute)
                         },
                     ),
                     // RK <--
@@ -198,17 +198,17 @@ object SettingsBrowseScreen : SearchableSettings {
             // RK --> settings owned by the app rather than by an installed extension, so they have
             // nowhere to live on the source itself. Each row appears only while its source is on, and
             // the group disappears entirely when neither is, which is why it is built conditionally.
-            getSourceSettingsGroup(navigator, adultSourcesEnabled, mangaDexEnabled),
+            getSourceSettingsGroup(adultSourcesEnabled, mangaDexEnabled),
             // RK <--
         )
     }
 
     @Composable
     private fun getSourceSettingsGroup(
-        navigator: Navigator,
         adultSourcesEnabled: Boolean,
         mangaDexEnabled: Boolean,
     ): Preference.PreferenceGroup? {
+        val navigator = LocalNavigator.current
         val rows = listOfNotNull(
             // Both gates are passed in as observed state: isEnabled() is a one-shot read, so the first
             // row would not appear until the screen was recreated, even though the switch that reveals

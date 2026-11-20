@@ -214,7 +214,7 @@ class CategoryViewModelTest {
         upcomingPreferences.filterIncludedCategories.get() shouldBe listOf(b.id)
     }
 
-    /** Voyager clears the popped screen's model before its exit animation ends and onDispose commits. */
+    /** A pop clears the screen's model before its exit animation ends and onDispose commits. */
     @Test
     fun `leaving the screen commits a delete after the model's scope is gone`() = runTest {
         val model = model()

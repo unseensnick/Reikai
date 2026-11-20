@@ -2,6 +2,7 @@ package mihon.core.navigation
 
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
+import reikai.navigation.NovelWebTarget
 
 @Serializable
 data object HomeRoute : NavKey
@@ -14,6 +15,7 @@ data class WebViewRoute(
     val url: String,
     val initialTitle: String? = null,
     val sourceId: Long? = null,
+    val novel: NovelWebTarget = NovelWebTarget.None, // RK
 ) : NavKey
 
 @Serializable

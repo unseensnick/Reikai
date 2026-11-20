@@ -8,8 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -18,7 +17,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -27,6 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.content.ChapterSearchSnippet
 import reikai.novel.content.ChapterTextSearch
@@ -43,13 +43,11 @@ import java.util.regex.PatternSyntaxException
  * [sourceScoped] names, or [novelId]'s whole merge group. Novels only, since a manga chapter on disk is
  * images with no text to search. Ported from Tsundoku's entry chapter search.
  */
-class NovelChapterSearchRoute(
-    private val novelId: Long,
-    private val sourceScoped: Boolean,
-) : Screen() {
-
-    @Composable
-    override fun Content() = NovelChapterSearchScreen(novelId, sourceScoped)
+@Serializable
+data class NovelChapterSearchRoute(
+    val novelId: Long,
+    val sourceScoped: Boolean,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -196,7 +194,7 @@ class NovelChapterSearchRoute(
 
 @Composable
 fun NovelChapterSearchScreen(novelId: Long, sourceScoped: Boolean) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val viewModel = assistedMetroViewModel<NovelChapterSearchRoute.Model, NovelChapterSearchRoute.Model.Factory> {
         create(novelId = novelId, sourceScoped = sourceScoped)

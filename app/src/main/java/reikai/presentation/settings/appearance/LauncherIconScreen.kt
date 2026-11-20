@@ -35,11 +35,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
 import reikai.util.LauncherIcon
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.HeadingItem
@@ -49,15 +49,12 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /** Picks the icon the launcher shows, from the designs every build carries. */
 // no ViewModel: the app-wide LauncherIconState holds what is shown.
-class LauncherIconRoute : Screen() {
-
-    @Composable
-    override fun Content() = LauncherIconScreen()
-}
+@Serializable
+data object LauncherIconRoute : NavKey
 
 @Composable
 fun LauncherIconScreen() {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val iconState = remember { context.appGraph.launcherIconState }
     val shown by iconState.shown.collectAsState()

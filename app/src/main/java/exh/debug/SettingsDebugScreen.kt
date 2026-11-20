@@ -33,13 +33,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.TrailingWidgetBuffer
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
@@ -47,15 +47,12 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
 
 /** Komikku's debug menu: its functions and its toggles, reached from Settings, Advanced. */
-class SettingsDebugRoute : Screen() {
-
-    @Composable
-    override fun Content() = SettingsDebugScreen()
-}
+@Serializable
+data object SettingsDebugRoute : NavKey
 
 @Composable
 fun SettingsDebugScreen() {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = metroViewModel<SettingsDebugViewModel>()
     val state by viewModel.state.collectAsStateWithLifecycle()
 

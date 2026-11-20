@@ -8,8 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.novel.NovelCodeSnippetsRoute
@@ -18,7 +16,9 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesRoute
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
@@ -66,7 +66,8 @@ import tachiyomi.core.common.preference.Preference as PreferenceStoreEntry
  * Text size and the page colours stay in the reader's settings sheet, which previews them as you change
  * them.
  */
-object SettingsNovelReaderScreen : SearchableSettings {
+@Serializable
+data object SettingsNovelReaderScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
@@ -238,7 +239,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
      */
     @Composable
     private fun getTextDisplayGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
         val context = LocalContext.current
         val fontFamily by novelPreferences.readerFontFamily().collectAsState()
         // Named from whichever list it came from, since the preference holds a key or a file name and
@@ -254,7 +255,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_font),
                     subtitle = fontLabel,
-                    onClick = { navigator.push(NovelFontsRoute()) },
+                    onClick = { navigator.push(NovelFontsRoute) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     preference = novelPreferences.readerLineSpacing().scaled(ReaderRanges.TENTHS),
@@ -313,7 +314,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
      */
     @Composable
     private fun getChapterTextGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val autoSplitEnabled by novelPreferences.readerAutoSplitText().collectAsState()
         val sourceCssPriority by novelPreferences.readerSourceCssPriority().collectAsState()
@@ -377,7 +378,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_regex_rules),
                     subtitle = stringResource(MR.strings.pref_novel_regex_rules_summary),
-                    onClick = { navigator.push(NovelRegexRulesRoute()) },
+                    onClick = { navigator.push(NovelRegexRulesRoute) },
                 ),
             ),
         )
@@ -390,7 +391,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
      */
     @Composable
     internal fun getWebViewGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_webview_mode),
             preferenceItems = listOf(

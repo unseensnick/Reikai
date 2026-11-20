@@ -1495,8 +1495,6 @@ class NovelDetailsViewModel(
     private suspend fun groupChaptersIn(ids: Set<Long>): List<NovelChapter> =
         mergeGroup.relatedIds.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in ids }
 
-    fun showTrackDialog() = showDialog(NovelDetailsDialog.TrackSheet)
-
     /**
      * Marks [chapters] read or unread across the merge group, then pushes a read to bound trackers, through
      * [EntryAutoTrackOnMarkRead], the step shared with the manga details model. Its own coroutine, as
@@ -1909,9 +1907,6 @@ sealed interface NovelDetailsDialog {
         val sources: List<EntryManageSourceInfo>,
         val isOverridden: Boolean,
     ) : NovelDetailsDialog
-
-    // Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
-    data object TrackSheet : NovelDetailsDialog
 
     /** Migrating the library's copy onto this one, both already stored by id. Replaces
      *  [DuplicateNovel] in the same slot, as the manga twin does. */

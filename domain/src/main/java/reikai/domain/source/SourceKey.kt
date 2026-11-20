@@ -7,12 +7,11 @@ import reikai.domain.library.ContentType
  * Neutral identity for a source of either content type, the browse analogue of
  * [reikai.domain.entry.EntryId]: sealed, so a mismatched (type, id) cannot be constructed. The two id
  * spaces cannot collide (a manga source is a `Long`, a plugin a `String` slug), so this gives them
- * one name: a value naming both types at once, such as the last-used source, needs it. Java-
- * serializable because a catalogue screen takes one and has to survive process death, and kotlinx-
- * serializable for a route.
+ * one name: a value naming both types at once, such as the last-used source, needs it. Serializable for
+ * a route, which carries one.
  */
 @Serializable
-sealed interface SourceKey : java.io.Serializable {
+sealed interface SourceKey {
 
     val contentType: ContentType
 

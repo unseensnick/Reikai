@@ -1,19 +1,19 @@
 package reikai.presentation.details
 
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.stack.Stack
-import cafe.adriel.voyager.core.stack.mutableStateStackOf
-import eu.kanade.tachiyomi.ui.home.HomeScreen
+import androidx.navigation3.runtime.NavKey
+import eu.kanade.presentation.more.settings.screen.SettingsTrackingScreen
 import eu.kanade.tachiyomi.ui.home.TabEvent
-import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesRoute
-import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.mockk
+import mihon.core.navigation.HomeRoute
+import mihon.core.navigation.MangaNotesRoute
+import mihon.core.navigation.Navigator
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
+import reikai.presentation.OtherTestRoute
 import reikai.presentation.RecordingResultBus
 import reikai.presentation.browse.catalogue.BrowseSearchEvent
 import reikai.presentation.browse.catalogue.EntryCatalogueRoute
@@ -21,6 +21,8 @@ import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
 import reikai.presentation.novel.notes.NovelNotesRoute
 import reikai.presentation.resultKey
+import reikai.presentation.testNavigator
+import reikai.presentation.track.EntryTrackSheetRoute
 
 /** The details page's neutral pushes land on the same destination for a manga and a novel. */
 class DetailsPushesConformanceTest {
@@ -37,7 +39,7 @@ class DetailsPushesConformanceTest {
     fun `a global search is scoped to the entry's type`(case: Case) = pushes(case) { nav, stack ->
         nav.onGlobalSearch("query")
 
-        val top = stack.lastItemOrNull.shouldBeInstanceOf<EntryGlobalSearchRoute>()
+        val top = stack.current.shouldBeInstanceOf<EntryGlobalSearchRoute>()
         (top.searchQuery to top.scopedContentType) shouldBe ("query" to case.anchor.contentType)
     }
 
@@ -56,7 +58,7 @@ class DetailsPushesConformanceTest {
         pushes(case, catalogue) { nav, stack ->
             nav.onTagSearch("Action")
 
-            (stack.lastItemOrNull to recorder.sent) shouldBe
+            (stack.current to recorder.sent) shouldBe
                 (catalogue to listOf(resultKey<BrowseSearchEvent>() to BrowseSearchEvent("Action", genre = true)))
         }
     }
@@ -75,7 +77,7 @@ class DetailsPushesConformanceTest {
     fun `the source row browses the viewed source`(case: Case) = pushes(case) { nav, stack ->
         nav.onBrowseSource!!()
 
-        stack.lastItemOrNull.shouldBeInstanceOf<EntryCatalogueRoute>().sourceKey shouldBe case.source
+        stack.current.shouldBeInstanceOf<EntryCatalogueRoute>().sourceKey shouldBe case.source
     }
 
     @ParameterizedTest
@@ -90,7 +92,17 @@ class DetailsPushesConformanceTest {
     fun `Tracking with no tracker logged in opens tracker settings`(case: Case) = pushes(case) { nav, stack ->
         nav.onOpenTrackingSettings()
 
-        stack.lastItemOrNull.shouldBeInstanceOf<SettingsScreen>()
+        stack.current.shouldBeInstanceOf<SettingsTrackingScreen>()
+    }
+
+    @ParameterizedTest
+    @MethodSource("cases")
+    fun `Tracking with a tracker logged in opens the track sheet for the anchor`(
+        case: Case,
+    ) = pushes(case) { nav, stack ->
+        nav.onOpenTrackSheet()
+
+        stack.current.shouldBeInstanceOf<EntryTrackSheetRoute>().entry shouldBe case.anchor
     }
 
     @ParameterizedTest
@@ -98,7 +110,7 @@ class DetailsPushesConformanceTest {
     fun `Migrate picks sources for the anchor`(case: Case) = pushes(case) { nav, stack ->
         nav.onMigrate!!()
 
-        val top = stack.lastItemOrNull.shouldBeInstanceOf<EntryMigrationSourcePickRoute>()
+        val top = stack.current.shouldBeInstanceOf<EntryMigrationSourcePickRoute>()
         (top.contentType to top.entryIds) shouldBe (case.anchor.contentType to listOf(case.anchor.rawId))
     }
 
@@ -107,7 +119,7 @@ class DetailsPushesConformanceTest {
     fun `notes open the viewed member's own`(case: Case) = pushes(case) { nav, stack ->
         nav.onEditNotes()
 
-        when (val top = stack.lastItemOrNull) {
+        when (val top = stack.current) {
             is MangaNotesRoute -> EntryId.Manga(top.mangaId)
             is NovelNotesRoute -> EntryId.Novel(top.novelId)
             else -> top
@@ -116,11 +128,11 @@ class DetailsPushesConformanceTest {
 
     private fun pushes(
         case: Case,
-        vararg below: Screen,
+        vararg below: NavKey,
         browsable: Boolean = true,
-        test: (SharedDetailsPushes, Stack<Screen>) -> Unit,
+        test: (SharedDetailsPushes, Navigator) -> Unit,
     ) {
-        val stack = mutableStateStackOf(HomeScreen, *below, mockk<Screen>(), minSize = 1)
+        val stack = testNavigator(HomeRoute, *below, OtherTestRoute)
         val nav = EntryDetailsNavigation(
             navigateUp = {},
             onOpenChapter = {},
@@ -130,6 +142,7 @@ class DetailsPushesConformanceTest {
             loadedDetails().copy(entryId = case.anchor, viewedEntryId = case.viewed),
             stack,
             recorder.bus,
+            twoPane = false,
         )
         test(nav, stack)
     }

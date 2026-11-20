@@ -32,8 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -46,7 +45,6 @@ import eu.kanade.presentation.browse.components.SourceIcon
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +55,8 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
 import mihon.icons.materialsymbols.rounded.Deselect
@@ -87,18 +87,15 @@ import tachiyomi.presentation.core.util.shouldExpandFAB
  * Continue leads to the migration list. The search options are asked for here too, before any row
  * exists, which is what keeps the list free of the machinery a mid-search change would need.
  */
-class EntryMigrationConfigRoute(
-    private val contentType: ContentType,
-    private val entryIds: List<Long>,
-) : Screen(), MigrationFlowRoute {
-
-    @Composable
-    override fun Content() = EntryMigrationConfigScreen(contentType, entryIds)
-}
+@Serializable
+data class EntryMigrationConfigRoute(
+    val contentType: ContentType,
+    val entryIds: List<Long>,
+) : NavKey, MigrationFlowRoute
 
 @Composable
 fun EntryMigrationConfigScreen(contentType: ContentType, entryIds: List<Long>) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val adapter = rememberMigrationAdapter(contentType)
     val viewModel = assistedMetroViewModel<EntryMigrationConfigViewModel, EntryMigrationConfigViewModel.Factory> {
         create(adapter = adapter, io = Dispatchers.IO)

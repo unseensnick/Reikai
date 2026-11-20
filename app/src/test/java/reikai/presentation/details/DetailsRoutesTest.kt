@@ -1,7 +1,6 @@
 package reikai.presentation.details
 
-import cafe.adriel.voyager.core.screen.Screen
-import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import androidx.navigation3.runtime.NavKey
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -9,6 +8,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import mihon.core.navigation.MangaRoute
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -38,14 +38,14 @@ class DetailsRoutesTest {
 
     @Test
     fun `a manga id opens the manga page for that id`() {
-        val screen = EntryId.Manga(3L).detailsScreen(fromSource = true) as MangaScreen
+        val screen = EntryId.Manga(3L).detailsRoute(fromSource = true) as MangaRoute
 
         (screen.mangaId to screen.fromSource) shouldBe (3L to true)
     }
 
     @Test
     fun `a novel id opens the novel page for that id`() {
-        val screen = EntryId.Novel(7L).detailsScreen() as NovelRoute
+        val screen = EntryId.Novel(7L).detailsRoute() as NovelRoute
 
         (screen.novelId to screen.fromSource) shouldBe (7L to false)
     }
@@ -54,30 +54,30 @@ class DetailsRoutesTest {
     fun `a manga result opens its stored manga as a listing opens it`() = runTest {
         val row = mangaBrowseRow(MutableStateFlow(Manga.create().copy(id = 5L, url = "/m/5") to null))
 
-        val screen = row.detailsScreen(SourceKey.Manga(1L), novels) as MangaScreen
+        val screen = row.detailsRoute(SourceKey.Manga(1L), novels) as MangaRoute
 
         (screen.mangaId to screen.fromSource) shouldBe (5L to true)
     }
 
     @Test
     fun `a novel result is stored and then opened by its row id`() = runTest {
-        val screen = novelRow(listed).detailsScreen(SourceKey.Novel("plugin"), novels) as NovelRoute
+        val screen = novelRow(listed).detailsRoute(SourceKey.Novel("plugin"), novels) as NovelRoute
 
         (screen.novelId to screen.fromSource) shouldBe (9L to true)
     }
 
     @Test
     fun `a novel result whose row cannot be written opens nothing`() = runTest {
-        novelRow(unwritable).detailsScreen(SourceKey.Novel("plugin"), novels) shouldBe null
+        novelRow(unwritable).detailsRoute(SourceKey.Novel("plugin"), novels) shouldBe null
     }
 
-    // Voyager pushes whatever it is handed, so a double tap would stack the page twice.
+    // A second tap lands after the first page opened, so it would stack another page over it.
     @Test
     fun `a second tap while the first page is still being built opens nothing`() = runTest {
-        val pushed = mutableListOf<Screen>()
+        val pushed = mutableListOf<NavKey>()
         val opener = DetailsOpener(this, pushed::add, { novels }) {}
         val first = NovelRoute(1L)
-        val building = CompletableDeferred<Screen?>()
+        val building = CompletableDeferred<NavKey?>()
 
         opener.open { building.await() }
         opener.open { NovelRoute(2L) }
@@ -101,10 +101,10 @@ class DetailsRoutesTest {
     // Global search's lone result replaces the search with its page rather than pushing over it.
     @Test
     fun `a page opened for no tap goes where it is sent`() = runTest {
-        val sent = mutableListOf<Screen>()
+        val sent = mutableListOf<NavKey>()
         val opener = DetailsOpener(this, { error("pushed") }, { novels }) { error("failed") }
 
-        opener.open(navigate = sent::add) { EntryId.Novel(9L).detailsScreen() }
+        opener.open(navigate = sent::add) { EntryId.Novel(9L).detailsRoute() }
         advanceUntilIdle()
 
         sent.map { (it as NovelRoute).novelId } shouldBe listOf(9L)
@@ -126,7 +126,7 @@ class DetailsRoutesTest {
     @MethodSource("shownCases")
     fun `a details page shows only its own entry`(
         @Suppress("UNUSED_PARAMETER") name: String,
-        screen: Screen,
+        screen: NavKey,
         entry: EntryId,
         shows: Boolean,
     ) {
@@ -136,9 +136,9 @@ class DetailsRoutesTest {
     companion object {
         @JvmStatic
         fun shownCases() = listOf(
-            arrayOf("manga page, its id", MangaScreen(1L), EntryId.Manga(1L), true),
-            arrayOf("manga page, another id", MangaScreen(2L), EntryId.Manga(1L), false),
-            arrayOf("manga page, a novel of the same id", MangaScreen(1L), EntryId.Novel(1L), false),
+            arrayOf("manga page, its id", MangaRoute(1L), EntryId.Manga(1L), true),
+            arrayOf("manga page, another id", MangaRoute(2L), EntryId.Manga(1L), false),
+            arrayOf("manga page, a novel of the same id", MangaRoute(1L), EntryId.Novel(1L), false),
             arrayOf("novel page, its id", NovelRoute(1L), EntryId.Novel(1L), true),
             arrayOf("novel page, another id", NovelRoute(2L), EntryId.Novel(1L), false),
             arrayOf("novel page, a manga of the same id", NovelRoute(1L), EntryId.Manga(1L), false),

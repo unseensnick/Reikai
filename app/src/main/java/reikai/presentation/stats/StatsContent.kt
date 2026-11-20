@@ -7,8 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
@@ -16,9 +14,10 @@ import eu.kanade.presentation.more.stats.StatsScreenContent
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.tachiyomi.ui.stats.StatsViewModel
 import kotlinx.collections.immutable.persistentListOf
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Edit
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.stats.details.StatsGroupRoute
 import reikai.presentation.stats.details.StatsMostReadRoute
 import reikai.presentation.stats.details.StatsReadingRoute
@@ -31,7 +30,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 /** The Statistics body, for the pushed StatsScreen and for StatsTab. */
 @Composable
 fun StatsContent(navigateUp: (() -> Unit)?) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
 
     val viewModel = metroViewModel<StatsViewModel>()
     // As a tab the model lives all session, so it reloads whenever Statistics comes back on screen.
@@ -110,9 +109,9 @@ fun StatsContent(navigateUp: (() -> Unit)?) {
             onSeeAll = { navigator.push(StatsGroupRoute(it)) },
             onOpenRow = { navigator.push(StatsSeriesRoute(it.group.key, it.name, contentType)) },
             onOpenKey = { navigator.push(StatsSeriesRoute(it, null, contentType)) },
-            onOpenEntry = { navigator.push(it.detailsScreen()) },
-            onOpenReading = { navigator.push(StatsReadingRoute()) },
-            onOpenMostRead = { navigator.push(StatsMostReadRoute()) },
+            onOpenEntry = { navigator.push(it.detailsRoute()) },
+            onOpenReading = { navigator.push(StatsReadingRoute) },
+            onOpenMostRead = { navigator.push(StatsMostReadRoute) },
             cardLayout = statsShownCards(cardLayout, hiddenCards, hiddenFigures),
             figures = figureLayout - hiddenFigures,
         )

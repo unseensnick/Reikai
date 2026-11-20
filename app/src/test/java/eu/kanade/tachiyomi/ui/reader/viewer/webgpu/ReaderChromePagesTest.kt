@@ -29,8 +29,10 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.serialization.json.Json
 import mihon.app.di.AppGraph
 import mihon.core.metro.GraphProvider
+import mihon.core.navigation.WebViewRoute
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -170,7 +172,8 @@ class ReaderChromePagesTest {
         compose.onNodeWithText("Open in WebView").performClick()
 
         val started = (viewer.readerThemedContext as Themed).started
-        started?.extras?.getLong("source_key") shouldBe CHAPTER_SOURCE
+        started?.getStringExtra("route_key")?.let { Json.decodeFromString<WebViewRoute>(it).sourceId } shouldBe
+            CHAPTER_SOURCE
     }
 
     @Test

@@ -37,13 +37,13 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.Typeface
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.screen.novel.components.NovelDeleteDialog
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Delete
@@ -70,15 +70,12 @@ import java.io.File
  * because adding a font is only ever a step towards reading in it, and a picker somewhere else would
  * mean two places that both claim to answer the same question.
  */
-class NovelFontsRoute : Screen() {
-
-    @Composable
-    override fun Content() = NovelFontsScreen()
-}
+@Serializable
+data object NovelFontsRoute : NavKey
 
 @Composable
 fun NovelFontsScreen() {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val viewModel = metroViewModel<NovelFontsViewModel>()
     val state by viewModel.state.collectAsStateWithLifecycle()

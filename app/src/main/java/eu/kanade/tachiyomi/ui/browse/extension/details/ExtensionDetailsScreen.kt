@@ -8,77 +8,71 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.ExtensionDetailsScreen
 import eu.kanade.presentation.browse.PrivateExtensionUninstallDialog
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.extension.model.Extension // RK
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.SourcePreferencesRoute
 import reikai.domain.source.SourceKey // RK
 import reikai.novel.source.novelSourceId // RK
-import reikai.presentation.browse.source.preferencesScreen // RK
+import reikai.presentation.browse.source.preferencesRoute // RK
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 
-data class ExtensionDetailsScreen(
-    private val pkgName: String,
-) : Screen() {
+@Composable
+fun ExtensionDetailsScreen(pkgName: String) {
+    val viewModel =
+        assistedMetroViewModel<ExtensionDetailsViewModel, ExtensionDetailsViewModel.Factory> {
+            create(pkgName = pkgName)
+        }
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
-    @Composable
-    override fun Content() {
-        val viewModel =
-            assistedMetroViewModel<ExtensionDetailsViewModel, ExtensionDetailsViewModel.Factory> {
-                create(pkgName = pkgName)
-            }
-        val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val navigator = LocalNavigator.current
+    var showUninstallDialog by remember { mutableStateOf(false) }
 
-        val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
-        var showUninstallDialog by remember { mutableStateOf(false) }
+    when (val state = state) {
+        ExtensionDetailsViewModel.State.Loading -> LoadingScreen()
+        ExtensionDetailsViewModel.State.Uninstalled -> {
+            LaunchedEffect(Unit) { navigator.pop() }
+            EmptyScreen(MR.strings.empty_screen)
+        }
+        is ExtensionDetailsViewModel.State.Success -> {
+            ExtensionDetailsScreen(
+                navigateUp = navigator::pop,
+                state = state,
+                // RK: a block, so a novel app's source opens its own settings screen
+                onClickSourcePreferences = {
+                    // RK --> a novel app's source is looked up by its text id
+                    val key = state.extension.kind.novelSourceId(it)?.let(SourceKey::Novel) ?: SourceKey.Manga(it)
+                    navigator.push(key.preferencesRoute())
+                    // RK <--
+                },
+                onClickEnableAll = { viewModel.toggleSources(true) },
+                onClickDisableAll = { viewModel.toggleSources(false) },
+                onClickClearCookies = viewModel::clearCookies,
+                onClickUninstall = {
+                    if (context.isPackageInstalled(state.extension.pkgName)) {
+                        viewModel.uninstallExtension()
+                    } else {
+                        showUninstallDialog = true
+                    }
+                },
+                onClickSource = viewModel::toggleSource,
+                onClickIncognito = viewModel::toggleIncognito,
+            )
 
-        when (val state = state) {
-            ExtensionDetailsViewModel.State.Loading -> LoadingScreen()
-            ExtensionDetailsViewModel.State.Uninstalled -> {
-                LaunchedEffect(Unit) { navigator.pop() }
-                EmptyScreen(MR.strings.empty_screen)
-            }
-            is ExtensionDetailsViewModel.State.Success -> {
-                ExtensionDetailsScreen(
-                    navigateUp = navigator::pop,
-                    state = state,
-                    // RK: a block, so a novel app's source opens its own settings screen
-                    onClickSourcePreferences = {
-                        // RK --> a novel app's source is looked up by its text id
-                        val key = state.extension.kind.novelSourceId(it)?.let(SourceKey::Novel) ?: SourceKey.Manga(it)
-                        navigator.push(key.preferencesScreen())
-                        // RK <--
+            if (showUninstallDialog) {
+                PrivateExtensionUninstallDialog(
+                    extension = state.extension,
+                    onConfirm = viewModel::uninstallExtension,
+                    onDismissRequest = {
+                        showUninstallDialog = false
                     },
-                    onClickEnableAll = { viewModel.toggleSources(true) },
-                    onClickDisableAll = { viewModel.toggleSources(false) },
-                    onClickClearCookies = viewModel::clearCookies,
-                    onClickUninstall = {
-                        if (context.isPackageInstalled(state.extension.pkgName)) {
-                            viewModel.uninstallExtension()
-                        } else {
-                            showUninstallDialog = true
-                        }
-                    },
-                    onClickSource = viewModel::toggleSource,
-                    onClickIncognito = viewModel::toggleIncognito,
                 )
-
-                if (showUninstallDialog) {
-                    PrivateExtensionUninstallDialog(
-                        extension = state.extension,
-                        onConfirm = viewModel::uninstallExtension,
-                        onDismissRequest = {
-                            showUninstallDialog = false
-                        },
-                    )
-                }
             }
         }
     }

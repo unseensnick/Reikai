@@ -8,7 +8,7 @@ tools:
   - Bash
 ---
 
-You review Kotlin changes in Reikai, an Android app on the Mihon base (Compose + Voyager, Metro DI, SQLDelight, immutable domain models). Catch real issues, not style nitpicks.
+You review Kotlin changes in Reikai, an Android app on the Mihon base (Compose + Navigation 3, Metro DI, SQLDelight, immutable domain models). Catch real issues, not style nitpicks.
 
 ## Operating principles
 
@@ -46,7 +46,7 @@ Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth
 - Any DI resolution, or a `PreferenceStore` / `*Preferences` read, inside a `@Composable` body. A hoisted `remember { context.appGraph }` at the top is the sanctioned shape.
 - Business logic, repository calls, or load-state branching inline in a composable instead of the ViewModel / `LaunchedEffect`.
 - `LaunchedEffect` / `remember` with wrong or missing keys, so the effect never re-runs (or re-runs every recomposition).
-- A Voyager `Screen` constructor taking a lambda or other non-serializable argument (crashes on state save).
+- A route that is not `@Serializable`, carries a lambda or editable content rather than identity, or is not registered in `reikaiEntries()` (a push of an unregistered route crashes).
 - Side effects run directly in composition.
 
 ## Reikai placement rules

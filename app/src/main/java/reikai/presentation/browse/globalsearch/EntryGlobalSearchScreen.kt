@@ -11,13 +11,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchViewModel
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.domain.library.ContentType
@@ -32,7 +32,7 @@ import reikai.presentation.browse.startAdd
 import reikai.presentation.components.HeaderTabRow
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.rememberChipListState
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.i18n.MR
@@ -51,9 +51,10 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * [GlobalSearchEngine]; this draws what it is given and routes a tap. A long press goes to the result's
  * own content type's add flow, whose questions the shared [EntryAddDialogs] draw.
  */
-class EntryGlobalSearchRoute(
+@Serializable
+data class EntryGlobalSearchRoute(
     val searchQuery: String = "",
-    private val extensionFilter: String? = null,
+    val extensionFilter: String? = null,
     /**
      * The content type to search, when the caller already knows it: searching from a manga or a
      * novel searches that kind. Null opens on the Browse chip, which is what Browse itself wants.
@@ -61,11 +62,7 @@ class EntryGlobalSearchRoute(
     val scopedContentType: ContentType? = null,
     /** The sources to cover for this search only, never remembered; null opens on the ones last chosen. */
     val sourceFilter: SearchSourceFilter? = null,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryGlobalSearchScreen(searchQuery, extensionFilter, scopedContentType, sourceFilter)
-}
+) : NavKey
 
 @Composable
 fun EntryGlobalSearchScreen(
@@ -74,7 +71,7 @@ fun EntryGlobalSearchScreen(
     scopedContentType: ContentType?,
     sourceFilter: SearchSourceFilter?,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val opener = rememberDetailsOpener()
     val mangaModel = assistedMetroViewModel<GlobalSearchViewModel, GlobalSearchViewModel.Factory> {
         create(initialExtensionFilter = extensionFilter)
@@ -116,7 +113,7 @@ fun EntryGlobalSearchScreen(
                     } else {
                         // Through the opener, so a novel that cannot be stored says so as a tap on it would.
                         opener.open(navigator::replace, afterFailure = { showSingleLoadingScreen = false }) {
-                            entry.detailsScreen(only.key, it)
+                            entry.detailsRoute(only.key, it)
                         }
                     }
                 }

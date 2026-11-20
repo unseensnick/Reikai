@@ -55,12 +55,13 @@ import androidx.interpolator.view.animation.LinearOutSlowInInterpolator
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEventBus
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.NavigatorDisposeBehavior
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.result.rememberResultEventBusNavEntryDecorator
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
@@ -69,20 +70,13 @@ import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
 import eu.kanade.presentation.components.IncognitoModeBannerBackgroundColor
 import eu.kanade.presentation.components.IndexingBannerBackgroundColor
 import eu.kanade.presentation.more.AppMigratingScreen
-import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
-import eu.kanade.presentation.util.AssistContentScreen
-import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
+import eu.kanade.presentation.more.settings.screen.openSettings
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
-import eu.kanade.tachiyomi.ui.deeplink.DeepLinkScreen
-import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.home.TabEvent
-import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
-import eu.kanade.tachiyomi.ui.more.OnboardingScreen
-import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
@@ -104,9 +98,25 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
+import mihon.core.navigation.AssistContentManager
+import mihon.core.navigation.DeepLinkRoute
+import mihon.core.navigation.ExtensionStoresRoute
+import mihon.core.navigation.HomeRoute
+import mihon.core.navigation.LocalAssistContentManager
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.Navigator
+import mihon.core.navigation.NavigatorDisplay
+import mihon.core.navigation.NewUpdateRoute
+import mihon.core.navigation.OnboardingRoute
+import mihon.core.navigation.RestoreBackupRoute
+import mihon.core.navigation.appEntries
+import mihon.core.navigation.rememberNavigator
+import mihon.core.navigation.rememberOverlaySheetSceneStrategy
+import mihon.core.navigation.rememberTwoPaneSettingsSceneStrategy
 import mihon.data.cache.ChapterCache
 import mihon.domain.database.repository.DatabaseRepository
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
+import mihon.presentation.core.util.isTabletUi
 import reikai.data.task.AppTaskProgress
 import reikai.data.task.banner
 import reikai.domain.entry.EntryId
@@ -115,11 +125,13 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.SourceKey
 import reikai.domain.task.TaskBannerPreferences
+import reikai.navigation.reikaiEntries
+import reikai.navigation.shownRoute
 import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.browse.closesWhenIncognitoEnds
-import reikai.presentation.browse.globalsearch.searchIntentScreen
+import reikai.presentation.browse.globalsearch.searchIntentRoute
 import reikai.presentation.browse.incognitoSource
-import reikai.presentation.browse.repos.RepositoriesRoute
+import reikai.presentation.browse.repos.ExtensionStoreDeepLinkEvent
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.details.legacyNovelToOpen
 import reikai.presentation.details.novelToOpen
@@ -130,6 +142,8 @@ import reikai.presentation.navigation.retainAppResultEventBus
 import reikai.util.isHandedOver
 import reikai.util.isLauncherIntent
 import reikai.util.toOwnTask
+import soup.compose.material.motion.animation.materialSharedAxisX
+import soup.compose.material.motion.animation.rememberSlideDistance
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -187,6 +201,8 @@ class MainActivity : BaseActivity() {
     var ready = false
 
     private var navigator: Navigator? = null
+
+    private val assistContentManager = AssistContentManager()
 
     init {
         registerSecureActivity(this)
@@ -279,10 +295,18 @@ class MainActivity : BaseActivity() {
             // RK: retained rather than remembered, so a result sent just before a rotation still arrives
             val resultEventBus = retainAppResultEventBus()
 
-            Navigator(
-                screen = HomeScreen,
-                disposeBehavior = NavigatorDisposeBehavior(disposeNestedNavigators = false, disposeSteps = true),
-            ) { navigator ->
+            val navigator = rememberNavigator(HomeRoute)
+            val twoPaneStrategy = rememberTwoPaneSettingsSceneStrategy<NavKey>()
+            val overlaySheetSceneStrategy = rememberOverlaySheetSceneStrategy<NavKey>()
+            val resultEventBusNavEntryDecorator = rememberResultEventBusNavEntryDecorator<NavKey>(
+                resultEventBus = resultEventBus,
+            )
+
+            CompositionLocalProvider(
+                LocalNavigator provides navigator,
+                LocalAssistContentManager provides assistContentManager,
+                LocalResultEventBus provides resultEventBus, // RK: the retained bus, for code outside an entry
+            ) {
                 LaunchedEffect(navigator) {
                     this@MainActivity.navigator = navigator
 
@@ -294,9 +318,11 @@ class MainActivity : BaseActivity() {
                         preferences.incognitoMode.set(false)
                     }
                 }
-                LaunchedEffect(navigator.lastItem) {
+
+                val currentRoute = navigator.current
+                LaunchedEffect(currentRoute) {
                     // RK: keyed by SourceKey, so a novel catalogue shows its own per-source incognito too.
-                    val source: SourceKey? = navigator.lastItem.incognitoSource()
+                    val source: SourceKey? = currentRoute.incognitoSource()
                     getIncognitoState.subscribe(source)
                         .collectLatest { incognito = it }
                 }
@@ -316,14 +342,29 @@ class MainActivity : BaseActivity() {
                 ) { contentPadding ->
                     // Consume insets already used by app state banners
                     Box {
-                        // RK: the Show setting, for the chips and type labels on every screen, and the result bus
-                        CompositionLocalProvider(
-                            LocalShownContent provides shownContent,
-                            LocalResultEventBus provides resultEventBus,
-                        ) {
-                            // Shows current screen
-                            DefaultNavigatorScreenTransition(
+                        // RK: the Show setting, for the chips and type labels on every screen
+                        CompositionLocalProvider(LocalShownContent provides shownContent) {
+                            val slideDistance = rememberSlideDistance()
+                            NavigatorDisplay(
                                 navigator = navigator,
+                                sceneStrategies = listOf(twoPaneStrategy, overlaySheetSceneStrategy),
+                                transitionSpec = { materialSharedAxisX(forward = true, slideDistance = slideDistance) },
+                                // RK: wrapped, since the Show provider nests it one level deeper than upstream's
+                                popTransitionSpec = {
+                                    materialSharedAxisX(forward = false, slideDistance = slideDistance)
+                                },
+                                predictivePopTransitionSpec = {
+                                    materialSharedAxisX(forward = false, slideDistance = slideDistance)
+                                },
+                                entryDecorators = listOf(
+                                    rememberSaveableStateHolderNavEntryDecorator(),
+                                    rememberViewModelStoreNavEntryDecorator(),
+                                    resultEventBusNavEntryDecorator,
+                                ),
+                                entryProvider = entryProvider {
+                                    appEntries()
+                                    reikaiEntries() // RK
+                                },
                                 modifier = Modifier
                                     .padding(contentPadding)
                                     .consumeWindowInsets(contentPadding),
@@ -344,21 +385,25 @@ class MainActivity : BaseActivity() {
                     }
                 }
 
-                // Pop source-related screens when incognito mode is turned off
+                // Pop source-related routes when incognito mode is turned off
                 LaunchedEffect(Unit) {
                     preferences.incognitoMode.changes()
                         .drop(1)
                         .filter { !it }
                         .onEach {
-                            // RK: one rule for the catalogue and both details pages
-                            if (navigator.lastItem.closesWhenIncognitoEnds()) {
-                                navigator.popUntilRoot()
+                            // RK: one rule for the catalogue and both details pages, read under the track sheet
+                            if (navigator.shownRoute.closesWhenIncognitoEnds()) {
+                                navigator.popToRoot()
                             }
                         }
                         .launchIn(this)
                 }
 
-                HandleOnNewIntent(context = context, navigator = navigator, resultEventBus = resultEventBus) // RK
+                HandleOnNewIntent(
+                    context = context,
+                    navigator = navigator,
+                    resultEventBus = resultEventBus,
+                )
 
                 if (!isBenchmarkBuildType) {
                     if (isLaunch) CheckForUpdates()
@@ -386,11 +431,9 @@ class MainActivity : BaseActivity() {
 
     override fun onProvideAssistContent(outContent: AssistContent) {
         super.onProvideAssistContent(outContent)
-        when (val screen = navigator?.lastItem) {
-            is AssistContentScreen -> {
-                screen.onProvideAssistUrl()?.let { outContent.webUri = it.toUri() }
-            }
-        }
+        val navigator = navigator ?: return
+        val route = navigator.shownRoute // RK: the page under the track sheet answers
+        assistContentManager.urlFor(route, navigator.routes)?.let { outContent.webUri = it.toUri() }
     }
 
     override fun reportFullyDrawn() {
@@ -410,7 +453,11 @@ class MainActivity : BaseActivity() {
     }
 
     @Composable
-    private fun HandleOnNewIntent(context: Context, navigator: Navigator, resultEventBus: ResultEventBus) { // RK
+    private fun HandleOnNewIntent(
+        context: Context,
+        navigator: Navigator,
+        resultEventBus: ResultEventBus,
+    ) {
         LaunchedEffect(Unit) {
             callbackFlow {
                 val componentActivity = context as ComponentActivity
@@ -418,14 +465,16 @@ class MainActivity : BaseActivity() {
                 componentActivity.addOnNewIntentListener(consumer)
                 awaitClose { componentActivity.removeOnNewIntentListener(consumer) }
             }
-                .collectLatest { handleIntentAction(it, navigator, resultEventBus) } // RK
+                .collectLatest {
+                    handleIntentAction(it, navigator, resultEventBus)
+                }
         }
     }
 
     @Composable
     private fun CheckForUpdates() {
         val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
 
         // App updates
         LaunchedEffect(Unit) {
@@ -444,15 +493,15 @@ class MainActivity : BaseActivity() {
                         if (
                             result is GetApplicationRelease.Result.NewUpdate &&
                             result.release.version != preferences.skippedAppUpdate.get() &&
-                            navigator.items.none { it is NewUpdateScreen }
+                            navigator.routes.none { it is NewUpdateRoute }
                         ) {
-                            val updateScreen = NewUpdateScreen(
+                            val updateRoute = NewUpdateRoute(
                                 versionName = result.release.version,
                                 changelogInfo = result.release.info,
                                 releaseLink = result.release.releaseLink,
                                 downloadLink = result.release.downloadLink,
                             )
-                            navigator.push(updateScreen)
+                            navigator.push(updateRoute)
                         }
                     } catch (e: CancellationException) {
                         throw e
@@ -477,11 +526,11 @@ class MainActivity : BaseActivity() {
 
     @Composable
     private fun ShowOnboarding() {
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
 
         LaunchedEffect(Unit) {
-            if (!preferences.shownOnboardingFlow.get() && navigator.lastItem !is OnboardingScreen) {
-                navigator.push(OnboardingScreen())
+            if (!preferences.shownOnboardingFlow.get() && OnboardingRoute !in navigator.routes) {
+                navigator.push(OnboardingRoute)
             }
         }
     }
@@ -533,7 +582,7 @@ class MainActivity : BaseActivity() {
     private fun handleIntentAction(
         intent: Intent,
         navigator: Navigator,
-        resultEventBus: ResultEventBus, // RK
+        resultEventBus: ResultEventBus,
     ): Boolean {
         val notificationId = intent.getIntExtra("notificationId", -1)
         if (notificationId > -1) {
@@ -559,18 +608,18 @@ class MainActivity : BaseActivity() {
             Constants.SHORTCUT_LIBRARY -> TabEvent.Library()
             Constants.SHORTCUT_MANGA -> {
                 val idToOpen = intent.extras?.getLong(Constants.MANGA_EXTRA) ?: return false
-                navigator.popUntilRoot()
+                navigator.popToRoot()
                 TabEvent.Library(EntryId.Manga(idToOpen)) // RK
             }
             // RK: open a novel's details over the library as a manga's are; an older build's intent names
             //     the novel by source and url, so only that one is looked up first, read only
             Constants.SHORTCUT_NOVEL -> intent.novelToOpen()?.let {
-                navigator.popUntilRoot()
+                navigator.popToRoot()
                 TabEvent.Library(it)
             } ?: run {
                 lifecycleScope.launch {
                     intent.legacyNovelToOpen(novelRepository)?.let {
-                        navigator.popUntilRoot()
+                        navigator.popToRoot()
                         resultEventBus.sendResult<TabEvent>(TabEvent.Library(it))
                     }
                 }
@@ -582,8 +631,7 @@ class MainActivity : BaseActivity() {
                 val contentType = intent.getStringExtra(Constants.CONTENT_TYPE_EXTRA)
                     ?.let { name -> ContentType.entries.firstOrNull { it.name == name } }
                     ?: ContentType.ALL
-                navigator.popUntilRoot()
-                navigator.push(UpdateErrorsRoute(contentType))
+                navigator.replaceAll(UpdateErrorsRoute(contentType))
                 null
             }
             Constants.SHORTCUT_UPDATES -> TabEvent.Updates
@@ -591,12 +639,12 @@ class MainActivity : BaseActivity() {
             Constants.SHORTCUT_SOURCES -> TabEvent.Browse(false)
             Constants.SHORTCUT_EXTENSIONS -> TabEvent.Browse(true)
             Constants.SHORTCUT_DOWNLOADS -> {
-                navigator.popUntilRoot()
+                navigator.popToRoot()
                 TabEvent.More(toDownloads = true)
             }
             Intent.ACTION_APPLICATION_PREFERENCES -> {
-                navigator.popUntilRoot()
-                navigator.push(SettingsScreen())
+                navigator.popToRoot()
+                navigator.openSettings(twoPane = resources.configuration.isTabletUi())
                 null
             }
             Intent.ACTION_SEARCH, Intent.ACTION_SEND, "com.google.android.gms.actions.SEARCH_ACTION" -> {
@@ -606,8 +654,7 @@ class MainActivity : BaseActivity() {
                 // Get the search query provided in extras, and if not null, perform a global search with it.
                 val query = intent.getStringExtra(SearchManager.QUERY) ?: intent.getStringExtra(Intent.EXTRA_TEXT)
                 if (!query.isNullOrEmpty()) {
-                    navigator.popUntilRoot()
-                    navigator.push(DeepLinkScreen(query))
+                    navigator.replaceAll(DeepLinkRoute(query))
                 }
                 null
             }
@@ -615,11 +662,10 @@ class MainActivity : BaseActivity() {
                 val query = intent.getStringExtra(INTENT_SEARCH_QUERY)
                 if (!query.isNullOrEmpty()) {
                     val filter = intent.getStringExtra(INTENT_SEARCH_FILTER)
-                    navigator.popUntilRoot()
                     // RK --> a novel app's link opens like a share; a manga filter scopes a manga search
                     lifecycleScope.launch {
-                        navigator.push(
-                            searchIntentScreen(query, filter) {
+                        navigator.replaceAll(
+                            searchIntentRoute(query, filter) {
                                 extensionManager.getLoadedNovelExtensions().map { it.pkgName }
                             },
                         )
@@ -631,15 +677,14 @@ class MainActivity : BaseActivity() {
             Intent.ACTION_VIEW -> {
                 // Handling opening of backup files
                 if (intent.data.toString().endsWith(".tachibk")) {
-                    navigator.popUntilRoot()
-                    navigator.push(RestoreBackupScreen(intent.data.toString()))
+                    navigator.replaceAll(RestoreBackupRoute(intent.data.toString()))
                 }
                 // Deep link to add extension store
                 else if (intent.isAddExtensionStoreIntent()) {
                     intent.data?.getQueryParameter("url")?.let { repoUrl ->
-                        navigator.popUntilRoot()
+                        navigator.replaceAll(ExtensionStoresRoute)
                         // RK: the Repos screen, which reads the address as either kind of repo
-                        navigator.push(RepositoriesRoute(repoUrl))
+                        resultEventBus.sendResult(ExtensionStoreDeepLinkEvent(repoUrl))
                     }
                 }
                 null

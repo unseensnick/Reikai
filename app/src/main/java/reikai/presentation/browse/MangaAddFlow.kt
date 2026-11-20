@@ -4,7 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.components.toDuplicateCard
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.model.Manga
@@ -58,7 +58,7 @@ class MangaAddFlow(
         AddStep.Ask(MangaAddDialog.Migrate(currentId = duplicateId, targetId = it.manga.id))
     }
 
-    override fun duplicateScreen(entryId: Long) = EntryId.Manga(entryId).detailsScreen()
+    override fun duplicateScreen(entryId: Long) = EntryId.Manga(entryId).detailsRoute()
 
     override fun MangaAddDialog.toNeutral(): EntryAddDialog = when (this) {
         is MangaAddDialog.Remove -> EntryAddDialog.Remove(manga.title)

@@ -12,7 +12,7 @@ import reikai.presentation.browse.EntryAddFlow
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.step
 import reikai.presentation.browse.toAddDuplicate
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 
@@ -71,7 +71,7 @@ class NovelAddFlow(
             ?: AddStep.Failed
     }
 
-    override fun duplicateScreen(entryId: Long) = EntryId.Novel(entryId).detailsScreen()
+    override fun duplicateScreen(entryId: Long) = EntryId.Novel(entryId).detailsRoute()
 
     override fun NovelBrowseDialog.toNeutral(): EntryAddDialog = when (this) {
         is NovelBrowseDialog.RemoveNovel -> EntryAddDialog.Remove(item.name)

@@ -10,12 +10,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
-import reikai.presentation.details.detailsScreen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.stats.StatsCoverTitleLine
 import reikai.presentation.stats.StatsRefreshOnResume
 import tachiyomi.i18n.MR
@@ -26,15 +26,12 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /** The overview's Most read card in full; tapping a series opens its details. */
-class StatsMostReadRoute : Screen() {
-
-    @Composable
-    override fun Content() = StatsMostReadScreen()
-}
+@Serializable
+data object StatsMostReadRoute : NavKey
 
 @Composable
 fun StatsMostReadScreen() {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = metroViewModel<StatsMostReadViewModel>()
     StatsRefreshOnResume(viewModel::refresh)
     val titles by viewModel.titles.collectAsState()
@@ -65,7 +62,7 @@ fun StatsMostReadScreen() {
                             max = READING_MAX_WIDTH,
                         ).padding(horizontal = MaterialTheme.padding.medium),
                     ) {
-                        navigator.push(title.entryId.detailsScreen())
+                        navigator.push(title.entryId.detailsRoute())
                     }
                 }
             }

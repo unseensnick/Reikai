@@ -198,7 +198,7 @@ class CategoryViewModel(
         commitPendingDeletes(pendingDelete.value.keys)
     }
 
-    // Straight on the app scope, never through viewModelScope: on a pop Voyager clears this model before
+    // Straight on the app scope, never through viewModelScope: on a pop the navigator clears this model before
     // the exit animation ends and the screen's onDispose commits, so a launch there never runs.
     private fun commitPendingDeletes(batches: Set<Long>): Job? {
         val categories = pendingDelete.value.filterKeys { it in batches }.values.flatten()

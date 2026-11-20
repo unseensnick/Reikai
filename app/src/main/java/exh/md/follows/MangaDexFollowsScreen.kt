@@ -9,13 +9,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.presentation.core.util.collectAsLazyPagingItems
@@ -40,15 +40,12 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * via [MangaDexFollowsViewModel], plus the shared bulk-selection toolbar for adding many at once.
  * Reached from the browse filter sheet's Follows button.
  */
-class MangaDexFollowsRoute(private val sourceId: Long) : Screen() {
-
-    @Composable
-    override fun Content() = MangaDexFollowsScreen(sourceId)
-}
+@Serializable
+data class MangaDexFollowsRoute(val sourceId: Long) : NavKey
 
 @Composable
 fun MangaDexFollowsScreen(sourceId: Long) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val opener = rememberDetailsOpener()
     val viewModel = assistedMetroViewModel<MangaDexFollowsViewModel, MangaDexFollowsViewModel.Factory> {
         create(sourceId = sourceId)

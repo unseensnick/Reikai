@@ -1,8 +1,6 @@
 package reikai.presentation.details
 
 import io.kotest.matchers.shouldBe
-import io.mockk.mockk
-import io.mockk.verify
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DownloadTargets
@@ -13,6 +11,7 @@ import reikai.presentation.components.UndatedChapterDate
 class EntryDetailsLibraryActionsTest {
 
     private var trackingSettingsOpened = false
+    private var trackSheetOpened = false
 
     private val migrate = {}
     private val editInterval = {}
@@ -31,6 +30,7 @@ class EntryDetailsLibraryActionsTest {
             onTagSearch = {},
             onBrowseSource = null,
             onOpenTrackingSettings = { trackingSettingsOpened = true },
+            onOpenTrackSheet = { trackSheetOpened = true },
             onEditNotes = {},
             onMigrate = migrate,
         ),
@@ -60,18 +60,16 @@ class EntryDetailsLibraryActionsTest {
 
     @Test
     fun `with no tracker logged in the Tracking tap opens tracker settings`() {
-        trackingTap(loaded(hasLoggedInTrackers = false), mockk(relaxed = true), nav)()
+        trackingTap(loaded(hasLoggedInTrackers = false), nav)()
 
         trackingSettingsOpened shouldBe true
     }
 
     @Test
     fun `with a tracker logged in the Tracking tap opens the track sheet`() {
-        val behavior = mockk<EntryDetailsBehavior>(relaxed = true)
+        trackingTap(loaded(hasLoggedInTrackers = true), nav)()
 
-        trackingTap(loaded(hasLoggedInTrackers = true), behavior, nav)()
-
-        verify { behavior.showTrackDialog() }
+        trackSheetOpened shouldBe true
     }
 
     private fun loaded(favorite: Boolean = true, hasLoggedInTrackers: Boolean = false) =

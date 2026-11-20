@@ -18,12 +18,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.util.Screen
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Check
@@ -41,15 +41,12 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /** Every row of one grouping, each opening the series it counts. */
-class StatsGroupRoute(private val dimension: StatsDimension) : Screen() {
-
-    @Composable
-    override fun Content() = StatsGroupScreen(dimension)
-}
+@Serializable
+data class StatsGroupRoute(val dimension: StatsDimension) : NavKey
 
 @Composable
 fun StatsGroupScreen(dimension: StatsDimension) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<StatsGroupViewModel, StatsGroupViewModel.Factory> { create(dimension) }
     StatsRefreshOnResume(viewModel::refresh)
     val state by viewModel.state.collectAsState()

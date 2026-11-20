@@ -45,8 +45,6 @@ import androidx.preference.PreferenceScreen
 import androidx.preference.TwoStatePreference
 import androidx.preference.getOnBindEditTextListener
 import androidx.preference.setOnStateChangeListener
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.widget.CheckboxPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.ListPreferenceDialog
@@ -55,13 +53,14 @@ import eu.kanade.presentation.more.settings.widget.PreferenceDialogMessage
 import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.preference.SharedPreferencesDataStore
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.util.view.setIncognito
 import exh.source.configurableSource
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
+import reikai.domain.source.SourceKey // RK
 import reikai.domain.track.site.OwnedSites // RK
 import reikai.novel.source.NovelSettings
 import tachiyomi.core.common.util.lang.withIOContext
@@ -71,86 +70,87 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
-class SourcePreferencesScreen( // RK: takes a novel source id too
-    val sourceId: Long,
-    // RK --> a novel source's id is text, which the manga source manager cannot name
-    private val novelSourceId: String? = null,
-    // RK <--
-) : Screen() {
+@Composable
+fun SourcePreferencesScreen(sourceId: Long) = SourcePreferencesScreen(SourceKey.Manga(sourceId)) // RK
 
-    @Composable
-    override fun Content() {
-        val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
+// RK: one body over both kinds of source, since a novel source's id is text the manga source manager cannot name
+@Composable
+fun SourcePreferencesScreen(sourceKey: SourceKey) {
+    val context = LocalContext.current
+    val navigator = LocalNavigator.current
 
-        // The preferences are made anew after a configuration change, so an open dialog is restored by key
-        var savedDialogKey by rememberSaveable { mutableStateOf<String?>(null) }
+    // The preferences are made anew after a configuration change, so an open dialog is restored by key
+    var savedDialogKey by rememberSaveable { mutableStateOf<String?>(null) }
 
-        val screen by produceState<ExtensionPreferenceScreen?>(initialValue = null) {
-            // RK --> a novel source packaged as a tachiyomi-format apk hands over its own ConfigurableSource.
-            // A delegated source arrives wrapped, and the wrapper is not one, so it is unwrapped here.
-            val graph = context.appGraph
-            val novelEntrySource = novelSourceId?.let { graph.novelSourceManager.get(it) }
-            val novelSource = (novelEntrySource?.settings as? NovelSettings.PreferenceScreen)?.source
-            val mangaSource = graph.sourceManager.getOrStub(sourceId)
-            val source = novelSource ?: mangaSource.configurableSource()
-            val title = novelSourceId?.let { graph.novelSourceManager.nameOf(it) } ?: mangaSource.toString()
-            // The settings a Reikai tracker took over along with the site
-            val hiddenKeys = novelEntrySource?.let { OwnedSites.ownerOf(it) }?.hiddenSourceKeys.orEmpty()
-            // RK <--
-            // Reading a value loads the file, which shouldn't happen on the main thread
-            val sourcePreferences = (source as? ConfigurableSource)?.let {
-                withIOContext { it.sourcePreferences().apply { all } } // RK
+    val screen by produceState<ExtensionPreferenceScreen?>(initialValue = null) {
+        // RK --> a novel source packaged as a tachiyomi-format apk hands over its own ConfigurableSource.
+        // A delegated source arrives wrapped, and the wrapper is not one, so it is unwrapped here.
+        val graph = context.appGraph
+        val source: Any?
+        val title: String
+        val hiddenKeys: Set<String>
+        when (sourceKey) {
+            is SourceKey.Manga -> {
+                val mangaSource = graph.sourceManager.getOrStub(sourceKey.id)
+                source = mangaSource.configurableSource()
+                title = mangaSource.toString()
+                hiddenKeys = emptySet()
             }
-            value = ExtensionPreferenceScreen( // RK
-                context,
-                title,
-                source as? ConfigurableSource,
-                sourcePreferences,
-                hiddenKeys,
-                savedDialogKey,
-            )
-        }
-
-        val preferenceScreen = screen
-        if (preferenceScreen == null) {
-            LoadingScreen()
-            return
-        }
-
-        DisposableEffect(preferenceScreen) {
-            onDispose { preferenceScreen.dispose() }
-        }
-        SideEffect { savedDialogKey = preferenceScreen.dialogPreference?.key }
-
-        Scaffold(
-            topBar = {
-                AppBar(
-                    title = preferenceScreen.title,
-                    navigateUp = navigator::pop,
-                    scrollBehavior = it,
-                )
-            },
-        ) { contentPadding ->
-            val items = remember(preferenceScreen.version) { preferenceScreen.items() }
-            ScrollbarLazyColumn(contentPadding = contentPadding) {
-                items(items) { PreferenceRow(it) }
+            is SourceKey.Novel -> {
+                val novelEntrySource = graph.novelSourceManager.get(sourceKey.id)
+                source = (novelEntrySource?.settings as? NovelSettings.PreferenceScreen)?.source
+                title = graph.novelSourceManager.nameOf(sourceKey.id)
+                // The settings a Reikai tracker took over along with the site
+                hiddenKeys = novelEntrySource?.let { OwnedSites.ownerOf(it) }?.hiddenSourceKeys.orEmpty()
             }
         }
+        // RK <--
+        // Reading a value loads the file, which shouldn't happen on the main thread
+        val sourcePreferences = (source as? ConfigurableSource)?.let {
+            withIOContext { it.sourcePreferences().apply { all } } // RK
+        }
+        value = ExtensionPreferenceScreen( // RK
+            context,
+            title,
+            source as? ConfigurableSource,
+            sourcePreferences,
+            hiddenKeys,
+            savedDialogKey,
+        )
+    }
 
-        preferenceScreen.dialogPreference?.let {
-            PreferenceDialog(
-                preference = it,
-                onDismissRequest = { preferenceScreen.dialogPreference = null },
+    val preferenceScreen = screen
+    if (preferenceScreen == null) {
+        LoadingScreen()
+        return
+    }
+
+    DisposableEffect(preferenceScreen) {
+        onDispose { preferenceScreen.dispose() }
+    }
+    SideEffect { savedDialogKey = preferenceScreen.dialogPreference?.key }
+
+    Scaffold(
+        topBar = {
+            AppBar(
+                title = preferenceScreen.title,
+                navigateUp = navigator::pop,
+                scrollBehavior = it,
             )
+        },
+    ) { contentPadding ->
+        val items = remember(preferenceScreen.version) { preferenceScreen.items() }
+        ScrollbarLazyColumn(contentPadding = contentPadding) {
+            items(items) { PreferenceRow(it) }
         }
     }
 
-    // RK -->
-    companion object {
-        fun forNovel(novelSourceId: String) = SourcePreferencesScreen(0L, novelSourceId)
+    preferenceScreen.dialogPreference?.let {
+        PreferenceDialog(
+            preference = it,
+            onDismissRequest = { preferenceScreen.dialogPreference = null },
+        )
     }
-    // RK <--
 }
 
 /**

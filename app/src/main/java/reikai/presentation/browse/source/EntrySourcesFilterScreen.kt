@@ -15,15 +15,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterViewModel
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.library.ContentType
 import reikai.domain.library.within
 import reikai.novel.source.NovelSource
@@ -46,18 +46,15 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * chip: routing All and Manga to the manga screen left every plugin unreachable from the default
  * chip. The two halves keep their own preferences and are drawn by one list over [SourceFilterSection].
  */
-class EntrySourcesFilterRoute(
+@Serializable
+data class EntrySourcesFilterRoute(
     /** The Browse chip this was opened from. All lands on manga. */
-    private val initial: ContentType = ContentType.MANGA,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntrySourcesFilterScreen(initial)
-}
+    val initial: ContentType = ContentType.MANGA,
+) : NavKey
 
 @Composable
 fun EntrySourcesFilterScreen(initial: ContentType) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     SourcesFilterContent(
         initial = initial,
         navigateUp = navigator::pop,

@@ -7,8 +7,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
@@ -30,7 +28,7 @@ class EntryAddDialogsTest(private val newProbe: ProbeFactory) {
     // The runner hands every test the same parameters, so each builds its own library.
     private val probe = newProbe.create()
 
-    private fun showDialogs() = compose.setContent { ComposeTestHost { Navigator(DialogHost(probe.flow)) } }
+    private fun showDialogs() = compose.setContent { ComposeTestHost { DialogHost(probe.flow).Content() } }
 
     @Test
     fun `confirming a removal takes the entry out of the library`() = runTest {
@@ -99,7 +97,7 @@ class EntryAddDialogsTest(private val newProbe: ProbeFactory) {
     }
 }
 
-private class DialogHost(private val flow: EntryAddFlow<*>) : Screen {
+private class DialogHost(private val flow: EntryAddFlow<*>) {
     @Composable
-    override fun Content() = EntryAddDialogs(flow)
+    fun Content() = EntryAddDialogs(flow)
 }

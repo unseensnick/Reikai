@@ -14,20 +14,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.serialization.Serializable
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.roundedfilled.Visibility
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.details.detailsScreen
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.library.LibraryItemsLayout
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
@@ -37,17 +37,14 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 /** The series hidden from the library view, opened on the [initialContentType] chip the library showed. */
-class HiddenEntriesRoute(
-    private val initialContentType: ContentType = ContentType.ALL,
-) : Screen() {
-
-    @Composable
-    override fun Content() = HiddenEntriesScreen(initialContentType)
-}
+@Serializable
+data class HiddenEntriesRoute(
+    val initialContentType: ContentType = ContentType.ALL,
+) : NavKey
 
 @Composable
 fun HiddenEntriesScreen(initialContentType: ContentType) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<HiddenEntriesViewModel, HiddenEntriesViewModel.Factory> {
         create(initialContentType = initialContentType)
     }
@@ -67,7 +64,7 @@ fun HiddenEntriesScreen(initialContentType: ContentType) {
         onSelectContentType = viewModel::setContentType,
         onClick = { item ->
             if (current.selection.isEmpty()) {
-                navigator.push(item.entryId.detailsScreen())
+                navigator.push(item.entryId.detailsRoute())
             } else {
                 viewModel.toggleSelection(item.entryId)
             }

@@ -38,10 +38,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
-import mihon.presentation.core.util.isTabletUi
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SkipNext
 import mihon.icons.materialsymbols.rounded.SkipPrevious
+import mihon.presentation.core.util.isTabletUi
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.domain.reader.isSeekable

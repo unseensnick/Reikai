@@ -3,7 +3,6 @@ package reikai.presentation.details
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import cafe.adriel.voyager.navigator.Navigator
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -64,7 +63,7 @@ class VolumeCoverViewerTest {
 
     @Test
     fun `the cover tapped on a picked volume opens that volume's cover`() {
-        compose.setContent { ComposeTestHost { Navigator(DetailsContentHost(behavior)) } }
+        compose.setContent { ComposeTestHost { DetailsContentHost(behavior).Content() } }
 
         compose.onNodeWithContentDescription("Cover").performClick()
 

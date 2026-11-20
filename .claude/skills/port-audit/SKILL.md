@@ -29,7 +29,7 @@ Cheap reads before delegating, so the audit subagent gets briefed properly:
 - Look for a `Handoff.md` in the project root (untracked is fine). It usually names the branch, what shipped, and what was deferred.
 - Check `git log --oneline -20` for the recent shape of work in the scope.
 - If the scope mentions a phase, look in `C:\Users\<user>\.claude\plans\` for a matching plan file. Reikai stores plans there; the latest one often has the "what really shipped" rewrite after Phase 2/3.
-- Skim `.claude/rules/architecture.md` for the Compose + Voyager conventions and the `// RK` patch rule on Mihon's own files.
+- Skim `.claude/rules/architecture.md` for the Compose + Navigation 3 conventions and the `// RK` patch rule on Mihon's own files.
 
 If a Handoff or plan explicitly defers features to a later phase, **write that deferred list down** for the audit subagent. The biggest failure mode is false-flagging deferred work as a defect.
 
@@ -39,7 +39,7 @@ One `Agent` call with `subagent_type: general-purpose` (or `Explore` if pure rea
 
 - State the goal: behavioral parity, NOT visual parity. Visual / layout differences are EXPLICITLY out of scope.
 - Name the original entry point(s) on the `design/library-compose` branch (the Yōkai-era source for the feature): the screen / model and any sub-components.
-- Name the Mihon-based entry point(s): the Voyager screen, its content composable, the components folder, the ViewModel, any pure helpers.
+- Name the Mihon-based entry point(s): the route and its screen function, the components folder, the ViewModel, any pure helpers.
 - Name the deferred list (verbatim, from Step 1).
 - Give it a per-surface checklist of legacy behaviors to mark off. Group by surface (data pipeline, each sheet, in-grid affordances, overflow menu, search, preferences observed). For each item, ask for one of:
   - ✅ ported faithfully

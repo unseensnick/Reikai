@@ -29,8 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -40,7 +38,6 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.browse.components.SourceIcon
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +47,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
+import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
@@ -74,213 +72,210 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.selectedBackground
 
-class ClearDatabaseScreen : Screen() {
+@Composable
+fun ClearDatabaseScreen() {
+    val context = LocalContext.current
+    val navigator = LocalNavigator.current
+    val viewModel = metroViewModel<ClearDatabaseViewModel>()
+    val state by viewModel.state.collectAsState()
+    val scope = rememberCoroutineScope()
 
-    @Composable
-    override fun Content() {
-        val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = metroViewModel<ClearDatabaseViewModel>()
-        val state by viewModel.state.collectAsState()
-        val scope = rememberCoroutineScope()
-
-        when (val s = state) {
-            is ClearDatabaseViewModel.State.Loading -> LoadingScreen()
-            is ClearDatabaseViewModel.State.Ready -> {
-                if (s.showConfirmation) {
-                    var keepReadManga by remember { mutableStateOf(true) }
-                    AlertDialog(
-                        title = {
-                            Text(text = stringResource(MR.strings.are_you_sure))
-                        },
-                        text = {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+    when (val s = state) {
+        is ClearDatabaseViewModel.State.Loading -> LoadingScreen()
+        is ClearDatabaseViewModel.State.Ready -> {
+            if (s.showConfirmation) {
+                var keepReadManga by remember { mutableStateOf(true) }
+                AlertDialog(
+                    title = {
+                        Text(text = stringResource(MR.strings.are_you_sure))
+                    },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                        ) {
+                            Text(text = stringResource(MR.strings.clear_database_text))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(text = stringResource(MR.strings.clear_database_text))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = stringResource(MR.strings.clear_db_exclude_read),
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Switch(
-                                        checked = keepReadManga,
-                                        onCheckedChange = { keepReadManga = it },
-                                    )
-                                }
-                                if (!keepReadManga) {
-                                    Text(
-                                        text = stringResource(MR.strings.clear_database_history_warning),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
-                                    )
-                                }
+                                Text(
+                                    text = stringResource(MR.strings.clear_db_exclude_read),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Switch(
+                                    checked = keepReadManga,
+                                    onCheckedChange = { keepReadManga = it },
+                                )
                             }
-                        },
-                        onDismissRequest = viewModel::hideConfirmation,
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    scope.launchUI {
-                                        viewModel.removeMangaBySourceId(keepReadManga)
-                                        viewModel.clearSelection()
-                                        viewModel.hideConfirmation()
-                                        context.toast(MR.strings.clear_database_completed)
-                                    }
-                                },
-                            ) {
-                                Text(text = stringResource(MR.strings.action_ok))
+                            if (!keepReadManga) {
+                                Text(
+                                    text = stringResource(MR.strings.clear_database_history_warning),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
                             }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = viewModel::hideConfirmation) {
-                                Text(text = stringResource(MR.strings.action_cancel))
-                            }
-                        },
-                    )
-                }
-
-                Scaffold(
-                    topBar = { scrollBehavior ->
-                        AppBar(
-                            title = stringResource(MR.strings.pref_clear_database),
-                            navigateUp = navigator::pop,
-                            actions = {
-                                // RK --> novel rows are selectable too
-                                if (s.items.isNotEmpty() || s.novelItems.isNotEmpty()) {
-                                    // RK <--
-                                    AppBarActions(
-                                        actions = listOf(
-                                            AppBar.Action(
-                                                title = stringResource(MR.strings.action_select_all),
-                                                icon = MaterialSymbols.Rounded.SelectAll,
-                                                onClick = viewModel::selectAll,
-                                            ),
-                                            AppBar.Action(
-                                                title = stringResource(MR.strings.action_select_inverse),
-                                                icon = MaterialSymbols.Rounded.FlipToBack,
-                                                onClick = viewModel::invertSelection,
-                                            ),
-                                        ),
-                                    )
+                        }
+                    },
+                    onDismissRequest = viewModel::hideConfirmation,
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                scope.launchUI {
+                                    viewModel.removeMangaBySourceId(keepReadManga)
+                                    viewModel.clearSelection()
+                                    viewModel.hideConfirmation()
+                                    context.toast(MR.strings.clear_database_completed)
                                 }
                             },
-                            scrollBehavior = scrollBehavior,
-                        )
-                    },
-                ) { contentPadding ->
-                    // RK --> the screen is clean only when both content types have nothing to clear
-                    if (s.items.isEmpty() && s.novelItems.isEmpty()) {
-                        // RK <--
-                        EmptyScreen(
-                            message = stringResource(MR.strings.database_clean),
-                            modifier = Modifier.padding(contentPadding),
-                        )
-                    } else {
-                        LazyColumnWithAction(
-                            contentPadding = contentPadding,
-                            actionLabel = stringResource(MR.strings.action_delete),
-                            // RK -->
-                            actionEnabled = s.selection.isNotEmpty() || s.novelSelection.isNotEmpty(),
-                            // RK <--
-                            onClickAction = viewModel::showConfirmation,
                         ) {
-                            // RK --> section headers only when both content types are present
-                            val showHeaders = s.items.isNotEmpty() && s.novelItems.isNotEmpty()
-                            if (showHeaders) {
-                                item { ClearDatabaseSectionHeader(stringResource(MR.strings.content_type_manga)) }
-                            }
-                            // RK <--
-                            items(s.items) { sourceWithCount ->
-                                ClearDatabaseItem(
-                                    // RK --> the row takes a name and an icon, so novel rows share it
-                                    name = sourceWithCount.source.visualName,
-                                    icon = { SourceIcon(source = sourceWithCount.source) },
-                                    // RK <--
-                                    count = sourceWithCount.count,
-                                    isSelected = s.selection.contains(sourceWithCount.id),
-                                    onClickSelect = { viewModel.toggleSelection(sourceWithCount.source) },
-                                )
-                            }
-                            // RK --> novel sources with non-library rows
-                            if (showHeaders) {
-                                item { ClearDatabaseSectionHeader(stringResource(MR.strings.content_type_novels)) }
-                            }
-                            items(s.novelItems) { novelSource ->
-                                ClearDatabaseItem(
-                                    name = sourceVisualName(novelSource.name, novelSource.lang),
-                                    icon = {
-                                        NovelSourceIcon(
-                                            iconUrl = novelSource.iconUrl,
-                                            missing = !novelSource.isInstalled,
-                                        )
-                                    },
-                                    count = novelSource.count,
-                                    isSelected = s.novelSelection.contains(novelSource.id),
-                                    onClickSelect = { viewModel.toggleNovelSelection(novelSource.id) },
-                                )
-                            }
-                            // RK <--
+                            Text(text = stringResource(MR.strings.action_ok))
                         }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::hideConfirmation) {
+                            Text(text = stringResource(MR.strings.action_cancel))
+                        }
+                    },
+                )
+            }
+
+            Scaffold(
+                topBar = { scrollBehavior ->
+                    AppBar(
+                        title = stringResource(MR.strings.pref_clear_database),
+                        navigateUp = navigator::pop,
+                        actions = {
+                            // RK --> novel rows are selectable too
+                            if (s.items.isNotEmpty() || s.novelItems.isNotEmpty()) {
+                                // RK <--
+                                AppBarActions(
+                                    actions = listOf(
+                                        AppBar.Action(
+                                            title = stringResource(MR.strings.action_select_all),
+                                            icon = MaterialSymbols.Rounded.SelectAll,
+                                            onClick = viewModel::selectAll,
+                                        ),
+                                        AppBar.Action(
+                                            title = stringResource(MR.strings.action_select_inverse),
+                                            icon = MaterialSymbols.Rounded.FlipToBack,
+                                            onClick = viewModel::invertSelection,
+                                        ),
+                                    ),
+                                )
+                            }
+                        },
+                        scrollBehavior = scrollBehavior,
+                    )
+                },
+            ) { contentPadding ->
+                // RK --> the screen is clean only when both content types have nothing to clear
+                if (s.items.isEmpty() && s.novelItems.isEmpty()) {
+                    // RK <--
+                    EmptyScreen(
+                        message = stringResource(MR.strings.database_clean),
+                        modifier = Modifier.padding(contentPadding),
+                    )
+                } else {
+                    LazyColumnWithAction(
+                        contentPadding = contentPadding,
+                        actionLabel = stringResource(MR.strings.action_delete),
+                        // RK -->
+                        actionEnabled = s.selection.isNotEmpty() || s.novelSelection.isNotEmpty(),
+                        // RK <--
+                        onClickAction = viewModel::showConfirmation,
+                    ) {
+                        // RK --> section headers only when both content types are present
+                        val showHeaders = s.items.isNotEmpty() && s.novelItems.isNotEmpty()
+                        if (showHeaders) {
+                            item { ClearDatabaseSectionHeader(stringResource(MR.strings.content_type_manga)) }
+                        }
+                        // RK <--
+                        items(s.items) { sourceWithCount ->
+                            ClearDatabaseItem(
+                                // RK --> the row takes a name and an icon, so novel rows share it
+                                name = sourceWithCount.source.visualName,
+                                icon = { SourceIcon(source = sourceWithCount.source) },
+                                // RK <--
+                                count = sourceWithCount.count,
+                                isSelected = s.selection.contains(sourceWithCount.id),
+                                onClickSelect = { viewModel.toggleSelection(sourceWithCount.source) },
+                            )
+                        }
+                        // RK --> novel sources with non-library rows
+                        if (showHeaders) {
+                            item { ClearDatabaseSectionHeader(stringResource(MR.strings.content_type_novels)) }
+                        }
+                        items(s.novelItems) { novelSource ->
+                            ClearDatabaseItem(
+                                name = sourceVisualName(novelSource.name, novelSource.lang),
+                                icon = {
+                                    NovelSourceIcon(
+                                        iconUrl = novelSource.iconUrl,
+                                        missing = !novelSource.isInstalled,
+                                    )
+                                },
+                                count = novelSource.count,
+                                isSelected = s.novelSelection.contains(novelSource.id),
+                                onClickSelect = { viewModel.toggleNovelSelection(novelSource.id) },
+                            )
+                        }
+                        // RK <--
                     }
                 }
             }
         }
     }
+}
 
-    @Composable
-    private fun ClearDatabaseItem(
-        // RK -->
-        name: String,
-        icon: @Composable () -> Unit,
-        // RK <--
-        count: Long,
-        isSelected: Boolean,
-        onClickSelect: () -> Unit,
+@Composable
+private fun ClearDatabaseItem(
+    // RK -->
+    name: String,
+    icon: @Composable () -> Unit,
+    // RK <--
+    count: Long,
+    isSelected: Boolean,
+    onClickSelect: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .selectedBackground(isSelected)
+            .clickable(onClick = onClickSelect)
+            .padding(horizontal = 8.dp)
+            .height(56.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
+        icon() // RK
+        Column(
             modifier = Modifier
-                .selectedBackground(isSelected)
-                .clickable(onClick = onClickSelect)
-                .padding(horizontal = 8.dp)
-                .height(56.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(start = 8.dp)
+                .weight(1f),
         ) {
-            icon() // RK
-            Column(
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .weight(1f),
-            ) {
-                Text(
-                    text = name, // RK
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(text = stringResource(MR.strings.clear_database_source_item_count, count))
-            }
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onClickSelect() },
+            Text(
+                text = name, // RK
+                style = MaterialTheme.typography.bodyMedium,
             )
+            Text(text = stringResource(MR.strings.clear_database_source_item_count, count))
         }
-    }
-
-    // RK --> the novel section's subheader
-    @Composable
-    private fun ClearDatabaseSectionHeader(label: String) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        Checkbox(
+            checked = isSelected,
+            onCheckedChange = { onClickSelect() },
         )
     }
-    // RK <--
 }
+
+// RK --> the novel section's subheader
+@Composable
+private fun ClearDatabaseSectionHeader(label: String) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+// RK <--
 
 @Inject
 @ViewModelKey

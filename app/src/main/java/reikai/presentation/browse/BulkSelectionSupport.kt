@@ -10,12 +10,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
+import mihon.core.navigation.CategoryRoute
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
@@ -170,12 +169,12 @@ fun <T : Any> BulkCategoryDialog(
     dialog: EntryBulkFavoriteViewModel.Dialog<T>,
     title: String? = null,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     when (dialog) {
         is EntryBulkFavoriteViewModel.Dialog.ChangeCategory -> ChangeCategoryDialog(
             initialSelection = dialog.initialSelection,
             onDismissRequest = { bulk.setDialog(null) },
-            onEditCategories = { navigator.push(CategoryScreen()) },
+            onEditCategories = { navigator.push(CategoryRoute) },
             onConfirm = { include, _ -> bulk.setCategories(dialog.items, include) },
             title = title,
         )

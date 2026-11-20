@@ -2,8 +2,6 @@ package reikai.presentation.reader.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.presentation.more.settings.screen.SettingsMangaReaderScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
@@ -35,9 +33,9 @@ class SettingsMangaReaderPagedGroupTest {
         "Flip orientation of rotated wide pages",
     )
 
-    private class Rows(val read: @Composable () -> Unit) : Screen {
+    private class Rows(val read: @Composable () -> Unit) {
         @Composable
-        override fun Content() = read()
+        fun Content() = read()
     }
 
     /** The titles the paged group shows for [highQualityRenderer] under [dualPageView]. */
@@ -50,13 +48,11 @@ class SettingsMangaReaderPagedGroupTest {
         var titles = emptyList<String>()
         compose.setContent {
             ComposeTestHost {
-                Navigator(
-                    Rows {
-                        titles = SettingsMangaReaderScreen.getPagedGroup(preferences, rows).preferenceItems
-                            .filter { it.visible }
-                            .map { it.title }
-                    },
-                )
+                Rows {
+                    titles = SettingsMangaReaderScreen.getPagedGroup(preferences, rows).preferenceItems
+                        .filter { it.visible }
+                        .map { it.title }
+                }.Content()
             }
         }
         compose.waitForIdle()

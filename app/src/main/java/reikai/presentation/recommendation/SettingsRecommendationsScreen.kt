@@ -13,6 +13,7 @@ import eu.kanade.presentation.more.settings.screen.SearchableSettings
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
 import reikai.data.recommendation.taste.TrackerLibraryRefreshWorker
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
@@ -30,7 +31,8 @@ import tachiyomi.presentation.core.util.collectAsState
  * DSL. "Show related manga" is the master switch: with it off the carousel does no work at all, so
  * every other group here is hidden rather than left dangling.
  */
-object SettingsRecommendationsScreen : SearchableSettings {
+@Serializable
+data object SettingsRecommendationsScreen : SearchableSettings {
 
     @Composable
     @ReadOnlyComposable

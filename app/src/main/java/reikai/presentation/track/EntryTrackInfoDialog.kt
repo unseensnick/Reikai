@@ -1,6 +1,11 @@
 package reikai.presentation.track
 
 import android.content.Context
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +23,7 @@ import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,9 +37,10 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.currentOrThrow
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Assisted
@@ -45,13 +52,13 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.track.TrackChapterSelector
 import eu.kanade.presentation.track.TrackDateSelector
 import eu.kanade.presentation.track.TrackInfoDialogHome
 import eu.kanade.presentation.track.TrackScoreSelector
 import eu.kanade.presentation.track.TrackStatusSelector
 import eu.kanade.presentation.track.TrackerSearch
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.ReplacingWriteTracker
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -75,9 +82,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.Serializable
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import mihon.core.metro.AppCoroutineScope
+import mihon.core.navigation.LocalNavigator
+import mihon.core.navigation.Navigator
+import mihon.core.navigation.NavigatorDisplay
+import mihon.core.navigation.rememberNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.roundedfilled.Delete
 import mihon.icons.materialsymbols.roundedfilled.Warning
@@ -110,13 +122,11 @@ import kotlin.time.Instant
  * A tracker that binds entries from a source it knows ([AutoBindTracker]) matches on a tap instead of
  * searching for those entries; [offerTrackers] decides the rows, for both types.
  */
+@Serializable
 data class EntryTrackInfoDialogHomeRoute(
-    private val entry: EntryId,
-    private val entryTitle: String,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackInfoDialogHomeScreen(entry, entryTitle)
+    val entry: EntryId,
+    val entryTitle: String,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -205,7 +215,7 @@ data class EntryTrackInfoDialogHomeRoute(
 
 @Composable
 fun EntryTrackInfoDialogHomeScreen(entry: EntryId, entryTitle: String) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val context = LocalContext.current
     val locale = LocalLocale.current
     val viewModel =
@@ -284,14 +294,12 @@ private fun Context.copyTrackerLink(trackItem: TrackItem) {
     if (url.isNotBlank()) copyToClipboard(url, url)
 }
 
+@Serializable
 data class EntryTrackStatusSelectorRoute(
-    private val track: Track,
-    private val serviceId: Long,
-    private val entry: EntryId,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackStatusSelectorScreen(track, serviceId, entry)
+    val track: Track,
+    val serviceId: Long,
+    val entry: EntryId,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -337,7 +345,7 @@ data class EntryTrackStatusSelectorRoute(
 
 @Composable
 fun EntryTrackStatusSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel =
         assistedMetroViewModel<EntryTrackStatusSelectorRoute.Model, EntryTrackStatusSelectorRoute.Model.Factory> {
             create(track = track, trackerId = serviceId, entry = entry)
@@ -355,14 +363,12 @@ fun EntryTrackStatusSelectorScreen(track: Track, serviceId: Long, entry: EntryId
     )
 }
 
+@Serializable
 data class EntryTrackChapterSelectorRoute(
-    private val track: Track,
-    private val serviceId: Long,
-    private val entry: EntryId,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackChapterSelectorScreen(track, serviceId, entry)
+    val track: Track,
+    val serviceId: Long,
+    val entry: EntryId,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -408,7 +414,7 @@ data class EntryTrackChapterSelectorRoute(
 
 @Composable
 fun EntryTrackChapterSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel =
         assistedMetroViewModel<EntryTrackChapterSelectorRoute.Model, EntryTrackChapterSelectorRoute.Model.Factory> {
             create(track = track, trackerId = serviceId, entry = entry)
@@ -426,14 +432,12 @@ fun EntryTrackChapterSelectorScreen(track: Track, serviceId: Long, entry: EntryI
     )
 }
 
+@Serializable
 data class EntryTrackScoreSelectorRoute(
-    private val track: Track,
-    private val serviceId: Long,
-    private val entry: EntryId,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackScoreSelectorScreen(track, serviceId, entry)
+    val track: Track,
+    val serviceId: Long,
+    val entry: EntryId,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -478,7 +482,7 @@ data class EntryTrackScoreSelectorRoute(
 
 @Composable
 fun EntryTrackScoreSelectorScreen(track: Track, serviceId: Long, entry: EntryId) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel =
         assistedMetroViewModel<EntryTrackScoreSelectorRoute.Model, EntryTrackScoreSelectorRoute.Model.Factory> {
             create(track = track, trackerId = serviceId, entry = entry)
@@ -496,15 +500,13 @@ fun EntryTrackScoreSelectorScreen(track: Track, serviceId: Long, entry: EntryId)
     )
 }
 
+@Serializable
 data class EntryTrackDateSelectorRoute(
-    private val track: Track,
-    private val serviceId: Long,
-    private val start: Boolean,
-    private val entry: EntryId,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackDateSelectorScreen(track, serviceId, start, entry)
+    val track: Track,
+    val serviceId: Long,
+    val start: Boolean,
+    val entry: EntryId,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -556,7 +558,7 @@ data class EntryTrackDateSelectorRoute(
 
 @Composable
 fun EntryTrackDateSelectorScreen(track: Track, serviceId: Long, start: Boolean, entry: EntryId) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val selectableDates = remember(track, start) { trackSelectableDates(track, start) }
     val viewModel =
         assistedMetroViewModel<EntryTrackDateSelectorRoute.Model, EntryTrackDateSelectorRoute.Model.Factory> {
@@ -623,15 +625,13 @@ private fun trackSelectableDates(track: Track, start: Boolean): SelectableDates 
     }
 }
 
+@Serializable
 data class EntryTrackDateRemoverRoute(
-    private val track: Track,
-    private val serviceId: Long,
-    private val start: Boolean,
-    private val entry: EntryId,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackDateRemoverScreen(track, serviceId, start, entry)
+    val track: Track,
+    val serviceId: Long,
+    val start: Boolean,
+    val entry: EntryId,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -671,7 +671,7 @@ data class EntryTrackDateRemoverRoute(
 
 @Composable
 fun EntryTrackDateRemoverScreen(track: Track, serviceId: Long, start: Boolean, entry: EntryId) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<EntryTrackDateRemoverRoute.Model, EntryTrackDateRemoverRoute.Model.Factory> {
         create(track = track, trackerId = serviceId, start = start, entry = entry)
     }
@@ -705,7 +705,7 @@ fun EntryTrackDateRemoverScreen(track: Track, serviceId: Long, start: Boolean, e
                 FilledTonalButton(
                     onClick = {
                         viewModel.removeDate()
-                        navigator.popUntil { it is EntryTrackInfoDialogHomeRoute }
+                        navigator.popTo { it is EntryTrackInfoDialogHomeRoute }
                     },
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -719,15 +719,13 @@ fun EntryTrackDateRemoverScreen(track: Track, serviceId: Long, start: Boolean, e
     )
 }
 
+@Serializable
 data class EntryTrackerSearchRoute(
-    private val entry: EntryId,
-    private val initialQuery: String,
-    private val currentUrl: String?,
-    private val serviceId: Long,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackerSearchScreen(entry, initialQuery, currentUrl, serviceId)
+    val entry: EntryId,
+    val initialQuery: String,
+    val currentUrl: String?,
+    val serviceId: Long,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -817,7 +815,7 @@ data class EntryTrackerSearchRoute(
 
 @Composable
 fun EntryTrackerSearchScreen(entry: EntryId, initialQuery: String, currentUrl: String?, serviceId: Long) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<EntryTrackerSearchRoute.Model, EntryTrackerSearchRoute.Model.Factory> {
         create(
             entry = entry,
@@ -864,14 +862,12 @@ fun EntryTrackerSearchScreen(entry: EntryId, initialQuery: String, currentUrl: S
     }
 }
 
+@Serializable
 data class EntryTrackerRemoveRoute(
-    private val entry: EntryId,
-    private val track: Track,
-    private val serviceId: Long,
-) : Screen() {
-
-    @Composable
-    override fun Content() = EntryTrackerRemoveScreen(entry, track, serviceId)
+    val entry: EntryId,
+    val track: Track,
+    val serviceId: Long,
+) : NavKey {
 
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
@@ -907,7 +903,7 @@ data class EntryTrackerRemoveRoute(
 
 @Composable
 fun EntryTrackerRemoveScreen(entry: EntryId, track: Track, serviceId: Long) {
-    val navigator = LocalNavigator.currentOrThrow
+    val navigator = LocalNavigator.current
     val viewModel = assistedMetroViewModel<EntryTrackerRemoveRoute.Model, EntryTrackerRemoveRoute.Model.Factory> {
         create(entry = entry, track = track, trackerId = serviceId)
     }
@@ -995,3 +991,59 @@ private suspend fun bindTrack(context: Context, port: EntryTrackPort, tracker: T
         withUIContext { context.toast(context.trackerErrorMessage(tracker.name, e)) }
     }
 }
+
+/** The track sheet over [entry]'s details page, drawn as an overlay so the page stays beneath it. */
+@Serializable
+data class EntryTrackSheetRoute(val entry: EntryId, val entryTitle: String) : NavKey
+
+/**
+ * The sheet [EntryTrackSheetRoute] opens, with its pickers on a navigator of its own, as upstream's track
+ * dialog has. Each page gets its own ViewModel store, or every picker would reuse the first one's model.
+ */
+@Composable
+fun EntryTrackSheet(entry: EntryId, entryTitle: String, onDismissRequest: () -> Unit) {
+    val sheetNavigator = rememberNavigator(EntryTrackInfoDialogHomeRoute(entry, entryTitle))
+
+    CompositionLocalProvider(LocalNavigator provides sheetNavigator) {
+        AdaptiveSheet(
+            onDismissRequest = onDismissRequest,
+            enableImplicitDismiss = !sheetNavigator.canPop,
+        ) {
+            NavigatorDisplay(
+                navigator = sheetNavigator,
+                sizeTransform = SizeTransform(),
+                transitionSpec = { sheetFade },
+                popTransitionSpec = { sheetFade },
+                predictivePopTransitionSpec = { sheetFade },
+                entryDecorators = listOf(
+                    rememberSaveableStateHolderNavEntryDecorator(),
+                    rememberViewModelStoreNavEntryDecorator(),
+                ),
+                entryProvider = entryProvider {
+                    entry<EntryTrackInfoDialogHomeRoute> { EntryTrackInfoDialogHomeScreen(it.entry, it.entryTitle) }
+                    entry<EntryTrackStatusSelectorRoute> {
+                        EntryTrackStatusSelectorScreen(it.track, it.serviceId, it.entry)
+                    }
+                    entry<EntryTrackChapterSelectorRoute> {
+                        EntryTrackChapterSelectorScreen(it.track, it.serviceId, it.entry)
+                    }
+                    entry<EntryTrackScoreSelectorRoute> {
+                        EntryTrackScoreSelectorScreen(it.track, it.serviceId, it.entry)
+                    }
+                    entry<EntryTrackDateSelectorRoute> {
+                        EntryTrackDateSelectorScreen(it.track, it.serviceId, it.start, it.entry)
+                    }
+                    entry<EntryTrackDateRemoverRoute> {
+                        EntryTrackDateRemoverScreen(it.track, it.serviceId, it.start, it.entry)
+                    }
+                    entry<EntryTrackerSearchRoute> {
+                        EntryTrackerSearchScreen(it.entry, it.initialQuery, it.currentUrl, it.serviceId)
+                    }
+                    entry<EntryTrackerRemoveRoute> { EntryTrackerRemoveScreen(it.entry, it.track, it.serviceId) }
+                },
+            )
+        }
+    }
+}
+
+private val sheetFade = fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90))

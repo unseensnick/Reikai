@@ -6,12 +6,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.widget.TriStateListDialog
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.download.DownloadIndexRules
 import reikai.domain.download.DownloadPacing
 import reikai.domain.download.MAX_PARALLEL_PAGES
@@ -35,7 +36,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.core.common.preference.Preference as PreferenceData
 
-object SettingsDownloadScreen : SearchableSettings {
+@Serializable
+data object SettingsDownloadScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
@@ -205,7 +207,7 @@ object SettingsDownloadScreen : SearchableSettings {
         mangaPreferences: MangaPreferences,
         novelPreferences: NovelPreferences,
     ): Preference.PreferenceGroup {
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
         val context = LocalContext.current
         // The rows the per-source list shows, so a delay kept for an uninstalled source is not counted.
         val sourceDelays by remember {
@@ -242,7 +244,7 @@ object SettingsDownloadScreen : SearchableSettings {
                         0 -> stringResource(MR.strings.pref_source_delay_none)
                         else -> pluralStringResource(MR.plurals.pref_source_delay_count, count = setCount, setCount)
                     },
-                    onClick = { navigator.push(SourceDelaysRoute()) },
+                    onClick = { navigator.push(SourceDelaysRoute) },
                 ),
             ),
         )

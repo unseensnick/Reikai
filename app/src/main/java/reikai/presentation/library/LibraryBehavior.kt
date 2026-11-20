@@ -9,7 +9,7 @@ import tachiyomi.domain.category.model.Category
  * The neutral action set the shared library tab dispatches, so a selection, filter or category action
  * is written once against this seam instead of an `if (isNovels)` per call. Per-type navigation
  * (opening an entry, the reader, migration) stays in the tab, as on the details surface, because it
- * needs the Voyager navigator and per-type screen types. Dialogs are not opened here: a provider only
+ * needs the navigator and per-type routes. Dialogs are not opened here: a provider only
  * answers questions and performs the confirmed write, while [LibraryEngine] builds the dialog, since
  * anything derived from the selection must be derived where the selection lives.
  */

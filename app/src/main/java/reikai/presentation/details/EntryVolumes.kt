@@ -1,7 +1,7 @@
 package reikai.presentation.details
 
 import androidx.compose.runtime.Immutable
-import cafe.adriel.voyager.core.screen.Screen
+import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -265,9 +265,9 @@ class VolumePicking(
      * Opens [entry]'s screen on Organize files' preview, through [push], offering [move]'s Undo there: leaving this
      * screen ends its own snackbar.
      */
-    fun organizeOn(entry: EntryId, move: LocalVolumeMove, message: String, push: (Screen) -> Unit) {
+    fun organizeOn(entry: EntryId, move: LocalVolumeMove, message: String, push: (NavKey) -> Unit) {
         requestOrganize(entry, undo = VolumeMoveUndo(move, message))
-        push(entry.detailsScreen())
+        push(entry.detailsRoute())
     }
 
     /** The Organize files requests for [entry], each taken once. */

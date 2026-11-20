@@ -9,8 +9,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.core.app.ActivityCompat
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import com.materialkolor.PaletteStyle
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AppTheme
@@ -20,7 +18,6 @@ import eu.kanade.domain.ui.model.TimeFormat
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
 import eu.kanade.domain.ui.model.shownWith
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.presentation.more.settings.screen.appearance.AppLanguageScreen
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.ShownContentPreferenceWidget
@@ -29,7 +26,10 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
+import mihon.core.navigation.AppLanguageRoute
+import mihon.core.navigation.LocalNavigator
 import reikai.domain.category.seedRecentsSurfaceFromUpdates
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.stats.StatsShortcut
@@ -40,7 +40,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import kotlin.time.Clock
 
-object SettingsAppearanceScreen : SearchableSettings {
+@Serializable
+data object SettingsAppearanceScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
@@ -62,7 +63,7 @@ object SettingsAppearanceScreen : SearchableSettings {
         uiPreferences: UiPreferences,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow // RK
+        val navigator = LocalNavigator.current // RK
 
         val themeModePref = uiPreferences.themeMode
         val themeMode by themeModePref.collectAsState()
@@ -109,7 +110,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_custom_theme_color),
                     subtitle = stringResource(MR.strings.pref_custom_theme_color_summary),
                     visible = appTheme == AppTheme.CUSTOM,
-                    onClick = { navigator.push(CustomThemeColorRoute()) },
+                    onClick = { navigator.push(CustomThemeColorRoute) },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = uiPreferences.customThemeStyle,
@@ -146,7 +147,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_app_icon),
                     subtitle = stringResource(MR.strings.pref_app_icon_summary),
-                    onClick = { navigator.push(LauncherIconRoute()) },
+                    onClick = { navigator.push(LauncherIconRoute) },
                 ),
                 // RK <--
             ),
@@ -158,7 +159,7 @@ object SettingsAppearanceScreen : SearchableSettings {
         uiPreferences: UiPreferences,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalNavigator.current
         val locale = LocalLocale.current
         val is24HourSystem = rememberIs24HourSystem()
 
@@ -189,7 +190,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                 // RK <--
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_app_language),
-                    onClick = { navigator.push(AppLanguageScreen()) },
+                    onClick = { navigator.push(AppLanguageRoute) },
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = uiPreferences.tabletUiMode,
