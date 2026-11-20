@@ -64,6 +64,19 @@ class EntryMergeManagerTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `relatedIdsOf resolves each id as computeRelatedIds does`(type: ContentType) = runTest {
+        // 4 is grouped but has left the library, 3 is in no group.
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getAllMemberships(type) } returns mapOf(1L to 7L, 2L to 7L, 4L to 7L)
+            coEvery { getFavoriteMembers(type, 7L) } returns listOf(1L, 2L)
+        }
+
+        manager(type, repo).relatedIdsOf(listOf(1L, 3L, 4L)) shouldBe
+            mapOf(1L to listOf(1L, 2L), 3L to listOf(3L), 4L to listOf(4L))
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `relatedIdsList returns the group members`(type: ContentType) = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(type, 1L) } returns 7L

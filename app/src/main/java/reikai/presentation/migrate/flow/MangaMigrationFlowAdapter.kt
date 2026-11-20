@@ -97,8 +97,8 @@ class MangaMigrationFlowAdapter(
 
     override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedSources.get()
 
-    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> =
-        mergeGroupPickMembers(ids, getManga::await, mergeManager::computeRelatedIds) { manga ->
+    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember>? =
+        mergeGroupPickMembers(ids, mergeManager.relatedIdsOf(ids), getManga::await) { manga ->
             PickMember(
                 id = manga.id,
                 title = manga.title,

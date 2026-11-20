@@ -482,6 +482,8 @@ class EntryMigrationListViewModel(
         }
         if (previous != null) row.search.value = previous
         syncCounts()
+        // A commit that settled every other row meanwhile found this one borrowed and left the gate shut.
+        finishIfNothingFailed()
     }
 
     /**

@@ -46,8 +46,9 @@ class EntryMigrationListTest {
     fun showList() {
         compose.setContent {
             ComposeTestHost {
-                TestNavHost(remember { testNavigator(Below, ListHost) }) {
+                TestNavHost(remember { testNavigator(Below, EarlierStep, ListHost) }) {
                     entry<Below> { Text(BELOW) }
+                    entry<EarlierStep> { Text(EARLIER_STEP) }
                     entry<ListHost> {
                         val state by model.state.collectAsState()
                         EntryMigrationList(state = state, viewModel = model, flowId = 1L)
@@ -87,10 +88,15 @@ class EntryMigrationListTest {
 
     private companion object {
         const val BELOW = "the screen the flow started from"
+        const val EARLIER_STEP = "an earlier step of the flow"
     }
 
     @Serializable
     data object Below : NavKey
+
+    /** A step before the list, so a single pop would land inside the flow rather than leave it. */
+    @Serializable
+    data object EarlierStep : NavKey, MigrationFlowRoute
 
     /** The list itself, inside the flow, over the test's own model. */
     @Serializable

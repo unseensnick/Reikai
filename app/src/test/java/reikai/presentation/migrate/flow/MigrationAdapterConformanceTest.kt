@@ -123,6 +123,23 @@ class MigrationAdapterConformanceTest {
         adapter.resolve(hit)?.syncedNow shouldBe false
     }
 
+    // The list model passes the tuning through untyped, so a toggle dropped here is lost for that type alone.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the search toggles saved for a type read back as saved`(probe: Probe) = runTest {
+        val adapter = probe.adapter()
+        val tuning = MigrationTuning(
+            deepSearch = true,
+            prioritizeByChapters = true,
+            hideUnmatched = true,
+            hideWithoutUpdates = true,
+        )
+
+        adapter.persistTuning(tuning)
+
+        adapter.readTuning() shouldBe tuning
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a stored target without chapters counts as unknown`(probe: Probe) = runTest {
@@ -552,7 +569,7 @@ object NovelProbe : Probe {
                     languages.map { lang -> mockk<NovelSource> { every { this@mockk.lang } returns lang } }
             },
             sourcePreferences = mockk(),
-            novelPreferences = mockk(),
+            novelPreferences = NovelPreferences(EmittingPreferenceStore()),
             novelRepository = mockk<NovelRepository> {
                 coEvery { getById(any()) } answers {
                     reads.rows++

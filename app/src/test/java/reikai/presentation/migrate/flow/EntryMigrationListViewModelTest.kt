@@ -80,8 +80,7 @@ class EntryMigrationListViewModelTest {
     }
 
     @Test
-    fun `deep search reaches the search on every content type`() = runTest(dispatcher.scheduler) {
-        // The novel adapter used to declare a match strategy that cleared it on the way in.
+    fun `deep search from the adapter's tuning reaches the search`() = runTest(dispatcher.scheduler) {
         val adapter = FakeMigrationFlowAdapter(
             listOf(entry(1)),
             tuning = MigrationTuning(deepSearch = true, prioritizeByChapters = true),
@@ -404,6 +403,47 @@ class EntryMigrationListViewModelTest {
 
         model.state.value.finished shouldBe true
     }
+
+    @Test
+    fun `a refused pick on the last unsettled row finishes a batch with nothing left to commit`() =
+        runTest(dispatcher.scheduler) {
+            val a = EntryId.Manga(1)
+            val b = EntryId.Manga(2)
+            val failing = mutableSetOf<EntryId>(b)
+            val pickReleased = CompletableDeferred<Unit>()
+            var pickKey: String? = null
+            val adapter = FakeMigrationFlowAdapter(
+                entries = listOf(entry(1), entry(2), entry(3)),
+                failFor = failing,
+                matchless = setOf(a),
+                onResolve = { candidate ->
+                    if (candidate.key == pickKey) {
+                        pickReleased.await()
+                        null
+                    } else {
+                        ResolvedTarget(candidate, syncedNow = true)
+                    }
+                },
+            )
+            val model = EntryMigrationListViewModel(entryIds = listOf(1L, 2L, 3L), adapter = adapter, io = dispatcher)
+            advanceUntilIdle()
+            // Row 3 migrates, row 2 fails, row 1 found nothing: the batch stays open on the failure.
+            model.acceptAll()
+            model.commit(replace = true, flags = emptySet())
+            advanceUntilIdle()
+            val candidate = adapter.candidates(entry(1), "Entry 1", "target").single()
+            pickKey = candidate.key
+            model.pick(a, candidate)
+            advanceUntilIdle()
+            failing.remove(b)
+            model.retry(b)
+            advanceUntilIdle()
+
+            pickReleased.complete(Unit)
+            advanceUntilIdle()
+
+            model.state.value.finished shouldBe true
+        }
 
     @Test
     fun `a single commit on its own never finishes the screen`() = runTest(dispatcher.scheduler) {

@@ -418,6 +418,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Tapping a migration target twice while browsing a source no longer closes the migration list too.**
 - **Coming back to the migration favorites list from a series no longer shows the loading spinner again.**
 - **A novel migration target still being saved when the screen rotates now returns to the migration list.**
+- **The migration list now closes when a refused manual pick was the last row left to settle.**
 
 ### Backup & restore
 

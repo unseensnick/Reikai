@@ -49,6 +49,18 @@ open class EntryMergeManager(
         return repository.getFavoriteMembers(contentType, groupId)
     }
 
+    /** [computeRelatedIds] for each of [ids], from one membership read plus one per group they reach. */
+    suspend fun relatedIdsOf(ids: List<Long>): Map<Long, List<Long>> {
+        if (!preferences.seriesMergingEnabled.get()) return ids.associateWith { listOf(it) }
+        val memberships = repository.getAllMemberships(contentType)
+        val groups = HashMap<Long, List<Long>>()
+        return ids.associateWith { id ->
+            val groupId = memberships[id] ?: return@associateWith listOf(id)
+            val members = groups.getOrPut(groupId) { repository.getFavoriteMembers(contentType, groupId) }
+            if (id in members) members else listOf(id)
+        }
+    }
+
     /** Every group's library members, each in order; empty while merging is off, as [groupLibraryMembers] is. */
     suspend fun libraryGroups(): List<List<Long>> {
         if (!preferences.seriesMergingEnabled.get()) return emptyList()

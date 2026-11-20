@@ -185,9 +185,9 @@ interface MigrationFlowAdapter {
     /** Pinned source keys, the config screen's selection default when nothing is saved yet. */
     fun pinnedKeys(): Set<String>
 
-    /** Every entry in [ids] expanded to its full merge group, deduped in encounter order. The pick
-     *  screen skips itself when the members are exactly the input set (nothing merged). */
-    suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember>
+    /** Every entry in [ids] expanded to its full merge group, deduped in encounter order, or null when
+     *  the groups add nothing to [ids], which the pick screen skips itself on. */
+    suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember>?
 
     /** The display name for one source key, which still names an uninstalled source by the name it
      *  was last seen with (its stored rows still migrate). */

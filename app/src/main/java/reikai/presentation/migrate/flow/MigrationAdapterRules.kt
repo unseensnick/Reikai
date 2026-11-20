@@ -13,15 +13,19 @@ val MigrationEntry.ownUrl: String
         is MigrationPayload.OfNovel -> payload.novel.url
     }
 
-/** Every stored entry in [ids] expanded to its merge group ([relatedIds]), deduped in encounter order. */
+/**
+ * Every entry in [ids] expanded to its merge group ([relatedIds]), deduped in encounter order, with an
+ * entry no longer stored dropped by [load]. Null when the groups add nothing to [ids]: there is no choice
+ * to offer, so no row is loaded for it.
+ */
 suspend fun <T : Any> mergeGroupPickMembers(
     ids: List<Long>,
+    relatedIds: Map<Long, List<Long>>,
     load: suspend (Long) -> T?,
-    relatedIds: suspend (Long) -> LongArray,
     toMember: suspend (T) -> PickMember,
-): List<PickMember> {
-    val memberIds = LinkedHashSet<Long>()
-    ids.forEach { id -> if (load(id) != null) memberIds += relatedIds(id).asList() }
+): List<PickMember>? {
+    val memberIds = ids.flatMapTo(LinkedHashSet()) { relatedIds[it] ?: listOf(it) }
+    if (memberIds == ids.toSet()) return null
     return memberIds.mapNotNull { id -> load(id)?.let { toMember(it) } }
 }
 

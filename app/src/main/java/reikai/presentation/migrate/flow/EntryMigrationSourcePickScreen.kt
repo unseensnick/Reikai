@@ -109,9 +109,9 @@ class EntryMigrationSourcePickViewModel(
         viewModelScope.launchIO {
             // The novel source layer has to be warm before member names and covers can resolve.
             adapter.prepare()
+            // Null when the groups add nothing beyond what was selected, so there is no choice to make.
             val members = adapter.mergeGroupMembers(entryIds)
-            // The group adds nothing beyond what was selected, so there is no choice to make.
-            if (members.map { it.id }.toSet() == entryIds.toSet()) {
+            if (members == null) {
                 state.update { it.copy(isLoading = false, forward = true) }
                 return@launchIO
             }

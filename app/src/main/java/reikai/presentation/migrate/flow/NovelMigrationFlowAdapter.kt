@@ -104,8 +104,8 @@ class NovelMigrationFlowAdapter(
 
     override fun pinnedKeys(): Set<String> = sourcePreferences.pinnedNovelSources.get()
 
-    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember> =
-        mergeGroupPickMembers(ids, novelRepository::getById, mergeManager::computeRelatedIds) { novel ->
+    override suspend fun mergeGroupMembers(ids: List<Long>): List<PickMember>? =
+        mergeGroupPickMembers(ids, mergeManager.relatedIdsOf(ids), novelRepository::getById) { novel ->
             PickMember(
                 id = novel.id,
                 title = novel.title,
