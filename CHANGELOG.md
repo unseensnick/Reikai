@@ -380,6 +380,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A paged light-novel plugin's later pages now report a site that is down instead of showing an empty page.**
 - **Back now closes the search on the Browse Sources tab, as it does on Extensions.**
 - **A catalogue opened from a feed's saved search keeps the search after Android closes the app in the background.**
+- **A saved search's chip stays lit after opening a series from its results and coming back.**
+- **A saved search saved or deleted just before leaving the catalogue is no longer lost.**
+- **An enhanced source's Follows list no longer shows Open in WebView and Help buttons that do nothing.**
+- **An enhanced source's Follows list says the source is not installed, instead of loading forever.**
+- **Random in a source's filter sheet, while choosing what to migrate to, opens a catalogue that still picks the target.** Follows is hidden there, since it cannot pick one.
 
 ### Updates & History
 

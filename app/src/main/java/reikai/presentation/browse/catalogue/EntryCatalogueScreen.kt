@@ -176,7 +176,7 @@ private fun MangaCatalogue(
     LaunchedEffect(modelState.randomMangaTarget) {
         val target = modelState.randomMangaTarget ?: return@LaunchedEffect
         viewModel.consumeRandomTarget()
-        navigator.push(EntryCatalogueRoute(sourceKey, target))
+        navigator.push(EntryCatalogueRoute(sourceKey, target, migrateFor = migrateFor))
     }
 
     Catalogue(
@@ -193,8 +193,9 @@ private fun MangaCatalogue(
             onReset = viewModel::resetFilters,
             onFilter = { viewModel.search(filters = modelState.filters) },
             onUpdate = viewModel::setFilters,
+            // Follows has no pick mode, so a migration pick leaves it out rather than open details.
             onMangaDexFollowsClicked = { navigator.push(MangaDexFollowsRoute(sourceId)) }
-                .takeIf { isMangaDex },
+                .takeIf { isMangaDex && migrateFor == null },
             onMangaDexRandomClicked = {
                 viewModel.onMangaDexRandom()
                 onDismiss()
@@ -309,7 +310,7 @@ private fun Catalogue(
     val savedSearches by savedSearchModel.state.collectAsState()
     var savedSearchDialog by remember { mutableStateOf<SavedSearchDialog?>(null) }
     // Which chip reads as applied. Cleared by anything that replaces what it put on screen.
-    var appliedSavedSearchId by remember { mutableStateOf<Long?>(null) }
+    val appliedSavedSearchId by savedSearchModel.appliedId.collectAsState()
 
     // Applied once the screen is up rather than before the model is built, which costs one
     // discarded page of the default listing and keeps the models free of a saved-search read.
@@ -318,7 +319,6 @@ private fun Catalogue(
     val isLoaded = state is EntryBrowseScreenState.Loaded
     LaunchedEffect(savedSearches, isLoaded) {
         val search = savedSearchModel.routeSearchToOpen(state, savedSearchId) ?: return@LaunchedEffect
-        appliedSavedSearchId = search.id
         behavior.applySearch(search.query, search.filtersJson)
     }
 
@@ -404,11 +404,11 @@ private fun Catalogue(
                         onHelpClick = onHelpClick,
                         onSettingsClick = onOpenSettings,
                         onSearch = {
-                            appliedSavedSearchId = null
+                            savedSearchModel.setApplied(null)
                             behavior.search(it)
                         },
                         onCloseSearch = {
-                            appliedSavedSearchId = null
+                            savedSearchModel.setApplied(null)
                             behavior.search(null)
                         },
                         scrollBehavior = scrollBehavior,
@@ -428,13 +428,13 @@ private fun Catalogue(
                     savedSearches = savedSearches,
                     appliedSavedSearchId = appliedSavedSearchId,
                     onApplySavedSearch = { search ->
-                        appliedSavedSearchId = search.id
+                        savedSearchModel.setApplied(search.id)
                         behavior.applySearch(search.query, search.filtersJson)
                     },
                     onLongClickSavedSearch = { search ->
                         savedSearchDialog = SavedSearchDialog.Delete(search.id, search.name)
                     },
-                    onClearSavedSearch = { appliedSavedSearchId = null },
+                    onClearSavedSearch = { savedSearchModel.setApplied(null) },
                 )
                 HorizontalDivider()
             }
@@ -561,7 +561,7 @@ private fun ListingChip(
 /** Loading, or a source that cannot serve a catalogue: a missing extension has no retry, a plugin
  *  that threw while loading does. */
 @Composable
-private fun SourceUnavailable(state: EntryBrowseScreenState, navigateUp: () -> Unit) {
+internal fun SourceUnavailable(state: EntryBrowseScreenState, navigateUp: () -> Unit) {
     if (state is EntryBrowseScreenState.Loading) {
         LoadingScreen()
         return

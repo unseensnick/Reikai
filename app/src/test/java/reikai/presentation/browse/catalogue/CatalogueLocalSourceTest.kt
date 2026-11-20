@@ -48,6 +48,14 @@ class CatalogueLocalSourceTest {
         compose.onAllNodesWithText("Retry").fetchSemanticsNodes().size shouldBe 0
     }
 
+    // MangaDex follows is an API listing: a WebView or Help button there would do nothing.
+    @Test
+    fun `an empty listing with no page behind it offers no Open in WebView`() {
+        showEmpty(localSource = null, onWebViewClick = null)
+
+        compose.onAllNodesWithText("Open in WebView").fetchSemanticsNodes().size shouldBe 0
+    }
+
     @Test
     fun `an armed refresh runs once when the screen next resumes`() {
         val owner = TestOwner()
@@ -67,7 +75,10 @@ class CatalogueLocalSourceTest {
         compose.runOnIdle { refreshes shouldBe 1 }
     }
 
-    private fun showEmpty(localSource: LocalSourceActions?) = compose.setContent {
+    private fun showEmpty(
+        localSource: LocalSourceActions?,
+        onWebViewClick: ((String?) -> Unit)? = {},
+    ) = compose.setContent {
         ComposeTestHost {
             val notLoading = LoadState.NotLoading(endOfPaginationReached = true)
             val rows = flowOf(PagingData.empty<EntryBrowseRow>(LoadStates(notLoading, notLoading, notLoading)))
@@ -78,7 +89,7 @@ class CatalogueLocalSourceTest {
                 selectedKeys = emptySet(),
                 snackbarHostState = SnackbarHostState(),
                 contentPadding = PaddingValues(),
-                onWebViewClick = {},
+                onWebViewClick = onWebViewClick,
                 onHelpClick = {},
                 gestures = EntryGestures({}, {}, { false }),
                 localSource = localSource,

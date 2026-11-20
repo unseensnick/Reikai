@@ -3,8 +3,11 @@ package reikai.presentation.browse.catalogue
 import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -30,6 +33,7 @@ class SavedSearchViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val sourceKey = SourceKey.Novel("novelbin")
     private lateinit var repository: FakeSavedSearchRepository
+    private val appScope = CoroutineScope(SupervisorJob())
 
     @BeforeEach
     fun setUp() {
@@ -44,7 +48,7 @@ class SavedSearchViewModelTest {
 
     @Test
     fun `a search with a query and filters is saved`() = runTest(dispatcher) {
-        val model = SavedSearchViewModel(sourceKey, repository)
+        val model = SavedSearchViewModel(sourceKey, repository, appScope)
 
         model.awaitingSave { save("Completed", SavedSearchDraft("sword", """{"a":1}""")) }
 
@@ -61,7 +65,7 @@ class SavedSearchViewModelTest {
 
     @Test
     fun `a search holding nothing is not saved`() = runTest(dispatcher) {
-        val model = SavedSearchViewModel(sourceKey, repository)
+        val model = SavedSearchViewModel(sourceKey, repository, appScope)
 
         model.awaitingSave { save("Empty", SavedSearchDraft(query = null, filtersJson = null)) }
 
@@ -70,7 +74,7 @@ class SavedSearchViewModelTest {
 
     @Test
     fun `a search with a blank name is not saved`() = runTest(dispatcher) {
-        val model = SavedSearchViewModel(sourceKey, repository)
+        val model = SavedSearchViewModel(sourceKey, repository, appScope)
 
         model.awaitingSave { save("   ", SavedSearchDraft(query = "sword", filtersJson = null)) }
 
@@ -79,7 +83,7 @@ class SavedSearchViewModelTest {
 
     @Test
     fun `a saved name is stored without its surrounding spaces`() = runTest(dispatcher) {
-        val model = SavedSearchViewModel(sourceKey, repository)
+        val model = SavedSearchViewModel(sourceKey, repository, appScope)
 
         model.awaitingSave { save("  Completed  ", SavedSearchDraft("sword", filtersJson = null)) }
 
@@ -88,7 +92,7 @@ class SavedSearchViewModelTest {
 
     @Test
     fun `a deleted search goes`() = runTest(dispatcher) {
-        val model = SavedSearchViewModel(sourceKey, repository)
+        val model = SavedSearchViewModel(sourceKey, repository, appScope)
         model.awaitingSave { save("Completed", SavedSearchDraft("sword", filtersJson = null)) }
 
         model.awaitingSave { delete(repository.rows.value.single().id) }
@@ -112,27 +116,48 @@ class SavedSearchViewModelTest {
         withRouteSearch().routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH)?.id shouldBe ROUTE_SEARCH
     }
 
+    // A dialog's confirm closes it, and leaving the screen right after must not drop the write.
+    @Test
+    fun `a search saved as the screen closes is still stored`() = runTest(dispatcher) {
+        val model = SavedSearchViewModel(sourceKey, repository, appScope)
+        model.viewModelScope.cancel()
+
+        model.awaitingSave { save("Completed", SavedSearchDraft("sword", filtersJson = null)) }
+
+        repository.rows.value.single().name shouldBe "Completed"
+    }
+
+    @Test
+    fun `the route's saved search reads as applied`() = runTest(dispatcher) {
+        val model = withRouteSearch()
+
+        model.routeSearchToOpen(loadedCatalogue, ROUTE_SEARCH)
+
+        model.appliedId.value shouldBe ROUTE_SEARCH
+    }
+
     private suspend fun withRouteSearch(): SavedSearchViewModel {
         if (repository.rows.value.isEmpty()) repository.insert(sourceKey, "Completed", "sword", null)
-        return SavedSearchViewModel(sourceKey, repository).also { model -> model.state.first { it.isNotEmpty() } }
+        return SavedSearchViewModel(sourceKey, repository, appScope)
+            .also { model -> model.state.first { it.isNotEmpty() } }
+    }
+
+    /**
+     * Runs [block] and waits only for what it launched on the app scope. The guard runs before the
+     * launch, so a refused draft leaves no new child and this returns at once, which is what makes a
+     * negative case deterministic: the write itself is on the IO dispatcher, where advancing a test
+     * dispatcher reaches nothing.
+     */
+    private suspend fun SavedSearchViewModel.awaitingSave(block: SavedSearchViewModel.() -> Unit) {
+        val job = appScope.coroutineContext[Job]!!
+        val before = job.children.toSet()
+        block()
+        (job.children.toSet() - before).joinAll()
     }
 
     private companion object {
         const val ROUTE_SEARCH = 1L
     }
-}
-
-/**
- * Runs [block] and waits only for what it launched. The guard runs before the launch, so a refused
- * draft leaves no new child and this returns at once, which is what makes a negative case
- * deterministic: the write itself is on the IO dispatcher, where advancing a test dispatcher reaches
- * nothing. Pre-existing children are excluded because the model's own subscription never ends.
- */
-private suspend fun SavedSearchViewModel.awaitingSave(block: SavedSearchViewModel.() -> Unit) {
-    val job = viewModelScope.coroutineContext[Job]!!
-    val before = job.children.toSet()
-    block()
-    (job.children.toSet() - before).joinAll()
 }
 
 private class FakeSavedSearchRepository : SavedSearchRepository {

@@ -66,6 +66,20 @@ class SavedSearchConformanceTest {
         behavior.captureSearch().filtersJson shouldBe saved
     }
 
+    // A filters-only search must not run against whatever the reader had typed before applying it.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a saved search with no query clears the typed one`(probe: SavedSearchProbe) = runTest {
+        val behavior = probe.open()
+        probe.applyFromSheet("saved")
+        val saved = behavior.captureSearch().filtersJson
+        behavior.search("shadow")
+
+        behavior.applySearch(null, saved)
+
+        behavior.captureSearch().query shouldBe null
+    }
+
     companion object {
         @JvmStatic
         fun probes() = listOf(MangaSavedSearchProbe(), NovelSavedSearchProbe())

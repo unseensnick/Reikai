@@ -61,11 +61,12 @@ class BrowseColumnsConformanceTest {
     fun `a column count changed while the catalogue is open reaches its grid`(probe: ColumnsProbe) = runTest {
         val store = EmittingPreferenceStore()
         val behavior = probe.open(store)
-        behavior.columnsWhen { true }
+        val before = behavior.columnsWhen { true }
 
         LibraryPreferences(store).portraitColumns.set(4)
 
-        behavior.columnsWhen { it.portrait == 4 }.portrait shouldBe 4
+        // Waits for any change, so a change that lands wrong fails here rather than hanging.
+        behavior.columnsWhen { it != before } shouldBe before.copy(portrait = 4)
     }
 
     private suspend fun EntryBrowseBehavior.columnsWhen(predicate: (BrowseColumns) -> Boolean): BrowseColumns =

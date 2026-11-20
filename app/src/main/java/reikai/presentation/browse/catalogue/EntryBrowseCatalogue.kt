@@ -71,8 +71,9 @@ fun EntryBrowseCatalogue(
     selectedKeys: Set<String>,
     snackbarHostState: SnackbarHostState,
     contentPadding: PaddingValues,
-    onWebViewClick: (challengeUrl: String?) -> Unit,
-    onHelpClick: () -> Unit,
+    // Null hides that empty-state action, for a listing with no page or source guide behind it.
+    onWebViewClick: ((challengeUrl: String?) -> Unit)?,
+    onHelpClick: (() -> Unit)?,
     gestures: EntryGestures<EntryBrowseRow>,
     localSource: LocalSourceActions? = null,
 ) {
@@ -114,12 +115,14 @@ fun EntryBrowseCatalogue(
                     EmptyScreenAction(MR.strings.local_import_title, MaterialSymbols.Rounded.Add, it.onImport),
                     EmptyScreenAction(MR.strings.local_source_help_guide, HelpIcon, it.onGuide),
                 )
-            } ?: listOf(
+            } ?: listOfNotNull(
                 EmptyScreenAction(MR.strings.action_retry, MaterialSymbols.Rounded.Refresh, rows::refresh),
-                EmptyScreenAction(MR.strings.action_open_in_web_view, MaterialSymbols.Rounded.Public) {
-                    onWebViewClick(challengeUrl)
+                onWebViewClick?.let {
+                    EmptyScreenAction(MR.strings.action_open_in_web_view, MaterialSymbols.Rounded.Public) {
+                        it(challengeUrl)
+                    }
                 },
-                EmptyScreenAction(MR.strings.label_help, HelpIcon, onHelpClick),
+                onHelpClick?.let { EmptyScreenAction(MR.strings.label_help, HelpIcon, it) },
             ),
         )
         return

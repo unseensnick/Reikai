@@ -32,8 +32,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 
 /**
- * A novel catalogue whose source is gone says so the way a manga one does, by the source's name, and one
- * whose plugin is installed but threw while loading says why and offers a retry.
+ * A novel catalogue whose plugin is installed but threw while loading says why and offers a retry. A source
+ * that is gone altogether is MissingSourceConformanceTest's, over both types.
  */
 class NovelBrowseMissingSourceTest {
 
@@ -51,11 +51,6 @@ class NovelBrowseMissingSourceTest {
 
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
-
-    @Test
-    fun `a source that is not installed shows as missing under its last known name`() = runTest {
-        adapter().settled() shouldBe EntryBrowseScreenState.SourceMissing("Gone plugin")
-    }
 
     @Test
     fun `an installed plugin that threw while loading shows why`() = runTest {

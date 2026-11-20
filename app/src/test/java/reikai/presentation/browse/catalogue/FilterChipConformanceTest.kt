@@ -10,10 +10,15 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -28,7 +33,10 @@ import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.BulkFavoriteViewModel
+import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelBrowseViewModel
+import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -53,7 +61,7 @@ class FilterChipConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a freshly opened catalogue leaves the chip dark`(probe: FilterChipProbe) = runTest {
-        probe.open()
+        probe.open(this)
 
         probe.chipActive() shouldBe false
     }
@@ -61,7 +69,7 @@ class FilterChipConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a text search lights the chip`(probe: FilterChipProbe) = runTest {
-        probe.open()
+        probe.open(this)
 
         probe.search()
 
@@ -71,7 +79,7 @@ class FilterChipConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `applying filters lights the chip`(probe: FilterChipProbe) = runTest {
-        probe.open()
+        probe.open(this)
 
         probe.applyFilters()
 
@@ -85,7 +93,7 @@ class FilterChipConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `resetting and re-applying keeps the chip lit`(probe: FilterChipProbe) = runTest {
-        probe.open()
+        probe.open(this)
         probe.applyFilters()
 
         probe.resetFilters()
@@ -97,7 +105,7 @@ class FilterChipConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `switching listing clears the chip`(probe: FilterChipProbe) = runTest {
-        probe.open()
+        probe.open(this)
         probe.applyFilters()
 
         probe.switchListing()
@@ -147,15 +155,29 @@ class MangaListingQueryTest {
     }
 }
 
-/** One catalogue driven through a scenario, answering with its own chip rule. */
+/** One catalogue driven through a scenario, read back through its adapter as the screen reads it. */
 interface FilterChipProbe {
-    suspend fun open()
+    suspend fun open(test: TestScope)
     fun search()
     fun applyFilters()
     fun resetFilters()
     fun switchListing()
     fun chipActive(): Boolean
 }
+
+/**
+ * A scope for the adapter whose collectors run as each value lands, so the adapter's state follows the
+ * model without the test having to drive the scheduler.
+ */
+private fun TestScope.adapterScope(): CoroutineScope =
+    CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
+
+/** Keeps [adapter]'s state collected, as the screen does, so its value follows the model. */
+private fun watch(scope: CoroutineScope, adapter: EntryBrowseBehavior): EntryBrowseBehavior =
+    adapter.also { scope.launch { it.state.collect {} } }
+
+/** The chip the screen draws. */
+private fun EntryBrowseBehavior.filtersActive(): Boolean = (state.value as EntryBrowseScreenState.Loaded).filtersActive
 
 private class MangaFilterChipProbe : FilterChipProbe {
 
@@ -167,8 +189,9 @@ private class MangaFilterChipProbe : FilterChipProbe {
     }
 
     private lateinit var model: BrowseSourceViewModel
+    private lateinit var adapter: EntryBrowseBehavior
 
-    override suspend fun open() {
+    override suspend fun open(test: TestScope) {
         val store = EmittingPreferenceStore()
         model = BrowseSourceViewModel(
             appScope = testAppScope(),
@@ -186,6 +209,14 @@ private class MangaFilterChipProbe : FilterChipProbe {
             getFlatMetadataById = mockk(relaxed = true),
             exhPreferences = ExhPreferences(store),
         )
+        // The source resolves on Dispatchers.IO, which the test scheduler cannot advance.
+        model.state.first { it.source != null }
+        val bulk = mockk<BulkFavoriteViewModel> {
+            every { state } returns
+                MutableStateFlow(EntryBulkFavoriteViewModel.State())
+        }
+        val scope = test.adapterScope()
+        adapter = watch(scope, MangaBrowseAdapter(model, bulk, scope))
     }
 
     override fun search() = model.search(query = "shadow slave")
@@ -197,7 +228,7 @@ private class MangaFilterChipProbe : FilterChipProbe {
 
     override fun switchListing() = model.setListing(BrowseSourceViewModel.Listing.Popular)
 
-    override fun chipActive() = model.state.value.filterChipActive()
+    override fun chipActive() = adapter.filtersActive()
 
     private companion object {
         const val SOURCE_ID = 1L
@@ -218,8 +249,9 @@ private class NovelFilterChipProbe(
     }
 
     private lateinit var model: NovelBrowseViewModel
+    private lateinit var adapter: EntryBrowseBehavior
 
-    override suspend fun open() {
+    override suspend fun open(test: TestScope) {
         val store = EmittingPreferenceStore()
         // Stubbed off the mock rather than inside a mockk block: `get` in there resolves to
         // MockK's own dynamic-call helper instead of the manager's.
@@ -244,6 +276,12 @@ private class NovelFilterChipProbe(
         // The plugin resolves on Dispatchers.IO, which the test scheduler cannot advance, so the
         // state is awaited. Every verb below early-returns until the source has landed.
         model.state.first { it.source != null }
+        val bulk = mockk<NovelBulkFavoriteViewModel> {
+            every { state } returns
+                MutableStateFlow(EntryBulkFavoriteViewModel.State())
+        }
+        val scope = test.adapterScope()
+        adapter = watch(scope, NovelBrowseAdapter(model, bulk, SOURCE_ID, scope))
     }
 
     override fun search() = model.search("shadow slave")
@@ -254,7 +292,7 @@ private class NovelFilterChipProbe(
 
     override fun switchListing() = model.setListing(NovelListing.Popular)
 
-    override fun chipActive() = model.state.value.filterChipActive()
+    override fun chipActive() = adapter.filtersActive()
 
     private companion object {
         const val SOURCE_ID = "src"

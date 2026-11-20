@@ -1,7 +1,6 @@
 package exh.md.follows
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -9,7 +8,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import dev.zacsweers.metrox.viewmodel.metroViewModel
@@ -28,13 +26,13 @@ import reikai.presentation.browse.catalogue.EntryBrowseCatalogue
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryBrowseScreenState
 import reikai.presentation.browse.catalogue.MangaBrowseAdapter
+import reikai.presentation.browse.catalogue.SourceUnavailable
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.details.rememberDetailsOpener
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.screens.LoadingScreen
 
 /**
  * Browse the signed-in user's MangaDex follows. Reuses the source-browse grid and favoriting flow
@@ -61,6 +59,12 @@ fun MangaDexFollowsScreen(sourceId: Long) {
     }
     val entries = adapter.rows.collectAsLazyPagingItems()
     val browseState by adapter.state.collectAsState()
+    // A MangaDex extension that is gone or failed reads as such rather than spinning forever.
+    val loaded = browseState as? EntryBrowseScreenState.Loaded
+    if (loaded == null) {
+        SourceUnavailable(browseState, navigator::pop)
+        return
+    }
 
     BackHandler(enabled = bulkFavoriteState.selectionMode) {
         bulkFavoriteViewModel.backHandler()
@@ -106,19 +110,15 @@ fun MangaDexFollowsScreen(sourceId: Long) {
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { paddingValues ->
-        val loaded = browseState as? EntryBrowseScreenState.Loaded
-        if (loaded == null) {
-            LoadingScreen(Modifier.padding(paddingValues))
-            return@Scaffold
-        }
         EntryBrowseCatalogue(
             rows = entries,
             rowStyle = loaded.rowStyle,
             selectedKeys = loaded.selectedKeys,
             snackbarHostState = snackbarHostState,
             contentPadding = paddingValues,
-            onWebViewClick = {},
-            onHelpClick = {},
+            // Follows is a signed-in API listing, with no page to open and no source guide to read.
+            onWebViewClick = null,
+            onHelpClick = null,
             gestures = gestures,
         )
     }

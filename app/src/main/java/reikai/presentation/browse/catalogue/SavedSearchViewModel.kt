@@ -9,9 +9,11 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.source.SavedSearchRepository
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
@@ -26,6 +28,7 @@ import tachiyomi.core.common.util.lang.launchIO
 class SavedSearchViewModel(
     @Assisted private val sourceKey: SourceKey,
     private val repository: SavedSearchRepository,
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     val state: StateFlow<List<SavedSearch>>
@@ -39,6 +42,17 @@ class SavedSearchViewModel(
         }
     }
 
+    /**
+     * The search whose results are showing, for its chip. Held beside the results rather than in the
+     * screen's composition, which Navigation 3 drops while a details page sits on top of it.
+     */
+    val appliedId: StateFlow<Long?>
+        field = MutableStateFlow<Long?>(null)
+
+    fun setApplied(id: Long?) {
+        appliedId.value = id
+    }
+
     // On this model rather than saved with the screen: the browse model the search goes onto starts
     // over on its route's listing after process death, and this model is rebuilt beside it.
     private var routeSearchOpened = false
@@ -46,18 +60,21 @@ class SavedSearchViewModel(
     /** The saved search the route opened with, the first time it is owed: see [savedSearchToOpen]. */
     fun routeSearchToOpen(screen: EntryBrowseScreenState, savedSearchId: Long?): SavedSearch? =
         savedSearchToOpen(screen, savedSearchId, state.value, routeSearchOpened)
-            ?.also { routeSearchOpened = true }
+            ?.also {
+                routeSearchOpened = true
+                setApplied(it.id)
+            }
 
     /** Saves [draft] under [name]. A draft holding neither a query nor filters is not saved. */
     fun save(name: String, draft: SavedSearchDraft) {
         if (draft.isEmpty || name.isBlank()) return
-        viewModelScope.launchIO {
+        appScope.launchIO {
             repository.insert(sourceKey, name.trim(), draft.query, draft.filtersJson)
         }
     }
 
     fun delete(id: Long) {
-        viewModelScope.launchIO { repository.delete(id) }
+        appScope.launchIO { repository.delete(id) }
     }
 
     @AssistedFactory
