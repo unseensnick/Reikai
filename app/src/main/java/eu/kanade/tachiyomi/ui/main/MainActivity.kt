@@ -39,7 +39,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -79,7 +78,6 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.home.TabEvent
-import eu.kanade.tachiyomi.ui.home.pageFor
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
@@ -95,11 +93,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
@@ -160,7 +156,6 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.util.collectAsState
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlin.time.times
@@ -206,10 +201,6 @@ open class MainActivity : BaseActivity() { // RK
 
     // To be checked by splash screen. If true then splash screen will be removed.
     var ready = false
-
-    // RK: a cold launch's intent until the page it opens is on top. The library sets ready once it loads,
-    //     which a lookup the intent waits on can outlast, so ready alone would show the library first.
-    private var launchIntentPending = false
 
     private var navigator: Navigator? = null
 
@@ -323,14 +314,7 @@ open class MainActivity : BaseActivity() { // RK
 
                     if (isLaunch) {
                         // Set start screen
-                        // RK -->
-                        launchIntentPending = true
-                        try {
-                            handleIntentAction(intent, navigator, resultEventBus)
-                        } finally {
-                            launchIntentPending = false
-                        }
-                        // RK <--
+                        handleIntentAction(intent, navigator, resultEventBus) // RK
 
                         // Reset Incognito Mode on relaunch
                         preferences.incognitoMode.set(false)
@@ -436,7 +420,7 @@ open class MainActivity : BaseActivity() { // RK
         val startTime = System.currentTimeMillis()
         splashScreen?.setKeepOnScreenCondition {
             val elapsed = System.currentTimeMillis() - startTime
-            elapsed <= SPLASH_MIN_DURATION || ((!ready || launchIntentPending) && elapsed <= SPLASH_MAX_DURATION) // RK
+            elapsed <= SPLASH_MIN_DURATION || (!ready && elapsed <= SPLASH_MAX_DURATION)
         }
         setSplashScreenExitAnimation(splashScreen)
 
@@ -708,8 +692,6 @@ open class MainActivity : BaseActivity() { // RK
 
         if (tabToOpen != null) {
             resultEventBus.sendResult<TabEvent>(tabToOpen) // RK
-            // RK: Home pushes the page when it takes the event, so a cold launch waits to see it on top
-            if (launchIntentPending) pageFor(tabToOpen)?.let { navigator.awaitOnTop(it) }
         }
 
         ready = true
@@ -732,12 +714,6 @@ open class MainActivity : BaseActivity() { // RK
 private const val SPLASH_MIN_DURATION = 500 // ms
 private const val SPLASH_MAX_DURATION = 5000 // ms
 private const val SPLASH_EXIT_ANIM_DURATION = 400L // ms
-
-// RK --> bounded by the splash's own limit, past which it goes whatever is on top
-private suspend fun Navigator.awaitOnTop(page: NavKey) {
-    withTimeoutOrNull(SPLASH_MAX_DURATION.milliseconds) { snapshotFlow { current }.first { it == page } }
-}
-// RK <--
 
 private val MIGRATING_SCREEN_MIN_DURATION = 1.seconds
 private val APP_UPDATE_CHECK_INTERVAL = 6.hours
