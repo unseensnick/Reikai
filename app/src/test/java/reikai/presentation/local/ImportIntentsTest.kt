@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -28,10 +29,24 @@ class ImportIntentsTest {
     @After
     fun tearDown() {
         ImportDocuments.documents.clear()
+        ImportDocuments.typeAskedOn.clear()
     }
 
     @Test
-    fun `a wildcard share of document ids keeps the files its provider names as books`() {
+    fun `a share's providers are asked off the thread that handles the intent`() = runTest {
+        ImportDocuments.documents["1"] = Document("a.cbz", 1L, "application/x-cbz")
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/x-cbz"
+            putExtra(Intent.EXTRA_STREAM, ImportDocuments.uri("1"))
+        }
+
+        importedFiles(intent, resolver)
+
+        ImportDocuments.typeAskedOn.toList().contains(Thread.currentThread()) shouldBe false
+    }
+
+    @Test
+    fun `a wildcard share of document ids keeps the files its provider names as books`() = runTest {
         ImportDocuments.documents["1"] = Document("a.cbz", 1L, "application/octet-stream")
         ImportDocuments.documents["2"] = Document("b.epub", 1L, null)
         ImportDocuments.documents["3"] = Document("notes.txt", 1L, "text/plain")
@@ -44,7 +59,7 @@ class ImportIntentsTest {
     }
 
     @Test
-    fun `a file path is never taken, whatever type the sender gives it`() {
+    fun `a file path is never taken, whatever type the sender gives it`() = runTest {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/x-cbz"
             putExtra(Intent.EXTRA_STREAM, Uri.parse("file:///data/data/other.app/files/a.cbz"))

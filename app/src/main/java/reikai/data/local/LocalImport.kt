@@ -8,6 +8,7 @@ import android.provider.OpenableColumns
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.storage.DiskUtil
@@ -15,8 +16,10 @@ import mihon.core.archive.ArchiveReader
 import mihon.core.archive.archiveReader
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import nl.adaptivity.xmlutil.serialization.XML
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.insertOpenedNovel
+import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
@@ -30,7 +33,7 @@ import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
-import reikai.novel.export.epubFileName
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubArchive
@@ -53,6 +56,9 @@ import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.ImageUtil
+import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
+import tachiyomi.core.metadata.comicinfo.ComicInfo
+import tachiyomi.core.metadata.comicinfo.decodeComicInfo
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.storage.service.StorageManager
@@ -169,6 +175,9 @@ class LocalImport(
     private val seriesLocks: LocalSeriesLocks,
     private val organizer: LocalOrganizer,
     private val owners: LocalVolumeOwnerRepository,
+    private val xml: XML,
+    private val coverCache: CoverCache,
+    private val novelDownloadManager: () -> NovelDownloadManager,
 ) {
 
     /** Reads each of [uris] and groups them into series; a file that cannot be read is a problem, not a group. */
@@ -187,9 +196,11 @@ class LocalImport(
     /** Each of [groups] by [inspect], or a storage problem for one whose local folders could not be read whole. */
     internal suspend fun inspectAll(groups: List<ImportGroup>): Pair<List<ImportGroup>, List<ImportProblem>> {
         val problems = mutableListOf<ImportProblem>()
+        // Each root listed once for the batch, since every entry's folder test is a query of its own.
+        val roots = HashMap<ContentType, List<UniFile>>()
         val inspected = groups.mapNotNull { group ->
             try {
-                inspect(group)
+                inspectIn(group) { root -> roots.getOrPut(group.type) { root.list(context) } }
             } catch (e: FolderUnreadableException) {
                 problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                 null
@@ -205,14 +216,23 @@ class LocalImport(
      * [FolderUnreadableException] when the root or that folder cannot be listed whole, since a short listing would
      * show a new series where one is there, or no copy where the folder holds one.
      */
-    suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
+    suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = inspectIn(group, target) {
+        it.list(context)
+    }
+
+    private suspend fun inspectIn(
+        group: ImportGroup,
+        target: String? = null,
+        listRoot: suspend (UniFile) -> List<UniFile>,
+    ): ImportGroup = withIOContext {
         val root = storageManager.localRoot(group.type) ?: return@withIOContext group
-        val listed = root.list(context)
-        // Only a folder takes files in: a loose book of that name is a file.
+        val listed = listRoot(root)
+        // Only a folder takes files in: a loose book of that name is a file. The name, which the listing holds, is
+        // matched first, since asking whether an entry is a folder is a query of its own.
         val folder = if (target != null) {
             listed.firstOrNull { it.name == target }?.takeIf { it.isDirectory }
         } else {
-            listed.firstOrNull { it.isDirectory && groupKey(it.name.orEmpty()) == groupKey(group.title) }
+            listed.firstOrNull { groupKey(it.name.orEmpty()) == groupKey(group.title) && it.isDirectory }
         }
         val present = folder?.list(context).orEmpty().filter { it.isFile }
         val sizes = present.map { it.length() }.toSet()
@@ -367,16 +387,34 @@ class LocalImport(
     private suspend fun add(type: ContentType, path: String, favorite: Boolean, categoryIds: List<Long>): Long =
         when (type) {
             ContentType.NOVELS -> {
-                val parsed = localNovels.parseNovel(path)
-                val novel = insertOpenedNovel(
-                    parsed,
-                    LocalNovelSource.ID,
-                    novelRepository,
-                    novelChapterRepository,
-                    libraryPreferences,
-                    syncRules,
-                )
-                val item = NovelItem(parsed.name ?: path, path, parsed.cover)
+                // A series already stored reads its details again, as manga's refresh below does, since the books
+                // just copied in can change them; storing a new one only syncs its chapters.
+                val stored = novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)
+                val (novel, item) = if (stored != null) {
+                    val refreshed = refreshNovelFromSource(
+                        stored,
+                        localNovels,
+                        novelChapterRepository,
+                        novelRepository,
+                        libraryPreferences,
+                        syncRules,
+                        coverCache,
+                        novelDownloadManager(),
+                        manualFetch = true,
+                    ).novel
+                    refreshed to NovelItem(refreshed.title, path, refreshed.thumbnailUrl)
+                } else {
+                    val parsed = localNovels.parseNovel(path)
+                    val inserted = insertOpenedNovel(
+                        parsed,
+                        LocalNovelSource.ID,
+                        novelRepository,
+                        novelChapterRepository,
+                        libraryPreferences,
+                        syncRules,
+                    )
+                    inserted to NovelItem(parsed.name ?: path, path, parsed.cover)
+                }
                 if (favorite && novelAdder.addToBatch(item, LocalNovelSource.ID, categoryIds) == AddOutcome.Failed) {
                     throw NotAddedException()
                 }
@@ -404,7 +442,7 @@ class LocalImport(
     /** "<series> - Vol. N.epub", N the book's own number or else its place in the series. */
     private fun bookName(series: String, file: ImportFile, place: Int): String {
         val number = formatChapterNumber(file.seriesIndex ?: place.toDouble())
-        return epubFileName("$series - ${context.stringResource(MR.strings.volume_label, number)}")
+        return organizedBookName(series, context.stringResource(MR.strings.volume_label, number))
     }
 
     /**
@@ -513,20 +551,20 @@ class LocalImport(
                 )
             }
             "comic" -> {
-                val comicInfo = reader.readEntries(setOf(COMIC_INFO))[COMIC_INFO]?.toString(Charsets.UTF_8)
+                val comicInfo = reader.readEntries(setOf(COMIC_INFO_FILE))[COMIC_INFO_FILE]?.let(::comicInfo)
                 // The first page in reading order stands in for a cover, picked as the manga local source does.
                 val firstPage = reader.useEntries { entries ->
                     entries.sortedWith { a, b -> a.name.compareToCaseInsensitiveNaturalOrder(b.name) }
                         .find { it.isFile && ImageUtil.isImage(it.name) { reader.getInputStream(it.name)!! } }
                         ?.name
                 }
-                val series = comicInfo?.let { COMIC_SERIES.find(it)?.groupValues?.get(1)?.trim() }?.ifEmpty { null }
+                val series = comicInfo?.series?.value?.trim()?.ifEmpty { null }
                 ReadFile(
                     file = named,
                     type = ContentType.MANGA,
                     series = series ?: seriesFromStem(stem),
                     seriesIndex = null,
-                    author = comicInfo?.let { COMIC_WRITER.find(it)?.groupValues?.get(1)?.trim() },
+                    author = comicInfo?.writer?.value?.trim(),
                     cover = firstPage?.let { reader.readEntries(setOf(it))[it] },
                     isEpub = false,
                 )
@@ -534,6 +572,10 @@ class LocalImport(
             else -> throw UnsupportedFileException()
         }
     }
+
+    /** A comic's ComicInfo.xml as the local source reads it, or none for one that will not parse. */
+    internal fun comicInfo(bytes: ByteArray): ComicInfo? =
+        runCatching { xml.decodeComicInfo(bytes.inputStream()) }.getOrNull()
 
     /**
      * Which kind of file this is: by its name, else by the type its provider reports, else by what the archive
@@ -606,9 +648,6 @@ class LocalImport(
             "application/vnd.comicbook-rar",
             "application/x-cb7",
         )
-        private const val COMIC_INFO = "ComicInfo.xml"
-        private val COMIC_SERIES = Regex("<Series>([^<]*)</Series>")
-        private val COMIC_WRITER = Regex("<Writer>([^<]*)</Writer>")
 
         // The marker must start a word, so the c ending "Bleach 001" stays part of the name.
         private val TRAILING_NUMBER = Regex(

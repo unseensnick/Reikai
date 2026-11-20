@@ -26,7 +26,6 @@ import kotlinx.serialization.json.decodeFromStream
 import logcat.LogPriority
 import mihon.core.archive.archiveReader
 import mihon.core.archive.epubReader
-import nl.adaptivity.xmlutil.core.AndroidXmlReader
 import nl.adaptivity.xmlutil.serialization.XML
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
@@ -56,6 +55,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
 import tachiyomi.core.metadata.comicinfo.ComicInfo
 import tachiyomi.core.metadata.comicinfo.copyFromComicInfo
+import tachiyomi.core.metadata.comicinfo.decodeComicInfo
 import tachiyomi.core.metadata.comicinfo.getComicInfo
 import tachiyomi.core.metadata.comicinfo.setLocalLanguage
 import tachiyomi.core.metadata.tachiyomi.MangaDetails
@@ -70,7 +70,6 @@ import tachiyomi.source.local.io.Format
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import tachiyomi.source.local.metadata.fillMetadata
 import java.io.InputStream
-import java.nio.charset.StandardCharsets
 import kotlin.time.Duration.Companion.days
 import tachiyomi.domain.source.model.Source as DomainSource
 
@@ -282,9 +281,7 @@ class LocalSource(
     }
 
     private fun parseComicInfo(stream: InputStream): ComicInfo {
-        return AndroidXmlReader(stream, StandardCharsets.UTF_8.name()).use {
-            xml.decodeFromReader<ComicInfo>(it)
-        }
+        return xml.decodeComicInfo(stream) // RK: the decode the import shares
     }
 
     private fun setMangaDetailsFromComicInfoFile(stream: InputStream, manga: SManga) {

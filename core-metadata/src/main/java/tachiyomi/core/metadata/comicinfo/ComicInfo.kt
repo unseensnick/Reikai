@@ -6,9 +6,13 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import nl.adaptivity.xmlutil.core.AndroidXmlReader
+import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlElement
 import nl.adaptivity.xmlutil.serialization.XmlSerialName
 import nl.adaptivity.xmlutil.serialization.XmlValue
+import java.io.InputStream
+import java.nio.charset.StandardCharsets
 
 const val COMIC_INFO_FILE = "ComicInfo.xml"
 
@@ -27,6 +31,10 @@ fun SManga.setLocalLanguage(language: String?) {
     val others = memo - LOCAL_LANGUAGE_MEMO_KEY
     memo = JsonObject(if (language == null) others else others + (LOCAL_LANGUAGE_MEMO_KEY to JsonPrimitive(language)))
 }
+
+/** Reads a ComicInfo.xml; the local source and the import both decode through it, so they read a file alike. */
+fun XML.decodeComicInfo(stream: InputStream): ComicInfo =
+    AndroidXmlReader(stream, StandardCharsets.UTF_8.name()).use { decodeFromReader<ComicInfo>(it) }
 // RK <--
 
 fun SManga.getComicInfo() = ComicInfo(

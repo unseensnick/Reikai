@@ -38,7 +38,7 @@ fun localFileNames(
     val volumes = labels.map { (key, label) ->
         // A book's name keeps room for its extension, so a long title is cut before ".epub", never through it.
         val name = if (type == ContentType.NOVELS) {
-            epubFileName("$title - $label")
+            organizedBookName(title, label)
         } else {
             organizedVolumeFolder(title, label)
         }
@@ -46,6 +46,9 @@ fun localFileNames(
     }
     return LocalFileNames(series, volumes)
 }
+
+/** A book's name in its series, as Organize files and an import into a novel series give it. */
+internal fun organizedBookName(title: String, label: String) = epubFileName("$title - $label")
 
 /** A manga volume folder's name: the title and label sanitized together, so a title's own trailing dots stay. */
 private fun organizedVolumeFolder(title: String, label: String) = DiskUtil.buildValidFilename("$title - $label")

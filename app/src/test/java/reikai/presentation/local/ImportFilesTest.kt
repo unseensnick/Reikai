@@ -33,7 +33,7 @@ class ImportFilesTest {
 
         stack.importFiles(files, recorder.bus)
 
-        stack.routes.map { it::class } shouldBe listOf(TestRootRoute::class, LocalImportRoute::class)
+        stack.routes shouldBe listOf(TestRootRoute, LocalImportRoute(files.map { it.toString() }))
     }
 
     @Test

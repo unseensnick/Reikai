@@ -579,7 +579,8 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    private fun handleIntentAction(
+    // RK: suspend, so the import check queries the providers off Main
+    private suspend fun handleIntentAction(
         intent: Intent,
         navigator: Navigator,
         resultEventBus: ResultEventBus,

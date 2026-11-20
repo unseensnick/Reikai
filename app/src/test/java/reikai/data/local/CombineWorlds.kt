@@ -90,6 +90,7 @@ internal abstract class CombineWorld(val type: ContentType, protected val contex
     lateinit var volumes: LocalVolumeRepositoryImpl
     lateinit var notesWrites: FlakyNotes
     lateinit var combine: CombineLocalVolumes
+    lateinit var import: LocalImport
 
     /** Builds the world with series [ids] (id to folder), each with its first volume, listed. */
     abstract suspend fun open(tmp: TemporaryFolder, ids: Map<Long, String>)
@@ -103,6 +104,11 @@ internal abstract class CombineWorld(val type: ContentType, protected val contex
     abstract suspend fun setSeriesNotes(id: Long, text: String)
 
     abstract suspend fun seriesNotes(id: Long): String
+
+    /** Series [folder]'s folder on disk. */
+    abstract fun folderOf(folder: String): File
+
+    abstract suspend fun description(id: Long): String?
 
     open suspend fun close() {
         appScope.coroutineContext.job.cancelAndJoin()
@@ -182,6 +188,32 @@ internal class MangaCombineWorld(context: Context) : CombineWorld(ContentType.MA
             seriesLocks = locks,
         )
         val chapterMoves = LocalChapterMoveRepositoryImpl(database, tombstoneRepository)
+        import = LocalImport(
+            context = context,
+            storageManager = storage,
+            localNovels = mockk(),
+            novelRepository = mockk(),
+            novelChapterRepository = mockk(),
+            libraryPreferences = libraryPreferences,
+            syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, tombstones),
+            journal = LocalFileJournalRepositoryImpl(database),
+            novelAdder = mockk(),
+            mangaAdder = mockk(),
+            networkToLocalManga = NetworkToLocalManga(mangaRepository),
+            updateMangaFromRemote = refresh,
+            seriesLocks = locks,
+            organizer = LocalOrganizer(
+                context,
+                LocalFileJournalRepositoryImpl(database),
+                chapterMoves,
+                locks,
+                appScope,
+            ),
+            owners = volumes,
+            xml = XML.v1 {},
+            coverCache = mockk(relaxed = true),
+            novelDownloadManager = { mockk() },
+        )
         combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,
@@ -251,6 +283,10 @@ internal class MangaCombineWorld(context: Context) : CombineWorld(ContentType.MA
 
     override suspend fun seriesNotes(id: Long) = mangaRepository.getMangaById(id).notes
 
+    override fun folderOf(folder: String) = File(local, folder)
+
+    override suspend fun description(id: Long) = mangaRepository.getMangaById(id).description
+
     private fun page(chapter: String) {
         File(local, chapter).mkdirs()
         File(local, "$chapter/001.jpg").writeBytes(byteArrayOf(1))
@@ -303,6 +339,32 @@ internal class NovelCombineWorld(context: Context) : CombineWorld(ContentType.NO
             )
         }
         val chapterMoves = LocalChapterMoveRepositoryImpl(database, tombstoneRepository)
+        import = LocalImport(
+            context = context,
+            storageManager = storage,
+            localNovels = source,
+            novelRepository = novels,
+            novelChapterRepository = chapters,
+            libraryPreferences = libraryPreferences,
+            syncRules = syncRules,
+            journal = LocalFileJournalRepositoryImpl(database),
+            novelAdder = mockk(),
+            mangaAdder = mockk(),
+            networkToLocalManga = mockk(),
+            updateMangaFromRemote = mockk(),
+            seriesLocks = locks,
+            organizer = LocalOrganizer(
+                context,
+                LocalFileJournalRepositoryImpl(database),
+                chapterMoves,
+                locks,
+                appScope,
+            ),
+            owners = volumes,
+            xml = XML.v1 {},
+            coverCache = mockk(relaxed = true),
+            novelDownloadManager = { downloads },
+        )
         combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mockk(),
@@ -366,6 +428,10 @@ internal class NovelCombineWorld(context: Context) : CombineWorld(ContentType.NO
     }
 
     override suspend fun seriesNotes(id: Long) = novels.getById(id)!!.notes
+
+    override fun folderOf(folder: String) = File(root, folder)
+
+    override suspend fun description(id: Long) = novels.getById(id)!!.description
 
     override suspend fun close() {
         super.close()

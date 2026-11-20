@@ -23,6 +23,7 @@ import reikai.data.local.ImportProblem
 import reikai.data.local.ImportResult
 import reikai.data.local.LocalImport
 import reikai.data.local.isLooseBook
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
@@ -31,6 +32,7 @@ import reikai.storage.FolderUnreadableException
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The import screen's state: the files picked so far as series, what could not be read, and the import
@@ -49,29 +51,38 @@ class LocalImportViewModel(
     val state: StateFlow<State>
         field = MutableStateFlow(State())
 
+    // The latest look asked for each group, so one that answers after a newer one never writes over it.
+    private val inspections = ConcurrentHashMap<String, Int>()
+
     init {
         if (initialUris.isNotEmpty()) add(initialUris.map(Uri::parse))
     }
 
     fun add(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        state.update { it.copy(isReading = true) }
+        state.update { it.copy(reads = it.reads + 1) }
         viewModelScope.launchIO {
-            val (groups, problems) = localImport.preview(uris)
-            state.update { current ->
-                val known = current.groups.flatMap { g -> g.files.map { it.uri } }.toSet() +
-                    current.problems.mapNotNull { it.uri }
-                val fresh = groups.map { g ->
-                    g.copy(files = g.files.filterNot { it.uri in known })
-                }.filter { it.files.isNotEmpty() }
-                current.copy(
-                    groups = merge(current.groups, fresh),
-                    problems = current.problems + problems.filterNot { it.uri in known },
-                    isReading = false,
-                )
+            try {
+                val (groups, problems) = localImport.preview(uris)
+                var grown = emptyList<String>()
+                state.update { current ->
+                    val known = current.groups.flatMap { g -> g.files.map { it.uri } }.toSet() +
+                        current.problems.mapNotNull { it.uri }
+                    val fresh = groups.map { g ->
+                        g.copy(files = g.files.filterNot { it.uri in known })
+                    }.filter { it.files.isNotEmpty() }
+                    grown = fresh.map { it.key }.filter { key -> current.groups.any { it.key == key } }
+                    current.copy(
+                        groups = merge(current.groups, fresh),
+                        problems = current.problems + problems.filterNot { it.uri in known },
+                    )
+                }
+                // Only a group that grew has files the preview did not check against the series it joins.
+                grown.forEach { reinspect(it) }
+            } finally {
+                state.update { it.copy(reads = it.reads - 1) }
+                decideOpen()
             }
-            // A group that grew from a second round has new files to check against the series it joins.
-            groups.forEach { reinspect(it.key) }
         }
     }
 
@@ -122,12 +133,16 @@ class LocalImportViewModel(
      * whose folders cannot be read whole leaves as a storage problem, as the preview reports one.
      */
     private fun reinspect(key: String, target: String? = null, auto: Boolean = false) {
+        val asked = inspections.merge(key, 1, Int::plus)
+
+        // Checked inside each write, so a newer look that lands first is never written over by this one.
+        fun latest(change: (State) -> State) = state.update { s -> if (inspections[key] == asked) change(s) else s }
         viewModelScope.launchIO {
             val group = state.value.groups.firstOrNull { it.key == key } ?: return@launchIO
             val found = try {
                 localImport.inspect(group, if (auto) null else target ?: group.existing)
             } catch (e: FolderUnreadableException) {
-                state.update { s ->
+                latest { s ->
                     s.copy(
                         groups = s.groups.filterNot { it.key == key },
                         problems = s.problems + ImportProblem(group.title, ImportProblem.Reason.NoStorage),
@@ -135,14 +150,16 @@ class LocalImportViewModel(
                 }
                 return@launchIO
             }
-            updateGroup(key) {
-                it.copy(
-                    existing = found.existing,
-                    duplicates = found.duplicates,
-                    newerCopies = found.newerCopies,
-                    onNewerCopy = found.onNewerCopy,
-                    listsUnder = found.listsUnder,
-                )
+            latest { s ->
+                s.withGroup(key) {
+                    it.copy(
+                        existing = found.existing,
+                        duplicates = found.duplicates,
+                        newerCopies = found.newerCopies,
+                        onNewerCopy = found.onNewerCopy,
+                        listsUnder = found.listsUnder,
+                    )
+                }
             }
         }
     }
@@ -159,26 +176,36 @@ class LocalImportViewModel(
 
     fun setAddToLibrary(add: Boolean) = state.update { it.copy(addToLibrary = add) }
 
-    /**
-     * Ask for categories only where a type's batch rule says to, once per type, then copy and add. Import turns
-     * off at once, since the category read leaves room for a second tap to start a second copy.
-     */
+    /** Import turns off at once, since the category read leaves room for a second tap to start a second copy. */
     fun startImport() {
-        val groups = state.value.groups
-            .takeIf { it.isNotEmpty() && !state.value.isImporting && it.none(ImportGroup::asksAboutNewerCopies) }
-            ?: return
+        if (state.value.isImporting || !state.value.isReadyToImport) return
         state.update { it.copy(pending = emptyMap(), isImporting = true) }
+        askCategoriesThenImport()
+    }
+
+    /** The picker's answer for [type]; the next type that asks is asked in turn. */
+    fun confirmCategories(type: ContentType, categoryIds: List<Long>) {
+        state.update {
+            it.copy(pickCategories = null, pending = it.pending + (type to categoryIds), isImporting = true)
+        }
+        askCategoriesThenImport()
+    }
+
+    /**
+     * Asks for categories only where a type's batch rule says to, once per type, then copies and adds the groups
+     * listed by then, if they are still ready: files shared in while the picker was open join them, and may ask.
+     */
+    private fun askCategoriesThenImport() {
         viewModelScope.launchIO {
-            val categories = mutableMapOf<ContentType, List<Long>>()
             if (state.value.addToLibrary) {
-                for (type in groups.map { it.type }.distinct()) {
+                for (type in state.value.groups.map { it.type }.distinct().filter { it !in state.value.pending }) {
                     when (val batch = batchCategories(type)) {
-                        is BatchCategories.Default -> categories[type] = batch.categoryIds
+                        is BatchCategories.Default ->
+                            state.update { it.copy(pending = it.pending + (type to batch.categoryIds)) }
                         is BatchCategories.Ask -> {
                             state.update {
                                 it.copy(
                                     pickCategories = CategoryPick(type, batch.initialSelection),
-                                    pending = categories.toMap(),
                                     isImporting = false,
                                 )
                             }
@@ -187,29 +214,12 @@ class LocalImportViewModel(
                     }
                 }
             }
-            runImport(groups, categories)
-        }
-    }
-
-    /** The picker's answer for [type]; the next type that asks is asked in turn. */
-    fun confirmCategories(type: ContentType, categoryIds: List<Long>) {
-        val chosen = state.value.pending + (type to categoryIds)
-        state.update { it.copy(pickCategories = null, pending = chosen, isImporting = true) }
-        val groups = state.value.groups
-        viewModelScope.launchIO {
-            for (next in groups.map { it.type }.distinct().filter { it !in chosen }) {
-                val batch = batchCategories(next)
-                if (batch is BatchCategories.Ask) {
-                    state.update {
-                        it.copy(pickCategories = CategoryPick(next, batch.initialSelection), isImporting = false)
-                    }
-                    return@launchIO
-                }
-                state.update {
-                    it.copy(pending = it.pending + (next to (batch as BatchCategories.Default).categoryIds))
-                }
+            val ready = state.value
+            if (!ready.isReadyToImport) {
+                state.update { it.copy(isImporting = false) }
+                return@launchIO
             }
-            runImport(groups, state.value.pending)
+            runImport(ready.groups, ready.pending)
         }
     }
 
@@ -232,13 +242,35 @@ class LocalImportViewModel(
             val imported = groups.flatMap { g -> g.files.map { it.uri } }.toSet()
             state.update { s ->
                 val left = s.groups.map { g -> g.copy(files = g.files.filterNot { it.uri in imported }) }
-                s.copy(isImporting = false, result = result, groups = left.filter { it.files.isNotEmpty() })
+                s.copy(
+                    isImporting = false,
+                    result = result,
+                    groups = left.filter { it.files.isNotEmpty() },
+                    awaitsOpen = true,
+                )
             }
+            decideOpen()
         }
     }
 
-    private fun updateGroup(key: String, change: (ImportGroup) -> ImportGroup) =
-        state.update { s -> s.copy(groups = s.groups.map { if (it.key == key) change(it) else it }) }
+    /**
+     * A single series added to the library opens once imported, since reading it is why the user came; several land
+     * in the library. Decided once, after reads still running settle, since leaving would drop files shared in.
+     */
+    private fun decideOpen() = state.update { s ->
+        if (!s.awaitsOpen || s.isReading) return@update s
+        val result = s.result
+        val only = result?.series?.singleOrNull()?.entry
+            ?.takeIf { result.problems.isEmpty() && s.addToLibrary && s.groups.isEmpty() }
+        s.copy(awaitsOpen = false, open = only)
+    }
+
+    private fun updateGroup(key: String, change: (ImportGroup) -> ImportGroup) = state.update {
+        it.withGroup(key, change)
+    }
+
+    private fun State.withGroup(key: String, change: (ImportGroup) -> ImportGroup) =
+        copy(groups = groups.map { if (it.key == key) change(it) else it })
 
     /** Files picked in a second round join the series the first round found. */
     private fun merge(current: List<ImportGroup>, fresh: List<ImportGroup>): List<ImportGroup> {
@@ -254,13 +286,21 @@ class LocalImportViewModel(
     data class State(
         val groups: List<ImportGroup> = emptyList(),
         val problems: List<ImportProblem> = emptyList(),
-        val isReading: Boolean = false,
+        val reads: Int = 0,
         val isImporting: Boolean = false,
         val addToLibrary: Boolean = true,
         val pickCategories: CategoryPick? = null,
         val pending: Map<ContentType, List<Long>> = emptyMap(),
         val result: ImportResult? = null,
-    )
+        val awaitsOpen: Boolean = false,
+        /** The series the screen opens in its place, decided once when the import finished. */
+        val open: EntryId? = null,
+    ) {
+        /** Whether a preview is still reading files; reads can overlap, a pick beside a share. */
+        val isReading: Boolean get() = reads > 0
+
+        val isReadyToImport: Boolean get() = groups.isNotEmpty() && groups.none(ImportGroup::asksAboutNewerCopies)
+    }
 
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey

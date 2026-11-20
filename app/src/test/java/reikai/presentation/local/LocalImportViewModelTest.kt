@@ -4,9 +4,11 @@ import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -27,6 +29,7 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.FolderUnreadableException
 import reikai.util.testAppScope
+import java.util.Collections
 
 class LocalImportViewModelTest {
 
@@ -53,13 +56,15 @@ class LocalImportViewModelTest {
             { categoriesRead.await() }
     }
 
+    private val appScope = testAppScope()
+
     private fun model() = LocalImportViewModel(
         initialUris = emptyList(),
         localImport = localImport,
         combineLocalVolumes = mockk(),
         novelAdder = mockk<NovelLibraryAdder>(),
         mangaAdder = mangaAdder,
-        appScope = testAppScope(),
+        appScope = appScope,
     )
 
     @BeforeEach
@@ -128,20 +133,124 @@ class LocalImportViewModelTest {
         after.groups.map { it.key } shouldBe listOf("a", "b")
     }
 
-    /** A rename finds the series again, and a folder that cannot be read whole must not leave the old answer. */
     @Test
-    fun `a group whose folder cannot be read on a second look leaves as a storage problem`() = runTest {
-        coEvery { localImport.inspect(any(), any()) } answers { firstArg() } andThenThrows
-            FolderUnreadableException("Foo")
+    fun `a slower look at the old type does not write over the series found for the new type`() = runTest {
+        val slowLook = CompletableDeferred<Unit>()
+        val slowGate = CompletableDeferred<Unit>()
+        coEvery { localImport.preview(listOf(first)) } returns
+            (listOf(group("a", first).copy(canBeEitherType = true)) to emptyList())
+        coEvery { localImport.inspect(any(), any()) } coAnswers {
+            val g = firstArg<ImportGroup>()
+            if (g.type == ContentType.MANGA) {
+                slowLook.complete(Unit)
+                slowGate.await()
+                g.copy(existing = "manga a")
+            } else {
+                g.copy(existing = "novel a")
+            }
+        }
         val model = model()
         model.add(listOf(first))
         model.state.first { !it.isReading }
+        model.rename("a", "a")
+        slowLook.await()
+
+        model.setType("a", ContentType.NOVELS)
+        model.state.first { s -> s.groups.single().existing == "novel a" }
+        slowGate.complete(Unit)
+        model.settle()
+
+        model.state.value.groups.single().existing shouldBe "novel a"
+    }
+
+    @Test
+    fun `confirming categories does not copy a group shared in that still asks about a newer copy`() = runTest {
+        val imported = Collections.synchronizedList(mutableListOf<ImportGroup>())
+        coEvery { localImport.preview(listOf(second)) } returns
+            (listOf(group("b", second).copy(existing = "b", newerCopies = mapOf(second to "old.cbz"))) to emptyList())
+        coEvery { localImport.import(any(), any(), any()) } answers {
+            imported += firstArg<List<ImportGroup>>()
+            ImportResult(emptyList(), emptyList())
+        }
+        categoriesRead.complete(BatchCategories.Ask(emptyList()))
+        val model = model()
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+        model.startImport()
+        model.state.first { it.pickCategories != null }
+        model.add(listOf(second))
+        model.state.first { s -> s.groups.any { it.asksAboutNewerCopies } }
+
+        model.confirmCategories(ContentType.MANGA, emptyList())
+        model.settle()
+
+        imported.filter { it.asksAboutNewerCopies } shouldBe emptyList()
+    }
+
+    @Test
+    fun `a read still running keeps the screen reading when an earlier one finishes`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        coEvery { localImport.preview(listOf(second)) } coAnswers {
+            gate.await()
+            listOf(group("b", second)) to emptyList()
+        }
+        val model = model()
+        model.add(listOf(second))
+        model.add(listOf(first))
+        model.state.first { it.groups.isNotEmpty() }
+        val reading = model.state.value.isReading
+        gate.complete(Unit)
+        model.settle()
+
+        reading shouldBe true
+    }
+
+    @Test
+    fun `a series the preview just looked at is not looked at again`() = runTest {
+        val model = model()
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+        model.settle()
+
+        coVerify(exactly = 0) { localImport.inspect(any(), any()) }
+    }
+
+    @Test
+    fun `a series a second pick grew is looked at again with all its files`() = runTest {
+        val more = mockk<Uri>()
+        coEvery { localImport.preview(listOf(more)) } returns (listOf(group("a", more)) to emptyList())
+        coEvery { localImport.inspect(any(), any()) } answers { firstArg<ImportGroup>().copy(existing = "a") }
+        val model = model()
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+
+        model.add(listOf(more))
+        val after = model.state.first { s -> s.groups.single().existing == "a" }
+        model.settle()
+
+        after.groups.single().files.map { it.uri } shouldBe listOf(first, more)
+    }
+
+    /** A rename finds the series again, and a folder that cannot be read whole must not leave the old answer. */
+    @Test
+    fun `a group whose folder cannot be read on a second look leaves as a storage problem`() = runTest {
+        val model = model()
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+        coEvery { localImport.inspect(any(), any()) } throws FolderUnreadableException("Foo")
 
         model.rename("a", "Foo")
         val after = model.state.first { it.groups.isEmpty() }
         model.viewModelScope.cancel()
 
         after.problems shouldBe listOf(ImportProblem("Foo", ImportProblem.Reason.NoStorage))
+    }
+
+    /** Waits out everything the model launched, then ends it. */
+    private suspend fun LocalImportViewModel.settle() {
+        viewModelScope.coroutineContext[Job]!!.children.toList().forEach { it.join() }
+        appScope.coroutineContext[Job]!!.children.toList().forEach { it.join() }
+        viewModelScope.cancel()
     }
 
     private fun group(key: String, uri: Uri) = ImportGroup(

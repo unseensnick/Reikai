@@ -113,13 +113,9 @@ fun LocalImportScreen(initialUris: List<String>) {
     var renaming by remember { mutableStateOf<ImportGroup?>(null) }
     var adding by remember { mutableStateOf<ImportGroup?>(null) }
 
-    // A single series added to the library opens once imported, since reading it is why the user came; several
-    // land in the library. Not while files shared in during the import wait, which leaving would drop.
-    LaunchedEffect(state.result) {
-        val only = state.result?.series?.singleOrNull() ?: return@LaunchedEffect
-        val entry = only.entry
-        if (state.result?.problems?.isNotEmpty() == true || entry == null) return@LaunchedEffect
-        if (!state.addToLibrary || state.groups.isNotEmpty()) return@LaunchedEffect
+    // Decided once in the model, so coming back to the screen does not open the series again.
+    LaunchedEffect(state.open) {
+        val entry = state.open ?: return@LaunchedEffect
         navigator.replace(entry.detailsRoute())
     }
 

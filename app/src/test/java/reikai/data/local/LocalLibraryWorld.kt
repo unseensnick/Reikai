@@ -368,6 +368,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             seriesLocks = locks,
             organizer = organizer,
             owners = volumes,
+            xml = XML.v1 {},
+            coverCache = mockk(),
+            novelDownloadManager = { mockk() },
         )
         val relink = LocalSeriesRelink(
             context = context,

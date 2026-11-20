@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import java.io.File
+import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * A document provider whose URIs are opaque ids, as a file manager's or a cloud drive's are, naming and typing
@@ -25,7 +26,10 @@ class ImportDocuments : ContentProvider() {
         }
     }
 
-    override fun getType(uri: Uri): String? = documents[uri.lastPathSegment]?.type
+    override fun getType(uri: Uri): String? {
+        typeAskedOn += Thread.currentThread()
+        return documents[uri.lastPathSegment]?.type
+    }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         val file = File(context!!.cacheDir, "document-${uri.lastPathSegment}")
@@ -41,6 +45,9 @@ class ImportDocuments : ContentProvider() {
     companion object {
         const val AUTHORITY = "reikai.test.import"
         val documents = mutableMapOf<String, Document>()
+
+        /** The threads a type was asked on, so a test can tell a caller kept the queries off its own. */
+        val typeAskedOn = ConcurrentLinkedQueue<Thread>()
 
         fun uri(id: String): Uri = Uri.parse("content://$AUTHORITY/document/$id")
     }

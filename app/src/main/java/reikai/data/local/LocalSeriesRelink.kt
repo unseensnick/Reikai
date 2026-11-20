@@ -194,7 +194,7 @@ class LocalSeriesRelink(
         if (paths.isEmpty()) return emptyList()
         val volumes = paths.mapNotNullTo(HashSet()) { it.substringBefore('/', "").lowercase().ifEmpty { null } }
         val folders = listed
-            .filter { it.isDirectory && isLocalSeriesName(it.name.orEmpty()) }
+            .filter { isLocalSeriesName(it.name.orEmpty()) && it.isDirectory }
             .mapNotNull { folder -> contents(folder, volumes)?.let { folder.name.orEmpty() to it } }
             .toMap()
         val held = localNamesHeld(type, chapterMoves, owners)

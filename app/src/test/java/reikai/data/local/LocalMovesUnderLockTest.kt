@@ -240,6 +240,9 @@ class LocalMovesUnderLockTest {
             seriesLocks = locks,
             organizer = LocalOrganizer(context, importJournal, chapterMoves, locks, appScope),
             owners = volumes,
+            xml = XML.v1 {},
+            coverCache = mockk(),
+            novelDownloadManager = { mockk() },
         )
         relink = LocalSeriesRelink(
             context = context,

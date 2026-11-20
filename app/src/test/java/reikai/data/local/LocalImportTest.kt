@@ -14,6 +14,7 @@ import io.mockk.spyk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import nl.adaptivity.xmlutil.serialization.XML
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -62,6 +63,9 @@ class LocalImportTest(private val type: ContentType) {
     private val journal = InMemoryLocalFileJournal()
     private var owners = emptyList<VolumeOwner>()
 
+    /** The novel series paths a row was written for. */
+    private val novelRows = mutableSetOf<String>()
+
     /** The series path each add stored and refreshed. */
     private val added = mutableListOf<String>()
 
@@ -85,8 +89,14 @@ class LocalImportTest(private val type: ContentType) {
             }
         },
         novelRepository = mockk<NovelRepository> {
-            coEvery { insertOrGet(any()) } returns null
-            coEvery { getByUrlAndSource(any(), any()) } returns Novel.create().copy(id = 7L)
+            // The row is written, though not handed back, so its id is read back by the series' path.
+            coEvery { insertOrGet(any()) } answers {
+                novelRows += firstArg<Novel>().url
+                null
+            }
+            coEvery { getByUrlAndSource(any(), any()) } answers {
+                Novel.create().copy(id = 7L).takeIf { firstArg<String>() in novelRows }
+            }
         },
         novelChapterRepository = mockk(),
         libraryPreferences = mockk(),
@@ -109,6 +119,9 @@ class LocalImportTest(private val type: ContentType) {
         owners = object : LocalVolumeOwnerRepository {
             override suspend fun all(type: ContentType) = owners
         },
+        xml = XML.v1 {},
+        coverCache = mockk(),
+        novelDownloadManager = { mockk() },
     )
 
     @Before
@@ -485,6 +498,28 @@ class LocalImportTest(private val type: ContentType) {
     fun `an import waits on the user while a newer copy is unanswered`() {
         group("Foo").copy(existing = "Foo", newerCopies = mapOf(ImportDocuments.uri("1") to "Old.cbz"))
             .asksAboutNewerCopies shouldBe true
+    }
+
+    @Test
+    fun `a comic's series is read from its ComicInfo with its entities decoded, as the local source reads it`() {
+        val comicInfo = """<?xml version="1.0"?><ComicInfo><Series>Fish &amp; Chips</Series></ComicInfo>"""
+
+        localImport.comicInfo(comicInfo.toByteArray())?.series?.value shouldBe "Fish & Chips"
+    }
+
+    @Test
+    fun `an import goes ahead once the user has answered about a newer copy`() {
+        group("Foo").copy(
+            existing = "Foo",
+            newerCopies = mapOf(ImportDocuments.uri("1") to "Old.cbz"),
+            onNewerCopy = DuplicateChoice.Replace,
+        ).asksAboutNewerCopies shouldBe false
+    }
+
+    @Test
+    fun `a series made separate does not wait on a newer copy in the folder it no longer joins`() {
+        group("Foo").copy(existing = "Foo", separate = true, newerCopies = mapOf(ImportDocuments.uri("1") to "Old.cbz"))
+            .asksAboutNewerCopies shouldBe false
     }
 
     @Test
