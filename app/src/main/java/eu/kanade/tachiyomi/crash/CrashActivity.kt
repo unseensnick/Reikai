@@ -5,8 +5,8 @@ import android.os.Bundle
 import androidx.core.view.WindowCompat
 import eu.kanade.presentation.crash.CrashScreen
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.view.setComposeContent
+import reikai.util.MainActivityTarget
 
 class CrashActivity : BaseActivity() {
 
@@ -21,7 +21,7 @@ class CrashActivity : BaseActivity() {
                 exception = exception,
                 onRestartClick = {
                     finishAffinity()
-                    startActivity(Intent(this@CrashActivity, MainActivity::class.java))
+                    startActivity(Intent(this@CrashActivity, MainActivityTarget::class.java)) // RK
                 },
             )
         }

@@ -3,6 +3,7 @@ package reikai.util
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -33,9 +34,60 @@ class LauncherIconsTest {
         0,
     ).map { it.activityInfo.name.substringAfterLast('.') }
 
+    private fun pick(alias: String) = context.packageManager.setComponentEnabledSetting(
+        ComponentName(context.packageName, "eu.kanade.tachiyomi.ui.main.$alias"),
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+        PackageManager.DONT_KILL_APP,
+    )
+
+    // A launcher drops every pinned shortcut of an entry that stops being one, so an update must keep this name on.
     @Test
-    fun `the debug build starts with exactly its own icon in the launcher`() {
-        launcherEntries() shouldBe listOf(LauncherIcon.CURRENT_DEV.alias)
+    fun `the debug build starts with exactly its own icon, on the entry older versions had`() {
+        launcherEntries() shouldBe listOf("MainActivity")
+    }
+
+    @Test
+    fun `picking the build's own icon again brings back the entry older versions had`() {
+        context.setLauncherIcon(LauncherIcon.FLAME_R_DEV)
+        context.setLauncherIcon(LauncherIcon.CURRENT_DEV)
+
+        launcherEntries() shouldBe listOf("MainActivity")
+    }
+
+    @Test
+    fun `the main screen opens by class with another icon picked`() {
+        context.setLauncherIcon(LauncherIcon.FLAME_R_DEV)
+
+        val start = Intent(context, MainActivityTarget::class.java)
+
+        context.packageManager.resolveActivity(start, 0)?.activityInfo?.name shouldBe
+            MainActivityTarget::class.java.name
+    }
+
+    @Test
+    fun `an icon picked before the update stays the only one`() {
+        pick(LauncherIcon.MIHON_RE_DEV.alias)
+
+        context.keepPickedLauncherIcon()
+
+        launcherEntries() shouldBe listOf(LauncherIcon.MIHON_RE_DEV.alias)
+    }
+
+    @Test
+    fun `the build's own icon picked before the update stays the only one and reads as shown`() {
+        pick(LauncherIcon.CURRENT_DEV.alias)
+
+        context.keepPickedLauncherIcon()
+
+        (launcherEntries() to context.launcherIcon()) shouldBe
+            (listOf(LauncherIcon.CURRENT_DEV.alias) to LauncherIcon.CURRENT_DEV)
+    }
+
+    @Test
+    fun `an update with no icon picked keeps the entry older versions had`() {
+        context.keepPickedLauncherIcon()
+
+        launcherEntries() shouldBe listOf("MainActivity")
     }
 
     @Test
@@ -99,11 +151,27 @@ class LauncherIconsTest {
     fun `every icon's alias is in the manifest`() {
         val missing = LauncherIcon.entries.filter {
             runCatching {
-                context.packageManager.getActivityInfo(it.component(context), PackageManager.MATCH_DISABLED_COMPONENTS)
+                context.packageManager.getActivityInfo(
+                    ComponentName(context.packageName, "eu.kanade.tachiyomi.ui.main.${it.alias}"),
+                    PackageManager.MATCH_DISABLED_COMPONENTS,
+                )
             }.isFailure
         }
 
         missing shouldBe emptyList()
+    }
+
+    // MainActivity's name is a launcher entry, off while another icon is picked, and starting an entry that is off
+    // fails. So notifications, widgets and shortcuts name the class behind every entry; the manifest declares it.
+    @Test
+    fun `nothing starts the main screen by the name of a launcher entry`() {
+        val roots = listOf("src/main", "../presentation-widget/src/main", "../core/common/src/main").map(::File)
+        val files = roots.flatMap { root -> root.walk().filter { it.extension in setOf("kt", "xml") } }
+        val starts = files.filter { it.name != "AndroidManifest.xml" }.filter {
+            it.readText().let { text -> "MainActivity::class.java" in text || "ui.main.MainActivity\"" in text }
+        }
+
+        starts.map { it.name } shouldBe emptyList()
     }
 
     @Test

@@ -12,7 +12,6 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,9 +19,9 @@ import mihon.core.metro.AppCoroutineScope
 import tachiyomi.core.common.util.lang.launchIO
 
 /**
- * An app icon the launcher can show: one `<activity-alias>` of [MainActivity] per icon in the manifest, each build
- * enabling its own current icon through a bool resource. Alias names are permanent, since a launcher holds a picked
- * icon by name (LauncherIconsTest).
+ * An app icon the launcher can show: one `<activity-alias>` of [MainActivityTarget] per icon in the manifest, plus
+ * the entry older versions had, which shows the build's own current icon (`launcher_icon_own`). Alias names are
+ * permanent, since a launcher holds a picked icon by name (LauncherIconsTest).
  */
 enum class LauncherIcon(
     val alias: String,
@@ -209,12 +208,23 @@ enum class LauncherIcon(
         const val THEMED_INSET = 0.208889f
     }
 
-    // Class.getPackageName needs API 31, so the package comes off the class name.
-    fun component(context: Context) = ComponentName(
-        context.packageName,
-        "${MainActivity::class.java.name.substringBeforeLast('.')}.$alias",
-    )
+    /** The launcher entry that shows this icon: the build's own is the entry older versions had, see the manifest. */
+    fun component(context: Context) = entry(context, if (this == context.ownIcon) LEGACY_ENTRY else alias)
+
+    internal fun aliasComponent(context: Context) = entry(context, alias)
+
+    // Every entry this icon may be shown through: the build's own also through its alias, if picked before the update.
+    internal fun components(context: Context) = setOf(component(context), aliasComponent(context))
 }
+
+// The manifest's package, spelled out: R8 may merge MainActivity into MainActivityTarget, renaming its class.
+private const val ENTRY_PACKAGE = "eu.kanade.tachiyomi.ui.main"
+private const val LEGACY_ENTRY = "MainActivity"
+
+private fun entry(context: Context, name: String) = ComponentName(context.packageName, "$ENTRY_PACKAGE.$name")
+
+private val Context.ownIcon: LauncherIcon
+    get() = getString(R.string.launcher_icon_own).let { own -> LauncherIcon.entries.first { it.alias == own } }
 
 /** The icon the launcher shows, for the picker, the app's header and notifications; null until the first read. */
 @SingleIn(AppScope::class)
@@ -270,7 +280,9 @@ internal fun Context.rebadgeNotifications(icon: LauncherIcon) {
 }
 
 /** The icon the launcher shows now. Package manager calls are IPC, so call this off the main thread. */
-fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { isEnabled(it) }
+fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { icon ->
+    icon.components(this).any { isOn(it) }
+}
 
 /**
  * Shows [icon] in the launcher in place of the one there now. The new entry goes on before the old one goes off,
@@ -278,34 +290,46 @@ fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { i
  * reopens from the new one rather than vanishing.
  */
 fun Context.setLauncherIcon(icon: LauncherIcon) {
-    val shown = LauncherIcon.entries.filter { isEnabled(it) }
-    setEnabled(icon, true)
+    val shown = LauncherIcon.entries.flatMap { it.components(this) }.filter { isOn(it) }
+    val picked = icon.component(this)
+    setOn(picked, true)
     // The open tasks close first: MainActivity is singleTop, so a start would otherwise land in the open screen and
     // close with its task. Android still allows the start in the moment after the app's own screen goes.
     getSystemService(ActivityManager::class.java).appTasks.forEach { it.finishAndRemoveTask() }
     startActivity(
         Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_LAUNCHER)
-            .setComponent(icon.component(this))
+            .setComponent(picked)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
-    shown.filter { it != icon }.forEach { setEnabled(it, false) }
+    shown.filter { it != picked }.forEach { setOn(it, false) }
 }
 
-// An entry never switched reports DEFAULT, which the manifest's own value (this build's bool resource) decides.
-private fun Context.isEnabled(icon: LauncherIcon): Boolean =
-    when (packageManager.getComponentEnabledSetting(icon.component(this))) {
-        PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
-        PackageManager.COMPONENT_ENABLED_STATE_DEFAULT ->
-            packageManager.getActivityInfo(icon.component(this), PackageManager.MATCH_DISABLED_COMPONENTS).enabled
-        else -> false
+/**
+ * Turns off the entry older versions had, which starts on, when an icon was picked before the update moved the
+ * build's own icon onto it, so that pick stays the only icon. An icon is only ever picked by turning its alias on.
+ */
+fun Context.keepPickedLauncherIcon() {
+    val picked = LauncherIcon.entries.any {
+        packageManager.getComponentEnabledSetting(it.aliasComponent(this)) ==
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
     }
+    if (picked) setOn(entry(this, LEGACY_ENTRY), false)
+}
 
-private fun Context.setEnabled(icon: LauncherIcon, enabled: Boolean) {
-    val state = if (enabled) {
+// An entry never switched reports DEFAULT, which the manifest's own value decides.
+private fun Context.isOn(entry: ComponentName): Boolean = when (packageManager.getComponentEnabledSetting(entry)) {
+    PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
+    PackageManager.COMPONENT_ENABLED_STATE_DEFAULT ->
+        packageManager.getActivityInfo(entry, PackageManager.MATCH_DISABLED_COMPONENTS).enabled
+    else -> false
+}
+
+private fun Context.setOn(entry: ComponentName, on: Boolean) {
+    val state = if (on) {
         PackageManager.COMPONENT_ENABLED_STATE_ENABLED
     } else {
         PackageManager.COMPONENT_ENABLED_STATE_DISABLED
     }
-    packageManager.setComponentEnabledSetting(icon.component(this), state, PackageManager.DONT_KILL_APP)
+    packageManager.setComponentEnabledSetting(entry, state, PackageManager.DONT_KILL_APP)
 }

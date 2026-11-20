@@ -1,4 +1,5 @@
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- RK: each intent names MainActivityTarget, since MainActivity's own name is a launcher entry that can be off -->
     <shortcut
         android:enabled="true"
         android:icon="@drawable/sc_collections_bookmark_48dp"
@@ -8,7 +9,7 @@
         android:shortcutShortLabel="@string/label_library">
         <intent
             android:action="eu.kanade.tachiyomi.SHOW_LIBRARY"
-            android:targetClass="eu.kanade.tachiyomi.ui.main.MainActivity"
+            android:targetClass="reikai.util.MainActivityTarget"
             android:targetPackage="${applicationId}" />
     </shortcut>
     <shortcut
@@ -20,7 +21,7 @@
         android:shortcutShortLabel="@string/label_recent_updates">
         <intent
             android:action="eu.kanade.tachiyomi.SHOW_RECENTLY_UPDATED"
-            android:targetClass="eu.kanade.tachiyomi.ui.main.MainActivity"
+            android:targetClass="reikai.util.MainActivityTarget"
             android:targetPackage="${applicationId}" />
     </shortcut>
     <shortcut
@@ -32,7 +33,7 @@
         android:shortcutShortLabel="@string/label_recent_manga">
         <intent
             android:action="eu.kanade.tachiyomi.SHOW_RECENTLY_READ"
-            android:targetClass="eu.kanade.tachiyomi.ui.main.MainActivity"
+            android:targetClass="reikai.util.MainActivityTarget"
             android:targetPackage="${applicationId}" />
     </shortcut>
     <shortcut
@@ -44,7 +45,7 @@
         android:shortcutShortLabel="@string/browse">
         <intent
             android:action="eu.kanade.tachiyomi.SHOW_CATALOGUES"
-            android:targetClass="eu.kanade.tachiyomi.ui.main.MainActivity"
+            android:targetClass="reikai.util.MainActivityTarget"
             android:targetPackage="${applicationId}" />
     </shortcut>
 </shortcuts>

@@ -7,9 +7,9 @@ import dev.zacsweers.metro.HasMemberInjections
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import mihon.app.di.appGraph
+import reikai.util.MainActivityTarget
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 @HasMemberInjections
@@ -40,7 +40,8 @@ abstract class BaseOAuthLoginActivity : BaseActivity() {
     internal fun returnToSettings() {
         finish()
 
-        val intent = Intent(this, MainActivity::class.java).apply {
+        val intent = Intent(this, MainActivityTarget::class.java).apply {
+            // RK
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         startActivity(intent)

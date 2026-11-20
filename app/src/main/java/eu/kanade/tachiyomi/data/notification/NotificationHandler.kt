@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
-import eu.kanade.tachiyomi.ui.main.MainActivity
+import reikai.util.MainActivityTarget
 import tachiyomi.core.common.Constants
 
 /**
@@ -18,7 +18,8 @@ object NotificationHandler {
      * @param context context of application
      */
     internal fun openDownloadManagerPendingActivity(context: Context): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = Intent(context, MainActivityTarget::class.java).apply {
+            // RK
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             action = Constants.SHORTCUT_DOWNLOADS
         }

@@ -89,6 +89,7 @@ The layout, by subject:
 - **The novel merge manager and its tracker propagator form a cycle.** `ReikaiBindings` supplies the propagator as `() -> PropagateNovelTrackerLinks`, cutting it at one edge.
 - **A launch on the app scope whose failure is expected passes its own handler.** Otherwise a network failure crashes a debug build; `AutoBindOnAdd` and `PushNovelUnread` launch with a log-only `CoroutineExceptionHandler`, which replaces the scope's for that child.
 - **The checker sees what the compiler does not.** `di-interop-check.ps1` fails on an Injekt read the registrar does not bind, an unscoped or unread binding, an Injekt registration, and a ViewModel or migration left out of its multibinding; it runs from the `pre-commit` hook and CI.
+- **Nothing starts the main screen by `MainActivity`'s name.** That name is the launcher entry of the build's own app icon, which is off while another icon is picked, and a start of an entry that is off fails. Notifications, widgets, shortcuts and deep links name `MainActivityTarget`, the class behind every entry; `LauncherIconsTest` fails on a start by the old name.
 
 ## Decisions
 
@@ -99,6 +100,7 @@ The layout, by subject:
 - **Two reader screens, not a hub with drill-downs.** A hub would cost every manga reader an extra tap, and a shared row shown on both screens reads as two settings.
 - **Source settings live on Browse and sources, not at the root.** MangaDex and E-Hentai were at the root only because their preferences are app-owned, which a user cannot know.
 - **Upstream's placement of rows in Advanced, Library and Reader stays** unless the row is Reikai's own; Advanced's untitled top block is the one regrouped.
+- **The build's own app icon is the launcher entry `.ui.main.MainActivity`, the one every older version had.** A launcher removes the pinned shortcuts of an entry that stops being a launcher entry, as Pixel Launcher did on an update to per-icon aliases. Keeping the launcher filter on the activity itself would leave its icon impossible to hide without breaking every start of the main screen, and re-pinning after an update needs a prompt per shortcut. So `MainActivity` is open, `MainActivityTarget` subclasses it as the real activity, and every icon, the old name included, is an alias of it.
 
 ## Upstream divergences
 

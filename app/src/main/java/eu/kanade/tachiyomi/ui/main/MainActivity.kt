@@ -62,6 +62,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEventBus
 import androidx.navigation3.runtime.result.rememberResultEventBusNavEntryDecorator
+import dev.zacsweers.metro.HasMemberInjections
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
@@ -159,7 +160,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlin.time.times
 
-class MainActivity : BaseActivity() {
+@HasMemberInjections // RK: open for reikai.util.MainActivityTarget, which Metro needs told
+open class MainActivity : BaseActivity() { // RK
 
     private val graph: AppGraph by lazy { metroGraph() }
 

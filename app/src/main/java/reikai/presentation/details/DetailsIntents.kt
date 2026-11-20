@@ -2,9 +2,9 @@ package reikai.presentation.details
 
 import android.content.Context
 import android.content.Intent
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
+import reikai.util.MainActivityTarget
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.withIOContext
 
@@ -12,12 +12,12 @@ import tachiyomi.core.common.util.lang.withIOContext
 // their own flags, categories and notification extras.
 
 fun mangaDetailsIntent(context: Context, mangaId: Long): Intent =
-    Intent(context, MainActivity::class.java)
+    Intent(context, MainActivityTarget::class.java)
         .setAction(Constants.SHORTCUT_MANGA)
         .putExtra(Constants.MANGA_EXTRA, mangaId)
 
 fun novelDetailsIntent(context: Context, novelId: Long): Intent =
-    Intent(context, MainActivity::class.java)
+    Intent(context, MainActivityTarget::class.java)
         .setAction(Constants.SHORTCUT_NOVEL)
         .putExtra(Constants.NOVEL_EXTRA, novelId)
 

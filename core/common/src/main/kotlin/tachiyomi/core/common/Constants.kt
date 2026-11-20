@@ -28,7 +28,7 @@ object Constants {
     // RK: which content type an Update errors deep link opens on (a ContentType name)
     const val CONTENT_TYPE_EXTRA = "content_type"
 
-    const val MAIN_ACTIVITY = "eu.kanade.tachiyomi.ui.main.MainActivity"
+    const val MAIN_ACTIVITY = "reikai.util.MainActivityTarget" // RK: MainActivity's own name is a launcher entry
 
     // Shortcut actions
     const val SHORTCUT_LIBRARY = "eu.kanade.tachiyomi.SHOW_LIBRARY"
