@@ -34,6 +34,10 @@
 #   constructor lists and the details engine twin behind the shared details contract.
 # - CombineLocalVolumes / NovelDetailsViewModel, NovelReaderViewModel: a DI constructor list, over the token
 #   threshold once the series lock and the organizer joined it.
+# - NovelDownloadManager / MangaLibraryAdder, MangaRecentsAdapter: a DI constructor list naming the
+#   same source managers and preference holders, with no logic shared.
+# - MangaChapterSettings / NovelChapterSettings: each engine's binding of the GroupChapterSettings
+#   kernel to its own repository; pinned by GroupChapterSettingsConformanceTest.
 # - MigrateMangaUseCase / MigrateNovelUseCase: engine twins, pinned by MigrateEngineConformanceTest.
 # - Update-error interactors and repositories: engine twins over separate tables, pinned by
 #   UpdateErrorConformanceTest.

@@ -270,29 +270,58 @@ $keyedFactories = [System.Collections.Generic.HashSet[string]]::new()
 $resolvedModels = [System.Collections.Generic.HashSet[string]]::new()
 $resolvedFactories = [System.Collections.Generic.HashSet[string]]::new()
 $unContributedMigrations = @()
+$classDecl = '^(\s*)(?:[\w@]+ )*(?:class|object|interface) ([A-Za-z0-9_]+)'
+# The dotted chain of classes enclosing line $at, read off indentation, which Spotless keeps exact.
+function Get-EnclosingChain([string[]]$lines, [int]$at) {
+    $indent = ($lines[$at] -replace '^(\s*).*', '$1').Length
+    $chain = @()
+    for ($n = $at - 1; $n -ge 0 -and $indent -gt 0; $n--) {
+        if ($lines[$n] -match $classDecl -and $Matches[1].Length -lt $indent) {
+            $chain = @($Matches[2]) + $chain
+            $indent = $Matches[1].Length
+        }
+    }
+    $chain -join '.'
+}
+# A resolution may qualify its owner more or less than the declaration's own nesting spells it.
+function Test-Keyed([string]$resolved) {
+    foreach ($k in $keyedFactories) {
+        if ($k -eq $resolved -or $k.EndsWith(".$resolved") -or $resolved.EndsWith(".$k")) { return $true }
+    }
+    $false
+}
 foreach ($file in $sources) {
     $text = [System.IO.File]::ReadAllText($file.FullName)
+    $lines = $null
+    if ($text.Contains('@ViewModelKey') -or $text.Contains('@ManualViewModelAssistedFactoryKey')) {
+        $lines = [System.IO.File]::ReadAllLines($file.FullName)
+    }
+    # Each annotation keys only the class it sits on (the next declaration), never its whole file.
     if ($text.Contains('@ViewModelKey')) {
-        foreach ($m in [regex]::Matches($text, '(?m)^\s*(?:\w+ )*class ([A-Za-z0-9_]+)')) {
-            [void]$keyedModels.Add($m.Groups[1].Value)
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -notmatch '@ViewModelKey\b') { continue }
+            for ($n = $i; $n -lt $lines.Count; $n++) {
+                if ($lines[$n] -match $classDecl) { [void]$keyedModels.Add($Matches[2]); break }
+            }
         }
     }
-    # Keyed by the class that OWNS the factory, never by the factory's own name. Every one of these
-    # interfaces is called Factory, so matching the bare name meant one keyed Factory anywhere in the
-    # tree satisfied every resolution in the tree, and the rule passed on everything.
+    # Keyed by the class that OWNS the factory, never by the factory's own name: every one of these
+    # interfaces is called Factory, so the bare name would let one key satisfy every resolution. The
+    # owner is the dotted chain enclosing the annotation, since a route's nested Model owns several.
     if ($text.Contains('@ManualViewModelAssistedFactoryKey')) {
-        # Indentation allowed: the owner is often a nested class, as MangaNotesScreen's Model is.
-        foreach ($m in [regex]::Matches($text, '(?m)^\s*(?:\w+ )*class ([A-Za-z0-9_]+)')) {
-            [void]$keyedFactories.Add($m.Groups[1].Value)
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '@ManualViewModelAssistedFactoryKey\b') {
+                [void]$keyedFactories.Add((Get-EnclosingChain $lines $i))
+            }
         }
     }
-    foreach ($m in [regex]::Matches($text, 'assistedMetroViewModel<\s*[A-Za-z0-9_.]+\s*,\s*([A-Za-z0-9_]+)\.[A-Za-z0-9_]+\s*>')) {
+    foreach ($m in [regex]::Matches($text, 'assistedMetroViewModel<\s*[A-Za-z0-9_.]+\s*,\s*([A-Za-z0-9_.]+)\.[A-Za-z0-9_]+\s*>')) {
         [void]$resolvedFactories.Add($m.Groups[1].Value)
     }
     # The Compose helper above is not the only route: an Activity resolves a manual factory by name
     # through createManuallyAssistedFactory, which fails at run time rather than at build time when
     # the key is missing, exactly like the Compose case.
-    foreach ($m in [regex]::Matches($text, 'createManuallyAssistedFactory\(\s*([A-Za-z0-9_]+)\.[A-Za-z0-9_]+::class')) {
+    foreach ($m in [regex]::Matches($text, 'createManuallyAssistedFactory\(\s*([A-Za-z0-9_.]+)\.[A-Za-z0-9_]+::class')) {
         [void]$resolvedFactories.Add($m.Groups[1].Value)
     }
     foreach ($m in [regex]::Matches($text, '(?<!assisted)metroViewModel<\s*([A-Za-z0-9_.]+)')) {
@@ -307,7 +336,7 @@ foreach ($file in $sources) {
 }
 $unkeyed = @(
     @($resolvedModels | Where-Object { -not $keyedModels.Contains($_) } | ForEach-Object { "  $_ is resolved by metroViewModel but carries no @ViewModelKey" }) +
-    @($resolvedFactories | Where-Object { -not $keyedFactories.Contains($_) } | ForEach-Object { "  $_'s assisted factory is resolved but carries no @ManualViewModelAssistedFactoryKey" })
+    @($resolvedFactories | Where-Object { -not (Test-Keyed $_) } | ForEach-Object { "  $_'s assisted factory is resolved but carries no @ManualViewModelAssistedFactoryKey" })
 )
 
 $failed = $false

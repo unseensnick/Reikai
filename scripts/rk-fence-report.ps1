@@ -30,7 +30,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$MihonBase,
     [string]$RefsRoot,
-    [string[]]$Extensions = @('.kt', '.kts', '.sq', '.sqm', '.pro')
+    [string[]]$Extensions = @('.kt', '.kts', '.sq', '.sqm', '.pro', '.toml')
 )
 
 $ErrorActionPreference = 'Stop'
