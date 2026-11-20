@@ -654,7 +654,7 @@ class MangaViewModel(
         val manga = manga ?: return
         viewModelScope.launchIO {
             val cover = manga.asMangaCover()
-            val color = EntryId.Manga(manga.id).seedColor(cover.url, cover.lastModified) {
+            val color = EntryId.Manga(manga.id).seedColor(cover.url, cover.lastModified, manga.favorite) {
                 context.extractCoverColor(cover)
             } ?: return@launchIO
             extras.update { it.copy(seedColor = Color(color)) }

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.coil.seedColor
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
@@ -39,7 +40,6 @@ import reikai.presentation.details.EntrySourceState
 import reikai.presentation.reader.FakeNovelSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.i18n.MR
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
@@ -64,7 +64,7 @@ class NovelDetailsFetchTest {
     @AfterEach
     fun tearDown() {
         unmockkStatic(LOCALIZE)
-        MangaCover.vibrantCoverColorMap.clear()
+        CoverColors.clear()
         Dispatchers.resetMain()
     }
 
@@ -463,7 +463,7 @@ class NovelDetailsFetchTest {
         val tint = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val novel = harness.novel(harness.source("alpha"), cover = "https://alpha.example/cover.jpg")
             harness.chapter(novel, 1.0)
-            EntryId.Novel(novel).seedColor("https://alpha.example/cover.jpg", null) { TINT }
+            EntryId.Novel(novel).seedColor("https://alpha.example/cover.jpg", null, inLibrary = true) { TINT }
             harness.openDetails(novel).awaitLoaded { it.seedColor != null }.seedColor
         }
 
@@ -476,11 +476,11 @@ class NovelDetailsFetchTest {
         val tint = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val novel = harness.novel(harness.source("alpha"), cover = "https://alpha.example/cover.jpg")
             harness.chapter(novel, 1.0)
-            EntryId.Novel(novel).seedColor("https://alpha.example/cover.jpg", null) { TINT }
+            EntryId.Novel(novel).seedColor("https://alpha.example/cover.jpg", null, inLibrary = true) { TINT }
             val details = harness.openDetails(novel)
             details.awaitLoaded { it.seedColor == Color(TINT) }
             // Found ahead, since a test cannot decode a cover; the screen still has to ask for the new one.
-            EntryId.Novel(novel).seedColor("https://alpha.example/new.jpg", null) { OTHER_TINT }
+            EntryId.Novel(novel).seedColor("https://alpha.example/new.jpg", null, inLibrary = true) { OTHER_TINT }
 
             harness.changeCover(novel, "https://alpha.example/new.jpg")
 

@@ -4,9 +4,9 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
-import tachiyomi.domain.manga.model.MangaCover
 import kotlin.time.Instant
 
 /**
@@ -18,21 +18,21 @@ class EntrySeedColorTest {
 
     @AfterEach
     fun clearCache() {
-        MangaCover.vibrantCoverColorMap.clear()
+        CoverColors.clear()
     }
 
     @Test
     fun `a new cover is taken from again`() = runTest {
-        EntryId.Novel(7L).seedColor(COVER, null) { RED }
+        EntryId.Novel(7L).seedColor(COVER, null, inLibrary = true) { RED }
 
-        EntryId.Novel(7L).seedColor("other.jpg", null) { BLUE } shouldBe BLUE
+        EntryId.Novel(7L).seedColor("other.jpg", null, inLibrary = true) { BLUE } shouldBe BLUE
     }
 
     @Test
     fun `a cover stamped as changed is taken from again`() = runTest {
-        EntryId.Manga(7L).seedColor(COVER, null) { RED }
+        EntryId.Manga(7L).seedColor(COVER, null, inLibrary = true) { RED }
 
-        EntryId.Manga(7L).seedColor(COVER, Instant.fromEpochMilliseconds(1)) { BLUE } shouldBe BLUE
+        EntryId.Manga(7L).seedColor(COVER, Instant.fromEpochMilliseconds(1), inLibrary = true) { BLUE } shouldBe BLUE
     }
 
     /**
@@ -41,45 +41,45 @@ class EntrySeedColorTest {
      */
     @Test
     fun `a colour kept without its cover is taken from the cover again`() = runTest {
-        MangaCover.vibrantCoverColorMap[EntryId.Manga(9L).signedKey()] = RED
+        CoverColors.put(EntryId.Manga(9L).signedKey(), RED, inLibrary = true)
 
-        EntryId.Manga(9L).seedColor(COVER, null) { BLUE } shouldBe BLUE
+        EntryId.Manga(9L).seedColor(COVER, null, inLibrary = true) { BLUE } shouldBe BLUE
     }
 
     /** The manga viewers build their pages before the cover is read, and an old cover's colour is wrong there. */
     @Test
     fun `a view built after a cover change gets no colour until the new cover is read`() = runTest {
-        EntryId.Manga(8L).seedColor(COVER, null) { RED }
+        EntryId.Manga(8L).seedColor(COVER, null, inLibrary = true) { RED }
 
         EntryId.Manga(8L).keptSeedColor("other.jpg", null) shouldBe null
     }
 
     @Test
     fun `a view built once the cover is read gets its colour`() = runTest {
-        EntryId.Manga(8L).seedColor(COVER, null) { RED }
+        EntryId.Manga(8L).seedColor(COVER, null, inLibrary = true) { RED }
 
         EntryId.Manga(8L).keptSeedColor(COVER, null) shouldBe RED
     }
 
     @Test
     fun `a colour already found is returned without loading the cover again`() = runTest {
-        EntryId.Novel(7L).seedColor(COVER, null) { RED }
+        EntryId.Novel(7L).seedColor(COVER, null, inLibrary = true) { RED }
 
-        EntryId.Novel(7L).seedColor(COVER, null) { error("the cover was loaded again") } shouldBe RED
+        EntryId.Novel(7L).seedColor(COVER, null, inLibrary = true) { error("the cover was loaded again") } shouldBe RED
     }
 
     @Test
     fun `a novel never takes the colour of the manga with the same row id`() = runTest {
-        EntryId.Manga(7L).seedColor(COVER, null) { RED }
+        EntryId.Manga(7L).seedColor(COVER, null, inLibrary = true) { RED }
 
-        EntryId.Novel(7L).seedColor(COVER, null) { BLUE } shouldBe BLUE
+        EntryId.Novel(7L).seedColor(COVER, null, inLibrary = true) { BLUE } shouldBe BLUE
     }
 
     @Test
     fun `a cover that gives no colour is tried again next time`() = runTest {
-        EntryId.Manga(7L).seedColor(COVER, null) { null }
+        EntryId.Manga(7L).seedColor(COVER, null, inLibrary = true) { null }
 
-        EntryId.Manga(7L).seedColor(COVER, null) { BLUE } shouldBe BLUE
+        EntryId.Manga(7L).seedColor(COVER, null, inLibrary = true) { BLUE } shouldBe BLUE
     }
 
     private companion object {

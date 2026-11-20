@@ -869,7 +869,7 @@ class NovelDetailsViewModel(
         if (cover == seededCover) return
         seededCover = cover
         viewModelScope.launchIO {
-            val color = EntryId.Novel(novel.id).seedColor(cover.url, cover.lastModified) {
+            val color = EntryId.Novel(novel.id).seedColor(cover.url, cover.lastModified, novel.favorite) {
                 context.extractCoverColor(cover)
             } ?: return@launchIO
             seedColor.value = Color(color)

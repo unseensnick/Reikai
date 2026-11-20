@@ -8,10 +8,10 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
 import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.domain.manga.model.MangaCover
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Instant
 
@@ -22,16 +22,25 @@ import kotlin.time.Instant
  * a new cover is read again without any caller remembering to say so. Whether a screen applies the colour is
  * the cover-theme setting's call, made by the screen, because the edit-info dialog tints from the cover either way.
  */
-suspend fun EntryId.seedColor(coverUrl: String?, coverLastModified: Instant?, extract: suspend () -> Int?): Int? {
-    keptSeedColor(coverUrl, coverLastModified)?.let { return it }
+suspend fun EntryId.seedColor(
+    coverUrl: String?,
+    coverLastModified: Instant?,
+    inLibrary: Boolean,
+    extract: suspend () -> Int?,
+): Int? {
     val key = signedKey()
+    keptSeedColor(coverUrl, coverLastModified)?.let {
+        // Filed again, so an entry added to or removed from the library since moves store.
+        CoverColors.put(key, it, inLibrary)
+        return it
+    }
     val cover = coverCacheKey(null, coverUrl, coverLastModified)
     val color = extract()
     if (color == null) {
-        MangaCover.vibrantCoverColorMap.remove(key)
+        CoverColors.remove(key)
         seedCovers.remove(key)
     } else {
-        MangaCover.vibrantCoverColorMap[key] = color
+        CoverColors.put(key, color, inLibrary)
         seedCovers[key] = cover
     }
     return color
@@ -44,14 +53,14 @@ suspend fun EntryId.seedColor(coverUrl: String?, coverLastModified: Instant?, ex
 fun EntryId.keptSeedColor(coverUrl: String?, coverLastModified: Instant?): Int? {
     val key = signedKey()
     if (seedCovers[key] != coverCacheKey(null, coverUrl, coverLastModified)) return null
-    return MangaCover.vibrantCoverColorMap[key]
+    return CoverColors[key]
 }
 
 /**
  * The colour last kept for this entry, from whichever cover, for a page's first frame while its own cover is
  * read: the page then asks [seedColor] and takes its answer, so an old cover's colour lasts one read at most.
  */
-fun EntryId.lastSeedColor(): Int? = MangaCover.vibrantCoverColorMap[signedKey()]
+fun EntryId.lastSeedColor(): Int? = CoverColors[signedKey()]
 
 // Which cover each kept colour came from. Kept for the process only: a colour restored from disk, or found by
 // the library's cover loads, carries no cover, so the first open after a start reads it again.

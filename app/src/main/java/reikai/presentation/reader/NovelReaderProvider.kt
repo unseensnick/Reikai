@@ -91,7 +91,9 @@ class NovelReaderProvider(
         .filterNotNull()
         .distinctUntilChanged()
         .map { cover ->
-            EntryId.Novel(cover.novelId).seedColor(cover.url, cover.lastModified) { context.extractCoverColor(cover) }
+            EntryId.Novel(cover.novelId).seedColor(cover.url, cover.lastModified, cover.isNovelFavorite) {
+                context.extractCoverColor(cover)
+            }
         }
 
     override val displayFilters = ReaderDisplayFilters(

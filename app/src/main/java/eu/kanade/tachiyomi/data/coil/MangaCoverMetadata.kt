@@ -13,13 +13,14 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mihon.core.metro.AppCoroutineScope
 import okio.BufferedSource
+import reikai.domain.entry.CoverColors
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.model.MangaCover
 import java.io.File
 
 /**
  * Reikai: extracts a vibrant color from a manga cover and caches it on
- * [MangaCover.vibrantCoverColorMap], persisting across restarts. The color seeds the reader and
+ * [CoverColors], persisting across restarts. The color seeds the reader and
  * manga-details theme when the cover-based theme preference is on. The [getBestColor] heuristic is
  * ported from Komikku (Jays2Kings).
  */
@@ -34,14 +35,7 @@ class MangaCoverMetadata(
     // Startup and every pause reach here, so both run on the app scope rather than the first frame or Main.
     private val loaded: Job by lazy {
         scope.launchIO {
-            val colors = uiPreferences.coverVibrantColors.get().mapNotNull {
-                val splits = it.split("|")
-                val id = splits.getOrNull(0)?.toLongOrNull()
-                val color = splits.getOrNull(1)?.toIntOrNull()
-                if (id != null && color != null) id to color else null
-            }
-            // A colour a cover load found before this ran is newer than the stored one.
-            colors.forEach { (id, color) -> MangaCover.vibrantCoverColorMap.putIfAbsent(id, color) }
+            CoverColors.restore(uiPreferences.coverVibrantColors.get())
             saveMutex.withLock { lastSaved = uiPreferences.coverVibrantColors.get() }
         }
     }
@@ -57,9 +51,7 @@ class MangaCoverMetadata(
      */
     fun savePrefs(): Job = scope.launchIO {
         loaded.join()
-        val encoded = synchronized(MangaCover.vibrantCoverColorMap) {
-            MangaCover.vibrantCoverColorMap.mapNotNullTo(HashSet()) { (id, color) -> color?.let { "$id|$it" } }
-        }
+        val encoded = CoverColors.encode()
         saveMutex.withLock {
             if (encoded == lastSaved) return@launchIO
             uiPreferences.coverVibrantColors.set(encoded)
@@ -69,7 +61,12 @@ class MangaCoverMetadata(
 
     /** Extract the vibrant color in the background, skipping work when the feature is off or already known. */
     fun setVibrantColorAsync(mangaCover: MangaCover, bufferedSource: BufferedSource? = null, ogFile: File? = null) {
-        if (!uiPreferences.themeCoverBased.get() || mangaCover.vibrantCoverColor != null) return
+        if (!uiPreferences.themeCoverBased.get()) return
+        // A known colour is only re-filed, so an entry added to or removed from the library since moves store.
+        mangaCover.vibrantCoverColor?.let {
+            mangaCover.vibrantCoverColor = it
+            return
+        }
         scope.launchIO { setVibrantColor(mangaCover, bufferedSource, ogFile) }
     }
 

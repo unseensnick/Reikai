@@ -64,7 +64,7 @@ class MetadataViewViewModel(
             _manga.value = manga
             if (manga != null && themeCoverBased) {
                 val cover = manga.asMangaCover()
-                seedColor.value = EntryId.Manga(manga.id).seedColor(cover.url, cover.lastModified) {
+                seedColor.value = EntryId.Manga(manga.id).seedColor(cover.url, cover.lastModified, manga.favorite) {
                     context.extractCoverColor(cover)
                 }
             }

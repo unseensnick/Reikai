@@ -87,7 +87,9 @@ class MangaReaderProvider(
         .mapNotNull { it.manga?.asMangaCover() }
         .distinctUntilChanged()
         .map { cover ->
-            EntryId.Manga(cover.mangaId).seedColor(cover.url, cover.lastModified) { context.extractCoverColor(cover) }
+            EntryId.Manga(cover.mangaId).seedColor(cover.url, cover.lastModified, cover.isMangaFavorite) {
+                context.extractCoverColor(cover)
+            }
         }
 
     override val displayFilters = ReaderDisplayFilters(

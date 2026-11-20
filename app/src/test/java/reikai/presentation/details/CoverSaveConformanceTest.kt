@@ -24,10 +24,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.entry.ClearCustomCover
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
 import reikai.presentation.components.savePicture
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.i18n.MR
 
 /** The cover viewer's Save, Share and custom-cover writes over both types' models. */
@@ -46,7 +46,7 @@ class CoverSaveConformanceTest {
     fun tearDown() {
         unmockkAll()
         Dispatchers.resetMain()
-        MangaCover.vibrantCoverColorMap.clear()
+        CoverColors.clear()
     }
 
     @ParameterizedTest

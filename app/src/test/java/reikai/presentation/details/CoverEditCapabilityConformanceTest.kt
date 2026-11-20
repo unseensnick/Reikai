@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.ClearCustomCover
+import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
@@ -37,7 +38,6 @@ import reikai.util.testAppScope
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.source.local.LocalSource
 import java.io.ByteArrayInputStream
 import kotlin.time.Instant
@@ -56,7 +56,7 @@ class CoverEditCapabilityConformanceTest {
     fun tearDown() {
         Dispatchers.resetMain()
         unmockkStatic(Dispatchers::class)
-        MangaCover.vibrantCoverColorMap.clear()
+        CoverColors.clear()
     }
 
     @ParameterizedTest(name = "{0}")

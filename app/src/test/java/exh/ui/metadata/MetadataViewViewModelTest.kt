@@ -51,7 +51,7 @@ class MetadataViewViewModelTest {
 
     @Test
     fun `the page tints from the manga's cover`() = runTest {
-        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null) { COLOR }
+        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null, inLibrary = true) { COLOR }
         val viewModel = viewModel(themeCoverBased = true)
 
         withContext(Dispatchers.Default) {
@@ -61,7 +61,7 @@ class MetadataViewViewModelTest {
 
     @Test
     fun `a colour already kept tints the first frame, before the manga is read`() = runTest {
-        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null) { COLOR }
+        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null, inLibrary = true) { COLOR }
 
         val unread = mockk<GetManga> { coEvery { await(MANGA_ID) } coAnswers { awaitCancellation() } }
 
@@ -72,7 +72,7 @@ class MetadataViewViewModelTest {
 
     @Test
     fun `with the cover theme off the page is not tinted`() = runTest {
-        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null) { COLOR }
+        EntryId.Manga(MANGA_ID).seedColor(manga.thumbnailUrl, null, inLibrary = true) { COLOR }
         val viewModel = viewModel(themeCoverBased = false)
         withContext(Dispatchers.Default) { withTimeout(5.seconds) { viewModel.manga.first { it != null } } }
 
