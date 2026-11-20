@@ -34,6 +34,7 @@ import reikai.novel.content.NovelRegexReplacements
 import reikai.novel.download.NovelDownloadedTexts
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.i18n.MR
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.PatternSyntaxException
@@ -74,8 +75,11 @@ data class NovelChapterSearchRoute(
         init {
             viewModelScope.launchIO {
                 val chapters = downloadedTexts.chaptersOf(novelId, sourceScoped).onDisk
-                state.update { it.copy(chapters = chapters) }
-                if (state.value.pendingSearch) search()
+                // On Main, where search runs, so a search between its chapters read and its pending mark is not lost.
+                withUIContext {
+                    state.update { it.copy(chapters = chapters) }
+                    if (state.value.pendingSearch) search()
+                }
             }
         }
 

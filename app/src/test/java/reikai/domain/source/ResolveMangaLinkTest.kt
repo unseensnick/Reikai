@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.HttpSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -18,10 +19,14 @@ import tachiyomi.domain.manga.model.Manga
 class ResolveMangaLinkTest {
 
     private val stored = mutableMapOf<Pair<String, Long>, Manga>()
+    private var lookups = 0
 
     private fun resolver(vararg sources: HttpSource) = ResolveMangaLink(
         onlineSources = { sources.toList() },
-        storedManga = { url, id -> stored[url to id] },
+        storedManga = { url, id ->
+            lookups++
+            stored[url to id]
+        },
         networkToLocalManga = { it.copy(id = 99L) },
     )
 
@@ -121,7 +126,30 @@ class ResolveMangaLinkTest {
     fun `a stored series opens without asking the extension`() = runTest {
         stored["/series/1/" to 1L] = Manga.create().copy(id = 5L, url = "/series/1/", source = 1L)
 
-        resolver(source(1L, series = { error("not asked") })).byStoredRow(LINK)!!.id shouldBe 5L
+        val extension = source(1L)
+
+        resolver(extension).byStoredRow(LINK)
+
+        // Counted, since every extension call in the resolver is caught, so a throwing fake would not show an ask.
+        coVerify(exactly = 0) { extension.getMangaUpdate(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a stored series opens its row`() = runTest {
+        stored["/series/1/" to 1L] = Manga.create().copy(id = 5L, url = "/series/1/", source = 1L)
+
+        resolver(source(1L)).byStoredRow(LINK)!!.id shouldBe 5L
+    }
+
+    @Test
+    fun `a guess after a stored-row miss does not match the link again`() = runTest {
+        val resolver = resolver(source(1L))
+        resolver.byStoredRow(LINK)
+        val looked = lookups
+
+        resolver.byGuess(LINK)
+
+        lookups shouldBe looked
     }
 
     @Test
@@ -134,6 +162,13 @@ class ResolveMangaLinkTest {
     @Test
     fun `the site's own search finding the linked series opens it`() = runTest {
         resolver(source(1L, search = { listOf("/series/1") })).bySearch(LINK)!!.url shouldBe "/series/1"
+    }
+
+    @Test
+    fun `a search that finds nothing leaves the link to the next extension on the site`() = runTest {
+        val found = resolver(source(1L), source(2L, search = { listOf("/series/1") })).bySearch(LINK)
+
+        found!!.source shouldBe 2L
     }
 
     @Test

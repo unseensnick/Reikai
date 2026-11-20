@@ -20,6 +20,9 @@ import exh.debug.DebugToggles
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.ExhPreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
@@ -31,11 +34,14 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.addNewUpdates
 import reikai.data.library.libraryUpdateGate
 import reikai.data.library.libraryUpdatePeriodicRequest
+import reikai.data.library.visibleArrivalCount
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.download.SourceContacts
+import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
@@ -83,6 +89,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
     @Inject private lateinit var reconcileMergedChapters: ReconcileMergedChapters
 
     @Inject private lateinit var sourceContacts: SourceContacts
+
+    @Inject private lateinit var hiddenEntries: LibraryHiddenRepository
 
     private val updateErrorLog = UpdateErrorLog(context)
 
@@ -190,10 +198,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                         updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters) ?: continue
 
                     if (new.isNotEmpty() && manga.id == acceptedRoot.manga.id) {
-                        libraryPreferences.addNewUpdates(new.size)
                         updatedManga += acceptedRoot.manga to new.toTypedArray()
                     } else if (exhNew.isNotEmpty() && updatedManga.none { it.first.id == acceptedRoot.manga.id }) {
-                        libraryPreferences.addNewUpdates(exhNew.size)
                         updatedManga += acceptedRoot.manga to exhNew.toTypedArray()
                     }
 
@@ -214,6 +220,13 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             )
 
             updateNotifier.cancelProgressNotification()
+            // A stopped run has written its chapters already, and they are never new again, so it still counts.
+            val count = withContext(NonCancellable) {
+                visibleArrivalCount(updatedManga.map { (manga, new) -> manga.id to new.size }) {
+                    hiddenEntries.subscribe(ContentType.MANGA).first()
+                }
+            }
+            if (count > 0) libraryPreferences.addNewUpdates(count)
             if (updatedManga.isNotEmpty()) {
                 libraryUpdateNotifier.showUpdateNotifications(updatedManga)
             }

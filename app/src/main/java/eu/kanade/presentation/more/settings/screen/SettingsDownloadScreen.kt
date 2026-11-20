@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
 import mihon.core.navigation.LocalNavigator

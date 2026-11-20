@@ -56,6 +56,16 @@ class NovelChapterSearchModelTest {
     }
 
     @Test
+    fun `a search asked for while the chapters load runs once they arrive`() = runTest {
+        val model =
+            Model(1L, sourceScoped = false, NovelDownloadedTextsFixture.texts(chapters, stored), mockk(relaxed = true))
+        model.updateQuery("two")
+        model.search()
+
+        model.state.first { it.submittedQuery != null && !it.isSearching }.results.size shouldBe 2
+    }
+
+    @Test
     fun `an invalid pattern says why and searches nothing`() = runTest {
         searched("(two", SearchOptions(isRegex = true)).submittedQuery shouldBe null
     }

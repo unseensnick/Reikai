@@ -109,13 +109,20 @@ class ResolveNovelLink(
         return NovelLinkTarget.Novel(stored.id)
     }
 
-    // A novel's stored value is its row, found by any spelling the link may be stored under.
-    private suspend fun single(text: String) = SharedLink.parse(text)?.matchOne(
-        sources(),
-        siteOf = { it.site },
-        storedAt = { source, url -> novelRepository.getByUrlAndSource(url, source.id) },
-        webUrl = { source, path -> source.webUrl(path, true) },
-    )
+    private val matches = HashMap<String, SharedLink.Match<NovelSource, Novel>?>()
+
+    // A novel's stored value is its row, found by any spelling the link may be stored under. Kept per text,
+    // since a stored-row miss is followed by a guess over the same match; a resolver serves one link screen.
+    private suspend fun single(text: String) = if (text in matches) {
+        matches[text]
+    } else {
+        SharedLink.parse(text)?.matchOne(
+            sources(),
+            siteOf = { it.site },
+            storedAt = { source, url -> novelRepository.getByUrlAndSource(url, source.id) },
+            webUrl = { source, path -> source.webUrl(path, true) },
+        ).also { matches[text] = it }
+    }
 
     // A page that is not a novel's still parses on many sites; a name and something to read is the bar.
     private fun SourceNovel.isANovel() = sentName != null && (!chapters.isNullOrEmpty() || totalPages > 1)

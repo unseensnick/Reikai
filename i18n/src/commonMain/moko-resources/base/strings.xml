@@ -72,6 +72,7 @@
     <string name="action_sort_date_added">Date added</string>
     <string name="action_sort_tracker_score">Tracker score</string>
     <string name="action_sort_random">Random</string>
+    <!-- RK: per-category sort, manual order, and the duplicate chapters the reader skips -->
     <string name="action_sort_reset_to_global">Reset to global sort</string>
     <string name="action_sort_manual">Manual</string>
     <string name="pref_show_skipped_duplicates">Show duplicate chapters the reader skips</string>
@@ -95,6 +96,7 @@
     <string name="action_search_hint">Search…</string>
     <string name="action_search_settings">Search settings</string>
     <string name="action_global_search">Global search</string>
+    <!-- RK: library search -->
     <string name="action_library_search">Library search</string>
     <string name="action_select_all">Select all</string>
     <string name="action_select_inverse">Select inverse</string>
@@ -109,6 +111,7 @@
     <string name="action_enable_all">Enable all</string>
     <string name="action_disable_all">Disable all</string>
     <string name="action_edit">Edit</string>
+    <!-- RK: the edit-info dialog -->
     <string name="action_edit_info">Edit info</string>
     <string name="action_add">Add</string>
     <string name="action_update_category">Update category</string>
@@ -130,6 +133,7 @@
     <string name="action_start">Start</string>
     <string name="action_resume">Resume</string>
     <string name="action_open_in_browser">Open in browser</string>
+    <!-- RK: details web search -->
     <string name="action_web_search">Web search</string>
     <string name="action_show_manga">Show entry</string>
     <string name="action_copy_to_clipboard">Copy to clipboard</string>
@@ -142,6 +146,7 @@
     <string name="action_display">Display</string>
     <string name="action_display_grid">Compact grid</string>
     <string name="action_display_comfortable_grid">Comfortable grid</string>
+    <!-- RK: panorama grid display mode -->
     <string name="action_display_comfortable_grid_panorama">Panorama comfortable grid</string>
     <string name="action_display_list">List</string>
     <string name="action_display_cover_only_grid">Cover-only grid</string>
@@ -149,11 +154,13 @@
     <string name="action_display_unread_badge">Unread chapters</string>
     <string name="action_display_local_badge">Local source</string>
     <string name="action_display_language_badge">Language</string>
+    <!-- RK: library source icon badge -->
     <string name="action_display_source_badge">Source icon</string>
     <string name="action_display_show_tabs">Show category tabs</string>
     <string name="action_display_show_number_of_items">Show number of items</string>
     <string name="action_display_show_continue_reading_button">Continue reading button</string>
     <string name="action_disable">Disable</string>
+    <!-- RK: enable action -->
     <string name="action_enable">Enable</string>
     <string name="action_pin">Pin</string>
     <string name="action_unpin">Unpin</string>

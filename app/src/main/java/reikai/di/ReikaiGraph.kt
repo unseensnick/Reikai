@@ -143,16 +143,16 @@ interface ReikaiGraph {
     val tasteLibraryRepository: TasteLibraryRepository
     val trackerLibraryFetchers: List<TrackerLibraryFetcher> // Settings draws each pull switch from its fetcher
 
-    // Interactors are unscoped, so every read builds a fresh instance. That matches the pre-port
-    // shape: Injekt registered every one of these with addFactory, never addSingletonFactory.
-    val getNovelCategories: GetNovelCategories
     val categoryRepository: CategoryRepository // Settings counts every category of both libraries
 
-    // The metadata trio backs source-api's MetadataSource contract, which installed extensions
-    // implement, so these three are reached through Injekt rather than the graph.
+    // Interactors are unscoped, so every read builds a fresh instance; they hold no state to share.
+    val getNovelCategories: GetNovelCategories
+
+    // MetroInjektRegistrar reads these three to answer source-api's MetadataSource Injekt reads.
     val getManga: GetManga
     val getFlatMetadataById: GetFlatMetadataById
     val insertFlatMetadata: InsertFlatMetadata
+
     val getExhFavoriteMangaWithMetadata: GetExhFavoriteMangaWithMetadata
     val toggleIncognito: ToggleIncognito
     val repairNovelDetails: RepairNovelDetails

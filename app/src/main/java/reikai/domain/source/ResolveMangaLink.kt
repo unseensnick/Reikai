@@ -56,12 +56,19 @@ class ResolveMangaLink(
         return networkToLocalManga(series.copy(url = path))
     }
 
-    private suspend fun single(text: String) = SharedLink.parse(text)?.matchOne(
-        onlineSources(),
-        siteOf = { it.baseUrl },
-        storedAt = { source, url -> storedManga(url, source.id) },
-        webUrl = { source, path -> webUrl(source, path) },
-    )
+    private val matches = HashMap<String, SharedLink.Match<HttpSource, Manga>?>()
+
+    // Kept per text, since a stored-row miss is followed by a guess over the same match.
+    private suspend fun single(text: String) = if (text in matches) {
+        matches[text]
+    } else {
+        SharedLink.parse(text)?.matchOne(
+            onlineSources(),
+            siteOf = { it.baseUrl },
+            storedAt = { source, url -> storedManga(url, source.id) },
+            webUrl = { source, path -> webUrl(source, path) },
+        ).also { matches[text] = it }
+    }
 
     private fun webUrl(source: HttpSource, path: String) =
         source.mangaUrlOrNull(SManga.create().apply { url = path }).orEmpty()

@@ -11,6 +11,8 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 import reikai.data.task.AppTask
 import reikai.data.task.AppTaskProgress
 import reikai.domain.download.SourceContacts
@@ -76,6 +78,23 @@ class LibraryUpdateRun(
  */
 fun LibraryPreferences.addNewUpdates(count: Int) {
     synchronized(newUpdatesCount) { newUpdatesCount.getAndSet { it + count } }
+}
+
+/**
+ * How many of [arrivals], each an entry id and its new chapter count, the Updates badge counts: none of a [hidden]
+ * entry's, since Updates leaves them out. Every update job counts through here, the gallery job included.
+ */
+suspend fun visibleArrivalCount(arrivals: List<Pair<Long, Int>>, hidden: suspend () -> Set<Long>): Int {
+    if (arrivals.isEmpty()) return 0
+    // A failed read counts every arrival, as before hiding left any out, rather than lose the count.
+    val hiddenIds = runCatching { hidden() }
+        .onFailure {
+            logcat("LibraryUpdateRun", LogPriority.ERROR) {
+                "Reading hidden series for the Updates badge failed: ${it.asLog()}"
+            }
+        }
+        .getOrDefault(emptySet())
+    return arrivals.filter { it.first !in hiddenIds }.sumOf { it.second }
 }
 
 /** What an update run gathered, entry by entry. The manga job fills it from five coroutines at once. */
@@ -190,11 +209,8 @@ suspend fun <E, C> runLibraryUpdate(
     } finally {
         withContext(NonCancellable) {
             if (downloads.isNotEmpty()) queueDownloads(downloads)
-            // A failed read counts every arrival, as before hiding left any out, rather than lose the count.
-            val hiddenIds = runCatching { hidden() }
-                .onFailure { logcat(LogPriority.ERROR, it) { "Reading hidden series for the Updates badge failed" } }
-                .getOrDefault(emptySet())
-            val count = (counted ?: ledger.arrivals).filter { entryId(it.first) !in hiddenIds }.sumOf { it.second.size }
+            val count =
+                visibleArrivalCount((counted ?: ledger.arrivals).map { entryId(it.first) to it.second.size }, hidden)
             if (count > 0) countArrivals(count)
         }
     }
