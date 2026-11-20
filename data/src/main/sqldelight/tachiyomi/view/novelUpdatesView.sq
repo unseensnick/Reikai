@@ -1,4 +1,4 @@
--- Novel twin of updatesView. Favorited novels' chapters that were
+-- Novel twin of updatesView, pinned by UpdatesFeedFilterConformanceTest. Favorited novels' chapters that were
 -- fetched after the novel was added to the library (date_fetch > favorite_at), i.e. the recent-updates
 -- feed. Filters/sorts on date_fetch (not date_upload): many LN sources leave date_upload unknown, so the
 -- manga side's dateUpload cutoff would hide them. No scanlator joins (novels offer no scanlator filter).
@@ -46,7 +46,7 @@ AND (
     OR EXISTS (
         SELECT 1 FROM novels_categories
         WHERE novels_categories.novel_id = novelId
-        AND COALESCE(novels_categories.category_id, 0) IN :includedCategories
+        AND novels_categories.category_id IN :includedCategories
     )
     OR (0 IN :includedCategories AND NOT EXISTS (
         SELECT 1 FROM novels_categories nc WHERE nc.novel_id = novelId)
@@ -58,7 +58,7 @@ AND (
         NOT EXISTS (
             SELECT 1 FROM novels_categories
             WHERE novels_categories.novel_id = novelId
-            AND COALESCE(novels_categories.category_id, 0) IN :excludedCategories
+            AND novels_categories.category_id IN :excludedCategories
         )
         AND (
             0 NOT IN :excludedCategories

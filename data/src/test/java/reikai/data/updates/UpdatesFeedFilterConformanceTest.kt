@@ -64,6 +64,33 @@ class UpdatesFeedFilterConformanceTest {
         type.chapterIds(database, Case.NONE) shouldBe listOf(1L, 2L, 3L, 6L)
     }
 
+    /** Entry 5 was added at 100 and its chapter 8 fetched and uploaded at 300, both before the cutoff. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter from before the cutoff is left out`(type: Type) = runTest {
+        type.seed(driver, type.statements + type.beforeCutoff)
+
+        type.chapterIds(database, Case.NONE) shouldBe Case.NONE.expected
+    }
+
+    /** Chapter 9 of entry 1 (added at 1000) was fetched and uploaded at 900, after the cutoff. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter fetched before its series was added is left out`(type: Type) = runTest {
+        type.seed(driver, type.statements + type.fetchedBeforeAdded)
+
+        type.chapterIds(database, Case.NONE) shouldBe Case.NONE.expected
+    }
+
+    /** Chapters 10 and 11 were fetched at 3000 and 4000, after every other chapter's 2000. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `the feed is the newest fetches first, cut at the limit`(type: Type) = runTest {
+        type.seed(driver, type.statements + type.newest)
+
+        type.query(database, Case.NONE, limit = 2) shouldBe listOf(11L, 10L)
+    }
+
     /**
      * Entry 1 is in category 1, entry 2 in category 2, entry 3 in none and entry 4 in both. Chapters, all
      * fetched and uploaded after the entry was added: 1 read, 2 started, 3 bookmarked, 4 untouched, 5 read
@@ -92,6 +119,9 @@ class UpdatesFeedFilterConformanceTest {
         val uploadUnknown: String,
         val cutsOffOnFetch: Boolean,
         val hideEntryThree: String,
+        val beforeCutoff: List<String>,
+        val fetchedBeforeAdded: String,
+        val newest: String,
     ) {
         MANGA(
             listOf(
@@ -119,12 +149,21 @@ class UpdatesFeedFilterConformanceTest {
                 "remote_date_upload, remote_memo) VALUES (7, 1, 'c7', 'n', NULL, 0, 0, 0, 3.0, 2, 2000, 0, '{}')",
             cutsOffOnFetch = false,
             hideEntryThree = "INSERT INTO library_hidden_manga(manga_id) VALUES (3)",
+            beforeCutoff = listOf(
+                "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, state_initialized, " +
+                    "user_reader_flags, user_chapter_flags, state_cover_last_modified, user_favorite_at, " +
+                    "remote_update_strategy, state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
+                    "(5, 1, 'e', 't', 0, 0, 0, 0, 0, 100, 0, 0, '', '{}')",
+                mangaChapter(id = 8, mangaId = 5, at = 300),
+            ),
+            fetchedBeforeAdded = mangaChapter(id = 9, mangaId = 1, at = 900),
+            newest = mangaChapter(id = 10, mangaId = 1, at = 3000) + ", " + mangaChapterValues(11, 1, 4000),
         ) {
             // The excluded-scanlator filter is manga only, so it stays off to compare like with like.
-            override suspend fun query(database: Database, case: Case) = UpdatesRepositoryImpl(database)
+            override suspend fun query(database: Database, case: Case, limit: Long) = UpdatesRepositoryImpl(database)
                 .subscribeAll(
                     after = AFTER,
-                    limit = Long.MAX_VALUE,
+                    limit = limit,
                     unread = case.unread,
                     started = case.started,
                     bookmarked = case.bookmarked,
@@ -156,11 +195,18 @@ class UpdatesFeedFilterConformanceTest {
                 "(7, 1, 'c7', 'n', 0, 0, 0, 3.0, 2, 2000, 0)",
             cutsOffOnFetch = true,
             hideEntryThree = "INSERT INTO library_hidden_novel(novel_id) VALUES (3)",
+            beforeCutoff = listOf(
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
+                    "VALUES (5, 's1', 'e', 't', 0, 0, 0, 100)",
+                novelChapter(id = 8, novelId = 5, at = 300),
+            ),
+            fetchedBeforeAdded = novelChapter(id = 9, novelId = 1, at = 900),
+            newest = novelChapter(id = 10, novelId = 1, at = 3000) + ", " + novelChapterValues(11, 1, 4000),
         ) {
-            override suspend fun query(database: Database, case: Case) = NovelRepositoryImpl(database)
+            override suspend fun query(database: Database, case: Case, limit: Long) = NovelRepositoryImpl(database)
                 .getFilteredNovelUpdatesAsFlow(
                     after = AFTER,
-                    limit = Long.MAX_VALUE,
+                    limit = limit,
                     unread = case.unread,
                     started = case.started,
                     bookmarked = case.bookmarked,
@@ -172,7 +218,8 @@ class UpdatesFeedFilterConformanceTest {
         },
         ;
 
-        protected abstract suspend fun query(database: Database, case: Case): List<Long>
+        /** In the order the feed returns them. */
+        abstract suspend fun query(database: Database, case: Case, limit: Long = Long.MAX_VALUE): List<Long>
 
         suspend fun chapterIds(database: Database, case: Case) = query(database, case).sorted()
 
@@ -193,3 +240,19 @@ class UpdatesFeedFilterConformanceTest {
         fun cases() = Type.entries.flatMap { type -> Case.entries.map { Arguments.of(type, it) } }
     }
 }
+
+/** One unread chapter fetched and uploaded at [at]. */
+private fun mangaChapter(id: Long, mangaId: Long, at: Long) =
+    "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, user_read, " +
+        "user_bookmark, user_last_page_read, remote_chapter_number, remote_order, state_date_fetch, " +
+        "remote_date_upload, remote_memo) VALUES " + mangaChapterValues(id, mangaId, at)
+
+private fun mangaChapterValues(id: Long, mangaId: Long, at: Long) =
+    "($id, $mangaId, 'c$id', 'n', NULL, 0, 0, 0, $id.0, $id, $at, $at, '{}')"
+
+private fun novelChapter(id: Long, novelId: Long, at: Long) =
+    "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, last_text_progress, " +
+        "chapter_number, source_order, date_fetch, date_upload) VALUES " + novelChapterValues(id, novelId, at)
+
+private fun novelChapterValues(id: Long, novelId: Long, at: Long) =
+    "($id, $novelId, 'c$id', 'n', 0, 0, 0, $id.0, $id, $at, $at)"
