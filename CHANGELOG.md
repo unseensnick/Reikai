@@ -396,6 +396,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Local manga chapters in Updates and History now count as downloaded, with no Download button that did nothing.**
 - **Adding a series to the library from Updates or History now says so when the add fails.**
 - **Clear history and the selection actions in Updates and History now finish even if you leave the tab straight away.**
+- **The manga Updates widgets now show the cover set in Edit info, as the combined widget does.**
 
 ### Migration
 

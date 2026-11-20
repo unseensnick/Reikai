@@ -1,10 +1,16 @@
 package reikai.presentation.widget
 
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.merge.TestMergeManagers
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 import kotlin.time.Instant
@@ -12,9 +18,14 @@ import kotlin.time.Instant
 /** Manga 1 and 2 are one merged series; Mihon's cover widgets draw through this. */
 class MergedMangaUpdatesPerSeriesTest {
 
-    private fun perSeries(mergingOn: Boolean) = MergedMangaUpdatesPerSeries(
-        TestMergeManagers(mapOf(ContentType.MANGA to mapOf(1L to 9L, 2L to 9L)), mergingOn).manga,
-    )
+    private fun perSeries(mergingOn: Boolean = true, custom: List<CustomMangaInfo> = emptyList()) =
+        MergedMangaUpdatesPerSeries(
+            TestMergeManagers(mapOf(ContentType.MANGA to mapOf(1L to 9L, 2L to 9L)), mergingOn).manga,
+            GetEntryCustomInfo(
+                mockk { every { subscribeAll() } returns flowOf(custom) },
+                mockk { every { subscribeAll() } returns flowOf(emptyList()) },
+            ),
+        )
 
     private val updates = listOf(update(mangaId = 2L, chapterId = 20L), update(1L, 10L), update(2L, 21L))
 
@@ -26,6 +37,15 @@ class MergedMangaUpdatesPerSeriesTest {
     @Test
     fun `with series merging off each source draws its own cover`() = runTest {
         perSeries(mergingOn = false).onePerSeries(updates).map { it.mangaId } shouldBe listOf(2L, 1L)
+    }
+
+    @Test
+    fun `an edited cover is the one Mihon's widgets draw`() = runTest {
+        val edited = perSeries(custom = listOf(CustomMangaInfo(mangaId = 1L, thumbnailUrl = "mine")))
+            .withCustomInfo(flowOf(listOf(update(1L, 10L))))
+            .first()
+
+        edited.single().coverData.url shouldBe "mine"
     }
 
     private fun update(mangaId: Long, chapterId: Long) = UpdatesWithRelations(

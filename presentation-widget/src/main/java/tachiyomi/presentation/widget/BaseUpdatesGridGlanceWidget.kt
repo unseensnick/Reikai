@@ -89,8 +89,8 @@ abstract class BaseUpdatesGridGlanceWidget : GlanceAppWidget() {
             }
 
             val flow = remember {
-                getUpdates
-                    .subscribe(false, DateLimit)
+                // RK: under Edit info's cover, as the combined widget draws it
+                perSeries.withCustomInfo(getUpdates.subscribe(false, DateLimit))
                     .map { rawData ->
                         rawData.prepareData(context, rowCount, columnCount)
                     }
