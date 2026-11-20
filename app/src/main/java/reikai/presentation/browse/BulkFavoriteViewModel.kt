@@ -6,6 +6,8 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import kotlinx.coroutines.CoroutineScope
+import mihon.core.metro.AppCoroutineScope
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -20,7 +22,8 @@ import tachiyomi.domain.manga.model.Manga
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class BulkFavoriteViewModel(
     private val libraryAdder: MangaLibraryAdder,
-) : EntryBulkFavoriteViewModel<Manga>() {
+    @AppCoroutineScope appScope: CoroutineScope,
+) : EntryBulkFavoriteViewModel<Manga>(appScope) {
 
     override fun keyOf(item: Manga): Any = item.id
 

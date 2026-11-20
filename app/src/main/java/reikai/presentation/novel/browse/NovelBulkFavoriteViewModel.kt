@@ -7,6 +7,8 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import kotlinx.coroutines.CoroutineScope
+import mihon.core.metro.AppCoroutineScope
 import reikai.novel.host.NovelItem
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
@@ -22,7 +24,8 @@ import reikai.presentation.browse.EntryBulkFavoriteViewModel
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelBulkFavoriteViewModel(
     private val libraryAdder: NovelLibraryAdder,
-) : EntryBulkFavoriteViewModel<SelectedNovel>() {
+    @AppCoroutineScope appScope: CoroutineScope,
+) : EntryBulkFavoriteViewModel<SelectedNovel>(appScope) {
 
     override fun keyOf(item: SelectedNovel): Any = item.key
 

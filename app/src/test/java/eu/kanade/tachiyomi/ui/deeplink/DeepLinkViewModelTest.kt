@@ -83,6 +83,20 @@ class DeepLinkViewModelTest {
     }
 
     @Test
+    fun `an extension that fails reading the link leaves the later tiers to answer`() = runTest {
+        mangaSources = listOf(
+            mockk<ResolvableSource> {
+                every { id } returns 1L
+                every { getUriType(LINK) } returns UriType.Manga
+                coEvery { getManga(LINK) } throws IllegalStateException("site changed")
+            },
+        )
+        coEvery { novelLinks.byHook(LINK) } returns novel
+
+        resolved() shouldBe DeepLinkViewModel.State.NovelResult(5L)
+    }
+
+    @Test
     fun `a manga the site's search finds beats a novel source that reads the link`() = runTest {
         coEvery { mangaLinks.bySearch(LINK) } returns manga
         coEvery { novelLinks.byHook(LINK) } returns novel

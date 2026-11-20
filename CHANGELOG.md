@@ -332,6 +332,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
 - **A source's sign-in is no longer sent to another site when a request is redirected there and meets a Cloudflare check.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
+- **Opening a shared link that a manga extension fails to read no longer crashes, and the app goes on to look for it elsewhere.**
+- **Leaving Browse, search, the feed or follows during a multi-select add to library no longer stops the add partway.** Every selected entry is added and filed.
+- **Batch add no longer crashes partway through some imports.**
 - **Light-novel plugins that exchange binary data with their site load novels and chapters again.**
 - **Tracker updates, forms, searches and logins that FlareSolverr can't send now go through the app's own browser.** A tracker update is no longer reported saved when it was not, and forms no longer go out over plain http.
 - **A light-novel plugin novel split into pages now opens when one of its site's requests fails along the way.**

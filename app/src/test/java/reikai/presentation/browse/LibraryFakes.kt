@@ -82,6 +82,9 @@ class FakeMangaLibrary(
     /** Rows whose favorite write the database refuses, answering false as a failed update does. */
     val refusedFavoriteWrites = mutableSetOf<Long>()
 
+    /** Runs before every category write lands, so a test can hold an add between its favorite and its filing. */
+    var beforeFiling: suspend () -> Unit = {}
+
     /** Stores [id] in or out of the library, filed under [categories], and answers the stored row. */
     fun put(id: Long, favorite: Boolean, categories: List<Long> = emptyList()): Manga {
         filed[id] = categories
@@ -138,7 +141,12 @@ class FakeMangaLibrary(
     val getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } }
 
     val setMangaCategories: SetMangaCategories =
-        mockk { coEvery { await(any(), any()) } answers { filed[firstArg()] = secondArg() } }
+        mockk {
+            coEvery { await(any(), any()) } coAnswers {
+                beforeFiling()
+                filed[firstArg()] = secondArg()
+            }
+        }
 
     val removal = RemoveMangaFromLibrary(
         mergeManager = mergeManager,
@@ -197,6 +205,9 @@ class FakeNovelLibrary(
     /** Rows whose favorite write the database refuses, answering false as a failed update does. */
     val refusedFavoriteWrites = mutableSetOf<Long>()
 
+    /** Runs before every category write lands, so a test can hold an add between its favorite and its filing. */
+    var beforeFiling: suspend () -> Unit = {}
+
     fun put(id: Long, path: String, favorite: Boolean, categories: List<Long> = emptyList()): Novel {
         val row = Novel.create().copy(
             id = id,
@@ -247,7 +258,12 @@ class FakeNovelLibrary(
             coEvery { await() } returns userCategories
             coEvery { awaitByNovelId(any()) } answers { filed[firstArg()].orEmpty().map(::libraryCategory) }
         },
-        setNovelCategories = mockk { coEvery { await(any(), any()) } answers { filed[firstArg()!!] = secondArg() } },
+        setNovelCategories = mockk {
+            coEvery { await(any(), any()) } coAnswers {
+                beforeFiling()
+                filed[firstArg()!!] = secondArg()
+            }
+        },
         updateNovel = UpdateNovel(novelRepository = repository, sourceTracker = mockk(relaxed = true)),
         novelPreferences = novelPreferences,
         mergeManager = mergeManager,

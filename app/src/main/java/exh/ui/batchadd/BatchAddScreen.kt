@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -135,31 +136,7 @@ fun BatchAddScreen() {
                             Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
-                    itemsIndexed(
-                        state.events,
-                        key = { index, event -> "batch-add-${index + event.message.hashCode()}" },
-                    ) { _, event ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            val manga = event.manga
-                            if (manga != null) {
-                                MangaCover.Book(
-                                    modifier = Modifier.height(48.dp),
-                                    data = manga.asMangaCover(),
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            Text(
-                                text = event.message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
+                    batchAddEvents(state.events)
                     if (state.progress == state.progressTotal) {
                         item(key = "finish") {
                             Column {
@@ -195,5 +172,35 @@ fun BatchAddScreen() {
             },
         )
         null -> Unit
+    }
+}
+
+/** The progress list's rows, one per gallery tried. */
+internal fun LazyListScope.batchAddEvents(events: List<BatchAddEvent>) {
+    itemsIndexed(
+        events,
+        // Rows only ever append, so the index alone is unique; adding a message hash to it could collide.
+        key = { index, _ -> "batch-add-$index" },
+    ) { _, event ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val manga = event.manga
+            if (manga != null) {
+                MangaCover.Book(
+                    modifier = Modifier.height(48.dp),
+                    data = manga.asMangaCover(),
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = event.message,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }

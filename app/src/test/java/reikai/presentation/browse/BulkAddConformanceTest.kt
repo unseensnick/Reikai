@@ -1,8 +1,15 @@
 package reikai.presentation.browse
 
+import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -44,6 +51,12 @@ class BulkAddConformanceTest {
             BulkAddEffects(favoriteWritten = true, filed = listOf(DEFAULT_CATEGORY))
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a batch still files an entry after its screen closes mid-add`(probe: BulkAddProbe) = runTest {
+        probe.addAcrossClose() shouldBe listOf(DEFAULT_CATEGORY)
+    }
+
     companion object {
         const val DEFAULT_CATEGORY = 3L
         const val STORED_CATEGORY = 5L
@@ -59,11 +72,35 @@ data class BulkAddEffects(val favoriteWritten: Boolean, val filed: List<Long>)
 interface BulkAddProbe {
     /** Selects one entry as a list drew it, then adds the selection once the library says [storedFavorite]. */
     suspend fun addSelection(listedFavorite: Boolean, storedFavorite: Boolean): BulkAddEffects
+
+    /** Adds one entry, closes the screen once it is favorited but before it is filed, and answers its categories. */
+    suspend fun addAcrossClose(): List<Long>
 }
 
 // The facade adds on the IO dispatcher, so the wait runs in real time rather than the test clock.
 private suspend fun <T> settle(block: suspend () -> T): T =
     withContext(Dispatchers.Default) { withTimeout(5.seconds) { block() } }
+
+/** Adds [model]'s selection, closes its screen while [holdFiling] holds the add, then lets the add go on. */
+private suspend fun closeScreenMidFiling(
+    model: EntryBulkFavoriteViewModel<*>,
+    appScope: CoroutineScope,
+    holdFiling: (suspend () -> Unit) -> Unit,
+) {
+    val held = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    holdFiling {
+        held.complete(Unit)
+        release.await()
+    }
+    model.addFavorite()
+    settle { held.await() }
+    model.viewModelScope.cancel()
+    release.complete(Unit)
+    settle { appScope.coroutineContext.job.children.toList().joinAll() }
+}
+
+private fun appScope() = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 private fun storedCategories(storedFavorite: Boolean) =
     if (storedFavorite) listOf(BulkAddConformanceTest.STORED_CATEGORY) else emptyList()
@@ -78,13 +115,27 @@ class MangaBulkAddProbe : BulkAddProbe {
         )
         val listed = library.put(1L, listedFavorite)
         library.put(1L, storedFavorite, storedCategories(storedFavorite))
-        val model = BulkFavoriteViewModel(library.adder)
+        val model = BulkFavoriteViewModel(library.adder, appScope())
 
         model.select(listed)
         model.addFavorite()
         settle { model.state.first { !it.selectionMode } }
 
         return BulkAddEffects(library.favoriteWrites.isNotEmpty(), library.filed[1L].orEmpty())
+    }
+
+    override suspend fun addAcrossClose(): List<Long> {
+        val library = FakeMangaLibrary(
+            userCategories = listOf(libraryCategory(BulkAddConformanceTest.DEFAULT_CATEGORY)),
+            defaultCategoryId = BulkAddConformanceTest.DEFAULT_CATEGORY.toInt(),
+        )
+        val appScope = appScope()
+        val model = BulkFavoriteViewModel(library.adder, appScope)
+
+        model.select(library.put(1L, favorite = false))
+        closeScreenMidFiling(model, appScope) { library.beforeFiling = it }
+
+        return library.filed[1L].orEmpty()
     }
 }
 
@@ -98,12 +149,27 @@ class NovelBulkAddProbe : BulkAddProbe {
         )
         // A browsed novel carries no library state of its own, so what the list drew has nowhere to live.
         library.put(1L, "/a", storedFavorite, storedCategories(storedFavorite))
-        val model = NovelBulkFavoriteViewModel(library.adder)
+        val model = NovelBulkFavoriteViewModel(library.adder, appScope())
 
         model.toggleSelection(FakeNovelLibrary.SOURCE_ID, NovelItem(name = "a", path = "/a", cover = null))
         model.addFavorite()
         settle { model.state.first { !it.selectionMode } }
 
         return BulkAddEffects(library.favoriteWrites.isNotEmpty(), library.filed[1L].orEmpty())
+    }
+
+    override suspend fun addAcrossClose(): List<Long> {
+        val library = FakeNovelLibrary(
+            userCategories = listOf(libraryCategory(BulkAddConformanceTest.DEFAULT_CATEGORY)),
+            defaultCategoryId = BulkAddConformanceTest.DEFAULT_CATEGORY.toInt(),
+        )
+        library.put(1L, "/a", favorite = false)
+        val appScope = appScope()
+        val model = NovelBulkFavoriteViewModel(library.adder, appScope)
+
+        model.toggleSelection(FakeNovelLibrary.SOURCE_ID, NovelItem(name = "a", path = "/a", cover = null))
+        closeScreenMidFiling(model, appScope) { library.beforeFiling = it }
+
+        return library.filed[1L].orEmpty()
     }
 }
