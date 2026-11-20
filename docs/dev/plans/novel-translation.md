@@ -87,7 +87,7 @@ A `translate-mlkit` module with `src/mlkit` and `src/noop` source sets, as `tele
 
 ## Key files
 
-- `TranslationSegments` and `TranslationSegmentsTest`, on the `spike/translation` branch until the kernel moves in.
+- `TranslationSegments` and `TranslationSegmentsTest`, on the spike/translation branch until the kernel moves in.
 - `reikai/novel/content/NovelContentPipeline.kt`, `process`.
 - `reikai/novel/source/NovelChapterTextLoader.kt`, `load`.
 - `reikai/presentation/reader/NovelReaderViewModel.kt`, `cacheIfCurrent`, `warmNeighbour`, `latestTopLine`.
