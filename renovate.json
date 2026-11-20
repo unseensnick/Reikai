@@ -18,6 +18,8 @@
       "matchPackageNames": [
         "androidx.media:media",
         "androidx.palette:palette-ktx",
+        "androidx.test:runner",
+        "com.github.skydoves:colorpicker-compose",
         "com.jakewharton:disklrucache",
         "org.robolectric:robolectric",
         "/^io\\.github\\.takahirom\\.roborazzi/",

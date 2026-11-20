@@ -242,7 +242,9 @@ dependencies {
     baselineProfile(projects.baselineProfile)
 
     implementation(projects.i18n)
-    // RK: the icon modules moved to the Compose group below
+    implementation(projects.icons.customMaterialSymbols)
+    implementation(projects.icons.materialSymbols)
+    implementation(projects.icons.simpleIcons)
     implementation(projects.core.archive)
     implementation(projects.core.common)
     implementation(projects.core.metro)
@@ -264,11 +266,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
-    // RK --> icon modules moved from the top of the block into the Compose group
-    implementation(projects.icons.customMaterialSymbols)
-    implementation(projects.icons.materialSymbols)
-    implementation(projects.icons.simpleIcons)
-    // RK <--
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.animationGraphics)
     debugImplementation(libs.androidx.compose.uiTooling)
@@ -396,8 +393,7 @@ dependencies {
     testImplementation(libs.bundles.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 
-    // RK: instrumented test for the headless LN plugin host (network-dependent, on-device only).
-    // quickjs-kt is a main dep above, so androidTest sees it transitively.
+    // RK: the instrumented suite under src/androidTest (on-device only).
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)
 
