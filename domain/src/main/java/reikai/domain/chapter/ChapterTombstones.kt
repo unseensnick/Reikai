@@ -42,7 +42,8 @@ class LocalChapterStillPresentException(urls: List<String>) :
 /**
  * Which tombstone each [arriving] chapter takes, from the urls the owner's tombstones hold ([tombstoned]) and
  * this run's [removed] chapters, which become tombstones in the same write: its exact url, else the one url
- * equal ignoring case, else the one [removed] chapter it alone shares a recognized number with. Each tombstone
+ * equal ignoring case, else for a volume's Extras chapter its folder's url without the slash, else the one
+ * [removed] chapter it alone shares a recognized number with. Each tombstone
  * revives once, onto one arrival; a pair that is not unique on both sides takes nothing here, and the number
  * twins in [chapterArrivals] still give it read, bookmark and fetch date.
  */
@@ -66,11 +67,17 @@ fun tombstoneRevivals(
             revivals += Revival(chapter.url, it)
         } == null
     }
+    // A chapter folder from before volumes, now a volume: its Extras chapter is the same pictures, and the
+    // archive beside it may share its number, so the address decides first.
+    val unmatchedByFolder = unmatchedByCase.filter { chapter ->
+        val folder = chapter.url.takeIf { it.endsWith('/') }?.dropLast(1)?.takeIf(pool::remove)
+        folder?.also { revivals += Revival(chapter.url, it) } == null
+    }
     val removedByNumber = removed.filter {
         it.url in pool && isRecognizedChapterNumber(it.number)
     }.groupBy { it.number }
-    val arrivingByNumber = unmatchedByCase.groupBy { it.number }
-    unmatchedByCase.forEach { chapter ->
+    val arrivingByNumber = unmatchedByFolder.groupBy { it.number }
+    unmatchedByFolder.forEach { chapter ->
         val twin = removedByNumber[chapter.number]?.singleOrNull() ?: return@forEach
         if (arrivingByNumber.getValue(chapter.number).size == 1) revivals += Revival(chapter.url, twin.url)
     }
