@@ -293,9 +293,9 @@ class MangaRecentsAdapter(
         return mangaLibraryAdder.resolveAddFavorite(manga)
     }
 
-    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
-        val manga = mangaOf(entry) ?: return
-        mangaLibraryAdder.confirmAddCategories(manga.id, categoryIds)
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>): AddOutcome {
+        val manga = mangaOf(entry) ?: return AddOutcome.Failed
+        return mangaLibraryAdder.confirmAddCategories(manga.id, categoryIds)
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome {

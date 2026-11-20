@@ -1,10 +1,7 @@
 package reikai.presentation.recents
 
 import androidx.compose.runtime.Immutable
-import reikai.domain.entry.EntryId
 import reikai.domain.merge.MergeScope
-import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.domain.category.model.Category
 
 /**
  * A prompt the recents surface is showing. One slot on the engine rather than one per content type,
@@ -26,16 +23,4 @@ sealed interface RecentsDialog {
     /** Delete the downloaded files of a selection that can span both content types, each row's chapters
      *  under the merge scope of the lane it was shown in. */
     data class DeleteDownloads(val chapters: Map<MergeScope, Set<ChapterRef>>) : RecentsDialog
-
-    /** Ask before adding [entry], which looks like something the library already holds. */
-    data class Duplicate(val entry: EntryId, val duplicates: RecentsDuplicates) : RecentsDialog
-
-    /** Where a new add should be filed, when there is no usable default to file it into. */
-    data class ChangeCategory(
-        val entry: EntryId,
-        val initialSelection: List<CheckboxState.State<Category>>,
-    ) : RecentsDialog
-
-    /** Migrate [current], a duplicate already in the library, onto the [target] being added. */
-    data class Migrate(val current: EntryId, val target: EntryId) : RecentsDialog
 }

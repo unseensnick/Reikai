@@ -2,6 +2,7 @@ package reikai.presentation.recents
 
 import android.content.Intent
 import androidx.compose.runtime.snapshots.Snapshot
+import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -14,6 +15,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -48,6 +51,7 @@ import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.AddOutcome
+import reikai.presentation.browse.EntryAddDialog
 import reikai.presentation.browse.components.EntryDuplicateCardUi
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.components.DownloadProgress
@@ -98,6 +102,7 @@ class RecentsEngineTest {
                 updatesPreferences = updatesPreferences,
                 libraryPreferences = libraryPreferences,
                 uiPreferences = uiPreferences,
+                appScope = main.trackScope(),
             ),
         )
     }
@@ -121,6 +126,7 @@ class RecentsEngineTest {
             updatesPreferences = emittingUpdatesPreferences,
             libraryPreferences = LibraryPreferences(emittingStore),
             uiPreferences = UiPreferences(emittingStore),
+            appScope = main.trackScope(),
         ),
     )
 
@@ -771,7 +777,7 @@ class RecentsEngineTest {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
 
-        engine(listOf(manga, novel)).clearHistory()
+        engine(listOf(manga, novel)).clearActiveHistory()
 
         (manga.historyCleared to novel.historyCleared) shouldBe (true to true)
     }
@@ -781,7 +787,7 @@ class RecentsEngineTest {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
 
-        engine(listOf(manga, novel), chip = ContentType.MANGA).clearHistory()
+        engine(listOf(manga, novel), chip = ContentType.MANGA).clearActiveHistory()
 
         novel.historyCleared shouldBe false
     }
@@ -795,7 +801,7 @@ class RecentsEngineTest {
         val manga = provider(ContentType.MANGA, historyClears = false)
         val novel = provider(ContentType.NOVELS, historyClears = false)
 
-        engine(listOf(manga, novel)).clearHistory() shouldBe false
+        engine(listOf(manga, novel)).clearActiveHistory() shouldBe false
     }
 
     @Test
@@ -803,7 +809,49 @@ class RecentsEngineTest {
         val manga = provider(ContentType.MANGA, historyClears = false)
         val novel = provider(ContentType.NOVELS, historyClears = true)
 
-        engine(listOf(manga, novel)).clearHistory() shouldBe true
+        engine(listOf(manga, novel)).clearActiveHistory() shouldBe true
+    }
+
+    // The screen's scope is gone the moment the user leaves the tab, so the wipe and its announcement
+    // cannot ride on it.
+
+    @Test
+    fun `a clear confirmed as the screen closes still wipes and is announced`() = runTest {
+        val manga = provider(ContentType.MANGA)
+        val engine = engine(listOf(manga))
+        val announced = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { engine.historyCleared.toList(announced) }
+
+        engine.viewModelScope.cancel()
+        engine.clearHistory()
+
+        (manga.historyCleared to announced.size) shouldBe (true to 1)
+    }
+
+    @Test
+    fun `a swipe's write outlives the screen it was made on`() {
+        val manga = provider(ContentType.MANGA)
+        val engine = engine(listOf(manga))
+        val chapter = ref(manga1, 1)
+
+        engine.viewModelScope.cancel()
+        engine.markRead(setOf(chapter), read = true)
+
+        manga.markedRead shouldBe setOf(chapter)
+    }
+
+    @Test
+    fun `a bulk verb resolved as the screen closes still acts`() {
+        val manga = provider(ContentType.MANGA)
+        val engine = engine(listOf(manga))
+        val row = item(manga1, at = 1, lane = RecentsLane.Updated(ref(manga1, 4)))
+
+        engine.viewModelScope.cancel()
+        engine.actOnSelection(listOf(row), RecentsMode.UPDATES, membership = emptyMap()) {
+            engine.markReadSelection(it, read = true)
+        }
+
+        manga.markedRead shouldBe setOf(ref(manga1, 4))
     }
 
     // The chapter-state filters over the lanes no query filters. The updated lane is filtered in SQL,
@@ -1018,12 +1066,25 @@ class RecentsEngineTest {
         } shouldContainExactly RecentsMode.entries.map { it.can(RecentsCapability.CHAPTER_FILTER) }
     }
 
+    // The add flow, through the shared one every surface runs, one per content type.
+
+    private fun RecentsEngine.addFlow(type: ContentType) = addFlows.single { it.contentType == type }
+
+    private fun entryOf(type: ContentType): EntryId = if (type == ContentType.MANGA) manga1 else novel1
+
+    /** Every failure [flow] reports from here on, collected before the act so none is missed. */
+    private fun TestScope.failuresOf(flow: RecentsAddFlow): List<Unit> {
+        val failures = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.failures.toList(failures) }
+        return failures
+    }
+
     @Test
     fun `an add runs through the provider that owns the entry's content type`() = runTest {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
 
-        engine(listOf(manga, novel)).startAdd(manga1)
+        engine(listOf(manga, novel)).addToLibrary(manga1)
 
         (manga.addedEntry to novel.addedEntry) shouldBe (manga1 to null)
     }
@@ -1032,7 +1093,7 @@ class RecentsEngineTest {
     fun `an entry already in the library is not added again`() = runTest {
         val manga = provider(ContentType.MANGA, decision = AddDecision.Remove)
 
-        engine(listOf(manga)).startAdd(manga1)
+        engine(listOf(manga)).addToLibrary(manga1)
 
         manga.addedEntry shouldBe null
     }
@@ -1042,9 +1103,13 @@ class RecentsEngineTest {
     fun `an add confirmed past the duplicate prompt leaves an entry already in the library alone`(
         type: ContentType,
     ) = runTest {
-        val fake = provider(type, decision = AddDecision.Remove)
+        val entry = entryOf(type)
+        val fake = provider(type, decision = AddDecision.ConfirmDuplicate(duplicates(entry)))
+        val engine = engine(listOf(fake))
+        engine.addToLibrary(entry)
 
-        engine(listOf(fake)).runAdd(if (type == ContentType.MANGA) manga1 else novel1)
+        fake.decision = AddDecision.Remove
+        engine.addFlow(type).confirmAddDuplicate()
 
         fake.addedEntry shouldBe null
     }
@@ -1053,21 +1118,22 @@ class RecentsEngineTest {
     fun `an entry that has gone is not added`() = runTest {
         val manga = provider(ContentType.MANGA, decision = null)
 
-        engine(listOf(manga)).startAdd(manga1)
+        engine(listOf(manga)).addToLibrary(manga1)
 
         manga.addedEntry shouldBe null
     }
 
     @Test
     fun `a possible duplicate is asked about instead of added`() = runTest {
-        val duplicates = duplicates(novel1)
+        val duplicates = duplicates(manga2)
         val manga = provider(ContentType.MANGA, decision = AddDecision.ConfirmDuplicate(duplicates))
         val engine = engine(listOf(manga))
 
-        engine.startAdd(manga1)
+        engine.addToLibrary(manga1)
 
-        engine.dialog.value shouldBe RecentsDialog.Duplicate(manga1, duplicates)
-        manga.addedEntry shouldBe null
+        (engine.addFlow(ContentType.MANGA).dialog.value to manga.addedEntry) shouldBe (
+            EntryAddDialog.AddDuplicate(duplicates.duplicates.map { it.card }, emptyMap(), false) to null
+            )
     }
 
     @Test
@@ -1076,18 +1142,81 @@ class RecentsEngineTest {
         val manga = provider(ContentType.MANGA, addResult = AddFavoriteResult.NeedsCategoryChoice(selection))
         val engine = engine(listOf(manga))
 
-        engine.startAdd(manga1)
+        engine.addToLibrary(manga1)
 
-        engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection)
+        engine.addFlow(ContentType.MANGA).dialog.value shouldBe EntryAddDialog.ChangeCategory(selection)
     }
 
     @Test
     fun `adding to a group hands the provider the picked duplicates`() = runTest {
-        val manga = provider(ContentType.MANGA)
+        val manga = provider(ContentType.MANGA, decision = AddDecision.ConfirmDuplicate(duplicates(manga2)))
+        val engine = engine(listOf(manga))
+        engine.addToLibrary(manga1)
 
-        engine(listOf(manga)).groupAdd(manga1, listOf(manga2))
+        engine.addFlow(ContentType.MANGA).addToGroup(listOf(manga2.rawId))
 
         manga.groupedWith shouldBe listOf(manga2)
+    }
+
+    @Test
+    fun `the picker's confirm files through the provider that owns the entry`() = runTest {
+        val selection = listOf(CheckboxState.State.None(category))
+        val manga = provider(ContentType.MANGA)
+        val novel = provider(ContentType.NOVELS, addResult = AddFavoriteResult.NeedsCategoryChoice(selection))
+        val engine = engine(listOf(manga, novel))
+        engine.addToLibrary(novel1)
+
+        engine.addFlow(ContentType.NOVELS).confirmCategories(listOf(3L))
+
+        (manga.filedCategories to novel.filedCategories) shouldBe (null to (novel1 to listOf(3L)))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("contentTypes")
+    fun `an add whose favorite write failed says so`(type: ContentType) = runTest {
+        val engine = engine(listOf(provider(type, addResult = AddFavoriteResult.Failed)))
+        val failures = failuresOf(engine.addFlow(type))
+
+        engine.addToLibrary(entryOf(type))
+
+        failures.size shouldBe 1
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("contentTypes")
+    fun `a picker confirm whose favorite write failed says so`(type: ContentType) = runTest {
+        val selection = listOf(CheckboxState.State.None(category))
+        val fake = provider(
+            type,
+            addResult = AddFavoriteResult.NeedsCategoryChoice(selection),
+            fileOutcome = AddOutcome.Failed,
+        )
+        val engine = engine(listOf(fake))
+        val failures = failuresOf(engine.addFlow(type))
+        engine.addToLibrary(entryOf(type))
+
+        engine.addFlow(type).confirmCategories(listOf(3L))
+
+        failures.size shouldBe 1
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("contentTypes")
+    fun `a group add that failed says so`(type: ContentType) = runTest {
+        val entry = entryOf(type)
+        val other = if (type == ContentType.MANGA) manga2 else EntryId.Novel(2)
+        val fake = provider(
+            type,
+            decision = AddDecision.ConfirmDuplicate(duplicates(other)),
+            groupOutcome = AddOutcome.Failed,
+        )
+        val engine = engine(listOf(fake))
+        val failures = failuresOf(engine.addFlow(type))
+        engine.addToLibrary(entry)
+
+        engine.addFlow(type).addToGroup(listOf(other.rawId))
+
+        failures.size shouldBe 1
     }
 
     @Test
@@ -1213,16 +1342,6 @@ class RecentsEngineTest {
         engine.open(row, RecentsMode.FEED, membership = emptyMap())
 
         (fake.openedChapter to engine.targets.value[row.lane]?.ref) shouldBe (ref(manga1, 6) to ref(manga1, 6))
-    }
-
-    @Test
-    fun `the picker's confirm files through the provider that owns the entry`() = runTest {
-        val manga = provider(ContentType.MANGA)
-        val novel = provider(ContentType.NOVELS)
-
-        engine(listOf(manga, novel)).fileAddCategories(novel1, listOf(3L))
-
-        (manga.filedCategories to novel.filedCategories) shouldBe (null to (novel1 to listOf(3L)))
     }
 
     // The continue-reading row: which rows pay for a target, and what the verbs then act on.
@@ -1696,6 +1815,8 @@ private fun provider(
     updating: Boolean = false,
     decision: AddDecision<RecentsDuplicates>? = AddDecision.Add,
     addResult: AddFavoriteResult = AddFavoriteResult.Added,
+    fileOutcome: AddOutcome = AddOutcome.Added,
+    groupOutcome: AddOutcome = AddOutcome.Added,
     latestRead: RecentsItem? = null,
     historyClears: Boolean = true,
     states: Map<EntryId, RecentsChapterState> = emptyMap(),
@@ -1717,6 +1838,8 @@ private fun provider(
     updating,
     decision,
     addResult,
+    fileOutcome,
+    groupOutcome,
     latestRead,
     historyClears,
     states,
@@ -1755,8 +1878,11 @@ private class FakeRecentsProvider(
     private val titles: Map<EntryId, String>,
     private val refreshStarts: Boolean,
     updating: Boolean,
-    private val decision: AddDecision<RecentsDuplicates>?,
+    /** Settable, so a test can have the entry reach the library while the duplicate prompt is open. */
+    var decision: AddDecision<RecentsDuplicates>?,
     private val addResult: AddFavoriteResult,
+    private val fileOutcome: AddOutcome,
+    private val groupOutcome: AddOutcome,
     private val latestRead: RecentsItem?,
     private val historyClears: Boolean,
     private val states: Map<EntryId, RecentsChapterState>,
@@ -1934,13 +2060,14 @@ private class FakeRecentsProvider(
         return addResult
     }
 
-    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>): AddOutcome {
         filedCategories = entry to categoryIds
+        return fileOutcome
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome {
         groupedWith = duplicates
-        return AddOutcome.Added
+        return groupOutcome
     }
 
     override suspend fun clearHistory(): Boolean {

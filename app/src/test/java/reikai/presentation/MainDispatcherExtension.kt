@@ -2,8 +2,10 @@ package reikai.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestDispatcher
@@ -27,6 +29,11 @@ class MainDispatcherExtension(
     private val scopes = mutableListOf<Job>()
 
     fun <T : ViewModel> track(model: T): T = model.also { scopes += it.viewModelScope.coroutineContext.job }
+
+    /** An app scope on the test Main, so what a model launches there runs where its own work does, and stops with it. */
+    fun trackScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main).also {
+        scopes += it.coroutineContext.job
+    }
 
     override fun beforeEach(context: ExtensionContext) = Dispatchers.setMain(dispatcher())
 

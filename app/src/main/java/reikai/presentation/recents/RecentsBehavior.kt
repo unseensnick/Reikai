@@ -119,9 +119,9 @@ interface RecentsBehavior {
 
     /**
      * The writes a category picker's confirm owes, in the shared order, once the user has chosen: the
-     * favorite, then filing.
+     * favorite, then filing. [AddOutcome.Failed] when the favorite write did not happen.
      */
-    suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>)
+    suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>): AddOutcome
 
     /** Adds [entry] and merges it into the group of the [duplicates] the user picked, in the group's categories. */
     suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome

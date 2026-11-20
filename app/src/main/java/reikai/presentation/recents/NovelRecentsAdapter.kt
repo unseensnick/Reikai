@@ -198,10 +198,10 @@ class NovelRecentsAdapter(
 
     override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
         val resolved = resolveTarget(item) ?: return null
-        val missing =
-            missingSourcesAmong(novelRepository.ownersOf(resolved.pooled).values.mapTo(HashSet()) { it.source })
+        // Read once: the copies projected below are a subset of the pooled chapters.
+        val ownerOf = novelRepository.ownersOf(resolved.pooled)
+        val missing = missingSourcesAmong(ownerOf.values.mapTo(HashSet()) { it.source })
         return resolved.toTargetRow(id = { it.id }, project = { copies ->
-            val ownerOf = novelRepository.ownersOf(copies)
             copies.mapNotNull { copy ->
                 val owner = ownerOf[copy.novelId] ?: return@mapNotNull null
                 copy.id to RecentsTargetCopy(
@@ -273,9 +273,9 @@ class NovelRecentsAdapter(
         return novelLibraryAdder.addStoredToLibrary(novel.id)
     }
 
-    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
-        val novel = novelOf(entry) ?: return
-        novelLibraryAdder.confirmAddCategories(novel.id, categoryIds)
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>): AddOutcome {
+        val novel = novelOf(entry) ?: return AddOutcome.Failed
+        return novelLibraryAdder.confirmAddCategories(novel.id, categoryIds)
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddOutcome {
