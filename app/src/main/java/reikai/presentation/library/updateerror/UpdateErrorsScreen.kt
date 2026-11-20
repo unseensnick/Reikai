@@ -38,7 +38,6 @@ import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.rounded.SwapCalls
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelCover
 import reikai.presentation.components.ContentTypeFilterChips
@@ -189,12 +188,7 @@ fun UpdateErrorsScreen(initialContentType: ContentType) {
                                 if (successState.selectionMode) {
                                     viewModel.toggleSelection(entry.entryId)
                                 } else {
-                                    when (entry) {
-                                        is UpdateErrorEntry.Manga ->
-                                            navigator.push(EntryId.Manga(entry.error.mangaId).detailsRoute())
-                                        is UpdateErrorEntry.Novel ->
-                                            navigator.push(EntryId.Novel(entry.error.novelId).detailsRoute())
-                                    }
+                                    navigator.push(entry.entryId.detailsRoute())
                                 }
                             },
                             onLongClick = { viewModel.rangeSelection(entry.entryId) },

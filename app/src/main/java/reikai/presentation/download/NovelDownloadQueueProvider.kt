@@ -100,8 +100,8 @@ class NovelDownloadQueueProvider(
 
     override suspend fun sort(key: DownloadQueueSortKey, descending: Boolean) {
         val queue = downloadManager.queueState.value
-        val chapterById = queue.mapTo(HashSet()) { it.novelId }
-            .flatMap { chaptersOf(it) }
+        val chapterById = chapterRepo.getByNovelIds(queue.map { it.novelId }.distinct())
+            .values.flatten()
             .associateBy { it.id }
         val sorted = queue.sortedWithinSeries(
             seriesOf = { it.novelId },

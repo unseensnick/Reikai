@@ -153,7 +153,9 @@ class NovelLibraryViewModel(
             // custom-info overlay rides with them so a title/cover edit re-emits too.
             combine(
                 novelLibraryRows.rows,
-                getCustomNovelInfo.subscribeAll(),
+                // Re-emits on every write to its table; deduped here, on Default, so that [State]'s identity
+                // equality only ever sees a real change.
+                getCustomNovelInfo.subscribeAll().distinctUntilChanged(),
                 ::Pair,
             ),
             // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
@@ -174,13 +176,10 @@ class NovelLibraryViewModel(
             ),
             // No collapse input: collapse only feeds grouping, which LibraryEngine owns, and as an
             // input here every collapse tap would rebuild the whole filtered novel list for nothing.
-            libraryPreferences.showContinueReadingButton.changes(),
+            libraryPreferences.showContinueReadingButton.changes().distinctUntilChanged(),
         ) { (rows, customInfo), searchInputs, showContinue ->
             buildState(rows, customInfo, searchInputs, showContinue)
         }
-            // Here and not left to the StateFlow, whose equality check runs on Main and walks every list
-            // of an unchanged rebuild, which a download-cache tick causes; the manga library does the same.
-            .distinctUntilChanged()
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope + subscriberGate, SharingStarted.Eagerly, null)
 
@@ -344,7 +343,7 @@ class NovelLibraryViewModel(
         // screen was left mid-loop.
         appScope.launch {
             // The interactor groups by novel for delete-after-read, so pass every selected novel's chapters.
-            val chapters = novelIds.flatMap { novelChapterRepository.getByNovelId(it) }
+            val chapters = novelChapterRepository.getByNovelIds(novelIds).values.flatten()
             setNovelReadStatus.await(read, chapters)
         }
     }
@@ -450,6 +449,12 @@ class NovelLibraryViewModel(
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */
         private val customInfo: Map<Long, CustomNovelInfo> = emptyMap(),
     ) {
+        // Identity, since a new instance is always a change (the inputs are deduped on Default): the
+        // StateFlows holding this compare on Main, where a structural pass walked every row.
+        override fun equals(other: Any?): Boolean = this === other
+
+        override fun hashCode(): Int = System.identityHashCode(this)
+
         /** Identity of [customInfo], so a display-overlay edit is not conflated away downstream. */
         val overlayKey: Any get() = customInfo
 

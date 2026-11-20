@@ -14,7 +14,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.task.AppTask
 import reikai.data.task.AppTaskProgress
 import reikai.data.task.BannerTask
 import reikai.data.task.bannerTask
@@ -332,16 +334,63 @@ class LibraryUpdateRunTest {
         tasks.running.value shouldBe emptyMap()
     }
 
-    private fun bannerRun(type: ContentType, tasks: AppTaskProgress): LibraryUpdateRun {
+    /** The banner merges both update kinds, so only the running map tells which one a run marked. */
+    @ParameterizedTest
+    @CsvSource("MANGA, MANGA_UPDATE", "NOVELS, NOVEL_UPDATE")
+    fun `a run marks its own type's update as running`(type: ContentType, task: AppTask) = runTest {
+        val tasks = AppTaskProgress()
+        var running = emptySet<AppTask>()
+
+        bannerRun(type, tasks)<Entry, Row>(
+            type,
+            entryId = { it.id },
+            chapterId = { it.id },
+            announce = {},
+            queueDownloads = {},
+        ) { running = tasks.running.value.keys }
+
+        running shouldBe setOf(task)
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a run leaves off the badge only its own type's hidden series`(type: ContentType) = runTest {
+        val preferences = LibraryPreferences(InMemoryPreferenceStore())
+        // Entry 3 is hidden under this run's type alone; entry 4 is hidden under neither.
+        val runType = type
+        val hidden = object : LibraryHiddenRepository by NoHiddenEntries {
+            override fun subscribe(type: ContentType) = flowOf(setOf(3L).takeIf { type == runType }.orEmpty())
+        }
+
+        bannerRun(type, AppTaskProgress(), preferences, hidden)<Entry, Row>(
+            type,
+            entryId = { it.id },
+            chapterId = { it.id },
+            announce = {},
+            queueDownloads = {},
+        ) {
+            it.arrived(Entry(3), listOf(Row(30)), listOf(Row(30)))
+            it.arrived(Entry(4), listOf(Row(40)), listOf(Row(40)))
+        }
+
+        preferences.newUpdatesCount.get() shouldBe 1
+    }
+
+    private fun bannerRun(
+        type: ContentType,
+        tasks: AppTaskProgress,
+        preferences: LibraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
+        hidden: LibraryHiddenRepository = NoHiddenEntries,
+    ): LibraryUpdateRun {
         val managers = TestMergeManagers(mapOf(type to emptyMap()), mergingOn = true)
         return LibraryUpdateRun(
             ReconcileMergedChapters(mockk(), stitchers = emptySet()),
             managers.manga,
             managers.novel,
             mockk<MergedChapterUnitRepository>(),
-            LibraryPreferences(InMemoryPreferenceStore()),
+            preferences,
             tasks,
-            NoHiddenEntries,
+            hidden,
         )
     }
 

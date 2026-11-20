@@ -24,6 +24,7 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.local.LocalNovelSource
+import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryQuerySource
@@ -60,8 +61,16 @@ class NovelLibraryRows(
 
     data class Rows(val groups: List<NovelMergeCollapse.CollapsedNovel>, val items: List<LibraryItem>)
 
-    /** The library's novels, with each local series' own language by series path. */
-    private class Library(val novels: List<LibraryNovel>, val localLanguages: Map<String, String>)
+    /**
+     * The library's novels, with each local series' own language by series path, and the sources registered
+     * when they were read. The badges read that snapshot rather than awaiting the first plugin load, so the
+     * rows draw at once and redraw as each plugin registers.
+     */
+    private class Library(
+        val novels: List<LibraryNovel>,
+        val localLanguages: Map<String, String>,
+        val sources: Map<String, NovelSource>,
+    )
 
     /**
      * The library's novels, re-emitted when sources (un)register, so a source resolves once loaded, and when
@@ -69,10 +78,12 @@ class NovelLibraryRows(
      */
     private fun library(): Flow<Library> =
         novelRepository.getLibraryNovelAsFlow()
-            .combine(sourceManager.sources) { library, _ -> library }
+            .combine(sourceManager.sources, ::Pair)
             .combine(novelDownloadCache.changes) { library, _ -> library }
             // A local novel's language is read when its files are, so a refresh re-labels its row.
-            .combine(localLanguages.subscribeAll(), ::Library)
+            .combine(localLanguages.subscribeAll()) { (novels, sources), languages ->
+                Library(novels, languages, sources.associateBy { it.id })
+            }
 
     private fun mergeInputs(): Flow<MergeCollapseInputs<String>> = mergeCollapseInputsFlow(
         ContentType.NOVELS,
@@ -113,7 +124,7 @@ class NovelLibraryRows(
                 emptyMap()
             },
         )
-        val iconsBySite = installedIconsBySite(sourceManager.getAll())
+        val iconsBySite = installedIconsBySite(library.sources.values.toList())
         // Resolved once per source: a library holds far more novels than sources.
         val querySources = HashMap<String, LibraryQuerySource>()
         val items = groups.map { group ->
@@ -124,7 +135,7 @@ class NovelLibraryRows(
                 { source -> querySources.getOrPut(source) { querySource(source) } },
                 library.localLanguages,
             ) {
-                novelSourceBadge(sourceManager.get(it), iconsBySite)
+                novelSourceBadge(library.sources[it], iconsBySite)
             }
         }
         return Rows(groups, items)

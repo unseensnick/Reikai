@@ -106,9 +106,9 @@ class LibraryAssembled(
     val chip: ContentType,
     val buckets: List<LibraryBucket>,
     /**
-     * Everything this assembly kept, which is what a selection is pruned to. Held as a plain set
-     * rather than read back through [items], because that read applies the display overlay, and the
-     * overlay must never reach a decision about which entries exist.
+     * Everything this assembly kept, which is what a selection is pruned to and the toolbar counts.
+     * Held as a plain set because [items] carry the display overlay, which must never decide which
+     * entries exist.
      */
     val presentIds: Set<EntryId>,
     private val items: (LibraryBucket) -> List<LibraryItem>,

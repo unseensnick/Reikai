@@ -123,8 +123,9 @@ class LibraryEngineTest {
         statsShortcut: StatsShortcut = StatsShortcut.OFF,
         manualOrder: FakeLibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
         hides: FakeLibraryHiddenRepository = FakeLibraryHiddenRepository(),
+        mergingEnabled: Boolean = true,
+        store: EmittingPreferenceStore = EmittingPreferenceStore(),
     ): LibraryEngine {
-        val store = EmittingPreferenceStore()
         val uiPreferences = UiPreferences(store).also { it.statsShortcut.set(statsShortcut) }
         val repository = mockk<CategoryRepository>(relaxed = true)
         every { repository.getUnfilteredAsFlow() } returns flowOf(categories)
@@ -132,6 +133,7 @@ class LibraryEngineTest {
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store).also {
             it.groupLibraryBy.set(groupBy)
             it.shownContent.set(shown)
+            it.seriesMergingEnabled.set(mergingEnabled)
         }
         return main.track(
             LibraryEngine(
@@ -776,6 +778,80 @@ class LibraryEngineTest {
         engine.performDownloadAction(ContentType.ALL, DownloadAction.NEXT_1_CHAPTER)
 
         verify(exactly = 0) { manga.performDownloadAction(any(), any()) }
+    }
+
+    @Test
+    fun `two entries of one type can merge`() {
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, m2)
+
+        engine.canMergeSelection() shouldBe true
+    }
+
+    @Test
+    fun `one entry alone cannot merge`() {
+        engine.toggleSelection(bucket, m1)
+
+        engine.canMergeSelection() shouldBe false
+    }
+
+    /** A merge group is per content type, so a mixed gesture would write two groups. */
+    @Test
+    fun `a manga and a novel cannot merge`() {
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, n1)
+
+        engine.canMergeSelection() shouldBe false
+    }
+
+    @Test
+    fun `nothing merges with series merging off`() {
+        val engine = engineOver(listOf(manga, novel), mergingEnabled = false)
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, m2)
+
+        engine.canMergeSelection() shouldBe false
+    }
+
+    @Test
+    fun `a merge the gate refuses reaches no provider`() {
+        engine.toggleSelection(bucket, m1)
+
+        engine.mergeSelection(ContentType.ALL)
+
+        verify(exactly = 0) { manga.mergeSelection(any()) }
+    }
+
+    @Test
+    fun `the hopper's gravity is written library-wide`() {
+        val store = EmittingPreferenceStore()
+
+        engineOver(listOf(manga, novel), store = store).setHopperGravity(2)
+
+        ReikaiLibraryPreferences(store).hopperGravity.get() shouldBe 2
+    }
+
+    @Test
+    fun `selected novels can be exported`() {
+        engine.toggleSelection(bucket, n1)
+
+        engine.canExportSelection(ContentType.ALL) shouldBe true
+    }
+
+    @Test
+    fun `a selection holding a manga cannot be exported`() {
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, n1)
+
+        engine.canExportSelection(ContentType.ALL) shouldBe false
+    }
+
+    @Test
+    fun `local novels alone cannot be exported`() {
+        every { novel.containsLocal(setOf(n1)) } returns true
+        engine.toggleSelection(bucket, n1)
+
+        engine.canExportSelection(ContentType.ALL) shouldBe false
     }
 
     private fun providerOf(type: ContentType) = if (type == ContentType.MANGA) manga else novel

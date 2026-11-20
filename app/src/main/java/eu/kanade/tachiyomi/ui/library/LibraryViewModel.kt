@@ -191,7 +191,9 @@ class LibraryViewModel(
             // RK: the custom-info overlay rides with favorites but is
             //     NOT applied here: search/filter/sort below all read the raw favorites. It is
             //     carried into LibraryData and applied only at the display read (see State).
-            combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
+            // RK: the custom-info query re-emits on every write to its table, so it is deduped here, on
+            //     Default, which is what LibraryData's identity equality relies on.
+            combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll().distinctUntilChanged(), ::Pair),
             // RK: no filter input either: the filters ride searchAndTracks, so a tracker filter waits for
             //     the tracks it reads instead of filtering against none while they load.
         ) {
@@ -241,7 +243,7 @@ class LibraryViewModel(
                 allFavorites = favorites, // RK
             )
         }
-            .distinctUntilChanged()
+            // RK: no output dedup: every input above is distinct, so a new LibraryData is a change
             .flowOn(Dispatchers.Default)
             // RK: seeded null, which the derived state reads as still loading. The shared assembly emits
             //     a tick after this one; LibraryTab keeps loading until it lands.
@@ -287,12 +289,9 @@ class LibraryViewModel(
     // RK <--
 
     // RK -->
-    fun setHopperGravity(value: Int) {
-        reikaiLibraryPreferences.hopperGravity.set(value)
-    }
-
-    // RK: category collapse moved to LibraryEngine, which writes the same preferences. It is library-wide
-    // rather than per content type, so it belongs beside the selection and not on a per-type model.
+    // RK: category collapse and the hopper gravity moved to LibraryEngine, which writes the same
+    // preferences. Both are library-wide rather than per content type, so they belong beside the
+    // selection and not on a per-type model.
 
     // RK: dynamic grouping moved to LibraryEngine, which runs the shared kernel once over both content
     // types' feeds. This model contributes its half through LibraryProvider.dynamicGroupingFeed.
@@ -573,6 +572,13 @@ class LibraryViewModel(
         val allFavorites: List<LibraryItem> = emptyList(),
     ) {
         val favoritesById by lazy { favorites.associateBy { it.id } }
+
+        // RK --> identity, since a new instance is always a change (the inputs are deduped on Default):
+        //     the StateFlows holding this compare on Main, where a structural pass walked every row.
+        override fun equals(other: Any?): Boolean = this === other
+
+        override fun hashCode(): Int = System.identityHashCode(this)
+        // RK <--
     }
 
     @Immutable

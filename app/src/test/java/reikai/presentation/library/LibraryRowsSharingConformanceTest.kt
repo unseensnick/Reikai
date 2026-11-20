@@ -2,7 +2,6 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import io.kotest.matchers.shouldBe
-import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +26,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.novel.download.NovelDownloadCache
+import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryRows
 import tachiyomi.domain.library.model.LibraryManga
@@ -91,11 +91,18 @@ class LibraryRowsSharingConformanceTest {
             libraryPreferences = libraryPreferences,
             reikaiLibraryPreferences = reikaiLibraryPreferences,
             sourceManager = mockk<NovelSourceManager> {
-                every { sources } returns flowOf(emptyList())
-                coEvery { getAll() } answers {
-                    builds.update { it + 1 }
-                    emptyList()
-                }
+                // Each build reads every registered source's icon once, which is what counts it.
+                every { sources } returns flowOf(
+                    listOf(
+                        mockk<NovelSource> {
+                            every { iconUrl } answers {
+                                builds.update { it + 1 }
+                                null
+                            }
+                            every { id } returns "plugin"
+                        },
+                    ),
+                )
             },
             mergeGroupRepository = mergeGroupRepository,
             mergedChapterUnitRepository = mergedChapterUnitRepository,

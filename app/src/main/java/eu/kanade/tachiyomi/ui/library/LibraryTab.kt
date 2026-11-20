@@ -74,7 +74,6 @@ import reikai.data.local.LocalMoveResult // RK
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
-import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
@@ -201,18 +200,11 @@ fun LibraryTab() {
     val activeSelectionMode = activeSelection.isNotEmpty()
     val activeHasActiveFilters = libState.hasActiveFilters
     // RK: the toolbar's whole-library count, over the assembled list rather than the manga model's
-    // favorites (which under All counted only one of the two content types). Distinct because an
-    // entry in several categories sits in several buckets. Remembered: it walks the whole library,
-    // and only the tabbed view with counts on ever shows it.
+    // favorites (which under All counted only one of the two content types). The assembly's distinct
+    // ids, built off the main thread, since an entry in several categories sits in several buckets.
     val showWholeLibraryCount =
         display.showItemCounts && (display.showCategoryTabs || display.reikai.showAllCategories)
-    val wholeLibraryCount = remember(activeBuckets, activeGetItems, showWholeLibraryCount) {
-        if (!showWholeLibraryCount) {
-            0
-        } else {
-            activeBuckets.flatMap(activeGetItems).distinctBy(LibraryItem::entryId).size
-        }
-    }
+    val wholeLibraryCount = if (showWholeLibraryCount) assembled?.presentIds?.size ?: 0 else 0
     // The rows of one section in display order, which is what the engine's range-select and
     // select-all need. Resolved here rather than in the engine so the engine never looks rows up
     // itself and stays free of per-type knowledge.
@@ -538,7 +530,7 @@ fun LibraryTab() {
                 onChangeCategoryClicked = { engine.openChangeCategoryDialog(libraryContentType) },
                 onMarkAsReadClicked = { engine.markReadSelection(libraryContentType, true) },
                 onMarkAsUnreadClicked = { engine.markReadSelection(libraryContentType, false) },
-                // RK: manga hides Download when every selected entry is local; novels never do.
+                // RK: Download hides when every selected entry of the view is local, for both content types.
                 onDownloadClicked = { action: DownloadAction ->
                     engine.performDownloadAction(libraryContentType, action)
                 }
@@ -551,17 +543,9 @@ fun LibraryTab() {
                         navigator.push(screen)
                     }
                 },
-                // RK: manual merge of the selected entries (needs at least two OF ONE TYPE: a merge
-                // group is per content type, and a mixed gesture would silently create two groups)
-                // + unmerge (only when the selection includes a merged one). Both follow the
-                // grouping switch: with it off the manager refuses the merge and the collapse never
-                // marks a row, so Unmerge could not offer a way back out of what Merge wrote.
+                // RK: manual merge and unmerge of the selected entries; the engine decides when each applies.
                 onMergeClicked = { engine.mergeSelection(libraryContentType) }
-                    .takeIf {
-                        display.reikai.seriesMergingEnabled &&
-                            activeSelection.size >= 2 &&
-                            singleContentType(activeSelection.map { it.contentType }) != null
-                    },
+                    .takeIf { engine.canMergeSelection() },
                 onUnmergeClicked = { engine.unmergeSelection(libraryContentType) }
                     .takeIf { engine.selectionContainsMerged(libraryContentType) },
                 // RK: a folder for the selected novels' EPUB files, one file each
@@ -569,10 +553,7 @@ fun LibraryTab() {
                     exportIds = activeSelection.filterIsInstance<EntryId.Novel>().map { it.rawId }
                     engine.clearSelection()
                     exportFolder.launch(null)
-                }.takeIf {
-                    singleContentType(activeSelection.map { it.contentType }) == ContentType.NOVELS &&
-                        !engine.selectionAllLocal(libraryContentType)
-                },
+                }.takeIf { engine.canExportSelection(libraryContentType) },
                 // RK: local series of one type become one series with volumes
                 onCombineClicked = engine::openCombineDialog.takeIf {
                     engine.canCombineSelection(libraryContentType)
@@ -754,7 +735,7 @@ fun LibraryTab() {
                             hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + step).coerceIn(0, last)
                         },
                         onJumpTo = { hopperTarget = it },
-                        onGravityChange = viewModel::setHopperGravity,
+                        onGravityChange = engine::setHopperGravity,
                         // Every long-press action follows the content-type chip, which the seam decides.
                         onSearch = { onSearch("") },
                         onToggleAllCollapsed = { engine.toggleAllCategoriesCollapsed(activeBuckets) },

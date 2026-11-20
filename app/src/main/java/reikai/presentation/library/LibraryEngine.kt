@@ -53,6 +53,7 @@ import reikai.domain.library.includes
 import reikai.domain.library.isSortOverridden
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.reorderedPositions
+import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
 import reikai.domain.library.sortsOnItsOwn
 import reikai.domain.library.tagAliasesFlow
@@ -595,6 +596,11 @@ class LibraryEngine(
         reikaiLibraryPreferences.toggleAllCategoriesCollapsed(buckets)
     }
 
+    /** The hopper's resting side, library-wide like the collapse above, so written here and not on a model. */
+    fun setHopperGravity(value: Int) {
+        reikaiLibraryPreferences.hopperGravity.set(value)
+    }
+
     /**
      * Switch the chip, which drops the selection through [EntrySelection.afterChipFlip]. Leaving All for
      * Manga clears it too, by decision, rather than keeping the manga part.
@@ -697,8 +703,27 @@ class LibraryEngine(
         appScope.launchIO { hideSeries.hide(entries) }
     }
 
-    fun mergeSelection(contentType: ContentType) =
+    fun mergeSelection(contentType: ContentType) {
+        if (!canMergeSelection()) return
         dispatchAndClear(contentType) { it.mergeSelection(selection.value) }
+    }
+
+    /**
+     * Whether Merge takes the selection: grouping on, and two or more entries of one type. A merge group
+     * is per content type, so a mixed gesture would silently write two groups; with grouping off the
+     * manager refuses the merge and the collapse never marks a row Unmerge could reach.
+     */
+    fun canMergeSelection(): Boolean {
+        val entries = selection.value
+        return display.value.reikai.seriesMergingEnabled &&
+            entries.size >= 2 &&
+            singleContentType(entries.map { it.contentType }) != null
+    }
+
+    /** Whether Export takes the selection: novels only, and not all of them local, whose files are on the device. */
+    fun canExportSelection(contentType: ContentType): Boolean =
+        singleContentType(selection.value.map { it.contentType }) == ContentType.NOVELS &&
+            !selectionAllLocal(contentType)
 
     fun unmergeSelection(contentType: ContentType) =
         dispatchAndClear(contentType) { it.unmergeSelection(selection.value) }
