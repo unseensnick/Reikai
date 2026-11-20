@@ -40,6 +40,7 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 | `app/` | Android application (Compose + Navigation 3 UI, AndroidX ViewModels) |
 | `core/common` | Shared utilities (coroutine + preference helpers) |
 | `core/archive` | Archive handling |
+| `core/navigation` | Upstream's routes and `Navigator`, the overlay-sheet and two-pane settings scenes, and Reikai's `NovelWebTarget` |
 | `core/metro` | Metro DI helpers: graph lookup (`metroGraph`) and the `IsDebugBuild` and `AppCoroutineScope` qualifiers; ViewModel wiring comes from the `metrox-viewmodel` library |
 | `core-metadata` | Local-source metadata models (`ComicInfo.xml`, the legacy JSON details file) |
 | `data/` | SQLDelight database + repository implementations |

@@ -31,7 +31,9 @@ A screen model extends `androidx.lifecycle.ViewModel` directly and declares its 
 - The reader's models live outside the navigator's display, so `ReaderActivity` scopes them to itself: `ReaderViewModel` with `by viewModels { graph.viewModelFactory }`, and the assisted `NovelReaderViewModel` and `ReaderEngine` through a `viewModelFactory { initializer { } }` that calls the graph's `createManuallyAssistedFactory`.
 - Three models are still built by hand through `viewModelFactory`, without the graph: upstream's `ReaderSettingsViewModel` in `ReaderActivity`, the cover model in `EntryDetailsDialog` (star-projected, built from the behavior object and keyed by `coverKey`, the source chip's entry) and `NovelSourceSettingsModel`.
 
-Under a `Navigator`, `viewModel()` resolves against that Screen's own store, cleared on pop; tabs each get their own store that survives tab switches. The full scoping rule is in screen-conventions.md.
+A model resolved by a bare `viewModel<T>()` must not be `private`: that factory builds it by reflection, and a private top-level class is package-private in bytecode, so the screen crashes on open in every build type.
+
+On the main display, `viewModel()` resolves against that route entry's own store, cleared on pop; tabs each get their own store that survives tab switches. The full scoping rule is in screen-conventions.md.
 
 ### Preference migrations
 
@@ -111,7 +113,7 @@ The layout, by subject:
 - **A new injected class**: `@Inject`, plus `@SingleIn(AppScope::class)` if it is shared; take dependencies as constructor parameters. Code with no constructor reads `context.appGraph.x`, adding the accessor to `ReikaiGraph`.
 - **A new screen model**: `@ViewModelKey` and `@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())`, or the assisted shape for a call-site value; resolve it with `metroViewModel` / `assistedMetroViewModel`.
 - **A new preference migration**: `@Inject` and `@ContributesIntoSet(AppScope::class)`, `version` set to the next unused `versionCode`, and bump `versionCode` in `app/build.gradle.kts` to match; check whether a worker that reads the migrated state already awaits `Migrator`.
-- **A new settings screen**: a `SearchableSettings` object, an entry in `SettingsMainScreen` and in `settingScreens`.
+- **A new settings screen**: a `@Serializable data object` implementing `SearchableSettings`, registered in `reikaiEntries()` and listed in `ReikaiRoutesTest`, plus an entry in `SettingsMainScreen` and in `settingScreens` ([recipes.md](../recipes.md)).
 
 ## Tests
 

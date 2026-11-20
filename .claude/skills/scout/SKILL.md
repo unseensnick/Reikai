@@ -1,7 +1,7 @@
 ---
 name: scout
-description: Investigate a non-trivial task, then produce the plan for it. Emits a file:line-cited findings report covering current behavior, upstream/reference equivalents, framework bridges, helpers to reuse and stale docs, followed by a sequenced plan and any blocking open questions. Use before porting an upstream change, migrating a screen to Compose, touching unfamiliar modules, or any cross-cutting change. The point is to ground the plan in evidence, not memory. Investigates deeply and verifies adversarially by default; never edits files.
-argument-hint: "<task description> (e.g., 'port General settings to Compose', 'add per-category sort')"
+description: Investigate a non-trivial task, then produce the plan for it. Emits a file:line-cited findings report covering current behavior, upstream/reference equivalents, framework bridges, helpers to reuse and stale docs, followed by a sequenced plan and any blocking open questions. Use before porting an upstream change, adding or reworking a screen and its route, a content-layer takeover, touching unfamiliar modules, or any cross-cutting change. The point is to ground the plan in evidence, not memory. Investigates deeply and verifies adversarially by default; never edits files.
+argument-hint: "<task description> (e.g., 'port the upstream reader settings change', 'add per-category sort')"
 disable-model-invocation: false
 allowed-tools:
   - Bash(git *)
@@ -45,7 +45,7 @@ Echo the task you parsed from `$ARGUMENTS` in one sentence so the user can corre
 If the task is vague (`"library stuff"`, `"fix settings"`), use `AskUserQuestion` to narrow:
 
 - Which screen / module / surface?
-- Port from upstream, migrate to Compose, fix a behavior, or add a new feature?
+- Port from upstream, add or rework a screen, a content-layer takeover, fix a behavior, or add a new feature?
 - Is there a Handoff.md, plan file, or recent commit range that frames this?
 
 Do not proceed with a vague scope. Vague scout reports are noise.
@@ -56,15 +56,15 @@ These run on the main thread (cheap) so the subagents you spawn next get briefed
 
 1. Check `Handoff.md` in the project root if present (untracked is fine). Note the branch, what shipped, what was deferred, which legacy files are off-limits.
 2. `git log --oneline -20` for recent shape of work. If the task references a phase, `git log --oneline -50 --grep="<phase keyword>"` to find prior commits in the same series.
-3. Look for a plan file in `C:\Users\<user>\.claude\plans\` matching the task (Reikai stores plans there; latest plan often has a "what really shipped" rewrite).
+3. Read the area's in-flight plan in `docs/dev/plans/` (indexed by its `README.md`), its `docs/dev/subsystems/<area>.md` Decisions, and `docs/dev/parked.md`, and copy their deferred, gated or ruled items into the deferred list.
 4. Skim `.claude/rules/architecture.md` and `.claude/rules/screen-conventions.md` for the conventions the affected surface must follow (Mihon is Compose + Navigation 3 throughout; the reader's page views and the novel renderers are the only View-based holdouts).
 
 Write down for Step 3 (briefing the subagents):
 
 - The task as scoped.
 - The current branch and recent commit shape (one line).
-- The migration state of the affected section per `architecture.md` (flipped / compose-only / not-flipped).
-- The deferred list from Handoff / plan, verbatim. **The most common audit failure is flagging deferred work as missing.**
+- The surface's seam depth from the table in `.claude/rules/content-layer.md`.
+- The deferred list from Handoff, plan, Decisions and parked.md, verbatim. **The most common audit failure is flagging deferred work as missing.**
 
 ## Step 3: Identify investigation areas
 

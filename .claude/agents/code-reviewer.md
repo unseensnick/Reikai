@@ -46,7 +46,7 @@ Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth
 - Any DI resolution, or a `PreferenceStore` / `*Preferences` read, inside a `@Composable` body. A hoisted `remember { context.appGraph }` at the top is the sanctioned shape.
 - Business logic, repository calls, or load-state branching inline in a composable instead of the ViewModel / `LaunchedEffect`.
 - `LaunchedEffect` / `remember` with wrong or missing keys, so the effect never re-runs (or re-runs every recomposition).
-- A route that is not `@Serializable`, carries a lambda or editable content rather than identity, or is not registered in `reikaiEntries()` (a push of an unregistered route crashes).
+- A route that is not `@Serializable`, carries a lambda or editable content rather than identity, or is not registered in `reikaiEntries()` (a push of an unregistered route crashes) and listed in `ReikaiRoutesTest`.
 - Side effects run directly in composition.
 
 ## Reikai placement rules
@@ -56,7 +56,7 @@ Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth
 - A net-new `Injekt.get<T>()` / `injectLazy()` in Reikai-owned code. DI is Metro; Injekt survives only for the extension contract (`source-api`, `source-local`) through the closed `MetroInjektRegistrar` allow-list, and adding to it also re-opens the R8 `FullTypeReference` hazard that crashes minified builds.
 - A dependency whose construction does real work (the novel download manager above all) promoted from a deferred `() -> T` parameter (the retired `Provider<T>` spelling) to a plain parameter, which moves that work to whenever its owner is built.
 - An edited existing SQLDelight migration (never allowed; schema changes are a new `.sqm`), or a new migration gated on an already-shipped `versionCode`.
-- A `@JavascriptInterface` method in a net-new class R8 could strip.
+- Code reached only by reflection or by an extension, with no targeted keep in `app/proguard-rules.pro` (architecture.md "Minification"). A `@JavascriptInterface` method needs none: a global rule keeps them all.
 
 ## Reuse and write-once
 
@@ -76,7 +76,7 @@ Screen conventions live in `.claude/rules/screen-conventions.md`; the ones worth
 
 - Changed behavior without a corresponding test change, where the logic is pure enough to test (`:domain` especially).
 - Tests asserting mock call counts where output values would do (see `.claude/rules/testing.md`).
-- `runBlocking` in tests instead of `runTest`.
+- `runBlocking` in tests instead of `runTest`, outside `app/src/androidTest` (owner-ruled exemption, testing.md).
 
 ## What NOT to flag
 

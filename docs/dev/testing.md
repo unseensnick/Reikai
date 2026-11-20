@@ -79,6 +79,11 @@ There is no shared test-fixtures module, so these live beside the tests that use
 - **`EmittingPreferenceStore`** (`app/src/test/java/reikai/presentation/recents/`): a preference store
   whose `changes()` flows actually emit. `InMemoryPreferenceStore` (in `:core:common` main, also used
   by previews) never emits, so code that combines preference flows produces nothing against it.
+- **`TestNavigation.kt`** (`app/src/test/java/reikai/presentation/`): `testNavigator(...)` builds a
+  navigator over given routes for a rule that only reads or edits the stack; `TestNavHost`, inside
+  `ComposeTestHost`, draws real routes with their own ViewModel stores and the result bus, so a test can
+  push, pop and restore; `roundTrip(route)` puts a route through the save path process death takes
+  (`NavKeySerializer` and a `Parcel`). `TestRootRoute` and `OtherTestRoute` are filler pages.
 - **Restore and reader harnesses:** `MangaRestoreHarness.kt` (a `MangaRestorer` over production's
   repositories), `MangaReaderViewModelHarness.kt`, `NovelReaderViewModelHarness.kt`,
   `DownloadWorkerFixture.kt` and `LnPluginHarness.kt`, all under `app/src/test`.
@@ -122,7 +127,7 @@ Screens and components are tested on the JVM, in the module's ordinary unit suit
 - **Host app screens with `ComposeTestHost`** (`app/src/test/java/reikai/presentation/`): the preview theme, the app's text locals, and a view-model factory over the models the test built. `app/src/test/resources/robolectric.properties` runs a plain `Application`, since the app's own builds the whole graph, and turns Robolectric's Conscrypt off, since the app's `conscrypt-android` breaks it.
 - **Assert on the unmerged tree for a child's size.** A `Tab` (and any clickable that merges its children) answers `onNodeWithText` with its own node, so `TabTextTest` reads the label with `useUnmergedTree = true`; on the merged node the zero-width label it guards against passed.
 - **Measure text under native graphics.** Robolectric's default legacy graphics measures text far narrower than it draws, so a test that reads a text's width or position takes `@GraphicsMode(GraphicsMode.Mode.NATIVE)`, as `TabTextTest`'s narrow-tab case does; under legacy graphics it passed with the clause it guards deleted.
-- **A screen that needs the app graph is split, not faked.** Its `Screen.Content()` keeps the graph lookup and the model, and an internal composable takes the state and the model; the test hosts that over a fake adapter (`EntryMigrationListTest`). A private composable a test needs becomes `internal`.
+- **A screen that needs the app graph is split, not faked.** The route's screen function keeps the graph lookup and the model, and an internal composable takes the state and the model; the test hosts that over a fake adapter (`EntryMigrationListTest`). A private composable a test needs becomes `internal`.
 - **Build stateful parameters per test.** `ParameterizedRobolectricTestRunner` hands every test the same parameter objects, so pass a factory, as `EntryAddDialogsTest` does, when a parameter holds state.
 - **Scroll before tapping in a sheet.** Robolectric's default screen is 320x470 dp, so a dialog's buttons can sit below the fold, where a click lands nowhere: `performScrollTo()` first.
 - **Freeze the clock for timing.** With `compose.mainClock.autoAdvance = false`, `advanceTimeBy` steps the frames and the composition's delays together (`LibraryUpdatePullRefreshTest`).

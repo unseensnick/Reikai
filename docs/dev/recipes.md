@@ -99,16 +99,19 @@ Rows are `Preference.PreferenceItem.*` inside a `Preference.PreferenceGroup`, re
 `getPreferences()`. Read preferences off the graph with `remember { context.appGraph.x }` at the top of
 the composable, never inside a row.
 
-1. A new screen is an `object` implementing `SearchableSettings`
-   (`eu/kanade/presentation/more/settings/screen/SearchableSettings.kt`).
-2. Add it to `SettingsMainScreen`'s item list so it can be opened, and to `settingScreens` in
+1. A new screen is a `@Serializable data object` implementing `SearchableSettings`
+   (`eu/kanade/presentation/more/settings/screen/SearchableSettings.kt`), which is a `NavKey`.
+2. Register it as a route, `entry<X> { X.Content() }` in `reikaiEntries()` (`ReikaiNavGraph.kt`), and
+   list it in `ReikaiRoutesTest.routes`. A route registered nowhere crashes when opened.
+3. Add it to `SettingsMainScreen`'s item list so it can be opened, and to `settingScreens` in
    `SettingsSearchScreen.kt` so search can find its rows. A screen missing from that list is invisible to
    search, and so is a row on a sub-screen that is not itself listed there.
-3. A row that is expensive to build can read `LocalSettingsIndexing`, which is true while search builds
+4. A row that is expensive to build can read `LocalSettingsIndexing`, which is true while search builds
    its index, and skip the work.
 
 Search matches a visible row's title or subtitle, skips `InfoPreference` rows and hidden groups, and a
-screen whose `isEnabled()` returns false is left out. Checks: none automated; search for the new row's
+screen whose `isEnabled()` returns false is left out. Checks: `ReikaiRoutesTest` (registration, and
+`RouteListGuardTest` for a `@Serializable` route left off its list); for search, look for the new row's
 title in the app.
 
 ## Add a ViewModel

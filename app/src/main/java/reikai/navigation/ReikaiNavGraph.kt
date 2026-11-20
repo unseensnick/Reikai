@@ -87,8 +87,8 @@ import reikai.presentation.track.EntryTrackSheetRoute
 
 /**
  * Every page Reikai adds, registered after upstream's [mihon.core.navigation.appEntries] in the one place a
- * route meets its screen. A route registered nowhere crashes when pushed, and ReikaiRoutesTest fails on
- * one missing from its list, so a new route is added here and there together.
+ * route meets its screen. A route registered nowhere crashes when pushed, and RouteListGuardTest fails on
+ * one missing from ReikaiRoutesTest.routes, so a new route is added here and there together.
  */
 fun EntryProviderScope<NavKey>.reikaiEntries() {
     entry<NovelRoute> { route ->

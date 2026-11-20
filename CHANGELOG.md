@@ -73,7 +73,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A local series now shows one folder badge in the library instead of two.**
 - **Stopping an adult-source series update now really stops it, with no false failure notice.**
 - **Library updates check several novel sources at once, as they do for manga.**
-- **The bottom bar comes back when a shortcut or notification leaves the library while you are selecting.**
+- **The bottom bar comes back when a shortcut or notification switches tabs while you are selecting in the library, Updates, History or Recents.**
 - **Rotating or folding the phone on Edit categories no longer deletes a category before you can Undo it.** A delete confirmation stays open too, and Undo no longer lingers after a drag has already deleted it.
 - **The library now shows your novels at once on a cold start, without waiting for every novel plugin to load.** Source badges fill in as each plugin finishes.
 

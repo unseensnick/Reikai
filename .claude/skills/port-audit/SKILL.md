@@ -28,10 +28,10 @@ Cheap reads before delegating, so the audit subagent gets briefed properly:
 
 - Look for a `Handoff.md` in the project root (untracked is fine). It usually names the branch, what shipped, and what was deferred.
 - Check `git log --oneline -20` for the recent shape of work in the scope.
-- If the scope mentions a phase, look in `C:\Users\<user>\.claude\plans\` for a matching plan file. Reikai stores plans there; the latest one often has the "what really shipped" rewrite after Phase 2/3.
+- Read the in-flight plan for the area in `docs/dev/plans/` (indexed by its `README.md`), the area's `docs/dev/subsystems/` doc and its Decisions, and `docs/dev/parked.md`. Together they hold what is deferred, gated or deliberately not ported.
 - Skim `.claude/rules/architecture.md` for the Compose + Navigation 3 conventions and the `// RK` patch rule on Mihon's own files.
 
-If a Handoff or plan explicitly defers features to a later phase, **write that deferred list down** for the audit subagent. The biggest failure mode is false-flagging deferred work as a defect.
+If a Handoff, plan, subsystem Decision or parked item explicitly defers features to a later phase, **write that deferred list down** for the audit subagent. The biggest failure mode is false-flagging deferred work as a defect.
 
 ## Step 2: Spawn the audit subagent
 
@@ -110,7 +110,7 @@ Per `.claude/rules/workflow.md`:
 
 - The feature this audit covers is almost certainly already mentioned in `## [Unreleased]`. **Edit the existing bullet** to fold in the new behavior. Do not add "Fixes: X in feature Y" entries when Y is already in the same `[Unreleased]` block.
 - Phrase additions as user-facing release notes (what changed, where it lives, what it does). No implementation rationale, no internal phase numbering, no class names.
-- For a genuine bug fix that's tangential to the feature's main bullet (e.g., a chip label swap), a one-line entry under `### Fixes` is fine.
+- For a genuine bug fix that's tangential to the feature's main bullet (e.g., a chip label swap), a one-line entry under the area's `#### Fixed` in `[Unreleased]` is fine, per workflow.md.
 
 ## Step 8: Stop
 
