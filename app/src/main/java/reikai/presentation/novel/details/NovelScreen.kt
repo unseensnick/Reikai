@@ -50,6 +50,7 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.detailsRoute
+import reikai.presentation.details.detailsVolumeMoves
 import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.keptForScreen
 import reikai.presentation.details.openDownloadFolder
@@ -175,6 +176,7 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
                     .takeIf { s.sourceHasSettings },
             ),
             settings = settings,
+            volumeMoves = remember(viewModel) { viewModel.detailsVolumeMoves(viewModel.snackbarHostState) },
         )
 
         EntryDetailsDialogHost(

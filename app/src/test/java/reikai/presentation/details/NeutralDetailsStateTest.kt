@@ -13,6 +13,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.presentation.MainDispatcherExtension
 import kotlin.time.Duration.Companion.seconds
 
@@ -29,6 +30,8 @@ class NeutralDetailsStateTest {
 
     private val model = main.track(object : ViewModel() {})
 
+    private val noVolumes = DetailsVolumeInputs(noVolumePicking(), ContentType.MANGA)
+
     private fun neutral(value: Int): EntryDetailsScreenState = loadedDetails().copy(
         entryId = EntryId.Manga(value.toLong()),
     )
@@ -42,7 +45,7 @@ class NeutralDetailsStateTest {
     /** The mapping walks every chapter row, and asking for the state happens on Main, in composition. */
     @Test
     fun `a first open starts from Loading rather than mapping the model on the spot`() {
-        model.neutralDetailsState(source, duplicates) { value, _ -> mappedOnTheSpot(value) }.value shouldBe
+        model.neutralDetailsState(source, duplicates, noVolumes) { value, _ -> mappedOnTheSpot(value) }.value shouldBe
             EntryDetailsScreenState.Loading
     }
 
@@ -56,13 +59,39 @@ class NeutralDetailsStateTest {
 
     @Test
     fun `the mapper stops when the last collector leaves`() = runTest {
-        val state = model.neutralDetailsState(source, duplicates) { value, _ -> neutral(value) }
+        val state = model.neutralDetailsState(source, duplicates, noVolumes) { value, _ -> neutral(value) }
         val collector = backgroundScope.launch(Dispatchers.Default) { state.collect {} }
         settle { source.subscriptionCount.first { it == 1 } }
 
         collector.cancel()
 
         settle { source.subscriptionCount.first { it == 0 } } shouldBe 0
+    }
+
+    /** The copies filter is a pass over every row, so it is built with the rest of the state, off Main. */
+    @Test
+    fun `Only copies narrows the rows in the state itself`() = runTest {
+        val copies = listOf(1L, 2L)
+        val rows = loadedDetails(
+            items = listOf(
+                detailsChapter(1L, "Copy one", 1.0),
+                detailsChapter(2L, "Copy two", 1.0),
+                detailsChapter(3L, "Other", 2.0),
+            ),
+            duplicates = DuplicateMarks(copies = copies.associateWith { copies }, marks = emptyMap()),
+        )
+        val state = model.neutralDetailsState(MutableStateFlow(rows), duplicates, noVolumes) { value, _ -> value }
+        val collector = backgroundScope.launch(Dispatchers.Default) { state.collect {} }
+        settle { state.first { it is EntryDetailsScreenState.Loaded } }
+
+        noVolumes.toggleOnlyCopies()
+
+        val shown = settle {
+            state.first { (it as? EntryDetailsScreenState.Loaded)?.volumeViews?.onlyCopies == true }
+        } as EntryDetailsScreenState.Loaded
+
+        shown.volumeViews.items.orEmpty().map { (it as EntryChapterListItem.Chapter).id } shouldBe copies
+        collector.cancel()
     }
 
     private companion object {

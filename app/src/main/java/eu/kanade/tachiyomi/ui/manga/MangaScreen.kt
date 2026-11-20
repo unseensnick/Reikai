@@ -56,6 +56,7 @@ import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.detailsRoute
+import reikai.presentation.details.detailsVolumeMoves // RK
 import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.keptForScreen // RK
 import reikai.presentation.details.openDownloadFolder
@@ -206,6 +207,7 @@ fun MangaScreen(
                 }.takeIf { successState.shownSource.getMainSource<MetadataSource<*, *>>() != null },
             ),
             settings = settings,
+            volumeMoves = remember(viewModel) { viewModel.detailsVolumeMoves(viewModel.snackbarHostState) },
         )
     } // RK: end cover-based theme wrap
     // RK <--

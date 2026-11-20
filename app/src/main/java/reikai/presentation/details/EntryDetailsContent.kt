@@ -26,7 +26,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,10 +59,10 @@ import reikai.domain.local.VolumeOwner
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
+import reikai.presentation.components.VolumeMoves
 import reikai.presentation.components.asProvider
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.readProgressLabel
-import reikai.presentation.components.reportVolumeMove
 import reikai.presentation.notes.VolumeNotesRoute
 import reikai.presentation.novel.details.novelPageText
 import reikai.presentation.reader.chapterRowTitle
@@ -131,30 +130,20 @@ fun EntryDetailsContent(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
     settings: DetailsSettings,
+    volumeMoves: VolumeMoves,
 ) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    // The volume dialogs' work runs on the model's scope (VolumeMoves), so it takes the application's context.
+    val context = LocalContext.current.applicationContext
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     val navigator = LocalNavigator.current
     val bus = LocalResultEventBus.current
     val shared = nav.withSharedPushes(state, navigator, bus, twoPane = isTabletUi)
-    var onlyCopies by rememberSaveable { mutableStateOf(false) }
-    val copies = CopiesFilter(on = onlyCopies && !state.chapters.duplicates?.copies.isNullOrEmpty()) {
-        onlyCopies = !onlyCopies
-    }
-    val filtered = if (copies.on) state.withOnlyCopies() else state
+    val copies = CopiesFilter(on = state.volumeViews.onlyCopies, toggle = behavior::toggleOnlyCopies)
     val type = state.entryId.contentType
-    val picks by behavior.volumePicking.picks(type).collectAsState()
     val savedVolumes by behavior.volumePicking.saved(type).collectAsState()
     val looseFiles by behavior.volumePicking.looseFiles().collectAsState()
-    // The volumes as files hold them, a manga's loose files one volume, which the dialogs that change files act on.
-    val structural = remember(filtered.chapters.items, picks, savedVolumes, state.chapters.volumes) {
-        filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes, state.chapters.volumes)
-    }
-    // And as the series shows them, under its Loose files setting.
-    val volumes = remember(filtered.chapters.items, picks, savedVolumes, state.chapters.volumes, looseFiles) {
-        filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes, state.chapters.volumes, looseFiles)
-    }
+    val structural = state.volumeViews.structural
+    val volumes = state.volumeViews.volumes
     // A picked volume heads the page with its own cover, description and notes.
     val pickedVolume = volumes?.let { view -> view.chips.firstOrNull { it.key == view.picked } }
     val volumeFiles by produceState<VolumeOwnFiles?>(null, pickedVolume?.series, pickedVolume?.key) {
@@ -168,7 +157,7 @@ fun EntryDetailsContent(
     val volumeNotes = pickedVolume?.let { picked ->
         savedVolumes.savedVolume(picked.series, picked.key)?.notes
     }.orEmpty()
-    val listed = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
+    val listed = state.volumeViews.items?.let { state.copy(chapters = state.chapters.copy(items = it)) } ?: state
     val shown = if (pickedVolume == null) listed else listed.headedBy(volumeFiles, volumeNotes)
     val pageNav = DetailsPageNav(
         perType = nav,
@@ -250,12 +239,13 @@ fun EntryDetailsContent(
         if (canOrganizeOrNull == null) return@LaunchedEffect
         behavior.volumePicking.organizeRequests(state.entryId).collect {
             // The move that opened this screen offers its Undo here, wherever its files can go.
-            it.undo?.let { undo -> launch { snackbarHostState.reportVolumeMove(context, undo.move, undo.message) } }
+            it.undo?.let { undo -> volumeMoves.launch { report(context, undo.move, undo.message) } }
             if (!canOrganize) return@collect
             renameTitle = it.title
             volumeDialog = VolumeDialog.RenameFiles
         }
     }
+    volumeMoves.PushOpened(navigator::push)
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
@@ -307,14 +297,16 @@ fun EntryDetailsContent(
             onDismissRequest = { volumeDialog = null },
             onConfirm = { others, organize ->
                 volumeDialog = null
-                scope.launch {
+                volumeMoves.launch {
                     val own = behavior.volumePicking.series(state.entryId) ?: return@launch
                     val move = behavior.volumePicking.addVolumes(type, own, others)
                     behavior.refresh()
                     // Its own preview, after the chips show the volumes that came in.
-                    if (organize && move.result is LocalMoveResult.Moved) volumeDialog = VolumeDialog.RenameFiles
+                    if (organize && move.result is LocalMoveResult.Moved) {
+                        behavior.volumePicking.requestOrganize(state.entryId)
+                    }
                     val message = context.stringResource(MR.strings.local_volumes_combined, own.title)
-                    snackbarHostState.reportVolumeMove(context, move, message)
+                    report(context, move, message)
                     behavior.refresh()
                 }
             },
@@ -327,7 +319,7 @@ fun EntryDetailsContent(
                 onDismissRequest = { volumeDialog = null },
                 onConfirm = { keys, title, organize ->
                     volumeDialog = null
-                    scope.launch {
+                    volumeMoves.launch {
                         val own = behavior.volumePicking.series(state.entryId) ?: return@launch
                         val move = behavior.volumePicking.splitOut(type, own, keys, title)
                         behavior.refresh()
@@ -335,9 +327,9 @@ fun EntryDetailsContent(
                         // The new series' own screen, where its volumes show, opens on the preview with the Undo.
                         val created = move.created?.takeIf { organize }
                         if (created != null) {
-                            behavior.volumePicking.organizeOn(EntryId.of(type, created), move, message, navigator::push)
+                            behavior.volumePicking.organizeOn(EntryId.of(type, created), move, message, ::open)
                         } else {
-                            snackbarHostState.reportVolumeMove(context, move, message)
+                            report(context, move, message)
                             behavior.refresh()
                         }
                     }
@@ -355,14 +347,10 @@ fun EntryDetailsContent(
             onConfirm = { series, names, newTitle ->
                 volumeDialog = null
                 renameTitle = null
-                scope.launch {
+                volumeMoves.launch {
                     val move = behavior.volumePicking.renameFiles(type, series, names, newTitle)
                     behavior.refresh()
-                    snackbarHostState.reportVolumeMove(
-                        context,
-                        move,
-                        context.stringResource(MR.strings.local_files_renamed),
-                    )
+                    report(context, move, context.stringResource(MR.strings.local_files_renamed))
                     behavior.refresh()
                 }
             },
@@ -381,11 +369,11 @@ fun EntryDetailsContent(
             onDismissRequest = { fixing = null },
             onLink = { to ->
                 fixing = null
-                scope.launch { done(behavior.volumePicking.relinkMember(state.entryId, one.folder, to)) }
+                volumeMoves.launch { done(behavior.volumePicking.relinkMember(state.entryId, one.folder, to)) }
             },
             onRemove = {
                 fixing = null
-                scope.launch { done(behavior.volumePicking.removeMember(state.entryId, one.folder)) }
+                volumeMoves.launch { done(behavior.volumePicking.removeMember(state.entryId, one.folder)) }
             },
         )
     }
@@ -394,7 +382,7 @@ fun EntryDetailsContent(
             onDismissRequest = { forgetting = false },
             onConfirm = {
                 forgetting = false
-                scope.launch {
+                volumeMoves.launch {
                     behavior.volumePicking.forgetUnfinished(state.entryId)
                     behavior.refresh()
                 }
@@ -407,7 +395,7 @@ fun EntryDetailsContent(
             onDismissRequest = { deletingVolumes = null },
             onConfirm = { picked ->
                 deletingVolumes = null
-                scope.launch {
+                volumeMoves.launch {
                     val result = behavior.volumePicking.deleteVolumes(state.entryId, picked)
                     behavior.refresh()
                     if (result is LocalMoveResult.Failed) context.toast(MR.strings.delete_volumes_failed)

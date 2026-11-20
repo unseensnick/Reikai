@@ -118,6 +118,7 @@ app/src/main/java/reikai/novel/download/NovelDownloadManager.kt	app/src/main/jav
 app/src/main/java/reikai/novel/source/TachiyomiNovelSource.kt	app/src/main/java/reikai/novel/source/ireader/IReaderNovelSource.kt	29c26324d163de81
 app/src/main/java/reikai/presentation/browse/BulkFavoriteViewModel.kt	app/src/main/java/reikai/presentation/novel/browse/NovelBulkFavoriteViewModel.kt	5748b5483baf5230
 app/src/main/java/reikai/presentation/browse/catalogue/SavedSearchDialogs.kt	app/src/main/java/reikai/presentation/browse/feed/FeedDialogs.kt	09675367cbee9fc1
+app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	2e236428ede62c63
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	840d43a4493d1336
 app/src/main/java/reikai/presentation/details/MangaEntryAdapter.kt	app/src/main/java/reikai/presentation/details/NovelEntryAdapter.kt	9862b36c5c9820ff
 app/src/main/java/reikai/presentation/library/EntryDisplayPage.kt	app/src/main/java/reikai/presentation/library/ReikaiLibrarySettings.kt	9686dafcd8272e3d

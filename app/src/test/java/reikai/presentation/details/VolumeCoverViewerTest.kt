@@ -49,16 +49,18 @@ class VolumeCoverViewerTest {
     ).let { it.copy(chapters = it.chapters.copy(volumes = listOf(vol1, vol2))) }
 
     private val behavior = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
-        every { fake.state } returns MutableStateFlow(state)
         every { fake.downloadProgress(any()) } returns DownloadProgress.Unsupported
         every { fake.duplicateMarking } returns noDuplicateMarking()
-        every { fake.volumePicking } returns VolumePicking(
-            picks,
-            NoLocalVolumes,
-            files,
-            mockk(relaxed = true),
-            mockk(relaxed = true),
-            CoroutineScope(Dispatchers.Unconfined),
+        fake.servesThroughVolumeViews(
+            MutableStateFlow(state),
+            VolumePicking(
+                picks,
+                NoLocalVolumes,
+                files,
+                mockk(relaxed = true),
+                mockk(relaxed = true),
+                CoroutineScope(Dispatchers.Unconfined),
+            ),
         )
     }
 

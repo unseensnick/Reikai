@@ -20,17 +20,23 @@ import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.source.SourceKey
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.components.UndatedChapterDate
+import reikai.presentation.components.VolumeMoves
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -38,6 +44,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 internal class DetailsContentHost(
     private val behavior: EntryDetailsBehavior,
     private val snackbarHostState: SnackbarHostState = SnackbarHostState(),
+    // Built with the host rather than the composition, as a screen keeps it with its model.
+    private val volumeMoves: VolumeMoves = VolumeMoves(CoroutineScope(Dispatchers.Unconfined), snackbarHostState),
 ) {
     @Composable
     fun Content() {
@@ -61,8 +69,25 @@ internal class DetailsContentHost(
                 ReikaiLibraryPreferences(store),
                 CoroutineScope(Dispatchers.Unconfined),
             ),
+            volumeMoves = volumeMoves,
         )
     }
+}
+
+/**
+ * Serves [state] the way an adapter does, through the volume views kernel over [picking] with its Only copies
+ * switch, so a page drawn over this mocked behaviour groups and filters its rows as a real one's.
+ */
+internal fun EntryDetailsBehavior.servesThroughVolumeViews(
+    state: StateFlow<EntryDetailsScreenState>,
+    picking: VolumePicking,
+) {
+    val inputs = DetailsVolumeInputs(picking, ContentType.MANGA)
+    val behavior = this
+    every { behavior.volumePicking } returns picking
+    every { behavior.state } returns combine(state, inputs.values, EntryDetailsScreenState::withVolumeViews)
+        .stateIn(CoroutineScope(Dispatchers.Unconfined), SharingStarted.Eagerly, state.value)
+    every { behavior.toggleOnlyCopies() } answers { inputs.toggleOnlyCopies() }
 }
 
 /** A manga chapter row for a details test. */

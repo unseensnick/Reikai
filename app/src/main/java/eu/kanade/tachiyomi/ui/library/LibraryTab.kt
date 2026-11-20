@@ -18,7 +18,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -80,7 +79,6 @@ import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
-import reikai.presentation.components.reportVolumeMove
 import reikai.presentation.details.detailsRoute
 import reikai.presentation.library.CombineVolumesDialog // RK
 import reikai.presentation.library.LibraryBucket
@@ -221,7 +219,7 @@ fun LibraryTab() {
     }
     // RK <--
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = engine.volumeMoves.snackbarHostState // RK: kept by the engine, so a rotation keeps an Undo
 
     // RK --> a Manual category drags into a new order with no filter, search or selection, since a drop
     // between visible tiles could otherwise land anywhere among hidden ones. Under a type chip the other
@@ -810,26 +808,25 @@ fun LibraryTab() {
             canOrganize = dialog.canOrganize,
             onDismissRequest = onDismissRequest,
             onConfirm = { kept, organize ->
-                scope.launch {
+                // On the engine's scope with the application's context, so a rotation cuts off neither the move's
+                // Undo nor its hand-off.
+                val appContext = context.applicationContext
+                engine.volumeMoves.launch {
                     val move = engine.combineVolumes(dialog, kept) ?: return@launch
-                    val message = context.stringResource(MR.strings.local_volumes_combined, kept.title)
+                    val message = appContext.stringResource(MR.strings.local_volumes_combined, kept.title)
                     // The kept series' screen, where its volumes show, opens on Organize files' preview with
                     // the Undo, since leaving this screen ends its own snackbar.
                     if (organize && move.result is LocalMoveResult.Moved) {
-                        graph.volumePicking.organizeOn(
-                            EntryId.of(dialog.type, kept.id),
-                            move,
-                            message,
-                            navigator::push,
-                        )
+                        graph.volumePicking.organizeOn(EntryId.of(dialog.type, kept.id), move, message, ::open)
                     } else {
-                        snackbarHostState.reportVolumeMove(context, move, message)
+                        report(appContext, move, message)
                     }
                 }
             },
         )
         null -> {}
     }
+    engine.volumeMoves.PushOpened(navigator::push)
     // RK <--
 
     BackHandler(enabled = activeSelectionMode || activeSearchQuery != null) {

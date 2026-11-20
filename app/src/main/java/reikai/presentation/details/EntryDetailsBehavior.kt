@@ -1,5 +1,6 @@
 package reikai.presentation.details
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
@@ -14,23 +15,26 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.presentation.components.DownloadProgress
+import reikai.presentation.components.VolumeMoves
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
 /**
- * [source] and [duplicates] (which no model state carries) mapped to the neutral state, off the main
- * thread since every chapter row is mapped. Never seeded by mapping, which ran the whole list on Main in
- * composition, so a first open shows Loading; a re-entry (rotation, a screen popped back to) reads the same
- * adapter ([keptForScreen]) and renders its last state at once. WhileSubscribed, so the mapper stops while
- * the screen is gone.
+ * [source] and [duplicates] (which no model state carries) mapped to the neutral state with its volume views
+ * from [volumes], off the main thread since every chapter row is mapped. Never seeded by mapping, which ran the
+ * whole list on Main in composition, so a first open shows Loading; a re-entry (rotation, a screen popped back
+ * to) reads the same adapter ([keptForScreen]) and renders its last state at once. WhileSubscribed, so the
+ * mapper stops while the screen is gone.
  */
 internal fun <S, D> ViewModel.neutralDetailsState(
     source: StateFlow<S>,
     duplicates: StateFlow<D>,
+    volumes: DetailsVolumeInputs,
     toNeutral: (S, D) -> EntryDetailsScreenState,
-): StateFlow<EntryDetailsScreenState> = combine(source, duplicates, toNeutral)
-    .flowOn(Dispatchers.Default)
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), EntryDetailsScreenState.Loading)
+): StateFlow<EntryDetailsScreenState> =
+    combine(source, duplicates, volumes.values) { s, d, v -> toNeutral(s, d).withVolumeViews(v) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), EntryDetailsScreenState.Loading)
 
 /**
  * What [build] made for this model's screen under [key], held in the model's own store, so every re-entry to
@@ -46,6 +50,10 @@ private class KeptForScreen<T>(val value: T) : AutoCloseable {
 /** The keys both details screens keep their adapter and settings under. */
 internal const val DETAILS_ADAPTER_KEY = "reikai.details.adapter"
 internal const val DETAILS_SETTINGS_KEY = "reikai.details.settings"
+
+/** The volume moves of this model's details screen, kept with the model so a rotation keeps their Undo. */
+internal fun ViewModel.detailsVolumeMoves(snackbarHostState: SnackbarHostState): VolumeMoves =
+    keptForScreen("reikai.details.volumeMoves") { VolumeMoves(viewModelScope, snackbarHostState) }
 
 /**
  * The neutral behaviour both content types expose to the shared details UI: the state stream plus the
@@ -111,6 +119,9 @@ interface EntryDetailsBehavior {
 
     // A local series split into volumes: the chip it is left on, and a volume header's actions.
     val volumePicking: VolumePicking
+
+    /** Flips the list between every chapter and only those with copies. */
+    fun toggleOnlyCopies()
 
     /** Selects all of [chapterIds], or clears them when every one already is. */
     fun toggleChapterBlock(chapterIds: List<Long>)

@@ -1,6 +1,7 @@
 package reikai.presentation.details
 
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -63,6 +64,25 @@ class OrganizeUndoHandOverTest {
         val move = movedMove()
         val snackbar = handedOver(move)
 
+        snackbar.currentSnackbarData?.performAction()
+
+        coVerify(timeout = 5_000) { move.undo() }
+        verify(exactly = 0) { move.finish() }
+    }
+
+    /** A rotation or fold disposes the screen and draws it again over the same model, which keeps the Undo. */
+    @Test
+    fun `the handed-over Undo survives the screen being recreated`() {
+        val move = movedMove()
+        val snackbar = SnackbarHostState()
+        val host = DetailsContentHost(behavior, snackbar)
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { ComposeTestHost { host.Content() } }
+        picking.requestOrganize(EntryId.Manga(100L), undo = VolumeMoveUndo(move, "Split out"))
+        compose.waitUntil(5_000) { snackbar.currentSnackbarData != null }
+
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitUntil(5_000) { snackbar.currentSnackbarData != null }
         snackbar.currentSnackbarData?.performAction()
 
         coVerify(timeout = 5_000) { move.undo() }

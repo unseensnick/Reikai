@@ -59,6 +59,8 @@ sealed interface EntryDetailsScreenState {
         val webPage: EntryWebPage?,
         /** The copy each row's download fetches, which the All view moves off a member whose source is gone. */
         val downloadTargets: DownloadTargets,
+        /** The list as shown, built with this state ([withVolumeViews]); empty until the adapter's inputs fill it. */
+        val volumeViews: DetailsVolumeViews = DetailsVolumeViews(),
     ) : EntryDetailsScreenState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
         val isMerged: Boolean get() = mergeSources.size > 1

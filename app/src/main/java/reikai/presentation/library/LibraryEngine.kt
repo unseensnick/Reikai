@@ -1,6 +1,7 @@
 package reikai.presentation.library
 
 import android.content.Context
+import androidx.compose.material3.SnackbarHostState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -61,6 +62,7 @@ import reikai.domain.library.toSortMode
 import reikai.domain.library.within
 import reikai.domain.stats.inMenus
 import reikai.presentation.browse.browseLanguageLabel
+import reikai.presentation.components.VolumeMoves
 import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -109,6 +111,9 @@ class LibraryEngine(
     private val combineLocalVolumes: CombineLocalVolumes,
     private val hideSeries: HideSeries,
 ) : ViewModel() {
+
+    /** The library's snackbar and its local volume moves, kept with the engine so a rotation keeps an Undo. */
+    val volumeMoves = VolumeMoves(viewModelScope, SnackbarHostState())
 
     /**
      * Only the first [viewModel] call for a given store builds the engine; later calls return that

@@ -52,10 +52,9 @@ class DetailsShownSelectionTest {
     private val state = MutableStateFlow(loaded())
 
     private val behavior = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
-        every { fake.state } returns state
+        fake.servesThroughVolumeViews(state, noVolumePicking())
         every { fake.downloadProgress(any()) } returns DownloadProgress.Unsupported
         every { fake.duplicateMarking } returns noDuplicateMarking()
-        every { fake.volumePicking } returns noVolumePicking()
         every { fake.toggleSelection(any(), any(), any()) } answers {
             select(setOf(firstArg<Long>()))
         }
@@ -111,10 +110,9 @@ class DetailsShownSelectionTest {
     )
 
     private val inVolumes = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
-        every { fake.state } returns volumeState
         every { fake.downloadProgress(any()) } returns DownloadProgress.Unsupported
         every { fake.duplicateMarking } returns noDuplicateMarking()
-        every { fake.volumePicking } returns VolumePicking(
+        val picking = VolumePicking(
             object : VolumePickRepository {
                 override fun picks(type: ContentType) = MutableStateFlow(mapOf(100L to VOL_2.key))
                 override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
@@ -130,6 +128,7 @@ class DetailsShownSelectionTest {
             mockk(relaxed = true),
             CoroutineScope(Dispatchers.Unconfined),
         )
+        fake.servesThroughVolumeViews(volumeState, picking)
         every { fake.toggleSelection(any(), any(), any()) } answers {
             volumeState.update { it.copy(selection = it.selection + firstArg<Long>()) }
         }

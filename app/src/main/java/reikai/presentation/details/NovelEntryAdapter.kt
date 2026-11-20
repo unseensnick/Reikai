@@ -10,6 +10,7 @@ import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.seriesAltTitles
+import reikai.domain.library.ContentType
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.NovelChapterListEntry
@@ -66,8 +67,14 @@ class NovelEntryAdapter(
 
     private val duplicatesMemo = DuplicateMarksMemo<NovelChapter>()
 
+    private val volumeInputs = DetailsVolumeInputs(volumePicking, ContentType.NOVELS)
+
     override val state: StateFlow<EntryDetailsScreenState> =
-        model.neutralDetailsState(model.state, duplicateMarking.marks) { state, marks -> state.toNeutral(marks) }
+        model.neutralDetailsState(model.state, duplicateMarking.marks, volumeInputs) { state, marks ->
+            state.toNeutral(marks)
+        }
+
+    override fun toggleOnlyCopies() = volumeInputs.toggleOnlyCopies()
 
     // A novel chapter is one request, so there is no percentage to report while it runs.
     override fun downloadProgress(chapterId: Long) = DownloadProgress.Unsupported
