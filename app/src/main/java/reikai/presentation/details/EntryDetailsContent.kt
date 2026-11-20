@@ -26,6 +26,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -138,7 +139,10 @@ fun EntryDetailsContent(
     val navigator = LocalNavigator.current
     val bus = LocalResultEventBus.current
     val shared = nav.withSharedPushes(state, navigator, bus, twoPane = isTabletUi)
-    val copies = CopiesFilter(on = state.volumeViews.onlyCopies, toggle = behavior::toggleOnlyCopies)
+    // Saved with the page, so it outlives the process as the page does; the adapter filters by it off Main.
+    var onlyCopies by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(onlyCopies) { behavior.setOnlyCopies(onlyCopies) }
+    val copies = CopiesFilter(on = state.volumeViews.onlyCopies) { onlyCopies = !onlyCopies }
     val type = state.entryId.contentType
     val savedVolumes by behavior.volumePicking.saved(type).collectAsState()
     val looseFiles by behavior.volumePicking.looseFiles().collectAsState()

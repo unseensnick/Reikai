@@ -73,6 +73,18 @@ class MangaCoverMetadataTest {
         uiPreferences.coverVibrantColors.get() shouldBe setOf(UNTOUCHED)
     }
 
+    @Test
+    fun `a pause after reads that changed only the order writes nothing`() = runTest {
+        uiPreferences.coverVibrantColors.set(setOf("7|1|0", "8|2|1"))
+        metadata.load().join()
+        CoverColors[7L]
+        uiPreferences.coverVibrantColors.set(setOf(UNTOUCHED))
+
+        metadata.savePrefs().join()
+
+        uiPreferences.coverVibrantColors.get() shouldBe setOf(UNTOUCHED)
+    }
+
     private companion object {
         const val UNTOUCHED = "untouched"
     }

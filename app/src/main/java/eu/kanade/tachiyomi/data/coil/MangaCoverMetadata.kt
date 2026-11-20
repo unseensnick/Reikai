@@ -36,7 +36,7 @@ class MangaCoverMetadata(
     private val loaded: Job by lazy {
         scope.launchIO {
             CoverColors.restore(uiPreferences.coverVibrantColors.get())
-            saveMutex.withLock { lastSaved = uiPreferences.coverVibrantColors.get() }
+            saveMutex.withLock { lastSaved = CoverColors.withoutRecency(uiPreferences.coverVibrantColors.get()) }
         }
     }
     private val saveMutex = Mutex()
@@ -46,16 +46,18 @@ class MangaCoverMetadata(
     fun load(): Job = loaded
 
     /**
-     * Persist the in-memory cover colors (called on app pause), skipping the write when nothing changed.
+     * Persist the in-memory cover colors (called on app pause), skipping the write when no colour came, went or
+     * changed.
      * Waits for [load], or a pause before it finished would store a partial map over the full one.
      */
     fun savePrefs(): Job = scope.launchIO {
         loaded.join()
         val encoded = CoverColors.encode()
+        val colours = CoverColors.withoutRecency(encoded)
         saveMutex.withLock {
-            if (encoded == lastSaved) return@launchIO
+            if (colours == lastSaved) return@launchIO
             uiPreferences.coverVibrantColors.set(encoded)
-            lastSaved = encoded
+            lastSaved = colours
         }
     }
 

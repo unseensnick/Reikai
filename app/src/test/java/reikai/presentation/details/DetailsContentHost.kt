@@ -87,7 +87,7 @@ internal fun EntryDetailsBehavior.servesThroughVolumeViews(
     every { behavior.volumePicking } returns picking
     every { behavior.state } returns combine(state, inputs.values, EntryDetailsScreenState::withVolumeViews)
         .stateIn(CoroutineScope(Dispatchers.Unconfined), SharingStarted.Eagerly, state.value)
-    every { behavior.toggleOnlyCopies() } answers { inputs.toggleOnlyCopies() }
+    every { behavior.setOnlyCopies(any()) } answers { inputs.setOnlyCopies(firstArg()) }
 }
 
 /** A manga chapter row for a details test. */

@@ -74,7 +74,7 @@ class NovelEntryAdapter(
             state.toNeutral(marks)
         }
 
-    override fun toggleOnlyCopies() = volumeInputs.toggleOnlyCopies()
+    override fun setOnlyCopies(on: Boolean) = volumeInputs.setOnlyCopies(on)
 
     // A novel chapter is one request, so there is no percentage to report while it runs.
     override fun downloadProgress(chapterId: Long) = DownloadProgress.Unsupported

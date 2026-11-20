@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.download.model.Download
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -51,7 +53,9 @@ class DetailsShownSelectionTest {
 
     private val state = MutableStateFlow(loaded())
 
-    private val behavior = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
+    private val behavior = copiesBehavior()
+
+    private fun copiesBehavior() = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
         fake.servesThroughVolumeViews(state, noVolumePicking())
         every { fake.downloadProgress(any()) } returns DownloadProgress.Unsupported
         every { fake.duplicateMarking } returns noDuplicateMarking()
@@ -71,6 +75,23 @@ class DetailsShownSelectionTest {
         compose.onNodeWithContentDescription("Select all").performClick()
 
         compose.onNodeWithText(COPIES.size.toString()).assertExists()
+    }
+
+    /** A recreated process builds a new model and adapter, with only the page's saved state to go on. */
+    @Test
+    fun `Only copies is still on after the process is recreated`() {
+        var host = DetailsContentHost(behavior)
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { ComposeTestHost { host.Content() } }
+        compose.onNodeWithText("Show only these", substring = true).performClick()
+        compose.waitForIdle()
+
+        val recreated = copiesBehavior()
+        host = DetailsContentHost(recreated)
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+
+        (recreated.state.value as EntryDetailsScreenState.Loaded).volumeViews.onlyCopies shouldBe true
     }
 
     @Test

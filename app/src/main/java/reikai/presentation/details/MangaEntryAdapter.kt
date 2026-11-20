@@ -58,7 +58,7 @@ class MangaEntryAdapter(
             state.toNeutral(marks)
         }
 
-    override fun toggleOnlyCopies() = volumeInputs.toggleOnlyCopies()
+    override fun setOnlyCopies(on: Boolean) = volumeInputs.setOnlyCopies(on)
 
     override fun downloadProgress(chapterId: Long) = DownloadProgress.Live { model.getDownloadProgress(chapterId) }
 

@@ -4,7 +4,6 @@ import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.library.ContentType
@@ -24,7 +23,7 @@ data class DetailsVolumeViews(
     val volumes: VolumeView? = null,
 )
 
-/** What the volume views read beside a details state, and the page's Only copies switch, kept with its adapter. */
+/** What the volume views read beside a details state, with the Only copies switch the page saves and hands over. */
 class DetailsVolumeInputs(private val picking: VolumePicking, private val type: ContentType) {
 
     data class Values(
@@ -36,7 +35,9 @@ class DetailsVolumeInputs(private val picking: VolumePicking, private val type: 
 
     private val onlyCopies = MutableStateFlow(false)
 
-    fun toggleOnlyCopies() = onlyCopies.update { !it }
+    fun setOnlyCopies(on: Boolean) {
+        onlyCopies.value = on
+    }
 
     val values: Flow<Values> =
         combine(onlyCopies, picking.picks(type), picking.saved(type), picking.looseFiles(), ::Values)

@@ -120,8 +120,8 @@ interface EntryDetailsBehavior {
     // A local series split into volumes: the chip it is left on, and a volume header's actions.
     val volumePicking: VolumePicking
 
-    /** Flips the list between every chapter and only those with copies. */
-    fun toggleOnlyCopies()
+    /** Shows only the chapters with copies, or every chapter; the page keeps the switch and hands it here. */
+    fun setOnlyCopies(on: Boolean)
 
     /** Selects all of [chapterIds], or clears them when every one already is. */
     fun toggleChapterBlock(chapterIds: List<Long>)

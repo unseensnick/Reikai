@@ -56,6 +56,15 @@ object CoverColors {
     }
 
     /**
+     * [encoded] without its recency, so a save can skip a set whose only change is the order reads left it in:
+     * each pause after browsing would otherwise rewrite the whole set. The order is stored when a colour comes,
+     * goes or changes.
+     */
+    fun withoutRecency(encoded: Set<String>): Set<String> = encoded.mapTo(HashSet()) { line ->
+        if (line.endsWith("|$LIBRARY")) line else line.split("|").take(2).joinToString("|")
+    }
+
+    /**
      * Restores [encoded] beneath what is already here: a colour a cover load found first is newer, so it is kept
      * and stays the most recently used. A two-field entry, from before ranks were stored, reads as the oldest.
      */

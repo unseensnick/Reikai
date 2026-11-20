@@ -84,7 +84,7 @@ class NeutralDetailsStateTest {
         val collector = backgroundScope.launch(Dispatchers.Default) { state.collect {} }
         settle { state.first { it is EntryDetailsScreenState.Loaded } }
 
-        noVolumes.toggleOnlyCopies()
+        noVolumes.setOnlyCopies(true)
 
         val shown = settle {
             state.first { (it as? EntryDetailsScreenState.Loaded)?.volumeViews?.onlyCopies == true }
