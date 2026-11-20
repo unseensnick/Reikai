@@ -184,9 +184,12 @@ class LocalImportViewModel(
 
     fun setAddToLibrary(add: Boolean) = state.update { it.copy(addToLibrary = add) }
 
-    /** Import turns off at once, since the category read leaves room for a second tap to start a second copy. */
+    /**
+     * Import turns off at once, since the category read leaves room for a second tap to start a second copy. A tap
+     * while a read runs is taken, and the copy waits for the read.
+     */
     fun startImport() {
-        if (state.value.isImporting || !state.value.isReadyToImport) return
+        if (state.value.isImporting || !state.value.isAnswered) return
         state.update { it.copy(pending = emptyMap(), isImporting = true) }
         askCategoriesThenImport()
     }
@@ -205,30 +208,35 @@ class LocalImportViewModel(
      */
     private fun askCategoriesThenImport() {
         viewModelScope.launchIO {
-            if (state.value.addToLibrary) {
-                for (type in state.value.groups.map { it.type }.distinct().filter { it !in state.value.pending }) {
-                    when (val batch = batchCategories(type)) {
-                        is BatchCategories.Default ->
-                            state.update { it.copy(pending = it.pending + (type to batch.categoryIds)) }
-                        is BatchCategories.Ask -> {
-                            state.update {
-                                it.copy(
-                                    pickCategories = CategoryPick(type, batch.initialSelection),
-                                    isImporting = false,
-                                )
+            while (true) {
+                if (state.value.addToLibrary) {
+                    for (type in state.value.unaskedTypes) {
+                        when (val batch = batchCategories(type)) {
+                            is BatchCategories.Default ->
+                                state.update { it.copy(pending = it.pending + (type to batch.categoryIds)) }
+                            is BatchCategories.Ask -> {
+                                state.update {
+                                    it.copy(
+                                        pickCategories = CategoryPick(type, batch.initialSelection),
+                                        isImporting = false,
+                                    )
+                                }
+                                return@launchIO
                             }
-                            return@launchIO
                         }
                     }
                 }
-            }
-            // A look still running may find a newer copy to ask about in what this would copy.
-            val ready = state.first { !it.isReading }
-            if (!ready.isReadyToImport) {
-                state.update { it.copy(isImporting = false) }
+                // A look still running may find a newer copy to ask about in what this would copy.
+                val ready = state.first { !it.isReading }
+                if (!ready.isReadyToImport) {
+                    state.update { it.copy(isImporting = false) }
+                    return@launchIO
+                }
+                // A share that landed during the waits can bring a type whose rule was never asked.
+                if (ready.addToLibrary && ready.unaskedTypes.isNotEmpty()) continue
+                runImport(ready.groups, ready.pending)
                 return@launchIO
             }
-            runImport(ready.groups, ready.pending)
         }
     }
 
@@ -308,8 +316,12 @@ class LocalImportViewModel(
         /** Whether a preview is still reading files; reads can overlap, a pick beside a share. */
         val isReading: Boolean get() = reads > 0
 
-        val isReadyToImport: Boolean get() =
-            !isReading && groups.isNotEmpty() && groups.none(ImportGroup::asksAboutNewerCopies)
+        /** Whether there is something to import and nothing it has to ask about first. */
+        val isAnswered: Boolean get() = groups.isNotEmpty() && groups.none(ImportGroup::asksAboutNewerCopies)
+
+        val isReadyToImport: Boolean get() = !isReading && isAnswered
+
+        val unaskedTypes: List<ContentType> get() = groups.map { it.type }.distinct().filter { it !in pending }
     }
 
     @AssistedFactory

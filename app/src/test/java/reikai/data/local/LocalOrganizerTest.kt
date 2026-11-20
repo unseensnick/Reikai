@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
+import reikai.domain.local.GatedLocalFileJournal
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan.FileStep
 import reikai.domain.local.LocalFileJournalPlan.Organize
@@ -147,6 +148,29 @@ class LocalOrganizerTest(private val type: ContentType) {
         organizer.run(type, renaming("From", "To"))
 
         (journal.entries.isEmpty() to locks.isBlocked(type, listOf("From", "To"))) shouldBe (true to false)
+    }
+
+    /** A retry that read the row just before Forget took the lock must not replay what Forget dropped. */
+    @Test
+    fun `a retry that read its row before Forget moves no file once Forget drops the row`() = runTest {
+        File(local, "To").mkdirs()
+        val retries = TestCoroutineScheduler()
+        val gated = GatedLocalFileJournal(journal)
+        val organizer = LocalOrganizer(context, gated, mockk(), locks, CoroutineScope(StandardTestDispatcher(retries)))
+        val plan = renaming("From", "To")
+        val id = journal.insert(type, plan)
+        // Both names there, so the cut rename cannot be told landed and the row is held for a retry.
+        organizer.replay(type, id, plan)
+        File(local, "To").delete()
+        val (read, release) = gated.holdNextRead()
+        retries.advanceTimeBy(organizer.firstRetry.inWholeMilliseconds + 1)
+        read.await()
+
+        organizer.forget(type, listOf("From"))
+        release.complete(Unit)
+        retries.advanceUntilIdle()
+
+        File(local, "To").exists() shouldBe false
     }
 
     companion object {

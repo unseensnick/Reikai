@@ -145,7 +145,7 @@ fun LocalImportScreen(initialUris: List<String>) {
                 ImportBar(
                     addToLibrary = state.addToLibrary,
                     isImporting = state.isImporting,
-                    isAnswered = state.groups.none { it.asksAboutNewerCopies },
+                    isAnswered = state.isAnswered,
                     onAddToLibrary = viewModel::setAddToLibrary,
                     onImport = viewModel::startImport,
                 )

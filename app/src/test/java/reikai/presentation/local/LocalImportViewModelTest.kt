@@ -61,13 +61,17 @@ class LocalImportViewModelTest {
             { categoriesRead.await() }
     }
 
+    private val novelAdder = mockk<NovelLibraryAdder> {
+        coEvery { resolveBatchCategories() } returns BatchCategories.Default(listOf(7L))
+    }
+
     private val appScope = testAppScope()
 
     private fun model() = LocalImportViewModel(
         initialUris = emptyList(),
         localImport = localImport,
         combineLocalVolumes = mockk(),
-        novelAdder = mockk<NovelLibraryAdder>(),
+        novelAdder = novelAdder,
         mangaAdder = mangaAdder,
         appScope = appScope,
     )
@@ -224,6 +228,55 @@ class LocalImportViewModelTest {
         model.settle()
 
         imported shouldBe emptyList()
+    }
+
+    /** The types to ask were picked before the share landed, so the novel had no rule asked for it. */
+    @Test
+    fun `a content type shared in while the categories are read is imported under its own rule`() = runTest {
+        val categories = Collections.synchronizedMap(mutableMapOf<ContentType, List<Long>>())
+        coEvery { localImport.preview(listOf(second)) } returns
+            (listOf(group("b", second).copy(type = ContentType.NOVELS)) to emptyList())
+        coEvery { localImport.import(any(), any(), any()) } answers {
+            categories[firstArg<List<ImportGroup>>().first().type] = thirdArg()
+            ImportResult(emptyList(), emptyList())
+        }
+        val model = model()
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+        model.startImport()
+        model.add(listOf(second))
+        model.state.first { it.groups.size == 2 && !it.isReading }
+
+        categoriesRead.complete(BatchCategories.Default(emptyList()))
+        model.state.first { it.result != null }
+        model.settle()
+
+        categories[ContentType.NOVELS] shouldBe listOf(7L)
+    }
+
+    /** Import is offered while a read runs, so a tap then waits for the read rather than doing nothing. */
+    @Test
+    fun `an import tapped while a file is still being read starts once the read finishes`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        coEvery { localImport.preview(listOf(second)) } coAnswers {
+            gate.await()
+            listOf(group("b", second)) to emptyList()
+        }
+        importing.complete(Unit)
+        val model = model()
+        model.setAddToLibrary(false)
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+        model.add(listOf(second))
+
+        model.startImport()
+        gate.complete(Unit)
+        val after = withContext(Dispatchers.Default) {
+            withTimeoutOrNull(5.seconds) { model.state.first { it.result != null } }
+        }
+        model.settle()
+
+        (after != null) shouldBe true
     }
 
     @Test

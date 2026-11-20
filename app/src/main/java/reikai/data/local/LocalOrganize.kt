@@ -174,14 +174,20 @@ class LocalOrganizer(
 
     private fun block(type: ContentType, id: Long, plan: Organize) = holdUntilRepaired(type, id, plan.folders()) {
         val left = it as? Organize ?: return@holdUntilRepaired
-        locks.repairing(type, left.folders()) { replay(type, id, left) }
+        locks.repairing(type, left.folders()) { if (stillReads(id, left)) replay(type, id, left) }
     }
 
     /** Holds series folder [series] until import Replace row [id], whose old book was left aside, is mended. */
     fun holdReplace(type: ContentType, id: Long, series: String) = holdUntilRepaired(type, id, listOf(series)) {
         val left = it as? LocalFileJournalPlan.Replace ?: return@holdUntilRepaired
-        locks.repairing(type, listOf(series)) { replayReplace(context, journal, id, left) }
+        locks.repairing(type, listOf(series)) { if (stillReads(id, left)) replayReplace(context, journal, id, left) }
     }
+
+    // Asked again under the repair lock, since [forget] can drop the row between the retry's read and the lock; a plan
+    // replayed from that stale read would move files after Forget promised none would move.
+    private suspend fun stillReads(id: Long, plan: LocalFileJournalPlan) = rowPlan(id) == plan
+
+    private suspend fun rowPlan(id: Long) = journal.all().firstOrNull { it.id == id }?.plan
 
     /**
      * Drops every unresolved journal row refusing any of [folders] and lets its folders be held again, moving no file,
@@ -220,7 +226,7 @@ class LocalOrganizer(
                     delay(wait)
                     // The journal reads too, so a database hiccup costs one round rather than the retry.
                     val resolved = try {
-                        journal.all().firstOrNull { it.id == id }?.plan?.let { repair(it) }
+                        rowPlan(id)?.let { repair(it) }
                         journal.all().none { it.id == id }
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e

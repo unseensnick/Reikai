@@ -19,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
+import reikai.domain.local.GatedLocalFileJournal
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalSeriesBlockedException
@@ -182,6 +183,25 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
 
         Triple(folder(), journal.entries, isHeld()) shouldBe
             Triple(listOf(old.name) to "newer", emptyList<Any>(), false)
+    }
+
+    /** The retry read the row just before Forget took the lock, and must not replay what Forget dropped. */
+    @Test
+    fun `a held replace whose row Forget drops as its retry reads it leaves the folder as it is`() = runTest {
+        unreachable(series = "Series")
+        val gated = GatedLocalFileJournal(journal)
+        val organizer = LocalOrganizer(context, gated, mockk(), locks, CoroutineScope(StandardTestDispatcher(retries)))
+        LocalFileJournalReplay(context, gated, locks, organizer).replay()
+        check(File(old.parentFile.parentFile, "Away").renameTo(old.parentFile))
+        val (read, release) = gated.holdNextRead()
+        retries.advanceTimeBy(3.seconds)
+        read.await()
+
+        organizer.forget(type, listOf("Series"))
+        release.complete(Unit)
+        retries.runCurrent()
+
+        old.parentFile.list()!!.sorted() shouldBe listOf(aside.name, part.name).sorted()
     }
 
     /** The folder's name then comes from the folder's own address. */
