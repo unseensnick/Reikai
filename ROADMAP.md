@@ -10,6 +10,10 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Doc](docs/dev/subsystems/content-layer.md).
 
+### Novels
+
+- **Novel translation** `[L]` - read a novel in your own language: chapters, chapter titles, and titles and descriptions in browse and on the details page, translated on the device with ML Kit or through an engine you choose (unseensnick/Reikai#107). Plan: [novel-translation.md](docs/dev/plans/novel-translation.md).
+
 ### Anime
 
 - **Anime as a third, lighter content type** `[XL]` - browse anime extensions built for Aniyomi, add series to the library and play episodes in an outside video player, with what was watched kept in backups; the built-in player, episode downloads and anime tracking come after. Not in 0.6.0, no date set. [Plan](docs/dev/plans/anime-mvp.md).
