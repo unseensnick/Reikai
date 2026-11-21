@@ -21,8 +21,11 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.i18n.MR
 import java.io.File
+import java.io.IOException
 import java.io.OutputStream
 import java.util.UUID
 import java.util.zip.GZIPOutputStream
@@ -51,7 +54,11 @@ class LnReaderBackupConverter(
         // One that never reached a restore; a restore running or queued may still read its own.
         if (!BackupRestoreWorker.isPending(context.workManager)) dir.listFiles()?.forEach(File::delete)
 
-        val header = reader.header()
+        val header = try {
+            reader.header()
+        } catch (e: UnsupportedLnReaderFormat) {
+            throw IOException(context.stringResource(MR.strings.restore_lnreader_format_unsupported), e)
+        }
         val plugins = header.plugins.associateBy { it.id }
         val zone = TimeZone.currentSystemDefault()
         val skippedLocal = mutableListOf<String>()

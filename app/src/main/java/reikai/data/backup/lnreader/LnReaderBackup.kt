@@ -90,6 +90,10 @@ internal data class LnReaderPlugin(
     val iconUrl: String? = null,
 )
 
+/** An LNReader backup written in a format newer than this version reads, which would otherwise be misread. */
+internal class UnsupportedLnReaderFormat(val formatVersion: Int) :
+    IOException("LNReader backup format $formatVersion is newer than the supported $SUPPORTED_FORMAT_VERSION")
+
 /** What the import needs before its novels: their categories and the plugins they came from. */
 internal data class LnReaderHeader(val categories: List<LnReaderCategory>, val plugins: List<LnReaderPlugin>)
 
@@ -109,6 +113,10 @@ private object LenientBoolean : JsonTransformingSerializer<Boolean>(Boolean.seri
 private const val NOVEL_FOLDER = "NovelAndChapters/"
 private const val VERSION_FILE = "Version.json"
 private const val CATEGORY_FILE = "Category.json"
+
+// LNReader's SUPPORTED_BACKUP_FORMAT_VERSION as of the formats read here. Format 1 records no formatVersion, only an app
+// version, so a backup without one reads as format 1.
+private const val SUPPORTED_FORMAT_VERSION = 2
 
 // Format 2 lists the installed plugins in a file of their own; format 1 keeps them in the settings dump.
 private const val PLUGIN_FILE = "Plugins.json"
@@ -144,6 +152,9 @@ internal class LnReaderBackupReader(private val open: () -> InputStream) {
         var plugins = emptyList<LnReaderPlugin>()
         entries { name, stream ->
             when (name) {
+                VERSION_FILE -> formatVersion(read(stream))
+                    ?.takeIf { it > SUPPORTED_FORMAT_VERSION }
+                    ?.let { throw UnsupportedLnReaderFormat(it) }
                 CATEGORY_FILE -> categories = json.decodeFromString(read(stream))
                 PLUGIN_FILE -> plugins = pluginList(json.parseToJsonElement(read(stream)))
                 SETTINGS_FILE -> if (plugins.isEmpty()) {
@@ -196,6 +207,11 @@ internal class LnReaderBackupReader(private val open: () -> InputStream) {
         if (entry.request(BackupProtoReader.MAX_FIELD_BYTES + 1)) throw IOException("A backup entry is too large")
         return entry.readUtf8()
     }
+
+    // Unreadable is format 1's, as in LNReader, which refuses only a number it does not know.
+    private fun formatVersion(text: String): Int? =
+        (runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject)
+            ?.get("formatVersion")?.let { (it as? JsonPrimitive)?.intOrNull }
 
     // The settings dump stores the list as a JSON string; Plugins.json stores the array itself.
     private fun pluginList(element: JsonElement): List<LnReaderPlugin> {

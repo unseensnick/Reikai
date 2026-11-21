@@ -166,6 +166,32 @@ class LnReaderBackupTest {
     }
 
     @Test
+    fun `a backup in a format newer than LNReader's 2 is refused`() {
+        val formatThree = zip(
+            "Version.json" to """{"appVersion":"2.3.0","formatVersion":3}""",
+            "NovelAndChapters/1.json" to """{"id":1,"path":"fiction/1","pluginId":"royalroad","inLibrary":true}""",
+        )
+
+        shouldThrow<UnsupportedLnReaderFormat> { reader(formatThree).header() }.formatVersion shouldBe 3
+    }
+
+    @Test
+    fun `a format two backup still imports its library novels`() {
+        val reader = reader(formatTwo)
+        val imported = mutableListOf<String>()
+
+        reader.header()
+        reader.forEachImported(onLocal = {}) { imported += it.path }
+
+        imported shouldContainExactly listOf("fiction/1")
+    }
+
+    @Test
+    fun `a backup that records no format is read as format one`() {
+        reader(formatOne).header().categories.map { it.name } shouldContainExactly listOf("Default", "Ongoing")
+    }
+
+    @Test
     fun `chapters run in LNReader's reading order, page then position, not the order it wrote them`() {
         val written = listOf(chapter("p2a", page = "2", position = 0), chapter("p1b", position = 1), chapter("p1a"))
 
