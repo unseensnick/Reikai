@@ -6,12 +6,21 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody
+import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
+import okio.ForwardingSource
+import okio.buffer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.CoverColors
 import reikai.util.idleAppScope
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.manga.model.MangaCover
 
 /**
  * The cover colours persist across restarts, browse covers included, so the store is capped, read off the first
@@ -83,6 +92,73 @@ class MangaCoverMetadataTest {
         metadata.savePrefs().join()
 
         uiPreferences.coverVibrantColors.get() shouldBe setOf(UNTOUCHED)
+    }
+
+    @Test
+    fun `no cover source is opened while cover theming is off`() {
+        uiPreferences.themeCoverBased.set(false)
+        var opened = false
+
+        metadata.setVibrantColorAsync(cover()) {
+            opened = true
+            null
+        }
+
+        opened shouldBe false
+    }
+
+    @Test
+    fun `no cover source is opened for a colour already known`() {
+        val cover = cover().apply { vibrantCoverColor = 1 }
+        var opened = false
+
+        metadata.setVibrantColorAsync(cover) {
+            opened = true
+            null
+        }
+
+        opened shouldBe false
+    }
+
+    @Test
+    fun `an opened cover source is closed once read`() = runTest {
+        val source = TrackingSource()
+
+        metadata.setVibrantColorAsync(cover()) { source.buffer() }?.join()
+
+        source.closed shouldBe true
+    }
+
+    @Test
+    fun `a cover past the peek cap is not copied for its colour`() {
+        val body = ByteArray((MAX_COVER_PEEK_BYTES + 1).toInt()).toResponseBody()
+
+        MangaCoverMetadata.peekForColour(response(body)) shouldBe null
+    }
+
+    private fun cover() = MangaCover(
+        mangaId = 7L,
+        sourceId = 1L,
+        isMangaFavorite = true,
+        url = null,
+        lastModified = null,
+    )
+
+    private fun response(body: ResponseBody) = Response.Builder()
+        .request(Request.Builder().url("https://example.org/cover.jpg").build())
+        .protocol(Protocol.HTTP_1_1)
+        .code(200)
+        .message("OK")
+        .body(body)
+        .build()
+
+    private class TrackingSource : ForwardingSource(Buffer().write(ByteArray(16))) {
+        var closed = false
+
+        override fun close() {
+            closed = true
+            super.close()
+        }
     }
 
     private companion object {

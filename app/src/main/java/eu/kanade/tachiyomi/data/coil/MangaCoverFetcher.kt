@@ -137,10 +137,7 @@ class MangaCoverFetcher(
                 // Read from snapshot
                 // RK --> extract the theming color on the browse/non-library path too, so a
                 // non-favorited manga's cover tints on first open (Komikku parity)
-                val snap = snapshot
-                mangaCover?.let {
-                    mangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
-                }
+                colourFromSnapshot(snapshot)
                 // RK <--
                 return SourceFetchResult(
                     source = snapshot.toImageSource(),
@@ -163,10 +160,7 @@ class MangaCoverFetcher(
                 snapshot = writeToDiskCache(response)
                 if (snapshot != null) {
                     // RK --> Komikku parity: warm the theming color on the network path too
-                    val snap = snapshot
-                    mangaCover?.let {
-                        mangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
-                    }
+                    colourFromSnapshot(snapshot)
                     // RK <--
                     return SourceFetchResult(
                         source = snapshot.toImageSource(),
@@ -176,12 +170,9 @@ class MangaCoverFetcher(
                 }
 
                 // RK --> Komikku parity: warm the theming color when serving straight from the
-                // response body; peekBody so the returned stream isn't consumed
+                // response body, from a capped peek so the stream Coil reads is neither shared nor consumed
                 mangaCover?.let {
-                    mangaCoverMetadata.setVibrantColorAsync(
-                        it,
-                        bufferedSource = response.peekBody(Long.MAX_VALUE).source(),
-                    )
+                    mangaCoverMetadata.setVibrantColorAsync(it) { MangaCoverMetadata.peekForColour(response) }
                 }
                 // RK <--
                 // Read from response if cache is unused or unusable
@@ -312,6 +303,14 @@ class MangaCoverFetcher(
             closeable = this,
         )
     }
+
+    // RK --> a handle of its own on the snapshot's file: closing it leaves the snapshot Coil reads open
+    private fun colourFromSnapshot(snapshot: DiskCache.Snapshot) {
+        mangaCover?.let {
+            mangaCoverMetadata.setVibrantColorAsync(it) { FileSystem.SYSTEM.source(snapshot.data).buffer() }
+        }
+    }
+    // RK <--
 
     private fun getResourceType(cover: String?): Type? {
         return when {
