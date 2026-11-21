@@ -337,6 +337,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A light-novel plugin's page now has Clear cookies in its ⋮ menu, as an extension's page does.**
 - **Adding a repo at a plain http:// address now warns that anyone on your network can change what it serves.**
 - **A light-novel plugin's page now has its own Incognito mode switch, as an extension's page does.**
+- **Light-novel plugin filters that take a list of typed words, such as tags, now show in the filter sheet (from LNReader).** A filter type the app does not know yet shows as unsupported instead of vanishing.
 
 #### Changed
 

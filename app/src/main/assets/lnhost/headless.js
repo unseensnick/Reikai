@@ -886,8 +886,8 @@
   });
   // Member NAMES must mirror LNReader's FilterTypes enum: compiled plugins look a type up by name
   // (`i.FilterTypes.CheckboxGroup`), so a missing/renamed member resolves to undefined and that filter
-  // silently never renders. The string VALUES are Reikai's own convention, matched by the value branches
-  // in NovelSourceFilterSheet, so they must stay in sync with that sheet, not with upstream's values.
+  // silently never renders. The string VALUES are Reikai's own convention, matched by LnFilterType, so they
+  // must stay in sync with it (LnFilterTypeTest pins that), not with upstream's values.
   var FilterTypes = Object.freeze({
     TextInput: "TextInput",
     Picker: "Picker",
@@ -895,6 +895,7 @@
     Switch: "Switch",
     XCheckbox: "XCheckbox",
     ExcludableCheckboxGroup: "ExcludableCheckboxGroup",
+    MultiText: "MultiText",
   });
   var defaultCover =
     "https://github.com/LNReader/lnreader-sources/blob/main/icons/no-cover.jpg?raw=true";

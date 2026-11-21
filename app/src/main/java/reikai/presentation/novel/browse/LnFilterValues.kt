@@ -32,3 +32,28 @@ internal data class IncludeExclude(val include: Set<String>, val exclude: Set<St
         }
     }
 }
+
+/**
+ * A MultiText filter's value: each entry split at line breaks and trimmed, blanks and repeats dropped, as
+ * LNReader's `addMultiTextValues`. The plugin reads the string array as is, so it owns any further format.
+ */
+internal fun multiTextValue(values: List<String>): JsonArray =
+    checkboxValue(values.flatMap { it.split('\n') }.map(String::trim).filter(String::isNotEmpty).distinct())
+
+/**
+ * The filter types the sheet draws, by the type string the host's `FilterTypes` hands a plugin (`lnhost/headless.js`).
+ * A type outside these reads as null, and the sheet shows it as unsupported rather than dropping it.
+ */
+internal enum class LnFilterType(private vararg val wire: String) {
+    Toggle("Switch", "XCheckbox"),
+    Text("TextInput", "Text"),
+    Picker("Picker"),
+    Checkbox("Checkbox"),
+    ExcludableCheckboxGroup("ExcludableCheckboxGroup"),
+    MultiText("MultiText"),
+    ;
+
+    companion object {
+        fun of(type: String?): LnFilterType? = entries.firstOrNull { type in it.wire }
+    }
+}

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
+import eu.kanade.tachiyomi.ui.browse.source.browse.AutoCompleteItem
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -26,6 +30,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SelectItem
+import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.TextItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.components.material.Button
@@ -36,7 +41,7 @@ import tachiyomi.presentation.core.i18n.stringResource
  * uses ([eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog]): an [AdaptiveSheet] of
  * Mihon's settings-item primitives. Each control emits a JsonElement of the shape the plugin reads at
  * `options.filters.X.value`: a boolean for Switch/XCheckbox, a string for Text/Picker, a string array
- * for Checkbox, and `{include, exclude}` for ExcludableCheckboxGroup. Pure render + emit; the model
+ * for Checkbox and MultiText, and `{include, exclude}` for ExcludableCheckboxGroup. Pure render + emit; the model
  * owns the value map and refetches on apply.
  */
 @Composable
@@ -84,25 +89,25 @@ internal fun NovelSourceFilterSheet(
 }
 
 @Composable
-private fun NovelFilterItem(
+internal fun NovelFilterItem(
     schema: JsonObject,
     current: JsonElement?,
     onValueChange: (JsonElement) -> Unit,
 ) {
     val label = schema.label()
-    when (schema["type"]?.jsonPrimitive?.contentOrNull) {
-        "Switch", "XCheckbox" -> {
+    when (LnFilterType.of(schema["type"]?.jsonPrimitive?.contentOrNull)) {
+        LnFilterType.Toggle -> {
             val checked = (current as? JsonPrimitive)?.booleanOrNull ?: false
             CheckboxItem(label = label, checked = checked, onClick = { onValueChange(JsonPrimitive(!checked)) })
         }
-        "TextInput", "Text" -> TextItem(
+        LnFilterType.Text -> TextItem(
             label = label,
             value = (current as? JsonPrimitive)?.contentOrNull ?: "",
             onChange = { onValueChange(JsonPrimitive(it)) },
         )
-        "Picker" -> SchemaPickerRow(label, schema, current, onValueChange)
-        "Checkbox" -> SchemaCheckboxGroupRow(label, schema, current, onValueChange)
-        "ExcludableCheckboxGroup" -> {
+        LnFilterType.Picker -> SchemaPickerRow(label, schema, current, onValueChange)
+        LnFilterType.Checkbox -> SchemaCheckboxGroupRow(label, schema, current, onValueChange)
+        LnFilterType.ExcludableCheckboxGroup -> {
             val (include, exclude) = IncludeExclude.of(current)
             Column {
                 HeadingItem(text = label)
@@ -128,6 +133,16 @@ private fun NovelFilterItem(
                 }
             }
         }
+        LnFilterType.MultiText -> AutoCompleteItem(
+            name = label,
+            state = checkedValues(current).toImmutableList(),
+            hint = "",
+            values = persistentListOf(),
+            skipAutoFillTags = persistentListOf(),
+            validPrefixes = persistentListOf(),
+            onChange = { onValueChange(multiTextValue(it)) },
+        )
+        null -> UnsupportedFilterRow(label)
     }
 }
 
@@ -185,5 +200,22 @@ internal fun SchemaCheckboxGroupRow(
                 },
             )
         }
+    }
+}
+
+/** A filter of a type this version cannot draw keeps its row, so it never silently vanishes; the plugin gets its default. */
+@Composable
+private fun UnsupportedFilterRow(label: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = SettingsItemsPaddings.Vertical),
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = stringResource(MR.strings.novel_filter_unsupported),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

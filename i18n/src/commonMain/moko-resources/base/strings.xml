@@ -407,6 +407,7 @@
     <string name="novel_page_use_for_chapter">Use page for this chapter</string>
     <string name="novel_page_details_updated">Details updated from this page</string>
     <string name="novel_chapter_empty">The source returned no text for this chapter</string>
+    <string name="novel_filter_unsupported">Not supported in this app version</string>
     <string name="novel_page_no_chapters">No chapters on this page. Open the page that lists them.</string>
     <string name="novel_page_chapter_saved">Chapter saved from this page</string>
     <string name="novel_page_no_chapter_text">No chapter text on this page</string>
