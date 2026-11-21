@@ -497,14 +497,29 @@ class CloudflareInterceptorTest {
     @Test
     fun `a challenge two sites redirect to is solved once`() {
         val clearances = clearancesPerHost()
-        // Two mirrors, each its own host lock, redirect to the main site, which challenges until cleared.
-        val redirecting = allChallenged(4) { request ->
+        val arrived = CountDownLatch(2)
+        val solved = CountDownLatch(1)
+        // Two mirrors, each its own host lock, redirect to the main site, which challenges until cleared. Both
+        // are challenged before the solve, and the second returns only after it, so it reads the fresh clearance
+        // as the one it was challenged under, outside any lock the solve held.
+        val redirecting = { request: Request ->
             val landed = request.newBuilder().url("https://main.example${request.url.encodedPath}").build()
-            if (clearances["main.example"] == null) server(landed) else ok(landed)
+            val response = if (clearances["main.example"] == null) server(landed) else ok(landed)
+            arrived.countDown()
+            arrived.await(5, TimeUnit.SECONDS)
+            if (request.url.host == "mirror-1.example") solved.await(5, TimeUnit.SECONDS)
+            response
         }
-        solveWith { clearances["main.example"] = "solved" }
+        // The WebView alone is faked: the real solve numbers itself (markSolved), which is what tells the late
+        // mirror the clearance it read is a sibling's.
+        every { interceptor["resolveWithWebView"](any<Request>(), any<HttpUrl>(), any<String>()) } answers {
+            solves.incrementAndGet()
+            clearances["main.example"] = "solved"
+            solved.countDown()
+            Unit
+        }
 
-        runAll(4) { interceptor.intercept(chain("https://mirror-$it.example/page", redirecting)).close() }
+        runAll(2) { interceptor.intercept(chain("https://mirror-$it.example/page", redirecting)).close() }
 
         solves.get() shouldBe 1
     }
