@@ -475,6 +475,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Confirming the tracker's chapter picker without moving it no longer rounds progress like 12.5 down to 12.**
 - **Tapping a self-hosted server tracker whose server can't be reached now says why instead of reporting no match.**
 - **The warning before a tracker replaces its list entry now stays up when the screen rotates.**
+- **A cover filled in from the MDList tracker now loads on a series from any source (from Komikku).**
 
 ### Other
 

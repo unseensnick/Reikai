@@ -3,6 +3,7 @@ package exh.md.network
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
+import eu.kanade.tachiyomi.network.interceptor.MangaDexUserAgentInterceptor
 import exh.md.utils.MdApi
 import exh.md.utils.MdUtil
 import io.kotest.matchers.shouldBe
@@ -66,6 +67,18 @@ class MangaDexAuthInterceptorTest {
         trackPreferences.trackToken(mdList).set(expired)
         runCatching { MangaDexAuthInterceptor(trackPreferences, mdList).intercept(chain(answers)) }
         return trackPreferences.trackToken(mdList).get()
+    }
+
+    @Test
+    @DisplayName("a refresh sends the app's User-Agent, since it runs past the shared client's agent interceptors")
+    fun refreshSendsAppUserAgent() {
+        val sent = AtomicReference<String?>()
+        savedLoginAfter {
+            sent.set(it.header("User-Agent"))
+            response(it, 503)
+        }
+
+        sent.get() shouldBe MangaDexUserAgentInterceptor.defaultUserAgent()
     }
 
     @Test

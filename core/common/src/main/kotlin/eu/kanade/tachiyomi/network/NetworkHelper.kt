@@ -7,7 +7,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrClient
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
-import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
+import eu.kanade.tachiyomi.network.interceptor.addUserAgentInterceptors // RK
 import eu.kanade.tachiyomi.network.interceptor.pinFlareSolverrUserAgents // RK
 import kotlinx.coroutines.CoroutineScope
 import mihon.core.metro.AppCoroutineScope
@@ -45,7 +45,7 @@ class NetworkHelper(
                 ),
             )
             .addInterceptor(UncaughtExceptionInterceptor())
-            .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
+            .addUserAgentInterceptors(::defaultUserAgentProvider) // RK: MangaDex's User-Agent first
             // RK: ahead of the logging interceptor, so verbose logs show the User-Agent actually sent.
             .pinFlareSolverrUserAgents(flareSolverr::pinnedUserAgentFor)
 
