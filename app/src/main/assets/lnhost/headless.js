@@ -931,6 +931,108 @@
   // @libs/aes is the @noble/ciphers vendor bundle, which loads before this runtime or the engine fails to start.
   var aesLib = { gcm: globalThis.nobleCiphers.gcm };
 
+  // -- @libs/pluginError ------------------------------------------------------
+  // LNReader's src/plugins/helpers/pluginError.ts (lnreader c14bd4f0). Each code IS its user-facing message,
+  // as upstream's string enum, so a plugin's thrown error reads the same in the download queue's failure.
+  var PluginError = Object.freeze({
+    Captcha: "Captcha error, please open in webview",
+    Cloudflare: "Cloudflare is blocking requests. Try again later.",
+    RateLimited: "Too many requests (429). Please try again later.",
+    NotFound: "Content not found (404), it may have been removed from this source.",
+    NovelNotFound: "Novel not found (404), it may have been removed from this source.",
+    ChapterNotFound: "Chapter not found (404), it may have been removed from this source.",
+    AuthRequired: "Authentication required. Please log in via WebView.",
+    EmptyContent: "No readable content was found.",
+    InvalidResponse: "Invalid response from source.",
+    NetworkError: "Could not reach site, please try to open in webview.",
+  });
+  var PLUGIN_ERROR_CODES = Object.keys(PluginError).map(function (k) {
+    return PluginError[k];
+  });
+  var STATUS_TO_CODE = {
+    401: PluginError.AuthRequired,
+    403: PluginError.Cloudflare,
+    404: PluginError.NotFound,
+    429: PluginError.RateLimited,
+    503: PluginError.Cloudflare,
+  };
+  var CHALLENGE_TITLES = [
+    "bot verification",
+    "you are being redirected...",
+    "un instant...",
+    "one moment...",
+    "just a moment...",
+    "redirecting...",
+    "attention required! | cloudflare",
+  ];
+  function hostnameBase(url) {
+    var match = url.match(/^https?:\/\/([^/?#]+)/i);
+    var host = (match ? match[1] : "").toLowerCase().replace(/^www\./, "");
+    if (!host) return "";
+    var parts = host.split(".");
+    if (parts.length > 1) parts.pop();
+    return parts.join(".");
+  }
+  function createPluginError(code, options) {
+    var error = new Error((options && options.message) || code);
+    error.name = "PluginError";
+    error.code = code;
+    if (options && options.status !== undefined) error.status = options.status;
+    if (options && options.url) error.url = options.url;
+    return error;
+  }
+  function httpError(status, message, url) {
+    var code = STATUS_TO_CODE[status] || PluginError.NetworkError;
+    var fallback =
+      code === PluginError.NetworkError && status
+        ? "Could not reach site (" + status + "), please try to open in webview."
+        : code;
+    return createPluginError(code, { status: status, message: message || fallback, url: url });
+  }
+  function checkResponse(response, options) {
+    if (response.ok || (options && options.search && response.status === 404)) return response;
+    if (response.status === 404 && options && options.notFoundCode) {
+      throw createPluginError(options.notFoundCode, {
+        status: response.status,
+        message: options.message,
+        url: response.url || undefined,
+      });
+    }
+    throw httpError(response.status, options && options.message, response.url || undefined);
+  }
+  function isChallengeHtml(html, requestUrl, responseUrl) {
+    if (requestUrl && responseUrl) {
+      var reqHost = hostnameBase(requestUrl);
+      var resHost = hostnameBase(responseUrl);
+      if (reqHost && resHost && reqHost !== resHost) return true;
+    }
+    var titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    var title = titleMatch ? titleMatch[1].trim().toLowerCase() : "";
+    if (!title) return false;
+    return CHALLENGE_TITLES.indexOf(title) !== -1 || /\bcloudflare\b/i.test(title);
+  }
+  function assertNoChallenge(html, requestUrl, responseUrl, message) {
+    if (isChallengeHtml(html, requestUrl, responseUrl)) {
+      throw createPluginError(PluginError.Captcha, {
+        status: 403,
+        message: message,
+        url: responseUrl || requestUrl,
+      });
+    }
+  }
+  function isPluginError(error) {
+    return error instanceof Error && typeof error.code === "string" && PLUGIN_ERROR_CODES.indexOf(error.code) !== -1;
+  }
+  var pluginErrorLib = {
+    PluginError: PluginError,
+    createPluginError: createPluginError,
+    httpError: httpError,
+    checkResponse: checkResponse,
+    isChallengeHtml: isChallengeHtml,
+    assertNoChallenge: assertNoChallenge,
+    isPluginError: isPluginError,
+  };
+
   // -- the require() resolver -------------------------------------------------
 
   function makeRequire(storageModule) {
@@ -960,6 +1062,7 @@
       },
       "@libs/aes": aesLib,
       "@libs/utils": { utf8ToBytes: utf8ToBytes, bytesToUtf8: bytesToUtf8 },
+      "@libs/pluginError": pluginErrorLib,
     };
     return function _require(name) {
       if (name === "@libs/storage") return storageModule();

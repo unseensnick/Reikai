@@ -958,6 +958,33 @@ class HeadlessJsIntegrationTest {
     }
 
     /**
+     * `@libs/pluginError` answers as LNReader's (lnreader c14bd4f0): a 429 throws its rate-limit error, a
+     * search 404 passes, a challenge page is recognised. Without the module a plugin importing it fails.
+     */
+    @Test
+    fun pluginErrorHelpersAnswerAsLnreaders() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            var E = require('@libs/pluginError');
+            module.exports.default = {
+              id: 'plugin-error-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              parseNovel: async function (path) {
+                var limited;
+                try { E.checkResponse({ ok: false, status: 429, url: 'https://example.org/c' }); } catch (e) {
+                  limited = E.isPluginError(e) && e.code === E.PluginError.RateLimited && e.message === e.code;
+                }
+                var search = E.checkResponse({ ok: false, status: 404 }, { search: true }).status === 404;
+                var challenge = E.isChallengeHtml('<title>Just a moment...</title>');
+                return { path: path, name: [limited, search, challenge].join(',') };
+              },
+            };
+        """.trimIndent()
+        host.load(plugin)
+
+        assertEquals("true,true,true", host.parseNovel("plugin-error-test", "p").name)
+    }
+
+    /**
      * A plugin whose constructor throws in its own engine is built again on the next call, so it
      * recovers once the cause is gone. A half-built engine used to be kept, answering "plugin not
      * loaded" until it idled out. Inline plugin: no network.
