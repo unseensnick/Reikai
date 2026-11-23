@@ -8,6 +8,7 @@ import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelCompletionLatch
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.PushNovelUnread
 import reikai.domain.track.source.SourceTrackerDispatcher
@@ -29,7 +30,7 @@ class SetNovelReadStatusTest {
         deleteAfterRead: DeleteNovelChaptersAfterRead = mockk(relaxed = true),
         sourceTracker: SourceTrackerDispatcher = mockk(relaxed = true),
         pushNovelUnread: PushNovelUnread = mockk(relaxed = true),
-    ) = SetNovelReadStatus(chapterRepository, deleteAfterRead, sourceTracker, pushNovelUnread)
+    ) = SetNovelReadStatus(chapterRepository, deleteAfterRead, sourceTracker, pushNovelUnread, NovelCompletionLatch())
 
     @Test
     fun `an unread hands the trackers only the chapters that were read`() = runTest {

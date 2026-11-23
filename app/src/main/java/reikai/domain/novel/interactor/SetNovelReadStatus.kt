@@ -3,6 +3,7 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelCompletionLatch
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.PushNovelUnread
 import reikai.domain.track.source.ChapterWrite
@@ -22,6 +23,7 @@ class SetNovelReadStatus(
     private val deleteAfterRead: DeleteNovelChaptersAfterRead,
     private val sourceTracker: SourceTrackerDispatcher,
     private val pushNovelUnread: PushNovelUnread,
+    private val completion: NovelCompletionLatch,
 ) {
 
     /** [keepDownloaded]: chapters the reader has open, whose text may still load from their download. */
@@ -29,13 +31,17 @@ class SetNovelReadStatus(
         read: Boolean,
         chapters: List<NovelChapter>,
         keepDownloaded: Set<Long> = emptySet(),
-    ): Result = write(read, chapters) { written ->
-        if (read) {
-            // As written, so a category kept from removal keeps them.
-            deleteAfterRead.await(written.filter { it.id !in keepDownloaded }.map { it.copy(read = true) })
-        } else {
-            // A chapter merely started was never marked on a site, so only one that was read moves it back.
-            pushNovelUnread.launch(written.filter { it.read })
+    ): Result {
+        // Unmarked, a chapter can be finished again, and finishing is what reaches the trackers.
+        if (!read) completion.release(chapters.map { it.id })
+        return write(read, chapters) { written ->
+            if (read) {
+                // As written, so a category kept from removal keeps them.
+                deleteAfterRead.await(written.filter { it.id !in keepDownloaded }.map { it.copy(read = true) })
+            } else {
+                // A chapter merely started was never marked on a site, so only one that was read moves it back.
+                pushNovelUnread.launch(written.filter { it.read })
+            }
         }
     }
 

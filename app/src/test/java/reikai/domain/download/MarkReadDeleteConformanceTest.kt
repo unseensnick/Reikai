@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.novel.NovelCompletionLatch
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -180,6 +181,7 @@ class NovelMarkReadHalf : MarkReadHalf {
             deleteAfterRead = DeleteNovelChaptersAfterRead(preferences, removable) { manager },
             sourceTracker = mockk(relaxed = true),
             pushNovelUnread = mockk(relaxed = true),
+            completion = NovelCompletionLatch(),
         )
 
         setNovelReadStatus.await(true, listOf(chapter(bookmarked)))

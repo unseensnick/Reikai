@@ -9,6 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelCompletionLatch
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -74,7 +75,13 @@ class ReadStatusHandOffConformanceTest {
         NOVELS(EntryId.Novel(1L)) {
             override suspend fun mark(tracker: SourceTrackerDispatcher, read: Boolean, rows: List<Row>) {
                 val repository = mockk<NovelChapterRepository> { coEvery { setReadBulk(any(), any()) } returns true }
-                SetNovelReadStatus(repository, mockk(relaxed = true), tracker, mockk(relaxed = true))
+                SetNovelReadStatus(
+                    repository,
+                    mockk(relaxed = true),
+                    tracker,
+                    mockk(relaxed = true),
+                    NovelCompletionLatch(),
+                )
                     .await(
                         read = read,
                         chapters = rows.map {

@@ -61,6 +61,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelChapterSettings
+import reikai.domain.novel.NovelCompletionLatch
 import reikai.domain.novel.NovelGroupStitcher
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
@@ -81,6 +82,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.source.SourceKey
 import reikai.domain.track.ownChapterNumbers
@@ -101,6 +103,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.testChapterCache
 import reikai.novel.source.testChapterTextCache
 import reikai.presentation.novel.details.NovelDetailsViewModel
+import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.restubDefaultDispatcher
 import tachiyomi.core.common.preference.Preference
@@ -425,7 +428,55 @@ class NovelReaderViewModelHarness private constructor(
         DeleteNovelChaptersAfterRead(novelPreferences, removable, { downloadManager }),
         mockk(relaxed = true),
         mockk(relaxed = true),
+        completionLatch,
     )
+
+    /** The app's one latch, so a chapter finished by one reader is finished for every holder of it. */
+    private val completionLatch = NovelCompletionLatch()
+
+    /** What the tracker network was asked to push, which every finish reaches through one instance. */
+    val trackNovelChapter = mockk<TrackNovelChapter>(relaxed = true)
+
+    private val chapterFinish by lazy {
+        NovelChapterFinish(
+            chapterRepo = chapterRepo,
+            setNovelReadStatus = setNovelReadStatus(),
+            libraryPreferences = libraryPreferences,
+            trackPreferences = TrackPreferences(store),
+            trackNovelChapter = trackNovelChapter,
+            trackedChapterNumber = ownChapterNumbers(),
+            copyMarks = copyMarks,
+            completion = completionLatch,
+            scope = appScope,
+            context = mockk(relaxed = true),
+        )
+    }
+
+    private val deleteChaptersBehindReader by lazy {
+        DeleteNovelChaptersBehindReader(
+            novelPreferences,
+            removable,
+            { downloadManager },
+            chapterRepo,
+            mockk(relaxed = true) {
+                every { addChapters(any()) } answers { pendingDeletes += firstArg<List<NovelChapter>>() }
+            },
+            libraryPreferences,
+            copyMarks,
+        )
+    }
+
+    /** The app's one progress slot, which every model opened here and read aloud save through. */
+    val progressSlot by lazy {
+        NovelProgressSlot(
+            appScope,
+            chapterRepo,
+            novelPreferences,
+            chapterFinish,
+            deleteChaptersBehindReader,
+            dispatcher,
+        )
+    }
 
     /** [savedState] is the host's, which a test hands a second model to reopen it as after a process kill. */
     fun open(
@@ -461,11 +512,8 @@ class NovelReaderViewModelHarness private constructor(
             copyMarks = copyMarks,
             localVolumes = NoLocalVolumes,
             setNovelReadStatus = setNovelReadStatus(),
-            libraryPreferences = libraryPreferences,
-            // The tracker network.
-            trackNovelChapter = mockk(relaxed = true),
-            trackedChapterNumber = ownChapterNumbers(),
-            trackPreferences = TrackPreferences(store),
+            progressSlot = progressSlot,
+            chapterFinish = chapterFinish,
             // BasePreferences builds an extension-installer preference whose default calls into
             // android.graphics, so only the incognito switch is carried over. The manga-extension
             // lookup is never reached for a novel source.
@@ -485,17 +533,7 @@ class NovelReaderViewModelHarness private constructor(
             novelDownloadCache = downloadCache,
             chapterTextCache = chapterTextCache,
             pageFetcher = mockk { every { chapterSaved } returns pageSaves },
-            deleteChaptersBehindReader = DeleteNovelChaptersBehindReader(
-                novelPreferences,
-                removable,
-                { downloadManager },
-                chapterRepo,
-                mockk(relaxed = true) {
-                    every { addChapters(any()) } answers { pendingDeletes += firstArg<List<NovelChapter>>() }
-                },
-                libraryPreferences,
-                copyMarks,
-            ),
+            deleteChaptersBehindReader = deleteChaptersBehindReader,
             // Only the Downloaded only switch; BasePreferences itself cannot be built on the JVM.
             basePreferences = mockk<BasePreferences> {
                 every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
@@ -643,8 +681,11 @@ class NovelReaderViewModelHarness private constructor(
         pluginLoadGate.complete(Unit)
         withContext(NonCancellable) {
             leaveModels()
-            // After the models, since a model's last held position is written onto the app scope as it ends
-            appScope.coroutineContext.job.children.toList().joinAll()
+            // After the models, since a model's last held position is written onto the app scope as it ends,
+            // and until none is left, since a held write that lands launches the write behind it
+            while (appScope.coroutineContext.job.children.any { it.isActive }) {
+                appScope.coroutineContext.job.children.toList().joinAll()
+            }
         }
         driver.close()
         unmockkStatic(SystemClock::class)

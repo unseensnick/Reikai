@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelCompletionLatch
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.NovelChapter
@@ -65,21 +66,28 @@ class NovelChapterFinishTest {
         trackedChapterNumber: TrackedChapterNumber = ownChapterNumbers(),
     ) = NovelChapterFinish(
         chapterRepo = repo,
-        setNovelReadStatus = SetNovelReadStatus(
-            repo,
-            deleteAfterRead,
-            mockk(relaxed = true),
-            mockk(relaxed = true),
-        ),
+        setNovelReadStatus = setNovelReadStatus,
         libraryPreferences = LibraryPreferences(libraryStore),
         trackPreferences = TrackPreferences(trackStore),
         trackNovelChapter = trackNovelChapter,
         trackedChapterNumber = trackedChapterNumber,
-        incognito = ChapterIncognito(sourceOf = { null }, isIncognito = { false }),
         copyMarks = InMemoryChapterCopyMarks(),
+        completion = latch,
         scope = backgroundScope,
         context = mockk(relaxed = true),
     )
+
+    private val latch = NovelCompletionLatch()
+    private val setNovelReadStatus =
+        SetNovelReadStatus(repo, deleteAfterRead, mockk(relaxed = true), mockk(relaxed = true), latch)
+    private val incognito = ChapterIncognito(sourceOf = { null }, isIncognito = { false })
+
+    private suspend fun NovelChapterFinish.finish(
+        chapter: NovelChapter,
+        memberIds: List<Long>,
+        stitch: List<ChapterUnit>,
+        trimBehind: suspend () -> Unit,
+    ) = finish(chapter, memberIds, stitch, incognito, trimBehind)
 
     private suspend fun NovelChapterFinish.markedRead(): Set<Long> {
         finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
@@ -230,11 +238,11 @@ class NovelChapterFinishTest {
     }
 
     @Test
-    fun `a chapter released after finishing can be finished again`() = runTest {
+    fun `a chapter unmarked after finishing can be finished again`() = runTest {
         val finish = subject()
         finish.finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
 
-        finish.release(listOf(5L))
+        setNovelReadStatus.await(read = false, listOf(finished.copy(read = true)))
         finish.finish(finished, memberIds = listOf(1L, 2L), stitch = stitch) {}
         runCurrent()
 

@@ -14,7 +14,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
-import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.loadFailureMessage
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
@@ -93,20 +92,16 @@ import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.ownersOf
-import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ChapterRetryCooldown
 import reikai.domain.reader.ReadSessionClock
-import reikai.domain.reader.ReaderProgressSave
 import reikai.domain.reader.ReaderProgressWrites
 import reikai.domain.reader.chaptersToDownloadAhead
-import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.neighbourChapters
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey
-import reikai.domain.track.TrackedChapterNumber
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -134,11 +129,9 @@ import reikai.util.runCatchingCancellable
 import reikai.util.snapshotOnChange
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import java.io.ByteArrayInputStream
 import java.util.Collections
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -169,12 +162,6 @@ class NovelReaderViewModel(
     private val copyMarks: ChapterCopyMarkRepository,
     private val localVolumes: LocalVolumeRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
-    // The shared "mark duplicate read" pref, for marking a merged novel's copies of a finished chapter
-    // read (parity with the manga reader).
-    private val libraryPreferences: LibraryPreferences,
-    private val trackNovelChapter: TrackNovelChapter,
-    private val trackedChapterNumber: TrackedChapterNumber,
-    private val trackPreferences: TrackPreferences,
     private val getIncognitoState: GetIncognitoState,
     private val setNovelViewerFlags: SetNovelViewerFlags,
     private val novelDownloadCache: NovelDownloadCache,
@@ -188,6 +175,8 @@ class NovelReaderViewModel(
     private val setNovelCustomCover: SetNovelCustomCover,
     private val pictureCache: NovelChapterPictureCache,
     private val readerPreferences: ReaderPreferences,
+    private val progressSlot: NovelProgressSlot,
+    private val chapterFinish: NovelChapterFinish,
     // Dispatchers.IO in the app, which is what launchIO would have used. Passed in so a JVM test can
     // run the whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher,
@@ -210,9 +199,6 @@ class NovelReaderViewModel(
     // so every launch below runs on [io].
     private fun CoroutineScope.launchIO(block: suspend CoroutineScope.() -> Unit): Job =
         launch(io, block = block)
-
-    // The progress writes, which outlive the session, in the order manga's are, through the same rule
-    private val progressWrites = ReaderProgressWrites(appScope)
 
     // The reader flag writes, in the order they were picked, so the latest pick is what every member keeps:
     // two writes running at once over a merged series' members could leave them disagreeing.
@@ -335,23 +321,11 @@ class NovelReaderViewModel(
      */
     private val lane = Mutex()
 
-    /** Finishes each chapter once a session, however often it completes. */
-    private val chapterFinish = NovelChapterFinish(
-        chapterRepo = chapterRepo,
-        setNovelReadStatus = setNovelReadStatus,
-        libraryPreferences = libraryPreferences,
-        trackPreferences = trackPreferences,
-        trackNovelChapter = trackNovelChapter,
-        trackedChapterNumber = trackedChapterNumber,
-        incognito = incognito,
-        copyMarks = copyMarks,
-        scope = appScope,
-        context = context,
-    )
+    /** Finishes each chapter once while this session or read aloud can, however often it completes. */
+    private val finishHold = chapterFinish.hold()
 
-    /** Positions not written yet, the latest per chapter, so a write queued before a newer report for its
-     *  chapter stores the newer one. The writes themselves run in order on [progressWrites]. */
-    private val unwritten = ConcurrentHashMap<Long, ChapterProgress.Percent>()
+    /** What a write this session reports needs, as it stands now: the write may land after the session. */
+    private fun writeContext() = NovelWriteContext(memberIds, groupStitch, orderedIds, incognito)
 
     /** Where this series keeps its reader flags, its merge group's rather than [novelId]'s, which is whichever
      *  member owns the chapter opened. [novelId] alone once that read fails. */
@@ -591,22 +565,6 @@ class NovelReaderViewModel(
 
     private fun reportsCount() = rendererGeneration == openGeneration
 
-    /** Held per chapter, so a step never lets a held write land on the chapter that replaced it. */
-    private val progressSave = ReaderProgressSave<Long, ChapterProgress.Percent>(viewModelScope, ::persistProgress)
-
-    /** Per chapter, since the first report of an arriving chapter is no repeat of the departed one's. */
-    @Volatile
-    private var lastSaved: Pair<Long, ChapterProgress.Percent>? = null
-
-    /** The chapter whose finish was written at once. Past the threshold every scroll frame reports a new
-     *  place, so the reports after it take the hold, or each frame would write and wake every chapter list. */
-    @Volatile
-    private var finishWrittenFor: Long? = null
-
-    /** Read aloud's place is the last one saved, with no report of the reader's own since. */
-    @Volatile
-    private var spokenPlaceHeld = false
-
     /**
      * Every scroll persists, debounced. Keying the write on a settle instead lost an auto-scrolled or
      * scrubbed read entirely, because those move the viewport without a touch to end.
@@ -635,24 +593,13 @@ class NovelReaderViewModel(
             val threshold = novelPreferences.readerAutoLoadNextAt().get()
             if (before < threshold && clamped.wholePercent >= threshold) viewModelScope.launchIO { rebuildWindow() }
         }
-        // A landing reports the screen it was rebuilt on, which with Keep in view off is not where
-        // speech left the reader's place; the reader moving settles the landing and saves again.
-        if (spokenPlaceHeld && !landing.settled) return
-        // A repeat is dropped, which a held position for another chapter cannot be: it would have
-        // been the last report, so this one would differ from it.
-        if (!settled && lastSaved == id to clamped) return
-        spokenPlaceHeld = false
-        lastSaved = id to clamped
-        // A settle is where the scroll stopped, and finishing carries mark-as-read, the sibling marking
-        // and the tracker push, so neither waits.
-        val finishes = completesChapter(clamped) && finishWrittenFor != id
-        if (finishes) finishWrittenFor = id
-        progressSave.report(id, clamped, now = settled || finishes)
+        // The reader moving settles the landing, which is what lets it overwrite read aloud's place.
+        progressSlot.report(id, clamped, settled, landing.settled, writeContext())
     }
 
     /** Write the last reported position now. The host calls this on pause, so being backgrounded or
      *  killed cannot drop a held write. */
-    fun flushProgress() = progressSave.flush()
+    fun flushProgress() = progressSlot.flush()
 
     /** The chapter being read's position, kept for a process kill as manga keeps its page: in incognito the
      *  database holds none to reopen at. Kept as it is written, so it is never a place the save skipped. */
@@ -665,8 +612,7 @@ class NovelReaderViewModel(
      *  database wins, since the kept state is a snapshot from when the reader stopped and read aloud
      *  can write on behind it. */
     private suspend fun unstoredPosition(chapterId: Long, ownerId: Long): Long? =
-        progressSave.heldFor(chapterId)?.hundredths
-            ?: unwritten[chapterId]?.hundredths
+        progressSlot.unstored(chapterId)?.hundredths
             ?: savedState.get<LongArray>(SAVED_POSITION)
                 ?.takeIf { it[0] == chapterId && incognito.of(ownerId) }
                 ?.get(1)
@@ -785,37 +731,27 @@ class NovelReaderViewModel(
         val hasNext = chapterAfter(chapterId) != null
         // A position it reported on opening, still waiting to be written, would land after the mark
         // and put a chapter just read back at 0.
-        if (!hasNext) progressSave.discardIf { it == chapterId }
+        if (!hasNext) progressSlot.discardIf { it == chapterId }
+        val context = writeContext()
         // Off the caller's thread, which for the native renderer is the main one, since this parses.
-        progressWrites.launch {
+        progressSlot.launch {
             withContext(io) {
-                if (NovelLeaveRule.readsOnReachingEnd(hasNext, chapter.html)) finishUnlessRead(chapterId)
+                if (NovelLeaveRule.readsOnReachingEnd(hasNext, chapter.html)) {
+                    progressSlot.finishUnlessRead(chapterId, context)
+                }
             }
         }
-    }
-
-    /** One already read has had its finish, and writing the end again would move its place there. */
-    private suspend fun finishUnlessRead(chapterId: Long) {
-        if (chapterRepo.getById(chapterId)?.read != false) return
-        writeProgress(chapterId, ChapterProgress.Percent.END)
     }
 
     /**
      * Read aloud's place, through the held write the renderers' reports take but leaving [progress] to
      * the screen: with Keep in view on, the scroll that follows reports where the screen is, after this.
      */
-    internal fun saveSpokenPosition(chapterId: Long, share: Double) {
-        val at = ChapterProgress.Percent.of(share)
-        lastSaved = chapterId to at
-        spokenPlaceHeld = true
-        progressSave.report(chapterId, at, now = completesChapter(at))
-    }
+    internal fun saveSpokenPosition(chapterId: Long, share: Double) =
+        progressSlot.reportSpoken(chapterId, share, writeContext())
 
     /** A held paragraph written after the end would put a chapter just heard back on that paragraph. */
-    internal fun finishSpokenChapter(chapterId: Long) {
-        progressSave.discardIf { it == chapterId }
-        progressWrites.launch { withContext(io) { finishUnlessRead(chapterId) } }
-    }
+    internal fun finishSpokenChapter(chapterId: Long) = progressSlot.finishSpoken(chapterId, writeContext())
 
     /** Above the init block, whose first load can fail and report it here. */
     val readAloud = ReadAloudController(
@@ -842,6 +778,8 @@ class NovelReaderViewModel(
     init {
         readAloudOffScreen()
         holdReadClockInMenu()
+        // Kept as each is written, so it is never a place the save skipped.
+        progressSlot.persisted.onEach { (id, at) -> keepPosition(id, at) }.launchIn(viewModelScope)
         viewModelScope.launchIO {
             val novel = try {
                 val ownerId = getNextNovelChapter.viewerFlags(novelId).also(viewerFlags::complete).ownerId
@@ -963,8 +901,12 @@ class NovelReaderViewModel(
      * the reader mid-fling is when the last crossing is still waiting for the lane.
      */
     private fun requestCrossing() {
-        progressWrites.launch {
-            withContext(io) { lane.withLock { cross() }.forEach { writeProgress(it, ChapterProgress.Percent.END) } }
+        progressSlot.launch {
+            withContext(io) {
+                val passed = lane.withLock { cross() }
+                val context = writeContext()
+                passed.forEach { progressSlot.write(it, ChapterProgress.Percent.END, context) }
+            }
         }
     }
 
@@ -991,7 +933,7 @@ class NovelReaderViewModel(
         // lets the one two behind go.
         val recentred = buildWindow(arriving, around, openGeneration)
         // A partial position still pending for a chapter being read in full would race the mark.
-        progressSave.discardIf { it in passed }
+        progressSlot.discardIf { it in passed }
         flushProgress()
         updateHistory()
         currentChapterId = target
@@ -1025,7 +967,7 @@ class NovelReaderViewModel(
                     // One that fit on the screen was read in full, whatever the skip setting says: it has
                     // no scroll room, so this step is the only point it can be called finished.
                     currentChapterId in fitsOnScreen -> {
-                        persistProgress(currentChapterId, ChapterProgress.Percent.END)
+                        progressSlot.persist(currentChapterId, ChapterProgress.Percent.END, writeContext())
                         null
                     }
                     else -> currentChapterId
@@ -1176,53 +1118,6 @@ class NovelReaderViewModel(
     }
 
     /**
-     * Persist the reader's scroll position for [id], in the hundredths both the renderers report and
-     * [NovelChapter.lastTextProgress] stores. Reaching the end auto-marks read.
-     * Outlives the session, as manga's progress writes do: leaving the reader is exactly when the last
-     * position and a finish just reached arrive.
-     */
-    private fun persistProgress(id: Long, clamped: ChapterProgress.Percent) {
-        unwritten[id] = clamped
-        keepPosition(id, clamped)
-        progressWrites.launch { withContext(io) { writeUnwritten(id, clamped) } }
-    }
-
-    /** [persistProgress] on the caller's own coroutine, for one already outliving the session: a
-     *  launch into a scope that has ended never starts. */
-    private suspend fun writeProgress(id: Long, clamped: ChapterProgress.Percent) {
-        unwritten[id] = clamped
-        keepPosition(id, clamped)
-        writeUnwritten(id, clamped)
-    }
-
-    /** The shared completion rule, at the threshold the reader chose. */
-    private fun completesChapter(progress: ChapterProgress.Percent): Boolean =
-        progress.isChapterComplete(novelPreferences.readerMarkReadPercent().get())
-
-    private suspend fun writeUnwritten(id: Long, clamped: ChapterProgress.Percent) {
-        val position = unwritten.remove(id)
-        // By the chapter's own owner, which in a window crossing a merged novel's seam may not be the
-        // current chapter's.
-        val owner = chapterRepo.getById(id)?.novelId
-        if (owner == null || incognito.of(owner)) return
-        position?.let { chapterRepo.setLastTextProgress(id, it.hundredths) }
-        // Fetched before marking, so the shared interactor still sees it unread.
-        val chapter = chapterRepo.getById(id) ?: return
-        if (completesChapter(clamped)) markChapterRead(chapter)
-    }
-
-    /**
-     * Finishing [chapter] through [NovelChapterFinish]. Reaching the end
-     * and mark-read-on-skip both land here, as manga's both go through updateChapterProgressOnComplete.
-     * The trim is manga's ReaderViewModel.deleteChapterIfNeeded, at the same point.
-     */
-    private suspend fun markChapterRead(chapter: NovelChapter) {
-        chapterFinish.finish(chapter, memberIds, groupStitch) {
-            deleteChaptersBehindReader.await(orderedIds, chapter.id, memberIds, groupStitch, incognito)
-        }
-    }
-
-    /**
      * [updateHistory] on the app scope, so a reader closing still writes it, as manga's saveHistory. Read aloud playing
      * on is reading the reader still does, so its session starts again at once and is saved when the speech stops
      * ([readAloudOffScreen]) or the reader comes back.
@@ -1334,7 +1229,7 @@ class NovelReaderViewModel(
     fun onActivityFinish() {
         appScope.launch {
             // A finish written before leaving may still queue the chapter it read, as on manga
-            progressWrites.awaitLanded()
+            progressSlot.awaitLanded()
             deleteChaptersBehindReader.deletePending()
         }
     }
@@ -1385,8 +1280,6 @@ class NovelReaderViewModel(
     fun setChapterRead(chapterIds: List<Long>, read: Boolean) {
         appScope.launch {
             val copies = groupCopies(chapterIds.toSet())
-            // Unmarked, it can be finished again, and finishing is what reaches the trackers.
-            if (!read) chapterFinish.release(copies.map { it.id })
             setNovelReadStatus.await(read, copies, keepDownloaded = expandToUnits(heldIds(), groupStitch))
         }
     }
@@ -1706,10 +1599,11 @@ class NovelReaderViewModel(
      *  MarkReadOnSkipConformanceTest. */
     private fun markReadOnSkip(departedId: Long) {
         if (!novelPreferences.readerMarkReadOnSkip().get()) return
-        progressWrites.launch {
+        val context = writeContext()
+        progressSlot.launch {
             withContext(io) {
                 val chapter = chapterRepo.getById(departedId) ?: return@withContext
-                if (!chapter.read && !incognito.of(chapter.novelId)) markChapterRead(chapter)
+                if (!chapter.read && !incognito.of(chapter.novelId)) progressSlot.markChapterRead(chapter, context)
             }
         }
     }
@@ -1721,6 +1615,9 @@ class NovelReaderViewModel(
     }
 
     override fun onCleared() {
+        // As a held write did when it was this model's: the reader closing writes it now.
+        flushProgress()
+        finishHold.close()
         readAloud.shutdown()
     }
 }

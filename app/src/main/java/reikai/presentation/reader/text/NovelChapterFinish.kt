@@ -1,13 +1,18 @@
 package reikai.presentation.reader.text
 
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.track.service.TrackPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.library.ContentType
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelCompletionLatch
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.duplicatesOfFinished
 import reikai.domain.novel.model.NovelChapter
@@ -18,13 +23,15 @@ import reikai.domain.track.TrackedChapterNumber
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * Finishing a chapter in a novel reader, once a session ([NovelCompletionLatch]): the mark, what "mark
+ * Finishing a chapter in a novel reader or read aloud, once ([NovelCompletionLatch]): the mark, what "mark
  * duplicate read" reaches, the tracker push, then the caller's trim behind the reader. Every novel
- * reader finishes through this, so the readers cannot drift; manga's twin,
+ * reader finishes through this one instance, so the readers cannot drift; manga's twin,
  * `ReaderViewModel.updateChapterProgressOnComplete`, is pinned to it by [duplicatesOfRead]. Keyed on
  * the chapter's own novel: a merged session reads several, and a fling finishes chapters of another
  * source than the one it lands on.
  */
+@SingleIn(AppScope::class)
+@Inject
 class NovelChapterFinish(
     private val chapterRepo: NovelChapterRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
@@ -32,20 +39,23 @@ class NovelChapterFinish(
     private val trackPreferences: TrackPreferences,
     private val trackNovelChapter: TrackNovelChapter,
     private val trackedChapterNumber: TrackedChapterNumber,
-    private val incognito: ChapterIncognito,
     private val copyMarks: ChapterCopyMarkRepository,
-    private val scope: CoroutineScope,
+    private val completion: NovelCompletionLatch,
+    @AppCoroutineScope private val scope: CoroutineScope,
     private val context: Context,
 ) {
 
-    private val completion = NovelCompletionLatch()
+    /** Held for as long as the caller can finish chapters, see [NovelCompletionLatch.hold]. */
+    fun hold(): AutoCloseable = completion.hold()
 
     /** [memberIds] are the merge group's novels, the chapter's own alone when ungrouped, and [stitch]
-     *  the group's stored stitch. [trimBehind] runs after the mark, so the chapter it retires is read. */
+     *  the group's stored stitch. [incognito] is the caller's, which caches per source. [trimBehind]
+     *  runs after the mark, so the chapter it retires is read. */
     suspend fun finish(
         chapter: NovelChapter,
         memberIds: List<Long>,
         stitch: List<ChapterUnit>,
+        incognito: ChapterIncognito,
         trimBehind: suspend () -> Unit,
     ) {
         if (!completion.claim(chapter.id)) return
@@ -69,7 +79,4 @@ class NovelChapterFinish(
         }
         trimBehind()
     }
-
-    /** Unmarked, a chapter can be finished again, and finishing is what reaches the trackers. */
-    fun release(chapterIds: Collection<Long>) = completion.release(chapterIds)
 }
