@@ -202,7 +202,7 @@ Upstream work above the base that needs a hand-merge or a decision before it lan
 
 ## Open upstream PRs to watch
 
-Unmerged Mihon PRs that would touch code Reikai diverges on, or that a Reikai decision waits on. Take one in the sync that brings it in once it merges, or drop the row if it is closed; a sync checks each row against `gh pr view <n> --repo mihonapp/mihon`.
+Unmerged Mihon PRs that would touch code Reikai diverges on, or that a Reikai decision waits on. Take one in the sync that brings it in once it merges, or drop the row if it is closed; a sync checks each row against `gh pr view <n> --repo mihonapp/mihon`. A row marked **ported ahead** is already in Reikai under a `// RK` note naming the PR: when it merges, take upstream's version in place of ours and keep only what the row says Reikai adds; if it closes unmerged, the port stays and the note loses its PR reference.
 
 | PR | What it does | Why it is watched |
 |---|---|---|
@@ -210,6 +210,19 @@ Unmerged Mihon PRs that would touch code Reikai diverges on, or that a Reikai de
 | mihonapp/mihon#3733 | Evicts the OkHttp connection pool on network changes and on return to the foreground, so requests stop hanging after the app was backgrounded | A real hang, in `NetworkHelper`, which Reikai patches |
 | mihonapp/mihon#4224 | Sets the browser User-Agent's major version from the installed WebView | Touches the default User-Agent, which the MangaDex and FlareSolverr agent rules build on |
 | mihonapp/mihon#4045 | Panel-by-panel zoom in the paged reader | Panel navigation was asked for in a discussion; Reikai has none |
+| mihonapp/mihon#4107 | Chapter recognition no longer crashes on a name holding `#` | **Ported ahead**, verbatim in `ChapterRecognition`; novels share it through `RecognizedNumber` |
+| mihonapp/mihon#4306 | One tracker push per manga at a time | **Ported ahead, widened**: `ChapterPushLock` keys by merge group, covers the delayed retry, and both refresh interactors take it too (tracking.md) |
+| mihonapp/mihon#4208 | Downloaded CBZ pages written in natural order | **Ported ahead** in `Downloader.archiveChapter`; novel downloads write no archive |
+| mihonapp/mihon#4289 | Wide-page detection through the reader's decoder (EXIF rotation, JPEG 2000, JPEG XL) | **Ported ahead** in `ImageUtil`; the high quality renderer already measured this way |
+| mihonapp/mihon#4244 | Applying filters uses the field's current text | **Ported ahead** as the shared `EntryBrowseBehavior.applyFilters`, so LN plugin and novel APK sources take it too |
+| mihonapp/mihon#3930 | A manual first chapter stamps the start date | **Ported ahead** into `TrackFieldMutations`, guarded by `supportsReadingDates` as `pushChapterProgress` is |
+| mihonapp/mihon#4200 | Kavita models drop the unused rating fields that broke on fractional values | **Ported ahead**, verbatim |
+| mihonapp/mihon#4042 | Taps on the tracker search's bottom bar stop at the bar | **Ported ahead**, verbatim |
+| mihonapp/mihon#4054 | Kitsu login passes Cloudflare on a GET before the token POST | **Ported ahead**, verbatim |
+| mihonapp/mihon#3510 | A picked storage folder must take a download's writes before it is saved | **Ported ahead**; the check also refuses a file named after Reikai's three novel folders, and its test folder is `reikai_`-prefixed |
+| mihonapp/mihon#4297 | Downloads the page being read first | Held: its page filter lets a viewer's requests bypass Reikai's off-Wi-Fi pages-ahead limit, and its `ChapterLoader` move would drop the keep-position rule |
+| mihonapp/mihon#4229 | Total chapters filled in on completed MangaBaka tracks | Held: the tracker's author objects, and a wrong total auto-completes tracks through `completeAtTotal` |
+| mihonapp/mihon#4222 | Resume shows the chapter number and resumes from the furthest read | Held: furthest-read compares numbers across a merged series' sources and skips unread chapters behind one stray read; the button label alone is worth taking for both types |
 
 
 ## The website is synced separately
