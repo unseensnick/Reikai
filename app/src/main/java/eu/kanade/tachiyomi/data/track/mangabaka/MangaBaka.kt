@@ -15,6 +15,8 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.Json
+import reikai.data.track.exchangeLoginCode
+import reikai.data.track.isLoginState
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -148,8 +150,12 @@ class MangaBaka(
     override suspend fun login(username: String, password: String) = login(password)
 
     suspend fun login(code: String) {
+        // RK --> the exchange sends the stored verifier; no pending login sends nothing and keeps the session,
+        // and a cancelled exchange rethrows here rather than reaching the catch below, which signs out.
+        val exchange = trackPreferences.exchangeLoginCode(this) { api.getAccessToken(code, it) } ?: return
+        // RK <--
         try {
-            val oauth = api.getAccessToken(code)
+            val oauth = exchange.getOrThrow() // RK
             interceptor.setAuth(oauth)
             val currentUser = api.getCurrentUser()
             val scoreType = when (currentUser.ratingSteps) {
@@ -194,7 +200,7 @@ class MangaBaka(
         }
     }
 
-    fun verifyOAuthState(state: String): Boolean = api.verifyOAuthState(state)
+    fun verifyOAuthState(state: String): Boolean = trackPreferences.isLoginState(this, state) // RK: stored state
 
     override fun logout() {
         super.logout()

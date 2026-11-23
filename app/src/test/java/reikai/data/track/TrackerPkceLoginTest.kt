@@ -5,6 +5,8 @@ import android.os.SystemClock
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.comick.ComickApi
+import eu.kanade.tachiyomi.data.track.mangabaka.MangaBakaApi
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -73,7 +75,31 @@ class TrackerPkceLoginTest {
                 manager.myAnimeList.login(CODE)
             }
         },
+        COMICK(plainPkce = false) {
+            override fun tracker(manager: TrackerManager) = manager.comick
+            override fun openLoginUrl(manager: TrackerManager, preferences: TrackPreferences) {
+                ComickApi.authUrl(preferences, manager.comick)
+            }
+            override suspend fun login(manager: TrackerManager, preferences: TrackPreferences, client: OkHttpClient) {
+                manager.comick.login(CODE)
+            }
+            override fun verifyState(manager: TrackerManager, state: String) = manager.comick.verifyOAuthState(state)
+        },
+        MANGABAKA(plainPkce = false) {
+            override fun tracker(manager: TrackerManager) = manager.mangaBaka
+            override fun openLoginUrl(manager: TrackerManager, preferences: TrackPreferences) {
+                MangaBakaApi.authUrl(preferences, manager.mangaBaka)
+            }
+            override suspend fun login(manager: TrackerManager, preferences: TrackPreferences, client: OkHttpClient) {
+                manager.mangaBaka.login(CODE)
+            }
+            override fun verifyState(manager: TrackerManager, state: String) =
+                manager.mangaBaka.verifyOAuthState(state)
+        },
         ;
+
+        /** The login activity's check of the redirect's OAuth state, for the trackers that send one. */
+        open fun verifyState(manager: TrackerManager, state: String): Boolean? = null
 
         abstract fun tracker(manager: TrackerManager): Tracker
         abstract fun openLoginUrl(manager: TrackerManager, preferences: TrackPreferences)
@@ -151,6 +177,16 @@ class TrackerPkceLoginTest {
 
         val verifier = preferences.trackPkceCodeVerifier(service.tracker(manager)).get()
         queryParameters["code_challenge"] shouldBe if (service.plainPkce) verifier else s256(verifier)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Service::class, names = ["COMICK", "MANGABAKA"])
+    fun `the redirect's state from the login URL is accepted in a new process`(service: Service) {
+        val (before, beforePreferences) = process()
+        service.openLoginUrl(before, beforePreferences)
+        val (after, _) = process()
+
+        service.verifyState(after, queryParameters.getValue("state")) shouldBe true
     }
 
     @ParameterizedTest

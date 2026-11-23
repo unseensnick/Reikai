@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.comick
 
 import android.net.Uri
 import androidx.core.net.toUri
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.comick.dto.ComickComicDetails
@@ -20,7 +21,6 @@ import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.network.jsonMime
 import eu.kanade.tachiyomi.network.parseAs
-import eu.kanade.tachiyomi.util.PkceUtil
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -31,10 +31,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.newLoginPkce
+import reikai.data.track.newLoginState
 import tachiyomi.core.common.util.lang.withIOContext
 import java.math.RoundingMode
-import java.security.SecureRandom
-import java.util.Base64
 import kotlin.time.Duration.Companion.minutes
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -254,7 +254,7 @@ class ComickApi(
     /**
      * @throws ComickMissingScopesException Thrown when user does not grant offline_access or library:write
      */
-    suspend fun getAccessToken(code: String): ComickOAuth {
+    suspend fun getAccessToken(code: String, codeVerifier: String): ComickOAuth { // RK: stored verifier
         return withIOContext {
             val formBody = FormBody.Builder()
                 .add("grant_type", "authorization_code")
@@ -287,7 +287,7 @@ class ComickApi(
         }
     }
 
-    fun verifyOAuthState(state: String): Boolean = state == oauthStateParam
+    // RK: verifyOAuthState moved to Comick.verifyOAuthState, over the stored state
 
     companion object {
         private const val CLIENT_ID = "SGrUojDvbgqfhSCQbwfCjUPIccYMJdBH"
@@ -300,19 +300,20 @@ class ComickApi(
         private const val API_BASE_URL = "https://api.comick.dev"
         private const val RESOURCE_URL = "$API_BASE_URL/integrations/v1"
 
-        private var codeVerifier: String = ""
-        private var oauthStateParam: String = ""
-
-        fun authUrl(): Uri = "$OAUTH_URL/authorize".toUri().buildUpon()
-            .appendQueryParameter("response_type", "code")
-            .appendQueryParameter("client_id", CLIENT_ID)
-            .appendQueryParameter("redirect_uri", REDIRECT_URI)
-            .appendQueryParameter("scope", SCOPES)
-            .appendQueryParameter("resource", RESOURCE_URL)
-            .appendQueryParameter("state", getOAuthStateParam())
-            .appendQueryParameter("code_challenge", getPkceS256ChallengeCode())
-            .appendQueryParameter("code_challenge_method", "S256")
-            .build()
+        // RK --> the verifier and state are stored rather than held here (TrackerLoginPkce.kt), so the
+        // login survives the process being killed while the browser is open
+        fun authUrl(trackPreferences: TrackPreferences, tracker: Comick): Uri =
+            "$OAUTH_URL/authorize".toUri().buildUpon()
+                .appendQueryParameter("response_type", "code")
+                .appendQueryParameter("client_id", CLIENT_ID)
+                .appendQueryParameter("redirect_uri", REDIRECT_URI)
+                .appendQueryParameter("scope", SCOPES)
+                .appendQueryParameter("resource", RESOURCE_URL)
+                .appendQueryParameter("state", trackPreferences.newLoginState(tracker))
+                .appendQueryParameter("code_challenge", trackPreferences.newLoginPkce(tracker).codeChallenge)
+                .appendQueryParameter("code_challenge_method", "S256")
+                .build()
+        // RK <--
 
         fun refreshTokenRequest(refreshToken: String) = POST(
             "$OAUTH_URL/token",
@@ -328,25 +329,7 @@ class ComickApi(
             ),
         )
 
-        private fun getOAuthStateParam(): String {
-            val bytes = ByteArray(16)
-            SecureRandom().nextBytes(bytes)
-            oauthStateParam = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(bytes)
-
-            return oauthStateParam
-        }
-
-        private fun getPkceS256ChallengeCode(): String {
-            // Comick requires an actually conformant PKCE process, unlike MAL
-            // 1. create verifier
-            // 2. create challenge from verifier (S256 hash -> base64 URL encode)
-            // 3. send challenge to /authorize
-            // 4. send verifier for access tokens to /token
-            val codes = PkceUtil.generateS256Codes()
-            codeVerifier = codes.codeVerifier
-            return codes.codeChallenge
-        }
+        // RK: getOAuthStateParam and getPkceS256ChallengeCode replaced by TrackPreferences.newLoginState
+        // and newLoginPkce, which store what they make
     }
 }

@@ -258,12 +258,24 @@ data object SettingsTrackingScreen : SearchableSettings {
                     // RK: listed after Hikka by owner choice; upstream lists it first
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.mangaBaka,
-                        login = { context.openInBrowser(MangaBakaApi.authUrl(), forceDefaultBrowser = true) },
+                        // RK: the login URL stores its PKCE verifier and state for the redirect
+                        login = {
+                            context.openInBrowser(
+                                MangaBakaApi.authUrl(trackPreferences, trackerManager.mangaBaka),
+                                forceDefaultBrowser = true,
+                            )
+                        },
                         logout = { dialog = LogoutDialog(trackerManager.mangaBaka) },
                     ),
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.comick,
-                        login = { context.openInBrowser(ComickApi.authUrl(), forceDefaultBrowser = true) },
+                        // RK: the login URL stores its PKCE verifier and state for the redirect
+                        login = {
+                            context.openInBrowser(
+                                ComickApi.authUrl(trackPreferences, trackerManager.comick),
+                                forceDefaultBrowser = true,
+                            )
+                        },
                         logout = { dialog = LogoutDialog(trackerManager.comick) },
                     ),
                     // RK: MangaDex MDList tracker. Browser OAuth (PKCE), callback lands in

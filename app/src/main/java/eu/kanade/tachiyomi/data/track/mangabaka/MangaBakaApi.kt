@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.mangabaka
 
 import android.net.Uri
 import androidx.core.net.toUri
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.mangabaka.dto.MangaBakaItem
@@ -20,7 +21,6 @@ import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.PUT
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
-import eu.kanade.tachiyomi.util.PkceUtil
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,10 +34,10 @@ import okhttp3.FormBody
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.newLoginPkce
+import reikai.data.track.newLoginState
 import tachiyomi.core.common.util.lang.withIOContext
 import java.math.RoundingMode
-import java.security.SecureRandom
-import java.util.Base64
 import java.util.Locale
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -281,7 +281,7 @@ class MangaBakaApi(
         }
     }
 
-    suspend fun getAccessToken(code: String): MangaBakaOAuth {
+    suspend fun getAccessToken(code: String, codeVerifier: String): MangaBakaOAuth { // RK: stored verifier
         return withIOContext {
             val formBody = FormBody.Builder()
                 .add("client_id", CLIENT_ID)
@@ -300,7 +300,7 @@ class MangaBakaApi(
         }
     }
 
-    fun verifyOAuthState(state: String): Boolean = state == oauthStateParam
+    // RK: verifyOAuthState moved to MangaBaka.verifyOAuthState, over the stored state
 
     private fun parseIsoDateAsLocalStartOfDay(isoDate: String?): Long? {
         // The v1 API returns full ISO 8601 strings with a midnight-UTC-truncated time component, regardless of the
@@ -325,18 +325,19 @@ class MangaBakaApi(
 
         private const val APP_JSON = "application/json"
 
-        private var codeVerifier: String = ""
-        private var oauthStateParam: String = ""
-
-        fun authUrl(): Uri = "$OAUTH_URL/authorize".toUri().buildUpon() //
-            .appendQueryParameter("client_id", CLIENT_ID)
-            .appendQueryParameter("code_challenge", getPkceS256ChallengeCode())
-            .appendQueryParameter("code_challenge_method", "S256")
-            .appendQueryParameter("response_type", "code")
-            .appendQueryParameter("scope", SCOPES)
-            .appendQueryParameter("redirect_uri", REDIRECT_URI)
-            .appendQueryParameter("state", getOAuthStateParam())
-            .build()
+        // RK --> the verifier and state are stored rather than held here (TrackerLoginPkce.kt), so the
+        // login survives the process being killed while the browser is open
+        fun authUrl(trackPreferences: TrackPreferences, tracker: MangaBaka): Uri =
+            "$OAUTH_URL/authorize".toUri().buildUpon()
+                .appendQueryParameter("client_id", CLIENT_ID)
+                .appendQueryParameter("code_challenge", trackPreferences.newLoginPkce(tracker).codeChallenge)
+                .appendQueryParameter("code_challenge_method", "S256")
+                .appendQueryParameter("response_type", "code")
+                .appendQueryParameter("scope", SCOPES)
+                .appendQueryParameter("redirect_uri", REDIRECT_URI)
+                .appendQueryParameter("state", trackPreferences.newLoginState(tracker))
+                .build()
+        // RK <--
 
         fun refreshTokenRequest(token: String) = POST(
             "$OAUTH_URL/token",
@@ -348,25 +349,7 @@ class MangaBakaApi(
                 .build(),
         )
 
-        private fun getOAuthStateParam(): String {
-            val bytes = ByteArray(16)
-            SecureRandom().nextBytes(bytes)
-            oauthStateParam = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(bytes)
-
-            return oauthStateParam
-        }
-
-        private fun getPkceS256ChallengeCode(): String {
-            // MangaBaka requires an actually conformant PKCE process, unlike MAL
-            // 1. create verifier
-            // 2. create challenge from verifier (S256 hash -> base64 URL encode)
-            // 3. send challenge to /authorize
-            // 4. send verifier for access tokens to /token
-            val codes = PkceUtil.generateS256Codes()
-            codeVerifier = codes.codeVerifier
-            return codes.codeChallenge
-        }
+        // RK: getOAuthStateParam and getPkceS256ChallengeCode replaced by TrackPreferences.newLoginState
+        // and newLoginPkce, which store what they make
     }
 }
