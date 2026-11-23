@@ -1,22 +1,26 @@
 package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.entry.EntryId
 import reikai.presentation.MainDispatcherExtension
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -32,6 +36,16 @@ class EntryMigrationFavoritesViewModelTest {
     @JvmField
     @RegisterExtension
     val main = MainDispatcherExtension { dispatcher }
+
+    // The state is built on IO, which this puts on the test scheduler beside Main.
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers(dispatcher)
+    }
+
+    // Main stays set, so the extension can stop the models on it before it resets Main.
+    @AfterEach
+    fun tearDown() = unmockkStatic(Dispatchers::class)
 
     @Test
     fun `clearing the selection leaves nothing selected`() = runTest(dispatcher) {
@@ -105,14 +119,16 @@ class EntryMigrationFavoritesViewModelTest {
             viewModel.state.first { it.entries.size == 2 }
             screen.cancel()
             advanceUntilIdle()
-            // flowOn fuses into the share, so the list's five-second stop runs off the test clock.
-            withContext(Dispatchers.Default) { delay(5.5.seconds) }
+            // Past the share's five-second stop.
+            advanceTimeBy(5.5.seconds)
+            runCurrent()
 
             val seen = mutableListOf<Boolean>()
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 viewModel.state.collect { seen += it.isLoading }
             }
-            withContext(Dispatchers.Default) { delay(200.milliseconds) }
+            advanceTimeBy(200.milliseconds)
+            runCurrent()
 
             seen shouldBe listOf(false)
         }
@@ -129,8 +145,6 @@ class EntryMigrationFavoritesViewModelTest {
             ),
         )
         backgroundScope.launch { viewModel.state.collect {} }
-        // The state is built on the IO dispatcher, which virtual time does not reach, so each step
-        // awaits the emission it needs rather than advancing the clock.
         viewModel.state.first { it.entries.size == count }
         return viewModel
     }
