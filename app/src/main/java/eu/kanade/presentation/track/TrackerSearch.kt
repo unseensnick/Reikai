@@ -52,6 +52,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -173,6 +174,7 @@ fun TrackerSearch(
             ) {
                 Row(
                     modifier = Modifier
+                        .pointerInput(Unit) {} // RK: mihonapp/mihon#4042, taps stop at the bar
                         .padding(MaterialTheme.padding.small)
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .fillMaxWidth(),
