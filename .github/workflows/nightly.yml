@@ -95,6 +95,7 @@ jobs:
         with:
           cache-read-only: false
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          robolectric-cache: 'true'
 
       # DI ownership, as in build_check.yml. The pre-commit hook runs it too, but a hook can be
       # skipped or missing on a clone, and the release branch has no PR to run build_check on.

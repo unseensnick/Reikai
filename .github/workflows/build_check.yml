@@ -76,6 +76,7 @@ jobs:
         uses: ./.github/actions/setup-build
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          robolectric-cache: 'true'
 
       # The verify flag also compares the screenshot tests against app/src/test/screenshots.
       - name: Run unit tests

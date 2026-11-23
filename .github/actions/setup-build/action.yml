@@ -19,6 +19,13 @@ inputs:
       build still runs, the action just declines to save that half of the cache.
     required: false
     default: ''
+  robolectric-cache:
+    description: >
+      Set true on a job that runs the unit tests. Robolectric downloads its Android SDK jars from
+      Maven Central into ~/.m2 when the tests start, outside the Gradle cache, so without this every
+      run fetches them again and one failed download fails the job.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -34,6 +41,22 @@ runs:
       with:
         cache-read-only: ${{ inputs.cache-read-only }}
         cache-encryption-key: ${{ inputs.cache-encryption-key }}
+
+    # Keyed by the Robolectric version, which decides the jar names; an SDK level added later
+    # restores the older entry through the prefix and is saved under the next version's key.
+    - name: Read the Robolectric version
+      if: inputs.robolectric-cache == 'true'
+      id: robolectric
+      shell: bash
+      run: echo "version=$(sed -n 's/^robolectric = "\([^"]*\)".*/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Robolectric's Android SDK jars
+      if: inputs.robolectric-cache == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.m2/repository/org/robolectric
+        key: robolectric-${{ steps.robolectric.outputs.version }}
+        restore-keys: robolectric-
 
     - name: Copy CI gradle.properties
       shell: bash
