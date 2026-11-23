@@ -76,6 +76,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The bottom bar comes back when a shortcut or notification switches tabs while you are selecting in the library, Updates, History or Recents.**
 - **Rotating or folding the phone on Edit categories no longer deletes a category before you can Undo it.** A delete confirmation stays open too, and Undo no longer lingers after a drag has already deleted it.
 - **The library now shows your novels at once on a cold start, without waiting for every novel plugin to load.** Source badges fill in as each plugin finishes.
+- **A series whose chapter names hold a # no longer fails to refresh (from Mihon).** Upstream: mihonapp/mihon#4107.
 
 ### Details
 
