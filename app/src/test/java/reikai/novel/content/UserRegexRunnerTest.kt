@@ -5,13 +5,14 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.assertTimeoutPreemptively
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.TimeSource
 
 /**
  * The time budget that lets a user regex be left, since Android's engine matches natively and cannot be
- * stopped. A JVM test cannot run ICU, so the slow block here is one no input read can stop either.
+ * stopped. A JVM test cannot run ICU, so the slow block here is one no input read can stop either. Real time
+ * stays: the runner is a blocking wait on a thread of its own, timed on the monotonic clock.
  */
 class UserRegexRunnerTest {
 
@@ -31,11 +32,12 @@ class UserRegexRunnerTest {
 
     @Test
     fun `a caller cancelled while the run is under way leaves it`() {
-        val started = TimeSource.Monotonic.markNow()
+        val underWay = AtomicBoolean(false)
 
         assertThrows<CancellationException> {
             assertTimeoutPreemptively(Duration.ofSeconds(5)) {
-                UserRegexRunner.run(60_000.milliseconds, isActive = { started.elapsedNow() < 200.milliseconds }) {
+                UserRegexRunner.run(60_000.milliseconds, isActive = { !underWay.get() }) {
+                    underWay.set(true)
                     Thread.sleep(60_000)
                 }
             }

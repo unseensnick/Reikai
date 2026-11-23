@@ -6,17 +6,12 @@ import eu.kanade.tachiyomi.util.storage.DiskUtil
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.io.InputStream
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 class NovelFontManagerTest {
 
@@ -42,22 +37,18 @@ class NovelFontManagerTest {
     /** The picker's preview and the renderer can copy one font at once, and a face read half-written is lost. */
     @Test
     fun `a font being copied is not where the reader reads it until the copy is whole`() = runTest {
-        val halfway = CountDownLatch(1)
-        val finish = CountDownLatch(1)
+        var visibleMidCopy: Boolean? = null
         val source = mockk<UniFile> {
             every { length() } returns 8L
-            every { openInputStream() } returns StalledStream(halfway, finish)
+            every { openInputStream() } returns
+                HalfwayStream { visibleMidCopy = File(appFiles, "fonts/Lora.ttf").exists() }
         }
         val folder = mockk<UniFile> { every { findFile("Lora.ttf") } returns source }
         val context = mockk<Context> { every { filesDir } returns appFiles }
         val storage = mockk<StorageManager> { every { getFontsDirectory() } returns folder }
         val manager = NovelFontManager(context, storage, mockk(), mockk())
 
-        val copy = launch(Dispatchers.IO) { manager.localFile("Lora.ttf") }
-        withContext(Dispatchers.IO) { halfway.await(5, TimeUnit.SECONDS) }
-        val visibleMidCopy = File(appFiles, "fonts/Lora.ttf").exists()
-        finish.countDown()
-        copy.join()
+        manager.localFile("Lora.ttf")
 
         visibleMidCopy shouldBe false
     }
@@ -70,24 +61,21 @@ class NovelFontManagerTest {
     @Test
     fun `a font with the longest name the folder takes is copied under a name that fits`() = runTest {
         val longName = "a".repeat(DiskUtil.MAX_FILE_NAME_BYTES - ".ttf".length) + ".ttf"
-        val halfway = CountDownLatch(1)
-        val finish = CountDownLatch(1)
+        var workingNames = emptyList<Int>()
         val source = mockk<UniFile> {
             every { length() } returns 8L
-            every { openInputStream() } returns StalledStream(halfway, finish)
+            every { openInputStream() } returns HalfwayStream {
+                workingNames = File(appFiles, "fonts").list().orEmpty().map { it.toByteArray().size }
+            }
         }
         val folder = mockk<UniFile> { every { findFile(longName) } returns source }
         val context = mockk<Context> { every { filesDir } returns appFiles }
         val storage = mockk<StorageManager> { every { getFontsDirectory() } returns folder }
         val manager = NovelFontManager(context, storage, mockk(), mockk())
 
-        val copy = launch(Dispatchers.IO) { manager.localFile(longName) }
-        withContext(Dispatchers.IO) { halfway.await(5, TimeUnit.SECONDS) }
-        val workingNames = File(appFiles, "fonts").list().orEmpty().map { it.toByteArray().size }
-        finish.countDown()
-        copy.join()
+        manager.localFile(longName)
 
-        workingNames.all { it <= DiskUtil.MAX_FILE_NAME_BYTES } shouldBe true
+        (workingNames.isNotEmpty() && workingNames.all { it <= DiskUtil.MAX_FILE_NAME_BYTES }) shouldBe true
     }
 
     /**
@@ -124,16 +112,12 @@ class NovelFontManagerTest {
         copy.fontVersion() shouldBe "6-1000"
     }
 
-    /** Eight bytes, stopping after four until told to go on. */
-    private class StalledStream(private val halfway: CountDownLatch, private val finish: CountDownLatch) :
-        InputStream() {
+    /** Eight bytes, looking at the disk through [halfway] after four, while the copy is under way. */
+    private class HalfwayStream(private val halfway: () -> Unit) : InputStream() {
         private var read = 0
 
         override fun read(): Int {
-            if (read == 4) {
-                halfway.countDown()
-                finish.await(5, TimeUnit.SECONDS)
-            }
+            if (read == 4) halfway()
             return if (read++ < 8) 0 else -1
         }
     }

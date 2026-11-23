@@ -7,12 +7,14 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.novel.font.NovelFontManager
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /** The reader fonts a backup carries come back through the real restore, with the App settings that name them. */
 class NovelFontRestoreTest {
@@ -28,12 +30,20 @@ class NovelFontRestoreTest {
 
     private val order = mutableListOf<String>()
     private val preferences = mockk<PreferenceRestorer> {
-        // A real wait off the test's clock, since the fonts are read on the IO dispatcher too.
+        // Slower than the font read, which shares the one virtual clock through the IO dispatcher.
         coEvery { restoreApp(any(), any(), any()) } coAnswers {
-            withContext(Dispatchers.IO) { delay(200) }
+            delay(200)
             order += "settings"
         }
     }
+
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers()
+    }
+
+    @AfterEach
+    fun tearDown() = resetVirtualDispatchers()
 
     private suspend fun restore(appSettings: Boolean) = restoreEncoded(
         Backup(emptyList(), backupNovelFonts = listOf(BackupNovelFont("Literata.ttf", byteArrayOf(0, 1, 0, 0)))),

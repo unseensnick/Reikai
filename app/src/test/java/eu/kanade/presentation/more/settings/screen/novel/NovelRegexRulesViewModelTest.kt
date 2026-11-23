@@ -26,6 +26,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.content.NovelRegexReplacement
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.milliseconds
@@ -53,17 +55,29 @@ class NovelRegexRulesViewModelTest {
     }
 
     @Test
-    fun `a preview answers for the rule and sample asked`() = runTest {
-        model.askPreview(rule, "a cat")
+    fun `a preview answers for the rule and sample asked`() {
+        // Ended on the Main it was built on, since tearDown's cancel would reach Main once reset.
+        model.viewModelScope.cancel()
+        virtualDispatchers()
+        try {
+            runTest {
+                // Built on the virtual dispatchers, so the settle and the move off Main run in virtual time.
+                val virtual = NovelRegexRulesViewModel(NovelPreferences(InMemoryPreferenceStore()))
+                virtual.askPreview(rule, "a cat")
 
-        val answered = withContext(Dispatchers.Default) {
-            withTimeout(5.seconds) { model.preview.filterNotNull().first() }.also { model.close() }
+                val answered = virtual.preview.filterNotNull().first().also { virtual.close() }
+
+                answered shouldBe NovelRegexPreview(rule, "a cat", Result.success("a dog"))
+            }
+        } finally {
+            resetVirtualDispatchers()
         }
-
-        answered shouldBe NovelRegexPreview(rule, "a cat", Result.success("a dog"))
     }
 
     /**
+     * Real time, as in the next test: the run is a blocking wait on the regex runner's own thread, timed on the
+     * monotonic clock, which one virtual-time thread cannot both hold and move past.
+     *
      * Main is a real thread here, asked for a turn while a runaway pattern runs out its budget: on Main, the
      * run held it for the rest of that budget. The pattern is new per run, since one that ran too long is
      * skipped from then on.
