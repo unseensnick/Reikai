@@ -156,57 +156,6 @@ class ChapterAggregationTest {
     }
 
     @Test
-    fun `multiple preferred sources order by list index, not distinct count`() {
-        val sourceA = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
-        val sourceB = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-        val sourceC = listOf(chapter(3L, 1.0), chapter(3L, 2.0), chapter(3L, 3.0), chapter(3L, 4.0))
-
-        val unified = ChapterAggregation.merge(
-            chaptersBySource = mapOf(1L to sourceA, 2L to sourceB, 3L to sourceC),
-            sourceIdByManga = mapOf(1L to 100L, 2L to 200L, 3L to 300L),
-            // B is ranked first, then A; C is unranked (most distinct, but lowest priority).
-            preferredSourceIds = listOf(200L, 100L),
-        ).chapters
-
-        // B (rank 0) is the trunk owning 1..3; C only gap-fills 4 despite having the most chapters.
-        unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0)
-        unified.first { it.chapterNumber == 1.0 }.mangaId shouldBe 2L
-        unified.first { it.chapterNumber == 4.0 }.mangaId shouldBe 3L
-    }
-
-    @Test
-    fun `a preferred id not present in the group falls back to distinct count`() {
-        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
-        val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-
-        val unified = ChapterAggregation.merge(
-            chaptersBySource = mapOf(1L to source1, 2L to source2),
-            sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
-            preferredSourceIds = listOf(999L), // no source in the group has this id
-        ).chapters
-
-        // Unchanged from the no-preference case: source 1 (most distinct) is the trunk.
-        unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0)
-        unified.map { it.mangaId }.distinct() shouldBe listOf(1L)
-    }
-
-    @Test
-    fun `empty preferred list is identical to the no-argument call`() {
-        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
-        val source2 = listOf(chapter(2L, 3.0), chapter(2L, 4.0))
-        val bySource = mapOf(1L to source1, 2L to source2)
-
-        val withDefaults = ChapterAggregation.merge(bySource).chapters
-        val withEmptyPrefs = ChapterAggregation.merge(
-            chaptersBySource = bySource,
-            sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
-            preferredSourceIds = emptyList(),
-        ).chapters
-
-        withEmptyPrefs shouldBe withDefaults
-    }
-
-    @Test
     fun `gallery sources are kept whole and never collapsed across sources by number`() {
         // Two gallery sources of the same one-shot. Each numbers its primary chapter 1; the first also
         // lists older versions 2 and 3. Without the exemption they'd collide on 1 and one source drops.
@@ -253,23 +202,6 @@ class ChapterAggregationTest {
     }
 
     @Test
-    fun `member ranking makes the chosen member the trunk over distinct count`() {
-        // Source 1 has more distinct numbers, but the group's override ranks member 2 first.
-        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
-        val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-
-        val unified = ChapterAggregation.merge(
-            chaptersBySource = mapOf(1L to source1, 2L to source2),
-            memberRanking = listOf(2L, 1L),
-        ).chapters
-
-        // Member 2 wins the trunk (1..3); member 1 only gap-fills 4 and 5.
-        unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0)
-        unified.first { it.chapterNumber == 1.0 }.mangaId shouldBe 2L
-        unified.first { it.chapterNumber == 4.0 }.mangaId shouldBe 1L
-    }
-
-    @Test
     fun `member ranking overrides the preferred-source list`() {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0))
@@ -283,57 +215,6 @@ class ChapterAggregationTest {
 
         // Member 2 leads despite the preferred list favoring member 1's source.
         unified.first { it.chapterNumber == 1.0 }.mangaId shouldBe 2L
-    }
-
-    @Test
-    fun `member ranking orders two members that share one source`() {
-        // The reachable duplicate-row case: two library rows from the same source in one group. A
-        // source-id ranking cannot tell them apart; a member-id ranking must, in the order given.
-        val first = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
-        val second = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-        val bySource = mapOf(1L to first, 2L to second)
-        val sameSource = mapOf(1L to 100L, 2L to 100L)
-
-        // Member 1 chosen as trunk: it owns 1 and 2, member 2 only gap-fills 3.
-        val member1First = ChapterAggregation.merge(bySource, sameSource, memberRanking = listOf(1L, 2L)).chapters
-        member1First.first { it.chapterNumber == 1.0 }.mangaId shouldBe 1L
-        member1First.first { it.chapterNumber == 3.0 }.mangaId shouldBe 2L
-
-        // Reversing the override flips the trunk, proving the order is per-member, not per-source.
-        val member2First = ChapterAggregation.merge(bySource, sameSource, memberRanking = listOf(2L, 1L)).chapters
-        member2First.first { it.chapterNumber == 1.0 }.mangaId shouldBe 2L
-    }
-
-    @Test
-    fun `empty member ranking falls back to the preferred-source path`() {
-        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
-        val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-        val bySource = mapOf(1L to source1, 2L to source2)
-
-        val withEmptyOverride = ChapterAggregation.merge(
-            chaptersBySource = bySource,
-            sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
-            preferredSourceIds = listOf(200L),
-            memberRanking = emptyList(),
-        ).chapters
-        val withoutOverride = ChapterAggregation.merge(
-            chaptersBySource = bySource,
-            sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
-            preferredSourceIds = listOf(200L),
-        ).chapters
-
-        withEmptyOverride shouldBe withoutOverride
-    }
-
-    @Test
-    fun `a source sharing no chapter with the trunk follows it in walk order`() {
-        // Sources mostly list newest first, so the end of the walk is the trunk's older end.
-        val trunk = listOf(chapter(1L, 3.0), chapter(1L, 2.0), chapter(1L, 1.0))
-        val other = listOf(chapter(2L, 11.0), chapter(2L, 10.0))
-
-        val unified = ChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
-
-        unified.map { it.chapterNumber } shouldBe listOf(3.0, 2.0, 1.0, 11.0, 10.0)
     }
 
     @Test

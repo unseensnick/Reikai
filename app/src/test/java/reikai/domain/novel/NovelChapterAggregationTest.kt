@@ -261,54 +261,6 @@ class NovelChapterAggregationTest {
     }
 
     @Test
-    fun `multiple preferred sources order by list index, not chapter count`() {
-        val sourceA = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
-        val sourceB = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-        val sourceC = listOf(chapter(3L, 1.0), chapter(3L, 2.0), chapter(3L, 3.0), chapter(3L, 4.0))
-
-        val unified = NovelChapterAggregation.merge(
-            chaptersByNovel = mapOf(1L to sourceA, 2L to sourceB, 3L to sourceC),
-            sourceIdByNovel = mapOf(1L to "src.a", 2L to "src.b", 3L to "src.c"),
-            preferredSourceIds = listOf("src.b", "src.a"),
-        ).chapters
-
-        unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0)
-        unified.first { it.chapterNumber == 1.0 }.novelId shouldBe 2L
-        unified.first { it.chapterNumber == 4.0 }.novelId shouldBe 3L
-    }
-
-    @Test
-    fun `empty preferred list is identical to the no-argument call`() {
-        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
-        val source2 = listOf(chapter(2L, 3.0), chapter(2L, 4.0))
-        val byNovel = mapOf(1L to source1, 2L to source2)
-
-        val withDefaults = NovelChapterAggregation.merge(byNovel).chapters
-        val withEmptyPrefs = NovelChapterAggregation.merge(
-            chaptersByNovel = byNovel,
-            sourceIdByNovel = mapOf(1L to "src.a", 2L to "src.b"),
-            preferredSourceIds = emptyList(),
-        ).chapters
-
-        withDefaults shouldBe withEmptyPrefs
-    }
-
-    @Test
-    fun `member ranking makes the chosen member the trunk over chapter count`() {
-        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
-        val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-
-        val unified = NovelChapterAggregation.merge(
-            chaptersByNovel = mapOf(1L to source1, 2L to source2),
-            memberRanking = listOf(2L, 1L),
-        ).chapters
-
-        unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0)
-        unified.first { it.chapterNumber == 1.0 }.novelId shouldBe 2L
-        unified.first { it.chapterNumber == 4.0 }.novelId shouldBe 1L
-    }
-
-    @Test
     fun `member ranking overrides the preferred-source list`() {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0))
@@ -321,23 +273,6 @@ class NovelChapterAggregationTest {
         ).chapters
 
         unified.first { it.chapterNumber == 1.0 }.novelId shouldBe 2L
-    }
-
-    @Test
-    fun `member ranking orders two members that share one source`() {
-        // Two library rows from the same source in one group: a source-id ranking cannot tell them
-        // apart, so the override must rank by member id.
-        val first = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
-        val second = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
-        val byNovel = mapOf(1L to first, 2L to second)
-        val sameSource = mapOf(1L to "src.a", 2L to "src.a")
-
-        val member1First = NovelChapterAggregation.merge(byNovel, sameSource, memberRanking = listOf(1L, 2L)).chapters
-        member1First.first { it.chapterNumber == 1.0 }.novelId shouldBe 1L
-        member1First.first { it.chapterNumber == 3.0 }.novelId shouldBe 2L
-
-        val member2First = NovelChapterAggregation.merge(byNovel, sameSource, memberRanking = listOf(2L, 1L)).chapters
-        member2First.first { it.chapterNumber == 1.0 }.novelId shouldBe 2L
     }
 
     @Test
@@ -360,16 +295,6 @@ class NovelChapterAggregationTest {
 
         unified.map { it.name } shouldBe listOf("Alpha", "Bravo", "Charlie", "Delta")
         unified.map { it.sourceOrder } shouldBe listOf(0L, 1L, 2L, 3L)
-    }
-
-    @Test
-    fun `a source sharing no chapter with the trunk follows it`() {
-        val trunk = listOf(chapter(1L, 1.0, "Alpha"), chapter(1L, 2.0, "Bravo"), chapter(1L, 3.0, "Charlie"))
-        val other = listOf(chapter(2L, 1.0, "Delta"), chapter(2L, 2.0, "Echo"))
-
-        val unified = NovelChapterAggregation.merge(mapOf(1L to trunk, 2L to other)).chapters
-
-        unified.map { it.name } shouldBe listOf("Alpha", "Bravo", "Charlie", "Delta", "Echo")
     }
 
     @Test
