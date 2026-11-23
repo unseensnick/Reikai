@@ -54,6 +54,7 @@ import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.chapterParagraphs
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.concurrent.ConcurrentHashMap
@@ -149,10 +150,20 @@ class ReadAloudSession(
 
     // The verbs below are a reader's or the notification's, on the main thread.
 
-    /** Starts reading [series] aloud from what [surface] shows, replacing any session of another. */
-    fun start(series: ReadAloudSeries, surface: ReadAloudSurface?) {
+    /**
+     * Starts reading [series] aloud from what [surface] shows, replacing any session of another. [order] is
+     * the reader's, which a finish on the first paragraph spoken already needs; [titles] are the chapters'
+     * the reader holds, for the notification.
+     */
+    fun start(
+        series: ReadAloudSeries,
+        order: NovelReadingOrder?,
+        titles: Map<Long, String>,
+        surface: ReadAloudSurface?,
+    ) {
         running?.let { teardown(it) }
-        running = Running(series).also { session ->
+        running = Running(series, order).also { session ->
+            session.titles.putAll(titles)
             surface?.let(session.controller::attach)
             state.value = ReadAloudSessionState(series)
         }
@@ -163,9 +174,7 @@ class ReadAloudSession(
     fun readFromHere() = running?.controller?.readFromHere()
 
     fun pause(reason: TtsPauseReason = TtsPauseReason.User) {
-        val session = running ?: return
-        session.pauseReason = reason
-        session.controller.pause()
+        running?.pauseFor(reason)
     }
 
     fun stop() {
@@ -204,12 +213,16 @@ class ReadAloudSession(
         readers.any { (reader, shown) -> (!onScreen || shown) && series.includes(reader.novelId, reader.sourceScoped) }
 
     /** One read aloud session: the speech, and the records it keeps while the series is read. */
-    private inner class Running(val series: ReadAloudSeries) {
+    private inner class Running(val series: ReadAloudSeries, startOrder: NovelReadingOrder?) {
 
         val job = SupervisorJob(appScope.coroutineContext[Job])
         val scope = CoroutineScope(appScope.coroutineContext + job + Dispatchers.Main.immediate)
 
-        val incognito = ChapterIncognito(
+        /**
+         * Asked afresh for every write, since a session runs for hours and incognito turned on meanwhile
+         * must keep what follows out of History, the read marks and the trackers.
+         */
+        fun incognito() = ChapterIncognito(
             sourceOf = { owner -> novelRepo.getById(owner)?.source?.let(SourceKey::Novel) },
             isIncognito = getIncognitoState::await,
         )
@@ -226,7 +239,10 @@ class ReadAloudSession(
 
         val finishHold = chapterFinish.hold()
 
-        @Volatile var order: NovelReadingOrder? = null
+        @Volatile var order: NovelReadingOrder? = startOrder
+
+        /** The order read for a write before any was to hand, which every write waiting on it shares. */
+        private var orderLoad: Deferred<NovelReadingOrder>? = null
 
         @Volatile var isAdult = true
 
@@ -267,12 +283,30 @@ class ReadAloudSession(
             }
         }
 
-        fun writeContext(): NovelWriteContext = NovelWriteContext(
-            memberIds = order?.memberIds ?: series.memberIds,
-            stitch = order?.stitch.orEmpty(),
-            orderedIds = order?.orderedIds.orEmpty(),
-            incognito = incognito,
-        )
+        private fun writeContext(order: NovelReadingOrder) =
+            NovelWriteContext(order.memberIds, order.stitch, order.orderedIds, incognito())
+
+        /**
+         * Runs [write] with the order it trims and marks copies by, reading the order first in the one case a
+         * reader had none to hand over. Writes waiting on it resume in the order they were asked for.
+         */
+        private fun withOrder(chapterId: Long, write: (NovelWriteContext) -> Unit) {
+            order?.let { return write(writeContext(it)) }
+            val load = orderLoad ?: scope.async(Dispatchers.IO) {
+                orderResolver.resolve(series.novelId, chapterId, series.sourceScoped)
+            }.also { orderLoad = it }
+            scope.launch {
+                val resolved = order ?: load.await().also { order = it }
+                write(writeContext(resolved))
+            }
+        }
+
+        /** A pause for [reason], which also decides the paused stop again when speech was already paused. */
+        fun pauseFor(reason: TtsPauseReason) {
+            pauseReason = reason
+            controller.pause()
+            holdPausedStop()
+        }
 
         /** Each step of speech: the listening credit, the time heard, and what a reader is shown. */
         private fun record(speech: ReadAloudState) {
@@ -331,7 +365,7 @@ class ReadAloudSession(
         suspend fun textOf(chapterId: Long, row: NovelChapter): Pair<String, String?> {
             val fetched = prefetch?.second?.takeIf { prefetched == chapterId || !it.isCompleted }
             if (fetched != null) {
-                val text = runCatching { fetched.await() }.getOrNull()
+                val text = runCatchingCancellable { fetched.await() }.getOrNull()
                 if (text != null && prefetched == chapterId) return text
             }
             return textLoader.load(row)
@@ -345,7 +379,7 @@ class ReadAloudSession(
             if (duration <= 0L) return
             appScope.launch {
                 val owner = chapterRepo.getById(chapterId)?.novelId ?: return@launch
-                if (incognito.of(owner)) return@launch
+                if (incognito().of(owner)) return@launch
                 upsertNovelHistory.await(NovelHistoryUpdate(chapterId, now, duration))
                 readingLog.record(ContentType.NOVELS, chapterId, now, duration)
             }
@@ -354,7 +388,7 @@ class ReadAloudSession(
         private fun credit(chapterId: Long, ms: Long) {
             appScope.launch {
                 val owner = chapterRepo.getById(chapterId)?.novelId ?: return@launch
-                if (!incognito.of(owner)) paceRepository.addListenedTime(chapterId, ms)
+                if (!incognito().of(owner)) paceRepository.addListenedTime(chapterId, ms)
             }
         }
 
@@ -371,10 +405,10 @@ class ReadAloudSession(
             }
 
             override fun savePosition(chapterId: Long, share: Double) =
-                progressSlot.reportSpoken(chapterId, share, writeContext())
+                withOrder(chapterId) { progressSlot.reportSpoken(chapterId, share, it) }
 
             override fun finishChapter(chapterId: Long) {
-                progressSlot.finishSpoken(chapterId, writeContext())
+                withOrder(chapterId) { progressSlot.finishSpoken(chapterId, it) }
                 writeHeard()
             }
 
@@ -386,7 +420,7 @@ class ReadAloudSession(
                 } catch (e: EmptyChapterException) {
                     throw Exception(context.stringResource(MR.strings.novel_chapter_empty), e)
                 }
-                if (!incognito.of(row.novelId)) {
+                if (!incognito().of(row.novelId)) {
                     paceRepository.setLength(ContentType.NOVELS, chapterId, NovelWords.ofHtml(html))
                 }
                 withContext(Dispatchers.Default) { text.paragraphs(html, baseUrl) }
@@ -400,7 +434,7 @@ class ReadAloudSession(
                     val owner = chapterRepo.getById(chapterId)?.also { titles[chapterId] = it.name }?.novelId
                     // History is what a process kill reopens on, so the chapter reached is stamped now when no
                     // reader shows it; with no read time, which the clock writes on the next pause.
-                    if (stampArrival && owner != null && !incognito.of(owner)) {
+                    if (stampArrival && owner != null && !incognito().of(owner)) {
                         upsertNovelHistory.await(NovelHistoryUpdate(chapterId, clock.now(), 0L))
                     }
                     reached?.let { orderResolver.downloadAhead(it, chapterId, downloadManagerProvider()) }
@@ -424,6 +458,7 @@ class ReadAloudSession(
                 onPause = { reason ->
                     pauseReason = reason
                     onPause()
+                    holdPausedStop()
                 },
                 onStop = onStop,
                 onNext = onNext,
@@ -477,7 +512,7 @@ class ReadAloudSession(
         session.listening.next(playing = false, progress = null, nowMs = nowMs()).listened?.let { (chapterId, ms) ->
             appScope.launch {
                 val owner = chapterRepo.getById(chapterId)?.novelId ?: return@launch
-                if (!session.incognito.of(owner)) paceRepository.addListenedTime(chapterId, ms)
+                if (!session.incognito().of(owner)) paceRepository.addListenedTime(chapterId, ms)
             }
         }
         progressSlot.flush()

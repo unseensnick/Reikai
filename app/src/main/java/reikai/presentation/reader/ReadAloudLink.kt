@@ -3,18 +3,22 @@ package reikai.presentation.reader
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import reikai.domain.novel.NovelReadingOrder
 
 /**
  * One reader's view of read aloud: the session while it reads this reader's series ([novelId] in
  * [sourceScoped]), else nothing playing. Every verb of the reader's goes through here, so a reader of
  * another series cannot pause, step or mark someone else's speech, and a play there starts this
- * series instead. [memberIds] are the series' novels as the reader resolved them.
+ * series instead. [memberIds], [order] and [titles] are the series' novels, its reading order and the chapter
+ * titles the reader holds, which a session it starts begins with.
  */
 class ReadAloudLink(
     private val session: ReadAloudSession,
     val novelId: Long,
     val sourceScoped: Boolean,
     private val memberIds: () -> List<Long>,
+    private val order: () -> NovelReadingOrder?,
+    private val titles: () -> Map<Long, String>,
 ) {
 
     private var surface: ReadAloudSurface? = null
@@ -73,5 +77,5 @@ class ReadAloudLink(
         if (owns()) session.onWindowChanged()
     }
 
-    private fun start() = session.start(ReadAloudSeries(novelId, memberIds(), sourceScoped), surface)
+    private fun start() = session.start(ReadAloudSeries(novelId, memberIds(), sourceScoped), order(), titles(), surface)
 }

@@ -463,6 +463,9 @@ class NovelReaderViewModelHarness private constructor(
             chapterRepo,
             mockk(relaxed = true) {
                 every { addChapters(any()) } answers { pendingDeletes += firstArg<List<NovelChapter>>() }
+                // What leaving drains, as the real store hands over and forgets its queue.
+                every { takePendingChapterIds() } answers
+                    { pendingDeletes.map { it.id }.also { pendingDeletes.clear() } }
             },
             libraryPreferences,
             copyMarks,

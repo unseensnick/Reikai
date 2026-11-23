@@ -246,7 +246,14 @@ class NovelReaderViewModel(
     private var onScreen = true
 
     /** Read aloud as this reader sees it: the app's session while it reads this series, else nothing. */
-    val readAloud = ReadAloudLink(readAloudSession, novelId, sourceScoped) { memberIds }
+    val readAloud = ReadAloudLink(
+        readAloudSession,
+        novelId,
+        sourceScoped,
+        memberIds = { memberIds },
+        order = { readingOrder },
+        titles = { window.value.chapters.associate { it.chapterId to it.title } },
+    )
 
     /** How far read aloud is through [chapterId] by its words, while it speaks that chapter of this series. */
     private fun spokenShare(chapterId: Long): Double? = readAloudSession.state.value

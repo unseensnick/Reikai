@@ -69,17 +69,27 @@ class ReadAloudSessionTest {
         /** Chapter 2's text as the source answers it, set before the reader warms it. */
         secondChapter: String? = null,
         savedState: SavedStateHandle = SavedStateHandle(),
+        /** Chapter 1 as the page shows it, and the paragraph read aloud starts on. */
+        paragraphs: List<String> = listOf("One", "Two"),
+        startAt: Int = 0,
+        /** Read as one series with a second novel of its own source. */
+        merged: Boolean = false,
     ): Reading {
         val source = harness.source("src")
         if (privateSource) harness.incognito(source)
         val novel = harness.novel(source)
         val chapters = (1..3).map { harness.chapter(novel, it.toDouble()) }
         secondChapter?.let { source.texts[chapters[1].url] = it }
+        if (merged) {
+            val other = harness.novel(harness.source("other"), title = "Other")
+            harness.chapter(other, 1.0)
+            harness.merge(novel, other)
+        }
         val model = harness.open(novel, chapters[0].id, savedState = savedState)
         advanceUntilIdle()
         val surface = HarnessSurface(
-            chapters = mutableMapOf(chapters[0].id to listOf("One", "Two")),
-            firstVisible = ReadAloudPosition(chapters[0].id, 0),
+            chapters = mutableMapOf(chapters[0].id to paragraphs),
+            firstVisible = ReadAloudPosition(chapters[0].id, startAt),
         )
         model.readAloud.attach(surface)
         model.readAloud.play()
@@ -424,6 +434,87 @@ class ReadAloudSessionTest {
 
         harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
     }
+
+    /** Speech can finish a chapter on its first paragraph, before it has stepped anywhere. */
+    @Test
+    fun `a merged chapter finished on the first paragraph read aloud trims the downloads behind it`() =
+        sessionTest { harness ->
+            harness.novelPreferences.removeAfterReadSlots().set(0)
+            val reading = reading(harness, paragraphs = List(100) { "Paragraph $it" }, startAt = 99, merged = true)
+            harness.download(reading.chapters[0], "<p>Kept</p>")
+            closeReader(harness, reading)
+
+            harness.readAloudSession.stop()
+            advanceUntilIdle()
+
+            harness.deletedAfterRead.contains(reading.chapters[0].id) shouldBe true
+        }
+
+    @Test
+    fun `stopping read aloud with no reader open deletes what its finishes queued`() = sessionTest { harness ->
+        harness.novelPreferences.removeAfterReadSlots().set(0)
+        val reading = reading(harness)
+        harness.download(reading.chapters[0], "<p>Kept</p>")
+        closeReader(harness, reading)
+        repeat(2) { finishParagraph(harness) }
+
+        harness.readAloudSession.stop()
+        advanceUntilIdle()
+
+        harness.deletedAfterRead.contains(reading.chapters[0].id) shouldBe true
+    }
+
+    /** The reader still open drains them itself when it closes, as it always has. */
+    @Test
+    fun `stopping read aloud with its reader open leaves the queued deletes to the reader`() =
+        sessionTest { harness ->
+            harness.novelPreferences.removeAfterReadSlots().set(0)
+            val reading = reading(harness)
+            harness.download(reading.chapters[0], "<p>Kept</p>")
+            reading.model.readAloud.detach(reading.surface)
+            repeat(2) { finishParagraph(harness) }
+
+            harness.readAloudSession.stop()
+            advanceUntilIdle()
+
+            harness.deletedAfterRead.contains(reading.chapters[0].id) shouldBe false
+        }
+
+    @Test
+    fun `a pause a call made, then lost for good, stops after half an hour`() = sessionTest { harness ->
+        val reading = reading(harness)
+        closeReader(harness, reading)
+        harness.notification.onPause(TtsPauseReason.TransientFocusLoss)
+        runCurrent()
+
+        harness.notification.onPause(TtsPauseReason.FocusLoss)
+        advanceTimeBy(31.minutes)
+        runCurrent()
+
+        harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
+    }
+
+    @Test
+    fun `the notification names the chapter read aloud starts in`() = sessionTest { harness ->
+        val reading = reading(harness)
+
+        harness.notification.last?.title shouldBe "Chapter 1.0"
+    }
+
+    /** Incognito turned on while read aloud plays keeps what it reads next out of History. */
+    @Test
+    fun `incognito turned on mid-session keeps the chapter read aloud reaches out of History`() =
+        sessionTest { harness ->
+            val reading = reading(harness)
+            closeReader(harness, reading)
+            advanceTimeBy(1.seconds)
+            finishParagraph(harness)
+
+            harness.incognito.set(true)
+            finishParagraph(harness)
+
+            harness.historyOf(reading.novel).contains(reading.chapters[1].id) shouldBe false
+        }
 
     companion object {
         @JvmStatic
