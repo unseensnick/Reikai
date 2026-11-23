@@ -331,6 +331,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Settings -> Advanced -> Novel web page developer tools now turns off the moment you untick it.** It stayed on until a novel was next opened.
 - **Novel find-and-replace rules and code snippets keep what you typed when the screen rotates while you edit them.**
 - **TalkBack now says which novel font is selected and whether a novel find-and-replace rule or code snippet is on.**
+- **Picking a storage folder the app can't write to now says so instead of saving it (from Mihon).** Upstream: mihonapp/mihon#3510.
 
 ### Browse
 

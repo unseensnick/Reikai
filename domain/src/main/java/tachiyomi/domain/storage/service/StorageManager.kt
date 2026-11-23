@@ -1,12 +1,14 @@
 package tachiyomi.domain.storage.service
 
 import android.content.Context
+import android.net.Uri
 import androidx.core.net.toUri
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.util.storage.DiskUtil
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +18,10 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.shareIn
+import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
+import tachiyomi.core.common.util.system.logcat
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 @Inject
@@ -71,6 +76,98 @@ class StorageManager(
             .takeIf { it?.exists() == true }
     }
 
+    // RK --> mihonapp/mihon#3510 (open upstream): a picked folder is used only once a download's writes work in it
+    fun canWriteTo(uri: Uri): Boolean {
+        var testDir: UniFile? = null
+        var cleanupSuccessful = false
+
+        return try {
+            val baseDir = UniFile.fromUri(context, uri)
+                ?.takeIf { it.exists() && it.isDirectory }
+                ?: return false
+
+            for (path in STORAGE_CHILD_PATHS) {
+                if (baseDir.findFile(path)?.isDirectory == false) return false
+            }
+
+            val createdTestDir = baseDir.createDirectory("$STORAGE_TEST_DIR_PREFIX${UUID.randomUUID()}") ?: return false
+            testDir = createdTestDir
+
+            val downloadsDir = createdTestDir.createDirectory(DOWNLOADS_PATH) ?: return false
+            if (createdTestDir.createDirectory(DOWNLOADS_PATH) == null) return false
+
+            val sourceDir = downloadsDir.createDirectory(STORAGE_TEST_SOURCE_DIR) ?: return false
+            if (downloadsDir.createDirectory(STORAGE_TEST_SOURCE_DIR) == null) return false
+
+            val mangaDir = sourceDir.createDirectory(STORAGE_TEST_MANGA_DIR) ?: return false
+            if (sourceDir.createDirectory(STORAGE_TEST_MANGA_DIR) == null) return false
+
+            var chapterDir = mangaDir.createDirectory(STORAGE_TEST_CHAPTER_DIR_TMP) ?: return false
+            var pageFile = chapterDir.createFile(STORAGE_TEST_PAGE_FILE_TMP) ?: return false
+
+            pageFile.openOutputStream().use { output ->
+                output.write(STORAGE_TEST_CONTENT)
+            }
+
+            if (!pageFile.renameTo(STORAGE_TEST_PAGE_FILE)) return false
+            pageFile = chapterDir.findFile(STORAGE_TEST_PAGE_FILE) ?: return false
+            pageFile.openInputStream().use { input ->
+                if (input.read() != STORAGE_TEST_CONTENT.first().toInt()) return false
+            }
+            if (chapterDir.listFiles().orEmpty().none { it.name == STORAGE_TEST_PAGE_FILE }) return false
+
+            val comicInfoFile = chapterDir.createFile(STORAGE_TEST_COMIC_INFO_FILE) ?: return false
+            comicInfoFile.openOutputStream().use { output ->
+                output.write(STORAGE_TEST_COMIC_INFO_CONTENT)
+            }
+
+            val archiveFile = mangaDir.createFile(STORAGE_TEST_ARCHIVE_FILE_TMP) ?: return false
+            archiveFile.openOutputStream().use { output ->
+                output.write(STORAGE_TEST_CONTENT)
+            }
+            if (!archiveFile.renameTo(STORAGE_TEST_ARCHIVE_FILE)) return false
+            if (mangaDir.findFile(STORAGE_TEST_ARCHIVE_FILE) == null) return false
+
+            if (!chapterDir.renameTo(STORAGE_TEST_CHAPTER_DIR)) return false
+            chapterDir = mangaDir.findFile(STORAGE_TEST_CHAPTER_DIR) ?: return false
+            pageFile = chapterDir.findFile(STORAGE_TEST_PAGE_FILE) ?: return false
+            if (chapterDir.findFile(STORAGE_TEST_COMIC_INFO_FILE) == null) return false
+            if (chapterDir.listFiles().orEmpty().none { it.name == pageFile.name }) return false
+
+            DiskUtil.createNoMediaFile(chapterDir, context)
+
+            cleanupSuccessful = createdTestDir.delete()
+            cleanupSuccessful
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logcat(LogPriority.ERROR, e)
+            false
+        } finally {
+            if (!cleanupSuccessful) {
+                testDir?.let(::deleteStorageTestFile)
+            }
+        }
+    }
+
+    private fun deleteStorageTestFile(file: UniFile) {
+        try {
+            file.listFiles().orEmpty().forEach(::deleteStorageTestFile)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logcat(LogPriority.ERROR, e)
+        }
+
+        try {
+            if (!file.delete()) {
+                logcat(LogPriority.ERROR) { "Failed to delete storage test file: ${file.uri}" }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logcat(LogPriority.ERROR, e)
+        }
+    }
+    // RK <--
+
     fun getAutomaticBackupsDirectory(): UniFile? {
         return getChildDirectory(AUTOMATIC_BACKUPS_PATH)
     }
@@ -117,3 +214,26 @@ private const val LOCAL_SOURCE_PATH = "local"
 private const val NOVEL_DOWNLOADS_PATH = "novel_downloads"
 private const val FONTS_PATH = "fonts"
 private const val LOCAL_NOVELS_PATH = "localnovels"
+
+// RK --> mihonapp/mihon#3510 (open upstream), with Reikai's novel folders in the children a file must not block
+private val STORAGE_CHILD_PATHS = listOf(
+    AUTOMATIC_BACKUPS_PATH,
+    DOWNLOADS_PATH,
+    LOCAL_SOURCE_PATH,
+    NOVEL_DOWNLOADS_PATH,
+    FONTS_PATH,
+    LOCAL_NOVELS_PATH,
+)
+private const val STORAGE_TEST_DIR_PREFIX = "reikai_storage_test_"
+private const val STORAGE_TEST_SOURCE_DIR = "source"
+private const val STORAGE_TEST_MANGA_DIR = "manga"
+private const val STORAGE_TEST_CHAPTER_DIR_TMP = "chapter_tmp"
+private const val STORAGE_TEST_CHAPTER_DIR = "chapter"
+private const val STORAGE_TEST_PAGE_FILE_TMP = "001.tmp"
+private const val STORAGE_TEST_PAGE_FILE = "001.jpg"
+private const val STORAGE_TEST_COMIC_INFO_FILE = "ComicInfo.xml"
+private const val STORAGE_TEST_ARCHIVE_FILE_TMP = "chapter.cbz_tmp"
+private const val STORAGE_TEST_ARCHIVE_FILE = "chapter.cbz"
+private val STORAGE_TEST_CONTENT = byteArrayOf(0)
+private val STORAGE_TEST_COMIC_INFO_CONTENT = "<ComicInfo />".toByteArray()
+// RK <--

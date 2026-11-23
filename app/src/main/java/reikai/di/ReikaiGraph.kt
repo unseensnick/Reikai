@@ -64,6 +64,7 @@ import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.InsertFlatMetadata
+import tachiyomi.domain.storage.service.StorageManager
 
 /**
  * Reikai's members of the app graph. `AppGraph` extends this, so each is still read as
@@ -127,6 +128,7 @@ interface ReikaiGraph {
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager
     val novelFontManager: NovelFontManager
+    val storageManager: StorageManager // the storage picker checks a folder before saving it
     val unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager // the receiver reports widgets placed
 
     // The two details adapters build their cover model for whichever entry the source chip is showing,
