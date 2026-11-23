@@ -2,7 +2,10 @@ package exh.util
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -13,112 +16,82 @@ import tachiyomi.domain.manga.model.Manga
  */
 class MangaTypeTest {
 
-    private fun manga(vararg genre: String) = Manga.create().copy(
-        genre = genre.toList().takeIf { it.isNotEmpty() },
-    )
-
     private val webtoon = ReadingMode.WEBTOON.flagValue
 
-    @Test
-    fun `a webtoon tag reads as long strip`() {
-        defaultReaderType(manga("Webtoon").mangaType(null)) shouldBe webtoon
+    // Genres are `|`-separated; an empty cell is no genre list, an empty source is an uninstalled one.
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(
+        "a webtoon tag reads as long strip, Webtoon, , true",
+        "a long strip tag reads as long strip, Long Strip, , true",
+        "a manhwa tag reads as long strip, Manhwa, , true",
+        "a manhua tag reads as long strip, Manhua, , true",
+        "a cyrillic manhwa tag reads as long strip, манхва, , true",
+        "a cyrillic manhua tag reads as long strip, маньхуа, , true",
+        "tag matching ignores case, MANHWA, , true",
+        "a source name alone reads as long strip when there are no tags, , Toonily, true",
+        "an ordinary manga keeps the global default, Action|Romance, SomeSource, false",
+        "a manga tag suppresses a long strip source, Manga, Toonily, false",
+        "a comic tag suppresses a long strip source, Adult Comic, Manhwa18, false",
+        "a manga tag beats a long strip tag on the same entry, Manga|Long Strip, , false",
+        "no genre and no source name keeps the global default, , , false",
+        "an uninstalled extension keeps the global default, Action, , false",
+    )
+    fun `an entry reads as long strip by its tags, then its source name`(
+        name: String,
+        genres: String?,
+        sourceName: String?,
+        isLongStrip: Boolean,
+    ) {
+        defaultReaderType(manga(genres).mangaType(sourceName)) shouldBe webtoon.takeIf { isLongStrip }
     }
 
-    @Test
-    fun `a long strip tag reads as long strip`() {
-        defaultReaderType(manga("Long Strip").mangaType(null)) shouldBe webtoon
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("groups")
+    fun `any merged member reading as long strip decides the group`(
+        name: String,
+        members: List<Manga>,
+        sourceNameOf: (Manga) -> String?,
+        isLongStrip: Boolean,
+    ) {
+        defaultReaderType(members, sourceNameOf) shouldBe webtoon.takeIf { isLongStrip }
     }
 
-    @Test
-    fun `a manhwa tag reads as long strip`() {
-        defaultReaderType(manga("Manhwa").mangaType(null)) shouldBe webtoon
-    }
+    companion object {
+        private fun manga(genres: String?, id: Long = -1L) = Manga.create().copy(
+            id = id,
+            genre = genres?.split('|'),
+        )
 
-    @Test
-    fun `a manhua tag reads as long strip`() {
-        defaultReaderType(manga("Manhua").mangaType(null)) shouldBe webtoon
-    }
+        private val noSource: (Manga) -> String? = { null }
 
-    @Test
-    fun `cyrillic long strip tags read as long strip`() {
-        defaultReaderType(manga("манхва").mangaType(null)) shouldBe webtoon
-        defaultReaderType(manga("маньхуа").mangaType(null)) shouldBe webtoon
-    }
-
-    @Test
-    fun `a source name alone reads as long strip when there are no tags`() {
-        defaultReaderType(manga().mangaType("Toonily")) shouldBe webtoon
-    }
-
-    @Test
-    fun `an ordinary manga keeps the global default`() {
-        defaultReaderType(manga("Action", "Romance").mangaType("SomeSource")) shouldBe null
-    }
-
-    @Test
-    fun `a manga tag suppresses a long strip source`() {
-        defaultReaderType(manga("Manga").mangaType("Toonily")) shouldBe null
-    }
-
-    @Test
-    fun `a comic tag suppresses a long strip source`() {
-        defaultReaderType(manga("Adult Comic").mangaType("Manhwa18")) shouldBe null
-    }
-
-    @Test
-    fun `a manga tag beats a long strip tag on the same entry`() {
-        defaultReaderType(manga("Manga", "Long Strip").mangaType(null)) shouldBe null
-    }
-
-    @Test
-    fun `no genre and no source name keeps the global default`() {
-        defaultReaderType(manga().mangaType(null)) shouldBe null
-    }
-
-    @Test
-    fun `an uninstalled extension leaves the source name null and keeps the global default`() {
-        defaultReaderType(manga("Action").mangaType(null)) shouldBe null
-    }
-
-    @Test
-    fun `tag matching ignores case`() {
-        defaultReaderType(manga("MANHWA").mangaType(null)) shouldBe webtoon
-    }
-
-    private fun group(vararg members: Manga) = members.toList()
-
-    private val noSource: (Manga) -> String? = { null }
-
-    @Test
-    fun `one merged member tagging long strip decides the group`() {
-        defaultReaderType(group(manga("Action"), manga("Webtoons"), manga("Action")), noSource) shouldBe webtoon
-    }
-
-    @Test
-    fun `a group nobody tags keeps the global default`() {
-        defaultReaderType(group(manga("Action"), manga("Romance")), noSource) shouldBe null
-    }
-
-    @Test
-    fun `an unmerged entry is just a group of one`() {
-        defaultReaderType(group(manga("Manhua")), noSource) shouldBe webtoon
-    }
-
-    @Test
-    fun `a manga tag only suppresses its own member, not the group`() {
-        defaultReaderType(group(manga("Manga"), manga("Long Strip")), noSource) shouldBe webtoon
-    }
-
-    @Test
-    fun `a member's own source name votes even when its tags are bare`() {
-        val sources = mapOf(2L to "Toonily")
-        defaultReaderType(
-            group(manga("Action"), manga("Action").copy(id = 2L)),
-        ) { sources[it.id] } shouldBe webtoon
-    }
-
-    @Test
-    fun `an empty group keeps the global default`() {
-        defaultReaderType(emptyList(), noSource) shouldBe null
+        @JvmStatic
+        fun groups() = listOf(
+            Arguments.of(
+                "one merged member tagging long strip decides the group",
+                listOf(manga("Action"), manga("Webtoons"), manga("Action")),
+                noSource,
+                true,
+            ),
+            Arguments.of(
+                "a group nobody tags keeps the global default",
+                listOf(manga("Action"), manga("Romance")),
+                noSource,
+                false,
+            ),
+            Arguments.of("an unmerged entry is just a group of one", listOf(manga("Manhua")), noSource, true),
+            Arguments.of(
+                "a manga tag only suppresses its own member, not the group",
+                listOf(manga("Manga"), manga("Long Strip")),
+                noSource,
+                true,
+            ),
+            Arguments.of(
+                "a member's own source name votes even when its tags are bare",
+                listOf(manga("Action"), manga("Action", id = 2L)),
+                { m: Manga -> "Toonily".takeIf { m.id == 2L } },
+                true,
+            ),
+            Arguments.of("an empty group keeps the global default", emptyList<Manga>(), noSource, false),
+        )
     }
 }
