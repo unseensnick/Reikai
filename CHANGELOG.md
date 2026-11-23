@@ -485,6 +485,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Setting the first chapter read by hand in the tracker sheet now fills in the start date (from Mihon).** Upstream: mihonapp/mihon#3930.
 - **Kavita tracking no longer fails on a series with a fractional rating (from Mihon).** Upstream: mihonapp/mihon#4200.
 - **Tapping beside the Track button in tracker search no longer picks the result underneath it (from Mihon).** Upstream: mihonapp/mihon#4042.
+- **Logging in to Kitsu now gets past its Cloudflare check (from Mihon).** Upstream: mihonapp/mihon#4054.
 
 ### Other
 

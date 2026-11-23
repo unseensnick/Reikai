@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryNode
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUserLibraryResult
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -22,6 +23,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import logcat.LogPriority
 import mihon.graphql.kitsu.KitsuAddLibMangaMutation
 import mihon.graphql.kitsu.KitsuDeleteLibEntryMutation
 import mihon.graphql.kitsu.KitsuFindLibMangaQuery
@@ -219,6 +221,14 @@ class KitsuApi(
 
     suspend fun login(username: String, password: String): KitsuOAuth {
         return withIOContext {
+            // RK --> mihonapp/mihon#4054: a challenge on the token POST cannot be solved, so pass one on a GET first
+            try {
+                client.newCall(GET("https://kitsu.app/")).awaitSuccess()
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN, e) { "Kitsu: Failed to pre-clear Cloudflare" }
+            }
+            // RK <--
+
             val formBody: RequestBody = FormBody.Builder()
                 .add("username", username)
                 .add("password", password)
