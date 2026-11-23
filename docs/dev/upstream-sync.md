@@ -200,6 +200,17 @@ Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer doe
 
 Upstream work above the base that needs a hand-merge or a decision before it lands. A syncer skips a held commit (per [How to sync](#how-to-sync)) and ports independent later commits around it; delete an entry once the ledger records it.
 
+## Open upstream PRs to watch
+
+Unmerged Mihon PRs that would touch code Reikai diverges on, or that a Reikai decision waits on. Take one in the sync that brings it in once it merges, or drop the row if it is closed; a sync checks each row against `gh pr view <n> --repo mihonapp/mihon`.
+
+| PR | What it does | Why it is watched |
+|---|---|---|
+| mihonapp/mihon#4194, mihonapp/mihon#4195 | Compose-based readers, and the WebGPU viewer brought in line with the other readers | The reader paths Reikai diverges on most, and the replacement for the classic viewers; port in the sync that brings them, not ahead |
+| mihonapp/mihon#3733 | Evicts the OkHttp connection pool on network changes and on return to the foreground, so requests stop hanging after the app was backgrounded | A real hang, in `NetworkHelper`, which Reikai patches |
+| mihonapp/mihon#4224 | Sets the browser User-Agent's major version from the installed WebView | Touches the default User-Agent, which the MangaDex and FlareSolverr agent rules build on |
+| mihonapp/mihon#4045 | Panel-by-panel zoom in the paged reader | Panel navigation was asked for in a discussion; Reikai has none |
+
 
 ## The website is synced separately
 
