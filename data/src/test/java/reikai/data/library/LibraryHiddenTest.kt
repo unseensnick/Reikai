@@ -2,12 +2,10 @@ package reikai.data.library
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -174,10 +172,11 @@ class LibraryHiddenTest {
         hiddenPair(type)
         favourite(type, SIBLING, on = false)
         val emissions = Channel<Set<Long>>(Channel.UNLIMITED)
-        val collector = launch(Dispatchers.Default) { hides.subscribe(type).collect { emissions.send(it) } }
-        val first = withContext(Dispatchers.Default) { withTimeout(5_000) { emissions.receive() } }
+        // The query runs in its collector's context, here the test's, so a missing emission times out virtually.
+        val collector = launch { hides.subscribe(type).collect { emissions.send(it) } }
+        val first = withTimeout(5_000) { emissions.receive() }
         favourite(type, SIBLING, on = true)
-        val next = withContext(Dispatchers.Default) { withTimeout(5_000) { emissions.receive() } }
+        val next = withTimeout(5_000) { emissions.receive() }
         collector.cancel()
 
         (first to next) shouldBe (setOf(ID) to emptySet())
