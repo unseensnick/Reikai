@@ -1,16 +1,15 @@
 package mihon.core.migration
 
-import io.kotest.assertions.nondeterministic.eventually
 import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.newSingleThreadContext
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import kotlin.time.Duration.Companion.seconds
 
 class MigratorTest {
 
@@ -37,7 +35,8 @@ class MigratorTest {
     }
 
     @Test
-    fun initialVersion() = runBlocking {
+    fun initialVersion() = runTest {
+        // RK: virtual time, upstream runBlocking
         val strategy = migrationStrategyFactory.create(0, 1)
         assertInstanceOf(InitialMigrationStrategy::class.java, strategy)
 
@@ -48,11 +47,13 @@ class MigratorTest {
 
         verify { migrationJobFactory.create(capture(migrations)) }
         assertEquals(1, migrations.captured.size)
-        eventually(2.seconds) { verify { migrationCompletedListener() } }
+        advanceUntilIdle() // RK
+        verify { migrationCompletedListener() } // RK: upstream polls with eventually(2.seconds)
     }
 
     @Test
-    fun sameVersion() = runBlocking {
+    fun sameVersion() = runTest {
+        // RK: virtual time, upstream runBlocking
         val strategy = migrationStrategyFactory.create(1, 1)
         assertInstanceOf(NoopMigrationStrategy::class.java, strategy)
 
@@ -65,7 +66,8 @@ class MigratorTest {
     }
 
     @Test
-    fun noMigrations() = runBlocking {
+    fun noMigrations() = runTest {
+        // RK: virtual time, upstream runBlocking
         val strategy = migrationStrategyFactory.create(1, 2)
         assertInstanceOf(VersionRangeMigrationStrategy::class.java, strategy)
 
@@ -78,7 +80,8 @@ class MigratorTest {
     }
 
     @Test
-    fun smallMigration() = runBlocking {
+    fun smallMigration() = runTest {
+        // RK: virtual time, upstream runBlocking
         val strategy = migrationStrategyFactory.create(1, 2)
         assertInstanceOf(VersionRangeMigrationStrategy::class.java, strategy)
 
@@ -89,11 +92,13 @@ class MigratorTest {
 
         verify { migrationJobFactory.create(capture(migrations)) }
         assertEquals(2, migrations.captured.size)
-        eventually(2.seconds) { verify { migrationCompletedListener() } }
+        advanceUntilIdle() // RK
+        verify { migrationCompletedListener() } // RK: upstream polls with eventually(2.seconds)
     }
 
     @Test
-    fun largeMigration() = runBlocking {
+    fun largeMigration() = runTest {
+        // RK: virtual time, upstream runBlocking
         val input = listOf(
             Migration.of(Migration.ALWAYS) { true },
             Migration.of(2f) { true },
@@ -117,11 +122,13 @@ class MigratorTest {
 
         verify { migrationJobFactory.create(capture(migrations)) }
         assertEquals(10, migrations.captured.size)
-        eventually(2.seconds) { verify { migrationCompletedListener() } }
+        advanceUntilIdle() // RK
+        verify { migrationCompletedListener() } // RK: upstream polls with eventually(2.seconds)
     }
 
     @Test
-    fun withinRangeMigration() = runBlocking {
+    fun withinRangeMigration() = runTest {
+        // RK: virtual time, upstream runBlocking
         val strategy = migrationStrategyFactory.create(1, 2)
         assertInstanceOf(VersionRangeMigrationStrategy::class.java, strategy)
 
@@ -138,25 +145,24 @@ class MigratorTest {
 
         verify { migrationJobFactory.create(capture(migrations)) }
         assertEquals(2, migrations.captured.size)
-        eventually(2.seconds) { verify { migrationCompletedListener() } }
+        advanceUntilIdle() // RK
+        verify { migrationCompletedListener() } // RK: upstream polls with eventually(2.seconds)
     }
 
     companion object {
 
-        @OptIn(DelicateCoroutinesApi::class)
-        val mainThreadSurrogate = newSingleThreadContext("UI thread")
-
+        // RK --> Main on a test dispatcher rather than a real thread, so runTest drives the migrations
         @BeforeAll
         @JvmStatic
         fun setUp() {
-            Dispatchers.setMain(mainThreadSurrogate)
+            Dispatchers.setMain(StandardTestDispatcher())
         }
 
         @AfterAll
         @JvmStatic
         fun tearDown() {
             Dispatchers.resetMain() // reset the main dispatcher to the original Main dispatcher
-            mainThreadSurrogate.close()
         }
+        // RK <--
     }
 }
