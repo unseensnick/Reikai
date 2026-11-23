@@ -109,6 +109,14 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
+      - name: Save Robolectric's Android SDK jars
+        if: always() && env.ROBOLECTRIC_CACHE_HIT != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ env.ROBOLECTRIC_CACHE_KEY }}
+
       # The log names a failure in one line; the report holds its stack and any error a test left behind.
       - name: Upload test reports
         if: failure()

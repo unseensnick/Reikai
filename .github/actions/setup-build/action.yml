@@ -21,7 +21,8 @@ inputs:
     default: ''
   robolectric-cache:
     description: >
-      Set true on a job that runs the unit tests. Robolectric downloads its Android SDK jars from
+      Set true on a job that runs the unit tests, and save after them with the job's own
+      "Save Robolectric's Android SDK jars" step. Robolectric downloads its Android SDK jars from
       Maven Central into ~/.m2 when the tests start, outside the Gradle cache, so without this every
       run fetches them again and one failed download fails the job.
     required: false
@@ -50,13 +51,23 @@ runs:
       shell: bash
       run: echo "version=$(sed -n 's/^robolectric = "\([^"]*\)".*/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
 
-    - name: Cache Robolectric's Android SDK jars
+    # Restored here and saved by the job's own step after its tests, even when they fail: a combined
+    # cache step only saves on success, and the job whose download it would keep is a failing one.
+    - name: Restore Robolectric's Android SDK jars
       if: inputs.robolectric-cache == 'true'
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      id: robolectric-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.m2/repository/org/robolectric
         key: robolectric-${{ steps.robolectric.outputs.version }}
         restore-keys: robolectric-
+
+    - name: Hand the Robolectric cache key to the save step
+      if: inputs.robolectric-cache == 'true'
+      shell: bash
+      run: |
+        echo "ROBOLECTRIC_CACHE_KEY=robolectric-${{ steps.robolectric.outputs.version }}" >> "$GITHUB_ENV"
+        echo "ROBOLECTRIC_CACHE_HIT=${{ steps.robolectric-cache.outputs.cache-hit }}" >> "$GITHUB_ENV"
 
     - name: Copy CI gradle.properties
       shell: bash
