@@ -4,7 +4,8 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import reikai.domain.library.ContentType
 
 class TrackerShownInTest {
@@ -14,27 +15,23 @@ class TrackerShownInTest {
         every { supportsNovels } returns novels
     }
 
-    @Test
-    fun `a novel-only tracker leaves with novels`() {
-        tracker(manga = false, novels = true).shownIn(ContentType.MANGA) shouldBe false
-    }
-
-    @Test
-    fun `a manga-only tracker leaves with manga`() {
-        tracker(manga = true, novels = false).shownIn(ContentType.NOVELS) shouldBe false
-    }
-
-    @Test
-    fun `a tracker holding both types stays under either`() {
-        ContentType.entries.map { tracker(manga = true, novels = true).shownIn(it) } shouldBe
-            listOf(true, true, true)
-    }
-
-    @Test
-    fun `a tracker stays while its one type shows`() {
-        listOf(
-            tracker(manga = false, novels = true).shownIn(ContentType.NOVELS),
-            tracker(manga = true, novels = false).shownIn(ContentType.ALL),
-        ) shouldBe listOf(true, true)
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(
+        "a novel-only tracker leaves with novels, false, true, MANGA, false",
+        "a manga-only tracker leaves with manga, true, false, NOVELS, false",
+        "a tracker holding both types stays under manga, true, true, MANGA, true",
+        "a tracker holding both types stays under novels, true, true, NOVELS, true",
+        "a tracker holding both types stays under all, true, true, ALL, true",
+        "a novel-only tracker stays while novels show, false, true, NOVELS, true",
+        "a manga-only tracker stays under all, true, false, ALL, true",
+    )
+    fun `a tracker is shown while one of its types shows`(
+        name: String,
+        manga: Boolean,
+        novels: Boolean,
+        shown: ContentType,
+        expected: Boolean,
+    ) {
+        tracker(manga, novels).shownIn(shown) shouldBe expected
     }
 }
