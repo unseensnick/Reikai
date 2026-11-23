@@ -2,9 +2,14 @@ package reikai.presentation.migrate.flow
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.presentation.migrate.flow.MigratingEntryRow.Acceptance
 import reikai.presentation.migrate.flow.MigratingEntryRow.CommitPhase
 import reikai.presentation.migrate.flow.MigratingEntryRow.SearchPhase
+import reikai.presentation.migrate.flow.MigrationRowRules.RowActions
+import reikai.presentation.migrate.flow.MigrationRowRules.RowStatus
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -13,69 +18,18 @@ import tachiyomi.domain.manga.model.Manga
  */
 class MigrationRowRulesTest {
 
-    private val candidate = MigrationCandidate(
-        sourceKey = "s",
-        title = "T",
-        chapterCount = 3,
-        key = "s:/t",
-        handle = MangaCandidateHandle(Manga.create()),
-    )
-    private val found = SearchPhase.Found(candidate, "Source")
-    private val failedCommit = CommitPhase.Failed(
-        replace = false,
-        flags = setOf(MigrationDataFlag.CHAPTER),
-    )
-
-    private val hideBoth = MigrationTuning(hideUnmatched = true, hideWithoutUpdates = true)
-
-    private val accepted = Acceptance.Accepted(candidate)
-
-    private fun hidden(
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("hides")
+    fun `the hide toggles drop only an untouched settled row`(
+        name: String,
         search: SearchPhase,
-        acceptance: Acceptance = Acceptance.Untouched,
-        entryLatest: Double? = 10.0,
-        expanded: Boolean = false,
-        tuning: MigrationTuning = hideBoth,
-    ) = MigrationRowRules.shouldHide(search, acceptance, entryLatest, expanded, tuning)
-
-    @Test
-    fun `hide-unmatched drops a row that found nothing`() {
-        hidden(SearchPhase.NoMatch) shouldBe true
-    }
-
-    @Test
-    fun `an open row survives the hide toggles`() {
-        hidden(SearchPhase.NoMatch, expanded = true) shouldBe false
-    }
-
-    @Test
-    fun `a target the user gave back keeps the row on screen`() {
-        // The whole reason Declined exists: dropping a row the user just acted on reads as it
-        // vanishing under their hands, and Untouched cannot tell that case from "never looked at".
-        hidden(SearchPhase.NoMatch, Acceptance.Declined) shouldBe false
-    }
-
-    @Test
-    fun `a declined row stays on screen whichever way its search landed`() {
-        val behind = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
-
-        // Late-arriving inputs are what re-hid the row three times: a declined row stays put
-        // whichever way the search lands.
-        hidden(behind, Acceptance.Declined, entryLatest = 10.0) shouldBe false
-    }
-
-    @Test
-    fun `an accepted row survives the hide toggles, or it would commit invisibly`() {
-        hidden(SearchPhase.NoMatch, accepted) shouldBe false
-    }
-
-    @Test
-    fun `a row still being searched is never dropped`() {
-        // A guard, not a clause pin: no branch of shouldHide can drop an unsettled row today, and
-        // deleting any one of them leaves this green. It is here so that adding such a branch, which
-        // reads as a reasonable thing to do, fails instead of dropping rows mid-search.
-        hidden(SearchPhase.Queued) shouldBe false
-        hidden(SearchPhase.Searching) shouldBe false
+        acceptance: Acceptance,
+        entryLatest: Double?,
+        expanded: Boolean,
+        tuning: MigrationTuning,
+        expected: Boolean,
+    ) {
+        MigrationRowRules.shouldHide(search, acceptance, entryLatest, expanded, tuning) shouldBe expected
     }
 
     @Test
@@ -89,128 +43,14 @@ class MigrationRowRulesTest {
         disposition(Acceptance.Declined) shouldBe MigrationRowRules.Disposition.Settled
     }
 
-    @Test
-    fun `an unreachable source is not the same as no match, so a failed search stays`() {
-        hidden(SearchPhase.Failed) shouldBe false
-    }
-
-    @Test
-    fun `hide-without-updates drops a target that is no further ahead`() {
-        val behind = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
-
-        hidden(behind, entryLatest = 10.0) shouldBe true
-    }
-
-    @Test
-    fun `hide-without-updates keeps a target that is ahead`() {
-        val ahead = SearchPhase.Found(candidate.copy(latestChapter = 11.0), "Source")
-
-        hidden(ahead, entryLatest = 10.0) shouldBe false
-    }
-
-    @Test
-    fun `an unknown count on either side is not evidence, so the row stays`() {
-        val unknownTarget = SearchPhase.Found(candidate.copy(latestChapter = null), "Source")
-        val knownTarget = SearchPhase.Found(candidate.copy(latestChapter = 9.0), "Source")
-
-        hidden(unknownTarget, entryLatest = 10.0) shouldBe false
-        hidden(knownTarget, entryLatest = null) shouldBe false
-    }
-
-    @Test
-    fun `with the toggles off nothing is dropped`() {
-        hidden(SearchPhase.NoMatch, tuning = MigrationTuning()) shouldBe false
-    }
-
-    @Test
-    fun `a queued row the driver can still reach is not settled`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle) shouldBe false
-    }
-
-    @Test
-    fun `a row searching right now is not settled`() {
-        MigrationRowRules.isSettled(SearchPhase.Searching, CommitPhase.Idle) shouldBe false
-    }
-
-    @Test
-    fun `a queued row whose commit failed is settled, since it can never be searched again`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, failedCommit) shouldBe true
-    }
-
-    @Test
-    fun `a queued row mid-commit is settled, since the driver cannot touch it`() {
-        MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Committing(replace = true))
-            .shouldBe(true)
-    }
-
-    @Test
-    fun `a queued row with an idle commit is searchable`() {
-        MigrationRowRules.canSearch(SearchPhase.Queued, CommitPhase.Idle) shouldBe true
-    }
-
-    @Test
-    fun `a settled row is not searched again`() {
-        MigrationRowRules.canSearch(found, CommitPhase.Idle) shouldBe false
-    }
-
-    @Test
-    fun `a committing row takes no new target`() {
-        MigrationRowRules.canChoose(CommitPhase.Committing(replace = true)) shouldBe false
-    }
-
-    @Test
-    fun `a failed row can be re-targeted before its retry`() {
-        MigrationRowRules.canChoose(failedCommit) shouldBe true
-    }
-
-    @Test
-    fun `un-accept is offered while the commit is idle, whatever the search found`() {
-        MigrationRowRules.canUnchoose(CommitPhase.Idle) shouldBe true
-    }
-
-    @Test
-    fun `un-accept is blocked on a failed row so its retry keeps a target`() {
-        MigrationRowRules.canUnchoose(failedCommit) shouldBe false
-    }
-
-    @Test
-    fun `un-accept is blocked mid-commit`() {
-        MigrationRowRules.canUnchoose(CommitPhase.Committing(replace = false)) shouldBe false
-    }
-
-    @Test
-    fun `skip is blocked while the row is committing`() {
-        MigrationRowRules.canSkip(CommitPhase.Committing(replace = false)) shouldBe false
-    }
-
-    @Test
-    fun `skip is allowed on a failed row`() {
-        MigrationRowRules.canSkip(failedCommit) shouldBe true
-    }
-
-    @Test
-    fun `a targetless row is excluded from a commit`() {
-        MigrationRowRules.isCommittable(Acceptance.Untouched, CommitPhase.Idle) shouldBe false
-    }
-
-    @Test
-    fun `an accepted row with an idle commit is committable`() {
-        MigrationRowRules.isCommittable(accepted, CommitPhase.Idle) shouldBe true
-    }
-
-    @Test
-    fun `retry is offered only for a failed commit`() {
-        MigrationRowRules.canRetry(CommitPhase.Idle, anyCommitInFlight = false) shouldBe false
-    }
-
-    @Test
-    fun `retry waits while another commit runs`() {
-        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = true) shouldBe false
-    }
-
-    @Test
-    fun `retry is offered on a failed row when nothing else commits`() {
-        MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false) shouldBe true
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("permissions")
+    fun `a row allows each transition only in the phases the rules name`(
+        name: String,
+        allows: () -> Boolean,
+        expected: Boolean,
+    ) {
+        allows() shouldBe expected
     }
 
     @Test
@@ -232,148 +72,346 @@ class MigrationRowRulesTest {
         Acceptance.Declined.candidate shouldBe null
     }
 
-    private fun status(
-        search: SearchPhase = found,
-        acceptance: Acceptance = Acceptance.Untouched,
-        commit: CommitPhase = CommitPhase.Idle,
-    ) = MigrationRowRules.status(search, acceptance, commit)
-
-    @Test
-    fun `a search that failed does not read as no match`() {
-        // The regression this case exists for: every source throwing rendered exactly like "no source
-        // has this title", and since the driver never re-searches a settled row, a passing outage
-        // looked like a permanent verdict.
-        status(search = SearchPhase.Failed) shouldBe MigrationRowRules.RowStatus.SearchFailed
-        status(search = SearchPhase.NoMatch) shouldBe MigrationRowRules.RowStatus.NoMatch
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("statuses")
+    fun `the status line reports the commit outcome, then the target, then the search`(
+        name: String,
+        search: SearchPhase,
+        acceptance: Acceptance,
+        commit: CommitPhase,
+        expected: RowStatus,
+    ) {
+        MigrationRowRules.status(search, acceptance, commit) shouldBe expected
     }
 
-    @Test
-    fun `a commit outcome outranks the search outcome`() {
-        status(commit = failedCommit, search = found) shouldBe MigrationRowRules.RowStatus.CommitFailed
-        status(commit = CommitPhase.Committing(replace = true), search = found) shouldBe
-            MigrationRowRules.RowStatus.Committing
+    // The screen renders a control only where its flag is true, so each row pins every flag at once.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("rowActions")
+    fun `a row offers exactly the controls its handlers accept`(
+        name: String,
+        search: SearchPhase,
+        acceptance: Acceptance,
+        commit: CommitPhase,
+        busy: Boolean,
+        expected: RowActions,
+    ) {
+        MigrationRowRules.actions(search, acceptance, commit, busy) shouldBe expected
     }
 
-    @Test
-    fun `an accepted target is reported over the suggestion it replaced`() {
-        val other = candidate.copy(sourceKey = "picked")
-
-        status(acceptance = Acceptance.Accepted(other), search = found) shouldBe
-            MigrationRowRules.RowStatus.Target("picked")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("targets")
+    fun `a row's target is the accepted one, else the suggestion`(
+        name: String,
+        search: SearchPhase,
+        acceptance: Acceptance,
+        expected: MigrationCandidate?,
+    ) {
+        MigrationRowRules.target(search, acceptance) shouldBe expected
     }
 
-    @Test
-    fun `a row that has not been searched yet reports nothing`() {
-        status(search = SearchPhase.Queued) shouldBe MigrationRowRules.RowStatus.Idle
-        status(search = SearchPhase.Searching) shouldBe MigrationRowRules.RowStatus.Searching
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("shortfalls")
+    fun `a shortfall is reported only for a target known to be behind`(
+        name: String,
+        entryLatest: Double?,
+        targetLatest: Double?,
+        expected: Double?,
+    ) {
+        MigrationRowRules.shortfall(entryLatest, targetLatest) shouldBe expected
     }
 
-    private fun actions(
-        search: SearchPhase = found,
-        acceptance: Acceptance = Acceptance.Untouched,
-        commit: CommitPhase = CommitPhase.Idle,
-        busy: Boolean = false,
-    ) = MigrationRowRules.actions(search, acceptance, commit, busy)
+    companion object {
+        private val candidate = MigrationCandidate(
+            sourceKey = "s",
+            title = "T",
+            chapterCount = 3,
+            key = "s:/t",
+            handle = MangaCandidateHandle(Manga.create()),
+        )
+        private val picked = candidate.copy(sourceKey = "picked")
+        private val found = SearchPhase.Found(candidate, "Source")
+        private val failedCommit = CommitPhase.Failed(
+            replace = false,
+            flags = setOf(MigrationDataFlag.CHAPTER),
+        )
+        private val hideBoth = MigrationTuning(hideUnmatched = true, hideWithoutUpdates = true)
+        private val accepted = Acceptance.Accepted(candidate)
 
-    @Test
-    fun `a suggested row offers accept and nothing to un-accept`() {
-        val offered = actions()
+        private fun foundAt(latestChapter: Double?) =
+            SearchPhase.Found(candidate.copy(latestChapter = latestChapter), "Source")
 
-        offered.canAccept shouldBe true
-        offered.canUnaccept shouldBe false
-    }
+        private fun hide(
+            name: String,
+            search: SearchPhase,
+            expected: Boolean,
+            acceptance: Acceptance = Acceptance.Untouched,
+            entryLatest: Double? = 10.0,
+            expanded: Boolean = false,
+            tuning: MigrationTuning = hideBoth,
+        ) = Arguments.of(name, search, acceptance, entryLatest, expanded, tuning, expected)
 
-    @Test
-    fun `an accepted row offers un-accept and a single commit`() {
-        val offered = actions(acceptance = accepted)
+        @JvmStatic
+        fun hides() = listOf(
+            hide("hide-unmatched drops a row that found nothing", SearchPhase.NoMatch, true),
+            hide("an open row survives the hide toggles", SearchPhase.NoMatch, false, expanded = true),
+            // The whole reason Declined exists: dropping a row the user just acted on reads as it
+            // vanishing under their hands, and Untouched cannot tell that case from "never looked at".
+            hide(
+                "a target the user gave back keeps the row on screen",
+                SearchPhase.NoMatch,
+                false,
+                Acceptance.Declined,
+            ),
+            // Late-arriving inputs are what re-hid the row three times: a declined row stays put
+            // whichever way the search lands.
+            hide(
+                "a declined row stays on screen whichever way its search landed",
+                foundAt(9.0),
+                false,
+                Acceptance.Declined,
+            ),
+            hide(
+                "an accepted row survives the hide toggles, or it would commit invisibly",
+                SearchPhase.NoMatch,
+                false,
+                accepted,
+            ),
+            // A guard, not a clause pin: no branch of shouldHide can drop an unsettled row today. It
+            // is here so that adding such a branch, which reads as reasonable, fails instead of
+            // dropping rows mid-search.
+            hide("a queued row is never dropped", SearchPhase.Queued, false),
+            hide("a row being searched is never dropped", SearchPhase.Searching, false),
+            hide("an unreachable source is not no match, so a failed search stays", SearchPhase.Failed, false),
+            hide("hide-without-updates drops a target that is no further ahead", foundAt(9.0), true),
+            hide("hide-without-updates keeps a target that is ahead", foundAt(11.0), false),
+            hide("an unknown target count is not evidence, so the row stays", foundAt(null), false),
+            hide("an unknown entry count is not evidence, so the row stays", foundAt(9.0), false, entryLatest = null),
+            hide("with the toggles off nothing is dropped", SearchPhase.NoMatch, false, tuning = MigrationTuning()),
+        )
 
-        offered.canUnaccept shouldBe true
-        offered.canCommitNow shouldBe true
-    }
+        private fun allows(name: String, expected: Boolean, allows: () -> Boolean) = Arguments.of(
+            name,
+            allows,
+            expected,
+        )
 
-    @Test
-    fun `an accepted row offers nothing more to accept`() {
-        // Its search still carries a suggestion, so only the already-accepted clause refuses this.
-        actions(acceptance = accepted, search = found).canAccept shouldBe false
-    }
+        @JvmStatic
+        fun permissions() = listOf(
+            allows("a queued row the driver can still reach is not settled", false) {
+                MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Idle)
+            },
+            allows("a row searching right now is not settled", false) {
+                MigrationRowRules.isSettled(SearchPhase.Searching, CommitPhase.Idle)
+            },
+            allows("a queued row whose commit failed is settled, since it can never be searched again", true) {
+                MigrationRowRules.isSettled(SearchPhase.Queued, failedCommit)
+            },
+            allows("a queued row mid-commit is settled, since the driver cannot touch it", true) {
+                MigrationRowRules.isSettled(SearchPhase.Queued, CommitPhase.Committing(replace = true))
+            },
+            allows("a queued row with an idle commit is searchable", true) {
+                MigrationRowRules.canSearch(SearchPhase.Queued, CommitPhase.Idle)
+            },
+            allows("a settled row is not searched again", false) {
+                MigrationRowRules.canSearch(found, CommitPhase.Idle)
+            },
+            allows("a committing row takes no new target", false) {
+                MigrationRowRules.canChoose(CommitPhase.Committing(replace = true))
+            },
+            allows("a failed row can be re-targeted before its retry", true) {
+                MigrationRowRules.canChoose(failedCommit)
+            },
+            allows("un-accept is offered while the commit is idle, whatever the search found", true) {
+                MigrationRowRules.canUnchoose(CommitPhase.Idle)
+            },
+            allows("un-accept is blocked on a failed row so its retry keeps a target", false) {
+                MigrationRowRules.canUnchoose(failedCommit)
+            },
+            allows("un-accept is blocked mid-commit", false) {
+                MigrationRowRules.canUnchoose(CommitPhase.Committing(replace = false))
+            },
+            allows("skip is blocked while the row is committing", false) {
+                MigrationRowRules.canSkip(CommitPhase.Committing(replace = false))
+            },
+            allows("skip is allowed on a failed row", true) { MigrationRowRules.canSkip(failedCommit) },
+            allows("a targetless row is excluded from a commit", false) {
+                MigrationRowRules.isCommittable(Acceptance.Untouched, CommitPhase.Idle)
+            },
+            allows("an accepted row with an idle commit is committable", true) {
+                MigrationRowRules.isCommittable(accepted, CommitPhase.Idle)
+            },
+            allows("retry is offered only for a failed commit", false) {
+                MigrationRowRules.canRetry(CommitPhase.Idle, anyCommitInFlight = false)
+            },
+            allows("retry waits while another commit runs", false) {
+                MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = true)
+            },
+            allows("retry is offered on a failed row when nothing else commits", true) {
+                MigrationRowRules.canRetry(failedCommit, anyCommitInFlight = false)
+            },
+        )
 
-    @Test
-    fun `a row with no target offers nothing to accept`() {
-        actions(search = SearchPhase.NoMatch).canAccept shouldBe false
-        actions(search = SearchPhase.Failed).canAccept shouldBe false
-    }
+        @JvmStatic
+        fun statuses() = listOf(
+            // The regression this exists for: every source throwing rendered exactly like "no source
+            // has this title", and since the driver never re-searches a settled row, a passing outage
+            // looked like a permanent verdict.
+            Arguments.of(
+                "a search that failed does not read as no match",
+                SearchPhase.Failed,
+                Acceptance.Untouched,
+                CommitPhase.Idle,
+                RowStatus.SearchFailed,
+            ),
+            Arguments.of(
+                "a search that found nothing reads as no match",
+                SearchPhase.NoMatch,
+                Acceptance.Untouched,
+                CommitPhase.Idle,
+                RowStatus.NoMatch,
+            ),
+            Arguments.of(
+                "a failed commit outranks the search outcome",
+                found,
+                Acceptance.Untouched,
+                failedCommit,
+                RowStatus.CommitFailed,
+            ),
+            Arguments.of(
+                "a running commit outranks the search outcome",
+                found,
+                Acceptance.Untouched,
+                CommitPhase.Committing(replace = true),
+                RowStatus.Committing,
+            ),
+            Arguments.of(
+                "an accepted target is reported over the suggestion it replaced",
+                found,
+                Acceptance.Accepted(picked),
+                CommitPhase.Idle,
+                RowStatus.Target("picked"),
+            ),
+            Arguments.of(
+                "a row not searched yet reports nothing",
+                SearchPhase.Queued,
+                Acceptance.Untouched,
+                CommitPhase.Idle,
+                RowStatus.Idle,
+            ),
+            Arguments.of(
+                "a row being searched reports searching",
+                SearchPhase.Searching,
+                Acceptance.Untouched,
+                CommitPhase.Idle,
+                RowStatus.Searching,
+            ),
+        )
 
-    @Test
-    fun `nothing that commits is offered while another commit runs`() {
-        // The dead-control class: these all rendered while their handlers refused.
-        val offered = actions(acceptance = accepted, commit = failedCommit, busy = true)
+        private fun offers(
+            accept: Boolean = false,
+            unaccept: Boolean = false,
+            skip: Boolean = true,
+            retry: Boolean = false,
+            commitNow: Boolean = false,
+            pick: Boolean = true,
+        ) = RowActions(accept, unaccept, skip, retry, commitNow, pick)
 
-        offered.canCommitNow shouldBe false
-        offered.canRetry shouldBe false
-    }
+        @JvmStatic
+        fun rowActions() = listOf(
+            Arguments.of(
+                "a suggested row offers accept and nothing to un-accept",
+                found,
+                Acceptance.Untouched,
+                CommitPhase.Idle,
+                false,
+                offers(accept = true),
+            ),
+            // Its search still carries a suggestion, so only the already-accepted clause refuses accept.
+            Arguments.of(
+                "an accepted row offers un-accept and a single commit, and nothing more to accept",
+                found,
+                accepted,
+                CommitPhase.Idle,
+                false,
+                offers(unaccept = true, commitNow = true),
+            ),
+            Arguments.of(
+                "a row that found nothing offers nothing to accept and no single commit",
+                SearchPhase.NoMatch,
+                Acceptance.Untouched,
+                CommitPhase.Idle,
+                false,
+                offers(),
+            ),
+            Arguments.of(
+                "a row whose search failed offers nothing to accept",
+                SearchPhase.Failed,
+                Acceptance.Untouched,
+                CommitPhase.Idle,
+                false,
+                offers(),
+            ),
+            // The dead-control class: these all rendered while their handlers refused.
+            Arguments.of(
+                "nothing that commits is offered while another commit runs",
+                found,
+                accepted,
+                failedCommit,
+                true,
+                offers(),
+            ),
+            Arguments.of(
+                "a failed row offers retry and a single commit when nothing else commits",
+                found,
+                accepted,
+                failedCommit,
+                false,
+                offers(retry = true, commitNow = true),
+            ),
+            // The dead-control class again: the picker rendered off the row own expanded flag, so a row
+            // mid-commit kept one whose every candidate was silently refused and could not be closed.
+            Arguments.of(
+                "a committing row offers no skip and no picker",
+                found,
+                Acceptance.Untouched,
+                CommitPhase.Committing(replace = true),
+                false,
+                offers(skip = false, pick = false),
+            ),
+            Arguments.of(
+                "a failed row may still be re-targeted from the picker before its retry",
+                found,
+                Acceptance.Untouched,
+                failedCommit,
+                false,
+                offers(accept = true, retry = true),
+            ),
+        )
 
-    @Test
-    fun `a row with no target never offers a single commit`() {
-        actions(search = SearchPhase.NoMatch).canCommitNow shouldBe false
-    }
+        @JvmStatic
+        fun targets() = listOf(
+            Arguments.of(
+                "an accepted target is the row's target over the suggestion",
+                found,
+                Acceptance.Accepted(picked),
+                picked,
+            ),
+            Arguments.of("a row with no accepted target shows its suggestion", found, Acceptance.Declined, candidate),
+            Arguments.of(
+                "a row with neither an accepted target nor a suggestion has no target",
+                SearchPhase.NoMatch,
+                Acceptance.Untouched,
+                null,
+            ),
+        )
 
-    @Test
-    fun `skip is not offered mid-commit`() {
-        actions(commit = CommitPhase.Committing(replace = true)).canSkip shouldBe false
-    }
-
-    @Test
-    fun `a failed row offers retry when nothing else commits`() {
-        actions(acceptance = accepted, commit = failedCommit).canRetry shouldBe true
-    }
-
-    @Test
-    fun `a committing row offers no picker`() {
-        // The dead-control class again: the picker rendered off the row own expanded flag, so a row
-        // mid-commit kept one whose every candidate was silently refused and could not be closed.
-        actions(commit = CommitPhase.Committing(replace = true)).canPick shouldBe false
-    }
-
-    @Test
-    fun `a failed row may still be re-targeted from the picker before its retry`() {
-        actions(commit = failedCommit).canPick shouldBe true
-    }
-
-    @Test
-    fun `an accepted target is the row's target over the suggestion`() {
-        val picked = candidate.copy(sourceKey = "picked")
-
-        MigrationRowRules.target(found, Acceptance.Accepted(picked)) shouldBe picked
-    }
-
-    @Test
-    fun `a row with no accepted target shows its suggestion`() {
-        MigrationRowRules.target(found, Acceptance.Declined) shouldBe candidate
-    }
-
-    @Test
-    fun `a row with neither an accepted target nor a suggestion has no target`() {
-        MigrationRowRules.target(SearchPhase.NoMatch, Acceptance.Untouched) shouldBe null
-    }
-
-    @Test
-    fun `a target behind the entry reports the signed shortfall`() {
-        MigrationRowRules.shortfall(entryLatest = 584.0, targetLatest = 120.0) shouldBe -464.0
-    }
-
-    @Test
-    fun `a target level with the entry has no shortfall`() {
-        MigrationRowRules.shortfall(entryLatest = 10.0, targetLatest = 10.0) shouldBe null
-    }
-
-    @Test
-    fun `a target ahead of the entry has no shortfall`() {
-        MigrationRowRules.shortfall(entryLatest = 10.0, targetLatest = 12.0) shouldBe null
-    }
-
-    @Test
-    fun `an unknown latest chapter on either side is no shortfall`() {
-        MigrationRowRules.shortfall(entryLatest = null, targetLatest = 3.0) shouldBe null
-        MigrationRowRules.shortfall(entryLatest = 3.0, targetLatest = null) shouldBe null
+        @JvmStatic
+        fun shortfalls() = listOf(
+            Arguments.of("a target behind the entry reports the signed shortfall", 584.0, 120.0, -464.0),
+            Arguments.of("a target level with the entry has no shortfall", 10.0, 10.0, null),
+            Arguments.of("a target ahead of the entry has no shortfall", 10.0, 12.0, null),
+            Arguments.of("an unknown entry latest chapter is no shortfall", null, 3.0, null),
+            Arguments.of("an unknown target latest chapter is no shortfall", 3.0, null, null),
+        )
     }
 }
