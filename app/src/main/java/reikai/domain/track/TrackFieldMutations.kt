@@ -26,6 +26,10 @@ object TrackFieldMutations {
             track.status != tracker.getRereadingStatus()
         ) {
             track.status = tracker.getReadingStatus()
+            // From mihonapp/mihon#3930: a manual first chapter starts the series, as a read push does
+            if (tracker.supportsReadingDates && track.started_reading_date <= 0L) {
+                track.started_reading_date = System.currentTimeMillis()
+            }
         }
         track.last_chapter_read = chapterNumber.toDouble()
         completeAtTotal(tracker, track)
