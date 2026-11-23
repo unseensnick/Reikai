@@ -3,6 +3,7 @@ package reikai.util
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.job
+import kotlinx.coroutines.test.TestDispatcher
 import org.junit.jupiter.api.extension.AfterAllCallback
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback
 import org.junit.jupiter.api.extension.ExtensionContext
@@ -12,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.ContinuationInterceptor
 
 /**
  * Ends every [testAppScope] a test made as soon as its body returns, which is before its `@AfterEach`: work still
@@ -32,6 +34,10 @@ class AppScopeSettler : TestInstancePreConstructCallback, AfterTestExecutionCall
     private fun settle(owned: (Long) -> Boolean) {
         val scopes = live.filterValues(owned).keys.filter { live.remove(it) != null }
         scopes.forEach { it.cancel() }
+        // A scope on a test dispatcher ends only as its scheduler runs, which nothing does once the test returns.
+        scopes.forEach {
+            (it.coroutineContext[ContinuationInterceptor] as? TestDispatcher)?.scheduler?.advanceUntilIdle()
+        }
         scopes.forEach { scope ->
             val ended = CountDownLatch(1)
             scope.coroutineContext.job.invokeOnCompletion { ended.countDown() }

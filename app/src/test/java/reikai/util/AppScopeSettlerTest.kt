@@ -3,9 +3,14 @@ package reikai.util
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -34,7 +39,7 @@ class AppScopeSettlerTest {
     @Order(1)
     fun `a test leaves work on its app scope that reaches Main after tearDown`() = runTest {
         // Under runTest, as in the suite, where stray failures are collected for the next one to report.
-        val leaked = testAppScope().launch {
+        leaked = testAppScope().launch {
             mainGone.await()
             withContext(Dispatchers.Main) {}
         }
@@ -48,14 +53,29 @@ class AppScopeSettlerTest {
         // A test that sets no Main, as the one a leak failed did; the leaked work goes on only once it is gone.
         Dispatchers.resetMain()
         mainGone.complete(Unit)
-        Thread.sleep(RUN_MS)
 
-        runTest {}
+        // Joined rather than slept on: settled, it has already ended; leaked, it fails before the join returns.
+        runTest { leaked.join() }
+    }
+
+    @Test
+    @Order(3)
+    fun `a test leaves work suspended on an app scope over a test dispatcher`() {
+        virtualLeak = CoroutineScope(SupervisorJob() + StandardTestDispatcher()).also(AppScopeSettler::track)
+            .launch(start = CoroutineStart.UNDISPATCHED) { awaitCancellation() }
+
+        virtualLeak.isActive shouldBe true
+    }
+
+    @Test
+    @Order(4)
+    fun `that work has ended by the next test, without waiting out the settle`() {
+        virtualLeak.isCompleted shouldBe true
     }
 
     @ParameterizedTest(name = "case {0}")
     @MethodSource("casesBuiltUpFront")
-    @Order(3)
+    @Order(5)
     fun `a scope built for a later case is still live when that case runs`(case: Int, scope: CoroutineScope) {
         scope.isActive shouldBe true
     }
@@ -66,8 +86,7 @@ class AppScopeSettlerTest {
         fun casesBuiltUpFront() = listOf(arrayOf(1, testAppScope()), arrayOf(2, testAppScope()))
 
         private val mainGone = CompletableDeferred<Unit>()
-
-        /** Room for released leaked work to run and fail, which runTest then reports. */
-        private const val RUN_MS = 300L
+        private lateinit var leaked: Job
+        private lateinit var virtualLeak: Job
     }
 }
