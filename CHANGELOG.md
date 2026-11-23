@@ -479,7 +479,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- Updated Compose, Conscrypt, Firebase, jsoup, kotlinx.serialization, Metro and the WebGPU manga viewer (from Mihon).
+- Updated Compose (now its stable release), Conscrypt, Firebase, jsoup, kotlinx.serialization, Lifecycle, Metro, Navigation 3 and the WebGPU manga viewer (from Mihon).
 - The launcher icon is now drawn as vector shapes instead of a set of images per screen density.
 - Moved navigation to Navigation 3, the library Mihon now uses (from Mihon).
 - Light-novel plugins can now use LNReader's error helpers, so a plugin that adopts them still loads (from LNReader).
