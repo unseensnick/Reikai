@@ -95,6 +95,11 @@ While it runs, the notification shows how long is left.
 The voice, speed, pitch and highlighting are set in <nav to="novel-reader"> under **Read aloud**.
 To keep going into the next chapter when one ends, turn on **Continue to the next chapter**.
 
+Reading aloud keeps going when you leave the reader or switch apps, and with **Continue to the next chapter** on it carries on through the following chapters.
+Tap the notification, or **Continue** in the library or a History row of the novel, to open the reader on the paragraph being read.
+Opening a different chapter of the same novel stops reading aloud, and starting it in another novel replaces it.
+To stop, tap the notification's close button or swipe the notification away; left paused for half an hour, it stops by itself.
+
 Your place moves with the voice, so reopening a chapter takes you to the paragraph being read, and a chapter read aloud to its end is marked read.
 Brackets, quote marks, tildes, emoji and decorative symbols such as ♪ and ☆ are not read out; the words around them are. A line with no words in it, such as a scene break, is skipped.
 

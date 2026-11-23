@@ -168,6 +168,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **Novel read aloud keeps going after you leave the reader, and its notification reopens the reader where it is speaking.** With Continue to the next chapter on it reads on through the next chapters; left paused for half an hour, it stops.
 - **Long-press a chapter in the reader's chapter list to select chapters and mark, bookmark, download or delete them, or mark everything before one as read.** The same bar as on the series screen.
 - **A novel can keep its own reading mode and chapter display, set from the reader settings sheet's For this series.** Settings -> Novel reader sets them for every other novel.
 - **Long-press a picture in a novel chapter to open it full screen, where you can zoom, rotate, share or save it.** In scrolling mode a tap opens it.
