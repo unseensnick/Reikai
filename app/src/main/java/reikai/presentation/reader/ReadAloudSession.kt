@@ -5,6 +5,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.source.interactor.GetIncognitoState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.novel.tts.SystemTtsEngine
@@ -56,6 +58,7 @@ import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.chapterParagraphs
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
@@ -68,8 +71,17 @@ import kotlin.time.TimeSource
  */
 data class ReadAloudSeries(val novelId: Long, val memberIds: List<Long>, val sourceScoped: Boolean) {
 
-    fun includes(novelId: Long, sourceScoped: Boolean): Boolean = this.sourceScoped == sourceScoped &&
-        if (sourceScoped) this.novelId == novelId else novelId in memberIds
+    /** Whether a reader of [novelId] in [sourceScoped] reads these chapters, and so may lend speech its page.
+     *  A novel in no group reads the same chapters in either scope. */
+    fun includes(novelId: Long, sourceScoped: Boolean): Boolean = when {
+        memberIds.size <= 1 -> novelId == this.novelId
+        this.sourceScoped != sourceScoped -> false
+        sourceScoped -> this.novelId == novelId
+        else -> novelId in memberIds
+    }
+
+    /** Whether opening [novelId], in either scope, opens a novel speech is reading. */
+    fun touches(novelId: Long): Boolean = novelId == this.novelId || novelId in memberIds
 }
 
 /** Read aloud as the app has it: the series being read, null while none is, and where speech is. */
@@ -286,18 +298,41 @@ class ReadAloudSession(
         private fun writeContext(order: NovelReadingOrder) =
             NovelWriteContext(order.memberIds, order.stitch, order.orderedIds, incognito())
 
+        /** Writes waiting on the order; while any is, later ones queue behind it, so none lands out of turn. */
+        private var waiting = 0
+
         /**
          * Runs [write] with the order it trims and marks copies by, reading the order first in the one case a
-         * reader had none to hand over. Writes waiting on it resume in the order they were asked for.
+         * reader had none to hand over. A waiting write runs on the progress lane, outside this session's scope,
+         * so it keeps its turn and a stop meanwhile cannot drop it; one whose read failed is logged and lost.
          */
         private fun withOrder(chapterId: Long, write: (NovelWriteContext) -> Unit) {
-            order?.let { return write(writeContext(it)) }
-            val load = orderLoad ?: scope.async(Dispatchers.IO) {
+            val ready = order
+            if (ready != null && waiting == 0) return write(writeContext(ready))
+            waiting++
+            progressSlot.launch {
+                try {
+                    write(writeContext(order ?: awaitOrder(chapterId)))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN, e) { "Read aloud wrote nothing for chapter $chapterId" }
+                } finally {
+                    waiting--
+                }
+            }
+        }
+
+        /** The order, read once for every write waiting on it; a failed read is forgotten, so the next retries. */
+        private suspend fun awaitOrder(chapterId: Long): NovelReadingOrder {
+            val load = orderLoad ?: appScope.async {
                 orderResolver.resolve(series.novelId, chapterId, series.sourceScoped)
             }.also { orderLoad = it }
-            scope.launch {
-                val resolved = order ?: load.await().also { order = it }
-                write(writeContext(resolved))
+            return try {
+                load.await().also { order = it }
+            } catch (e: Exception) {
+                if (orderLoad === load) orderLoad = null
+                throw e
             }
         }
 

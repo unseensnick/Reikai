@@ -50,6 +50,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
@@ -248,6 +249,10 @@ class NovelReaderViewModelHarness private constructor(
 
     @Volatile
     private var diskProbeGate: DiskProbeGate? = null
+
+    /** Makes read aloud's reads of the reading order fail, as a database read that throws does. */
+    @Volatile
+    var failOrderReads = false
 
     /** Stops every later disk probe of a chapter list at the returned gate, freezing that list's rebuild. */
     fun holdDiskProbes(): DiskProbeGate = DiskProbeGate().also { diskProbeGate = it }
@@ -550,7 +555,10 @@ class NovelReaderViewModelHarness private constructor(
                 getNextNovelChapter,
                 novelRepo,
                 chapterRepo,
-                copyMarks,
+                object : ChapterCopyMarkRepository by copyMarks {
+                    override suspend fun loadedMarks(type: ContentType) =
+                        if (failOrderReads) throw java.io.IOException("unreadable") else copyMarks.loadedMarks(type)
+                },
                 novelPreferences,
                 basePreferences,
                 downloadCache,

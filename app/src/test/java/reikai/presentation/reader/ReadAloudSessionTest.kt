@@ -516,6 +516,85 @@ class ReadAloudSessionTest {
             harness.historyOf(reading.novel).contains(reading.chapters[1].id) shouldBe false
         }
 
+    /** An Updates row or a new-chapter notification opens the novel's own source, which is no follow. */
+    @Test
+    fun `opening another chapter of the novel read aloud is reading from its source stops it`() =
+        sessionTest { harness ->
+            val reading = reading(harness)
+            closeReader(harness, reading)
+
+            harness.open(reading.novel, reading.chapters[2].id, sourceScoped = true)
+            advanceUntilIdle()
+
+            harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
+        }
+
+    @Test
+    fun `opening another chapter of a merged series from one source stops it`() = sessionTest { harness ->
+        val reading = reading(harness, merged = true)
+        closeReader(harness, reading)
+
+        harness.open(reading.novel, reading.chapters[2].id, sourceScoped = true)
+        advanceUntilIdle()
+
+        harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
+    }
+
+    /** A novel in no merge group reads the same chapters in either scope, so it is the same series. */
+    @Test
+    fun `a novel in no group opened from its source on the spoken chapter is read aloud's reader`() =
+        sessionTest { harness ->
+            val reading = reading(harness)
+            closeReader(harness, reading)
+
+            val joined = harness.open(reading.novel, reading.chapters[0].id, sourceScoped = true)
+            advanceUntilIdle()
+
+            joined.readAloud.owns() shouldBe true
+        }
+
+    /** Read aloud started with no order to hand, on chapter 1 of a three-chapter novel, by two paragraphs. */
+    private suspend fun TestScope.startedWithoutOrder(harness: NovelReaderViewModelHarness): List<SeededChapter> {
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val chapters = (1..3).map { harness.chapter(novel, it.toDouble()) }
+        val surface = HarnessSurface(
+            chapters = mutableMapOf(chapters[0].id to listOf("One", "Two")),
+            firstVisible = ReadAloudPosition(chapters[0].id, 0),
+        )
+        harness.readAloudSession.start(ReadAloudSeries(novel, listOf(novel), false), null, emptyMap(), surface)
+        harness.readAloudSession.play()
+        advanceUntilIdle()
+        harness.engines.last().init()
+        advanceUntilIdle()
+        return chapters
+    }
+
+    @Test
+    fun `a write that could not read the order reads it again for the next one`() = sessionTest { harness ->
+        harness.failOrderReads = true
+        val chapters = startedWithoutOrder(harness)
+        harness.failOrderReads = false
+
+        finishParagraph(harness)
+
+        harness.progressOf(chapters[0]) shouldBe 5_000L
+    }
+
+    /** The sleep timer set for the chapter's end stops speech in the same step that finishes the chapter. */
+    @Test
+    fun `a finish waiting on the order is written though read aloud stops meanwhile`() = sessionTest { harness ->
+        harness.failOrderReads = true
+        val chapters = startedWithoutOrder(harness)
+        finishParagraph(harness)
+        harness.failOrderReads = false
+        harness.notification.stopAtChapterEnd = true
+
+        finishParagraph(harness)
+
+        harness.isRead(chapters[0]) shouldBe true
+    }
+
     companion object {
         @JvmStatic
         fun pausesLeftAlone() = listOf(

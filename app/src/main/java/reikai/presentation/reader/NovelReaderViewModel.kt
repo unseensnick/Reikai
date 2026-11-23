@@ -771,7 +771,12 @@ class NovelReaderViewModel(
         readAloudSession.register(readAloud)
         // One series, one place: a launch naming another chapter of the series read aloud is reading,
         // rather than following it, is the reader choosing to read there.
-        spokenChapter()?.let { spoken -> if (!followSession && spoken != openingChapterId) readAloud.stop() }
+        // Asked of any scope: a chapter opened from one source of the series is no less the reader's own pick.
+        readAloudSession.state.value.let { session ->
+            val spoken = session.speech.progress?.chapterId ?: readAloudSession.moves.value?.chapterId
+            val conflicts = session.series?.touches(novelId) == true && spoken != null && spoken != openingChapterId
+            if (!followSession && conflicts) readAloudSession.stop()
+        }
         holdReadClockWhileSpeaking()
         followReadAloud()
         // Kept as each is written, so it is never a place the save skipped.
