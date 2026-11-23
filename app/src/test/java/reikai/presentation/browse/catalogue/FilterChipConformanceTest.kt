@@ -113,6 +113,19 @@ class FilterChipConformanceTest {
         probe.chipActive() shouldBe false
     }
 
+    /** A cleared field means no text, even with the earlier search still the listing (mihonapp/mihon#4244). */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `applying filters after clearing the field searches no text`(probe: FilterChipProbe) = runTest {
+        probe.open(this)
+        probe.search()
+
+        probe.clearField()
+        probe.applyFilters()
+
+        probe.searchedText() shouldBe null
+    }
+
     companion object {
         @JvmStatic
         fun probes() = listOf(
@@ -163,6 +176,12 @@ interface FilterChipProbe {
     fun resetFilters()
     fun switchListing()
     fun chipActive(): Boolean
+
+    /** Empties the search field without submitting, as backspacing it does. */
+    fun clearField()
+
+    /** The text the listing searches, null for none. */
+    fun searchedText(): String?
 }
 
 /**
@@ -222,13 +241,17 @@ private class MangaFilterChipProbe : FilterChipProbe {
     override fun search() = model.search(query = "shadow slave")
 
     // What the filter sheet's own apply does.
-    override fun applyFilters() = model.search(filters = model.state.value.filters)
+    override fun applyFilters() = adapter.applyFilters()
 
     override fun resetFilters() = model.resetFilters()
 
     override fun switchListing() = model.setListing(BrowseSourceViewModel.Listing.Popular)
 
     override fun chipActive() = adapter.filtersActive()
+
+    override fun clearField() = adapter.setQuery(null)
+
+    override fun searchedText() = model.state.value.listing.query?.takeIf(String::isNotBlank)
 
     private companion object {
         const val SOURCE_ID = 1L
@@ -286,13 +309,17 @@ private class NovelFilterChipProbe(
 
     override fun search() = model.search("shadow slave")
 
-    override fun applyFilters() = model.applyFilters()
+    override fun applyFilters() = adapter.applyFilters()
 
     override fun resetFilters() = model.resetFilters()
 
     override fun switchListing() = model.setListing(NovelListing.Popular)
 
     override fun chipActive() = adapter.filtersActive()
+
+    override fun clearField() = adapter.setQuery(null)
+
+    override fun searchedText() = model.state.value.query.takeIf(String::isNotBlank)
 
     private companion object {
         const val SOURCE_ID = "src"

@@ -405,6 +405,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Random in a source's filter sheet, while choosing what to migrate to, opens a catalogue that still picks the target.** Follows is hidden there, since it cannot pick one.
 - **An extension whose language Android cannot name now shows the language as written in Extensions, instead of a blank.**
 - **Screen readers now announce the Discord button on a repo's details as Open Discord.**
+- **Applying filters after clearing the search box no longer brings the old search text back (from Mihon).** Upstream: mihonapp/mihon#4244.
 
 ### Updates & History
 

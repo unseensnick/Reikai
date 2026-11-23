@@ -191,7 +191,7 @@ private fun MangaCatalogue(
             onDismissRequest = onDismiss,
             filters = modelState.filters,
             onReset = viewModel::resetFilters,
-            onFilter = { viewModel.search(filters = modelState.filters) },
+            onFilter = adapter::applyFilters,
             onUpdate = viewModel::setFilters,
             // Follows has no pick mode, so a migration pick leaves it out rather than open details.
             onMangaDexFollowsClicked = { navigator.push(MangaDexFollowsRoute(sourceId)) }
@@ -263,7 +263,7 @@ private fun NovelCatalogue(
                 filters = (source?.filters as? NovelFilters.LnSchema)?.schema,
                 values = draft.values,
                 onValueChange = viewModel::setFilterValue,
-                onApply = viewModel::applyFilters,
+                onApply = adapter::applyFilters,
                 onReset = viewModel::resetFilters,
                 onDismiss = onDismiss,
             )
@@ -271,7 +271,7 @@ private fun NovelCatalogue(
                 onDismissRequest = onDismiss,
                 filters = draft.list,
                 onReset = viewModel::resetFilters,
-                onFilter = viewModel::applyFilters,
+                onFilter = adapter::applyFilters,
                 onUpdate = viewModel::setFilters,
             )
             null -> {}

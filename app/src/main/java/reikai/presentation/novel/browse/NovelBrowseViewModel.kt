@@ -181,14 +181,14 @@ class NovelBrowseViewModel(
 
     /**
      * Apply the filter draft where the source's filters apply: to the listing for an LNReader plugin,
-     * whose search takes none, and to a search that keeps the query for a Mihon filter list.
+     * whose search takes none, and to a search of [query] for a Mihon filter list.
      */
-    fun applyFilters() {
+    fun applyFilters(query: String = state.value.query) {
         val source = state.value.source ?: return
         val toSearch = source.filters?.applyToSearch == true
         state.update {
             it.copy(
-                query = if (toSearch) it.query else "",
+                query = if (toSearch) query else "",
                 appliedFilters = it.filterDraft?.freshlyApplied(),
                 filtersApplied = true,
             )

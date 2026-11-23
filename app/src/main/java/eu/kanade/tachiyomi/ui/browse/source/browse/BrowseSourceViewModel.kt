@@ -239,6 +239,16 @@ open class BrowseSourceViewModel(
         }
     }
 
+    // RK --> mihonapp/mihon#4244: the filter sheet searches the field's current text, so a cleared
+    // field applies filters alone rather than bringing the previous search back
+    fun searchWithFilters(filters: FilterList) {
+        state.update {
+            val query = it.toolbarQuery?.takeIf(String::isNotBlank)
+            it.copy(listing = Listing.Search(query = query, filters = filters), toolbarQuery = query)
+        }
+    }
+    // RK <--
+
     fun searchGenre(genreName: String) {
         val defaultFilters = source?.getFilterList() ?: return
         // RK --> the rule and its matcher moved to reikai.domain.source.filter, shared with novel sources

@@ -131,6 +131,8 @@ class MangaBrowseAdapter(
 
     override fun setDisplayMode(mode: LibraryDisplayMode) = model.setDisplayMode(mode)
 
+    override fun applyFilters() = model.searchWithFilters(model.state.value.filters)
+
     override fun openFilterSheet() = model.openFilterSheet()
 
     override fun resetFilters() = model.resetFilters()

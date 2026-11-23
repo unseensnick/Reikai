@@ -38,6 +38,9 @@ interface EntryBrowseBehavior {
     fun openFilterSheet()
     fun resetFilters()
 
+    /** Apply the sheet's filters with the text the field holds now, never a search it no longer shows. */
+    fun applyFilters()
+
     /** The listing as it stands, in the form a saved search stores. */
     fun captureSearch(): SavedSearchDraft
 

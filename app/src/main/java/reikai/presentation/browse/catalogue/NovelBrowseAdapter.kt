@@ -145,6 +145,13 @@ class NovelBrowseAdapter(
 
     override fun resetFilters() = model.resetFilters()
 
+    override fun applyFilters() {
+        when (val field = toolbarText.value) {
+            ToolbarText.Untouched -> model.applyFilters()
+            is ToolbarText.Typed -> model.applyFilters(field.value.orEmpty())
+        }
+    }
+
     override fun captureSearch(): SavedSearchDraft {
         val state = model.state.value
         val query = state.query.takeIf { it.isNotBlank() }
