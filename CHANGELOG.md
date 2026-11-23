@@ -190,6 +190,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
+- **Back from a manga or novel reader opened straight from a notification now goes to the library instead of leaving the app.**
 - **Paged novels now count a chapter's pages from its first page of text, and the transition between chapters keeps you on your page, as in manga.** Opening a chapter lands on its text rather than on the transition.
 - **Failed pages and chapter transitions now look the same in every manga reading mode (from Mihon).** Upstream: mihonapp/mihon#4193.
 - **Grayscale and inverted colors in the reader now change only the page, not what is drawn over it (from Mihon).** Upstream: mihonapp/mihon#4192.

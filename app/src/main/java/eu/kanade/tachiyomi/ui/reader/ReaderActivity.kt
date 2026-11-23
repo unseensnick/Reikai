@@ -856,6 +856,7 @@ class ReaderActivity : BaseActivity() {
             this.intent.entryId(),
             engine.currentChapterId.value,
             this.intent.getBooleanExtra("source_scoped", false),
+            intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false),
         )
         if (sameLaunch) return
         setIntent(intent)

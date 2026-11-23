@@ -19,7 +19,8 @@ class ReaderIntentTest {
         openEntry: EntryId,
         openChapter: Long,
         requestedSourceScoped: Boolean = false,
-    ) = isSameLaunch(requestedEntry, requestedChapter, requestedSourceScoped, openEntry, openChapter, false)
+        follows: Boolean = false,
+    ) = isSameLaunch(requestedEntry, requestedChapter, requestedSourceScoped, openEntry, openChapter, false, follows)
 
     /** A new-chapter notification asks for the source's own chapters, which a group-scoped session never shows. */
     @Test
@@ -98,5 +99,17 @@ class ReaderIntentTest {
     @Test
     fun `an unknown tag is not an entry`() {
         entryIdOf("AUDIOBOOKS", rawId = 7L) shouldBe null
+    }
+
+    /** Continue while read aloud plays names the resume chapter, but asks for wherever read aloud is. */
+    @Test
+    fun `a launch following read aloud for the open entry is the same launch`() {
+        launch(
+            EntryId.Novel(1L),
+            requestedChapter = 5L,
+            openEntry = EntryId.Novel(1L),
+            openChapter = 6L,
+            follows = true,
+        ) shouldBe true
     }
 }

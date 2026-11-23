@@ -25,6 +25,9 @@ internal suspend fun Intent?.launch(
 val RecentsLane.sourceScoped: Boolean
     get() = this is RecentsLane.Updated
 
+/** Whether this lane's tap reopens read aloud where it speaks, while it is [active]: a resume does. */
+fun RecentsLane.followsReadAloud(active: Boolean): Boolean = active && this is RecentsLane.Read
+
 /** Which copies of a merged chapter this lane's row acts on, the scope its tap opens in. */
 val RecentsLane.mergeScope: MergeScope
     get() = MergeScope.of(sourceScoped)

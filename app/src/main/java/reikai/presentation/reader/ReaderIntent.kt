@@ -49,6 +49,7 @@ internal fun entryIdOf(typeName: String?, rawId: Long): EntryId? {
  * scope, and either no chapter or the one on screen. The chapter it opened with is not the test, since
  * the reader moves on from it, and a relaunch naming it again (a notification, a history row) is then a
  * real request. The scope is read once per session, so a launch asking for another one needs a new session.
+ * [requestedFollows] is a launch following read aloud, whose chapter the open reader is already following.
  */
 internal fun isSameLaunch(
     requestedEntry: EntryId,
@@ -57,6 +58,7 @@ internal fun isSameLaunch(
     openEntry: EntryId?,
     openChapter: Long,
     openSourceScoped: Boolean,
+    requestedFollows: Boolean = false,
 ): Boolean = requestedEntry == openEntry &&
     requestedSourceScoped == openSourceScoped &&
-    (requestedChapter == NO_ID || requestedChapter == openChapter)
+    (requestedChapter == NO_ID || requestedChapter == openChapter || requestedFollows)

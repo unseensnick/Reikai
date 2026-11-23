@@ -294,8 +294,8 @@ class NovelRecentsAdapter(
         item.entryId.rawId,
         chapter.chapterId,
         sourceScoped = item.lane.sourceScoped,
-        // A History row of the series read aloud is reading opens where it speaks.
-        followSession = NovelTtsSession.isActive(),
+        // A History row resumes, so it opens where read aloud speaks; an updated chapter is its own.
+        followSession = item.lane.followsReadAloud(NovelTtsSession.isActive()),
     )
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)
