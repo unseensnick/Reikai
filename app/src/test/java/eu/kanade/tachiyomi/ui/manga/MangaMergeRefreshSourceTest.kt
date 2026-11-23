@@ -13,22 +13,20 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.domain.source.models.RemoteMangaUpdate
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -47,7 +45,7 @@ class MangaMergeRefreshSourceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkStatic("eu.kanade.domain.manga.model.MangaKt")
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
@@ -57,7 +55,7 @@ class MangaMergeRefreshSourceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -88,15 +86,12 @@ class MangaMergeRefreshSourceTest {
             updateMangaFromRemote = update,
         ).also { store.put("manga", it) }
         try {
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.mergeSources.size == 2 }
-                }
-                model.fetchAllFromSource(manualFetch = false)
-                withTimeout(10_000) { while (ANCHOR !in refreshed) delay(20) }
-                // A sibling refreshed through a stub would land in the same pass.
-                delay(200)
+            withTimeout(30_000) {
+                model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.mergeSources.size == 2 }
             }
+            model.fetchAllFromSource(manualFetch = false)
+            // A sibling refreshed through a stub would land in the same pass.
+            advanceUntilIdle()
 
             refreshed shouldBe setOf(ANCHOR)
         } finally {

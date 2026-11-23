@@ -14,17 +14,13 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -41,6 +37,8 @@ import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -56,7 +54,7 @@ class MangaRelatedCarouselTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -67,7 +65,7 @@ class MangaRelatedCarouselTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -93,23 +91,21 @@ class MangaRelatedCarouselTest {
             prepareRecommendationAssembly = noHiding(),
         ).also { store.put("manga", it) }
         val marked = try {
-            withContext(Dispatchers.Default) {
-                val success = model.state.filterIsInstance<MangaViewModel.State.Success>()
-                withTimeout(30_000) { success.first() }
-                model.loadRelatedMangas()
-                withTimeout(10_000) { success.first { it.relatedItems.size == 1 } }
-                favorites.value = listOf(
-                    Manga.create().copy(
-                        id = 50L,
-                        url = "a",
-                        source = SOURCE_ID,
-                        favoriteAt = Instant.fromEpochMilliseconds(0L),
-                    ),
-                )
-                withTimeoutOrNull(10_000) { success.first { it.relatedItems.single().inLibrary } } != null
-            }
+            val success = model.state.filterIsInstance<MangaViewModel.State.Success>()
+            withTimeout(30_000) { success.first() }
+            model.loadRelatedMangas()
+            withTimeout(10_000) { success.first { it.relatedItems.size == 1 } }
+            favorites.value = listOf(
+                Manga.create().copy(
+                    id = 50L,
+                    url = "a",
+                    source = SOURCE_ID,
+                    favoriteAt = Instant.fromEpochMilliseconds(0L),
+                ),
+            )
+            withTimeoutOrNull(10_000) { success.first { it.relatedItems.single().inLibrary } } != null
         } finally {
-            // The model reads on the real IO dispatcher, so it stops before the database closes.
+            // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
             store.clear()
             job.join()

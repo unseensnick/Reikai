@@ -4,7 +4,6 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
@@ -12,12 +11,14 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.EntryMergeManager
-import kotlin.time.Duration.Companion.seconds
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 
 /**
  * The host is the shared merge read wiring both details models compose. Its own responsibility is small:
@@ -28,6 +29,14 @@ import kotlin.time.Duration.Companion.seconds
 class EntryMergeGroupHostTest {
 
     private val chips = listOf(EntryMergeSource(1L, "A"), EntryMergeSource(2L, "B"))
+
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers()
+    }
+
+    @AfterEach
+    fun tearDown() = resetVirtualDispatchers()
 
     private fun host(
         manager: EntryMergeManager,
@@ -155,6 +164,7 @@ class EntryMergeGroupHostTest {
             anchorChanges = MutableStateFlow(1L),
             resolveSources = { ids -> ids.map { EntryMergeSource(it, "src$it") } },
         )
+        restubDefaultDispatcher()
         host.observe(backgroundScope)
         host.chips.first { it.size == 3 }
         return host
@@ -191,6 +201,7 @@ class EntryMergeGroupHostTest {
             anchorChanges = MutableStateFlow(1L),
             resolveSources = { ids -> ids.map { EntryMergeSource(it, "src$it") } },
         )
+        restubDefaultDispatcher()
 
         host.observe(backgroundScope)
 
@@ -212,14 +223,13 @@ class EntryMergeGroupHostTest {
             coEvery { computeRelatedIds(1L) } answers { group.also { reads.value++ } }
         }
         val host = host(manager, anchorChanges = MutableStateFlow(1L))
+        restubDefaultDispatcher()
         host.observe(backgroundScope)
         reads.first { it == 1 }
 
         group = longArrayOf(1L, 2L)
         changes.value = 1
 
-        withContext(Dispatchers.Default) {
-            withTimeout(5.seconds) { host.state.first { it.ids.size == 2 } }
-        }.ids.toList() shouldBe listOf(1L, 2L)
+        host.state.first { it.ids.size == 2 }.ids.toList() shouldBe listOf(1L, 2L)
     }
 }

@@ -10,21 +10,19 @@ import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -43,7 +41,7 @@ class MangaMergedFlowDedupTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -54,7 +52,7 @@ class MangaMergedFlowDedupTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -75,26 +73,19 @@ class MangaMergedFlowDedupTest {
             onMergedRender = { renders.incrementAndGet() },
         ).also { store.put("manga", it) }
         val added = try {
-            withContext(Dispatchers.Default) {
-                backgroundScope.launch(Dispatchers.Default) { model.state.collect {} }
-                withTimeout(30_000) {
-                    model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.mergeSources.size == 2 }
-                }
-                // Real dispatchers: the initial renders settle first, however long a busy runner takes.
-                withTimeout(30_000) {
-                    var last = -1
-                    while (renders.get() != last) {
-                        last = renders.get()
-                        delay(QUIET_MS)
-                    }
-                }
-                val before = renders.get()
-                ChapterRepositoryImpl(database).update(ChapterUpdate(OUTSIDE_CHAPTER) { read = true })
-                delay(SETTLE_MS)
-                renders.get() - before
+            // On the test scope, not its background one, so advanceUntilIdle settles the renders it drives.
+            val screen = launch { model.state.collect {} }
+            withTimeout(30_000) {
+                model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.mergeSources.size == 2 }
             }
+            advanceUntilIdle()
+            val before = renders.get()
+            ChapterRepositoryImpl(database).update(ChapterUpdate(OUTSIDE_CHAPTER) { read = true })
+            advanceUntilIdle()
+            screen.cancel()
+            renders.get() - before
         } finally {
-            // The model reads on the real IO dispatcher, so it stops before the database closes.
+            // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
             store.clear()
             job.join()
@@ -110,11 +101,5 @@ class MangaMergedFlowDedupTest {
         const val SIBLING = 2L
         const val OUTSIDE = 3L
         const val OUTSIDE_CHAPTER = 30L
-
-        // Far beyond the milliseconds a re-render takes to land when a write causes one.
-        const val SETTLE_MS = 1_000L
-
-        // No render for this long counts as the initial ones having landed.
-        const val QUIET_MS = 300L
     }
 }

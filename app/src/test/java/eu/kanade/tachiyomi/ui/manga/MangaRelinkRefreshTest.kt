@@ -14,15 +14,11 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.domain.source.models.RemoteMangaUpdate
@@ -30,6 +26,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.local.LocalSeriesRelink
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -42,7 +40,7 @@ class MangaRelinkRefreshTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkStatic("eu.kanade.domain.manga.model.MangaKt")
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
@@ -52,7 +50,7 @@ class MangaRelinkRefreshTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -83,15 +81,13 @@ class MangaRelinkRefreshTest {
             localSeriesRelink = relink,
         ).also { store.put("manga", it) }
         try {
-            val refreshing = withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    model.state.filterIsInstance<MangaViewModel.State.Success>().first { !it.isRefreshingData }
-                }
-                model.relinkSeries("Renamed")
-                withTimeout(10_000) {
-                    model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.isRefreshingData }
-                }.isRefreshingData
+            withTimeout(30_000) {
+                model.state.filterIsInstance<MangaViewModel.State.Success>().first { !it.isRefreshingData }
             }
+            model.relinkSeries("Renamed")
+            val refreshing = withTimeout(10_000) {
+                model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.isRefreshingData }
+            }.isRefreshingData
             release.complete(Unit)
 
             refreshing shouldBe true

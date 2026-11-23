@@ -11,14 +11,11 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -32,6 +29,9 @@ import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.GroupSnapshot
 import reikai.domain.merge.MergeManager
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.i18n.stringResource
 import java.util.Collections
 import kotlin.time.Instant
@@ -99,6 +99,7 @@ class EntryMergeActionHostTest {
 
     @BeforeEach
     fun setUp() {
+        virtualDispatchers()
         mockkStatic(LOCALIZE)
         every { any<Context>().stringResource(any()) } returns "localized"
         every { any<Context>().stringResource(any(), *anyVararg()) } returns "localized"
@@ -107,6 +108,7 @@ class EntryMergeActionHostTest {
     @AfterEach
     fun tearDown() {
         unmockkStatic(LOCALIZE)
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -174,13 +176,15 @@ class EntryMergeActionHostTest {
     fun `a combine undone as its screen closes still merges the local series again`() = runTest {
         val screen = CoroutineScope(SupervisorJob())
         val gate = CompletableDeferred<Unit>()
-        host(screen, gate).combineAsVolumes()
+        val closing = host(screen, gate)
+        restubDefaultDispatcher()
+        closing.combineAsVolumes()
         snackbarResult.complete(SnackbarResult.ActionPerformed)
         undoStarted.await()
         screen.coroutineContext.job.cancel()
         gate.complete(Unit)
 
-        withContext(Dispatchers.Default) { withTimeout(5_000) { restoredGroup.await() } } shouldBe GROUP
+        restoredGroup.await() shouldBe GROUP
     }
 
     private class MemoryRemoval : EntryLibraryRemoval(mockk(relaxed = true), mockk(relaxed = true), {

@@ -8,12 +8,11 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -22,6 +21,8 @@ import org.junit.jupiter.params.provider.NullSource
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -29,6 +30,14 @@ import tachiyomi.domain.manga.model.Manga
  * is parameterized over both content types, since one rule decides for both.
  */
 class EntryWebPageTest {
+
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers()
+    }
+
+    @AfterEach
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest
     @NullSource
@@ -83,7 +92,7 @@ class EntryWebPageTest {
 
         val first = page.of(PAGE)
         busy.complete(Unit)
-        val landed = withContext(Dispatchers.Default) { withTimeout(5_000) { page.pages.first { PAGE in it } } }
+        val landed = page.pages.first { PAGE in it }
 
         (first to landed[PAGE]) shouldBe (null to EntryWebPage(PAGE, NOVEL, VIEWED))
     }

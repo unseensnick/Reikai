@@ -10,19 +10,17 @@ import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -35,7 +33,7 @@ class MangaPagePreviewChapterTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
@@ -45,7 +43,7 @@ class MangaPagePreviewChapterTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -65,10 +63,8 @@ class MangaPagePreviewChapterTest {
             longArrayOf(ANCHOR, SIBLING),
         ).also { store.put("manga", it) }
         val opened = try {
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.chapters.size == 2 }
-                }
+            withTimeout(30_000) {
+                model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.chapters.size == 2 }
             }
             model.pagePreviewChapter()?.id
         } finally {
