@@ -10,9 +10,7 @@ import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
@@ -21,12 +19,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import nl.adaptivity.xmlutil.serialization.XML
@@ -60,6 +56,9 @@ import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.storage.FakeSafProvider
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -94,9 +93,12 @@ class LocalMovesUnderLockTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var locks: LocalSeriesLocks
     private lateinit var removal: RemoveMangaFromLibrary
+
+    // Counted here rather than by coVerify, which while Dispatchers is mocked also records its getters.
+    private val takenOut = mutableListOf<List<Long>>()
     private lateinit var volumes: LocalVolumeRepositoryImpl
     private lateinit var journal: FlakyJournal
-    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private lateinit var appScope: CoroutineScope
     private lateinit var local: File
     private lateinit var driver: JdbcSqliteDriver
     private lateinit var database: Database
@@ -108,7 +110,16 @@ class LocalMovesUnderLockTest {
     private lateinit var relink: LocalSeriesRelink
 
     @Before
-    fun setUp() = runTest {
+    fun setUp() {
+        // Before the app scope is built, so it and every IO hop below run on the one test scheduler.
+        virtualDispatchers()
+        appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        runTest { open() }
+        // Undoes what the coEverys in open did to Default, as restubDefaultDispatcher says
+        restubDefaultDispatcher()
+    }
+
+    private suspend fun open() {
         FakeSafProvider.install(context, tmp.root)
         Robolectric.setupContentProvider(ImportDocuments::class.java, ImportDocuments.AUTHORITY)
         local = tmp.newFolder("Reikai", "local")
@@ -177,7 +188,10 @@ class LocalMovesUnderLockTest {
             seriesLocks = locks,
         )
         removal = mockk<RemoveMangaFromLibrary> {
-            coEvery { takeOut(any()) } returns emptyMap()
+            coEvery { takeOut(any()) } answers {
+                takenOut += firstArg<List<Long>>()
+                emptyMap()
+            }
             coEvery { restore(any()) } returns Unit
             coEvery { finish(any()) } returns Unit
             coEvery { await(any()) } returns emptyList()
@@ -264,8 +278,10 @@ class LocalMovesUnderLockTest {
     @After
     fun tearDown() {
         // Joined, not only cancelled: a repair still retrying would otherwise reach the next test's fakes.
+        restubDefaultDispatcher()
         runTest { appScope.coroutineContext.job.cancelAndJoin() }
         driver.close()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -273,26 +289,27 @@ class LocalMovesUnderLockTest {
         runTest {
             markRead("Other/Vol 1/Ch 1")
             tombstones.pauseNext()
-            val refreshing = async(Dispatchers.IO) { refreshed(OTHER) }
+            val refreshing = async { refreshed(OTHER) }
             tombstones.listed.await()
             val combining =
-                async(Dispatchers.IO) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
-            // Real time: a combine nothing holds back has long finished before the paused sync resumes.
-            val combinedWhilePaused = withContext(Dispatchers.Default) { withTimeoutOrNull(1500) { combining.await() } }
+                async { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+            // Run to idle: a combine nothing holds back has finished before the paused sync resumes.
+            advanceUntilIdle()
+            val combinedWhilePaused = combining.isCompleted
             tombstones.go.complete(Unit)
             refreshing.await()
-            val move = withContext(Dispatchers.Default) { withTimeout(20_000) { combining.await() } }
+            val move = withTimeout(20_000) { combining.await() }
             val otherAfterCombine = urls(OTHER)
 
-            val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+            val undone = withTimeout(20_000) { move.undo() }
 
             listOf(
-                combinedWhilePaused == null,
+                combinedWhilePaused,
                 move.result is LocalMoveResult.Moved,
                 otherAfterCombine,
                 undone is LocalMoveResult.Moved,
                 readUrls(OTHER),
-            ) shouldBe listOf(true, true, emptyList<String>(), true, listOf("Other/Vol 1/Ch 1"))
+            ) shouldBe listOf(false, true, emptyList<String>(), true, listOf("Other/Vol 1/Ch 1"))
         }
 
     @Test
@@ -309,17 +326,18 @@ class LocalMovesUnderLockTest {
             existing = "Kept",
         )
         tombstones.pauseNext()
-        val refreshing = async(Dispatchers.IO) { refresh(series(KEPT).toManga(), fetchChapters = true) }
+        val refreshing = async { refresh(series(KEPT).toManga(), fetchChapters = true) }
         tombstones.listed.await()
-        val importing = async(Dispatchers.IO) { import.import(listOf(group), addToLibrary = true, emptyList()) }
-        val importedWhilePaused = withContext(Dispatchers.Default) { withTimeoutOrNull(1500) { importing.await() } }
+        val importing = async { import.import(listOf(group), addToLibrary = true, emptyList()) }
+        advanceUntilIdle()
+        val importedWhilePaused = importing.isCompleted
         tombstones.go.complete(Unit)
 
         val result = refreshing.await()
-        val imported = withContext(Dispatchers.Default) { withTimeout(20_000) { importing.await() } }
+        val imported = withTimeout(20_000) { importing.await() }
 
-        listOf(importedWhilePaused == null, result.isSuccess, imported.problems, urls(KEPT)) shouldBe
-            listOf(true, true, emptyList<ImportProblem>(), listOf("Kept/Ch 2.cbz", "Kept/Vol 1/Ch 1"))
+        listOf(importedWhilePaused, result.isSuccess, imported.problems, urls(KEPT)) shouldBe
+            listOf(false, true, emptyList<ImportProblem>(), listOf("Kept/Ch 2.cbz", "Kept/Vol 1/Ch 1"))
     }
 
     @Test
@@ -327,11 +345,9 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
 
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        val move = withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val afterSplit = urls(KEPT)
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+        val undone = withTimeout(20_000) { move.undo() }
 
         listOf(move.result is LocalMoveResult.Moved, afterSplit, undone is LocalMoveResult.Moved, urls(KEPT)) shouldBe
             listOf(true, listOf("Kept/Vol 1/Ch 1"), true, listOf("Kept/Vol 1/Ch 1", "Kept/Vol 2/Ch 2"))
@@ -342,9 +358,7 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
 
-        val result = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
-        }
+        val result = withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
 
         (result is LocalMoveResult.Moved) to urls(KEPT) shouldBe (true to listOf("Kept/Vol 1/Ch 1"))
     }
@@ -355,9 +369,7 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Kept", "Ch 3")
         refreshed(KEPT)
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Kept")) }
-        }
+        withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Kept")) }
 
         File(local, "Kept/Vol 1/Ch 1").exists() to File(local, "Kept/Kept").exists() shouldBe (true to false)
     }
@@ -370,9 +382,7 @@ class LocalMovesUnderLockTest {
         // A chapter of the volume whose file went before: kept state with no row.
         tombstone(KEPT, "Kept/Vol 2/Ch 9")
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
-        }
+        withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
 
         urls(KEPT) to tombstoneUrls(KEPT) shouldBe (listOf("Kept/Vol 1/Ch 1") to emptyList())
     }
@@ -386,9 +396,7 @@ class LocalMovesUnderLockTest {
         markRead("Kept/Ch 5")
         tombstone(KEPT, "Kept/Ch 50")
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Ch 5")) }
-        }
+        withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Ch 5")) }
 
         tombstoneUrls(KEPT) shouldBe listOf("Kept/Ch 50")
     }
@@ -398,14 +406,12 @@ class LocalMovesUnderLockTest {
     fun `a restored owner row combines as a combine does`() = runTest {
         markRead("Other/Vol 1/Ch 1")
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) {
-                combine.restoreOwners(
-                    ContentType.MANGA,
-                    listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
-                    emptyList(),
-                )
-            }
+        withTimeout(20_000) {
+            combine.restoreOwners(
+                ContentType.MANGA,
+                listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+                emptyList(),
+            )
         }
 
         urls(KEPT) to readUrls(KEPT) shouldBe
@@ -428,7 +434,7 @@ class LocalMovesUnderLockTest {
 
         restoredFromBeforeCombine()
 
-        coVerify(exactly = 2) { removal.takeOut(listOf(OTHER)) }
+        takenOut.count { it == listOf(OTHER) } shouldBe 2
     }
 
     private suspend fun restoredFromBeforeCombine() {
@@ -437,16 +443,14 @@ class LocalMovesUnderLockTest {
             listOf(Chapter.create().copy(mangaId = OTHER, url = "Other/Vol 1/Ch 1", name = "Ch 1", read = true)),
             emptyList(),
         )
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.restoreOwners(ContentType.MANGA, emptyList(), listOf("Kept", "Other")) }
-        }
+        withTimeout(20_000) { combine.restoreOwners(ContentType.MANGA, emptyList(), listOf("Kept", "Other")) }
     }
 
     @Test
     fun `a series waiting for a repair keeps no other group of a restored backup from coming back`() = runTest {
         locks.block(ContentType.MANGA, 1L, listOf("Stuck"))
 
-        withContext(Dispatchers.Default) { withTimeout(20_000) { runCatching { restoreWithStuck() } } }
+        withTimeout(20_000) { runCatching { restoreWithStuck() } }
 
         urls(KEPT) shouldBe listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1")
     }
@@ -455,9 +459,7 @@ class LocalMovesUnderLockTest {
     fun `a restored group a repair holds back fails the restore phase, naming its folder`() = runTest {
         locks.block(ContentType.MANGA, 1L, listOf("Stuck"))
 
-        val failure = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { runCatching { restoreWithStuck() }.exceptionOrNull() }
-        }
+        val failure = withTimeout(20_000) { runCatching { restoreWithStuck() }.exceptionOrNull() }
 
         failure?.message.orEmpty().contains("Stuck") shouldBe true
     }
@@ -470,17 +472,15 @@ class LocalMovesUnderLockTest {
 
     @Test
     fun `a restored owner row takes the series it lends whole out of the library, as a combine does`() = runTest {
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) {
-                combine.restoreOwners(
-                    ContentType.MANGA,
-                    listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
-                    emptyList(),
-                )
-            }
+        withTimeout(20_000) {
+            combine.restoreOwners(
+                ContentType.MANGA,
+                listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+                emptyList(),
+            )
         }
 
-        coVerify { removal.takeOut(listOf(OTHER)) }
+        (listOf(OTHER) in takenOut) shouldBe true
     }
 
     @Test
@@ -488,9 +488,7 @@ class LocalMovesUnderLockTest {
         markRead("Other/Vol 1/Ch 1")
         val before = files()
 
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
-        }
+        val move = withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
 
         listOf(move.result is LocalMoveResult.Moved, files() == before, urls(KEPT), readUrls(KEPT)) shouldBe
             listOf(true, true, listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1"), listOf("Other/Vol 1/Ch 1"))
@@ -499,9 +497,7 @@ class LocalMovesUnderLockTest {
     @Test
     fun `a combined folder is no series of its own in Browse, and what is put there later lists under the kept one`() =
         runTest {
-            withContext(Dispatchers.Default) {
-                withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
-            }
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
             chapterFolder("Other", "Vol 2", "Ch 2")
 
             refreshed(KEPT)
@@ -517,9 +513,8 @@ class LocalMovesUnderLockTest {
         runTest {
             putBackUnlisted(KEPT, "Kept", "Vol 2", "Ch 2")
 
-            val move = withContext(Dispatchers.Default) {
+            val move =
                 withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-            }
 
             (move.result is LocalMoveResult.Moved) to allReadUrls() shouldBe (true to listOf("Kept/Vol 2/Ch 2"))
         }
@@ -528,9 +523,7 @@ class LocalMovesUnderLockTest {
     fun `a chapter put back since the last listing keeps its reading state through a combine`() = runTest {
         putBackUnlisted(OTHER, "Other", "Vol 1", "Ch 5")
 
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
-        }
+        val move = withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
 
         (move.result is LocalMoveResult.Moved) to readUrls(KEPT) shouldBe (true to listOf("Other/Vol 1/Ch 5"))
     }
@@ -546,9 +539,7 @@ class LocalMovesUnderLockTest {
         }
         FakeSafProvider.listingFault = { FakeSafProvider.ChildListingFault.Without("Vol 2") }
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
-        }
+        withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
         FakeSafProvider.onCall = null
         FakeSafProvider.listingFault = null
         refreshed(KEPT)
@@ -567,9 +558,7 @@ class LocalMovesUnderLockTest {
             if (call == "queryDocument" && target == File(local, "Kept") && ++queries >= 2) error("the provider died")
         }
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
-        }
+        withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
 
         File(local, "Vol 2/Vol 1/Ch 1/001.jpg").exists() shouldBe true
     }
@@ -577,14 +566,12 @@ class LocalMovesUnderLockTest {
     /** The chapter had no row when the combine ran, so only an Undo that finds the volume's chapters then takes it. */
     @Test
     fun `a chapter first listed after a combine goes back with its volume on Undo, read`() = runTest {
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
-        }
+        val move = withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
         chapterFolder("Other", "Vol 1", "Ch 8")
         refreshed(KEPT)
         markRead("Other/Vol 1/Ch 8")
 
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+        val undone = withTimeout(20_000) { move.undo() }
 
         (undone is LocalMoveResult.Moved) to readUrls(OTHER) shouldBe (true to listOf("Other/Vol 1/Ch 8"))
     }
@@ -597,19 +584,15 @@ class LocalMovesUnderLockTest {
         refreshed(THIRD)
         markRead("Other/Vol 1/Ch 1")
         // Other and Kept into Third, then Third and Other into Kept, then the first one's Undo.
-        val first = withContext(Dispatchers.Default) {
-            withTimeout(20_000) {
-                combine.combine(ContentType.MANGA, series(THIRD), listOf(series(OTHER), series(KEPT)))
-            }
+        val first = withTimeout(20_000) {
+            combine.combine(ContentType.MANGA, series(THIRD), listOf(series(OTHER), series(KEPT)))
         }
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) {
-                combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD), series(OTHER)))
-            }
+        withTimeout(20_000) {
+            combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD), series(OTHER)))
         }
         val owners = volumes.all(ContentType.MANGA)
 
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { first.undo() } }
+        val undone = withTimeout(20_000) { first.undo() }
         refreshed(KEPT)
 
         listOf(undone is LocalMoveResult.Failed, volumes.all(ContentType.MANGA) == owners, readUrls(KEPT)) shouldBe
@@ -621,20 +604,14 @@ class LocalMovesUnderLockTest {
     fun `an Undo of a combine that wrote no row is refused once a later combine moved its volumes on`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
-        val home = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(split))) }
-        }
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(KEPT))) }
-        }
+        val home = withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(split))) }
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(KEPT))) }
         markRead("Kept/Vol 2/Ch 2")
         val owners = volumes.all(ContentType.MANGA)
 
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { home.undo() } }
+        val undone = withTimeout(20_000) { home.undo() }
         val relisted = runCatching { refreshed(OTHER) }.isSuccess
 
         listOf(
@@ -656,9 +633,7 @@ class LocalMovesUnderLockTest {
             markRead("Other/Vol 1/Ch 1")
             combined()
 
-            withContext(Dispatchers.Default) {
-                withTimeout(20_000) { combine.combine(ContentType.MANGA, series(THIRD), listOf(series(OTHER))) }
-            }
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(THIRD), listOf(series(OTHER))) }
             refreshed(KEPT)
 
             readUrls(KEPT) shouldBe listOf("Other/Vol 1/Ch 1")
@@ -670,15 +645,11 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
         markRead("Kept/Vol 2/Ch 2")
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(split), listOf(series(KEPT))) }
-        }
+        val move = withTimeout(20_000) { combine.combine(ContentType.MANGA, series(split), listOf(series(KEPT))) }
 
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+        val undone = withTimeout(20_000) { move.undo() }
 
         (undone is LocalMoveResult.Moved) to readUrls(split) shouldBe (true to listOf("Kept/Vol 2/Ch 2"))
     }
@@ -689,14 +660,12 @@ class LocalMovesUnderLockTest {
         runTest {
             markRead("Other/Vol 1/Ch 1")
             val joined = combined()
-            val split = withContext(Dispatchers.Default) {
-                withTimeout(20_000) {
-                    combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Other/Vol 1"), "Split")
-                }
+            val split = withTimeout(20_000) {
+                combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Other/Vol 1"), "Split")
             }
-            withContext(Dispatchers.Default) { withTimeout(20_000) { joined.undo() } }
+            withTimeout(20_000) { joined.undo() }
 
-            val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { split.undo() } }
+            val undone = withTimeout(20_000) { split.undo() }
 
             (undone is LocalMoveResult.Moved) to readUrls(OTHER) shouldBe (true to listOf("Other/Vol 1/Ch 1"))
         }
@@ -714,12 +683,10 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
         markRead("Kept/Vol 2/Ch 2")
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
 
-        withContext(Dispatchers.Default) { withTimeout(20_000) { combine.handBack(ContentType.MANGA, listOf(split)) } }
+        withTimeout(20_000) { combine.handBack(ContentType.MANGA, listOf(split)) }
 
         listOf(readUrls(KEPT), volumes.all(ContentType.MANGA)) shouldBe listOf(listOf("Kept/Vol 2/Ch 2"), emptyList())
     }
@@ -729,14 +696,10 @@ class LocalMovesUnderLockTest {
     fun `combining a split-out series leaves the kept one no member folder that never existed`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(split))) }
-        }
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(split))) }
 
         volumes.all(ContentType.MANGA).map { it.folder }.distinct().sorted() shouldBe listOf("Kept")
     }
@@ -746,9 +709,7 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
 
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        val move = withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
 
         listOf(move.result is LocalMoveResult.Moved, local.list()!!.sorted(), urls(split)) shouldBe
@@ -791,7 +752,7 @@ class LocalMovesUnderLockTest {
         organized()
         val layout = files()
 
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+        val undone = withTimeout(20_000) { move.undo() }
 
         listOf(undone is LocalMoveResult.Failed, files() == layout, readUrls(KEPT)) shouldBe
             listOf(true, true, listOf("Kept/Kept - Vol. 2/Ch 1"))
@@ -803,7 +764,7 @@ class LocalMovesUnderLockTest {
         combined()
         val layout = files()
 
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { organized().undo() } }
+        val undone = withTimeout(20_000) { organized().undo() }
 
         listOf(undone is LocalMoveResult.Moved, files() == layout, readUrls(KEPT)) shouldBe
             listOf(true, true, listOf("Other/Vol 1/Ch 1"))
@@ -853,14 +814,10 @@ class LocalMovesUnderLockTest {
     fun `an organize Undo is refused once another series lists the folder it would rename back`() = runTest {
         markRead("Kept/Vol 1/Ch 1")
         val names = combine.organizePlan(ContentType.MANGA, series(KEPT), "Saga", listOf("Vol 1" to "Vol. 1"))
-        val organize = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
-        }
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(KEPT))) }
-        }
+        val organize = withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(KEPT))) }
 
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { organize.undo() } }
+        val undone = withTimeout(20_000) { organize.undo() }
         refreshed(OTHER)
 
         listOf(undone is LocalMoveResult.Failed, local.list()!!.sorted(), readUrls(OTHER)) shouldBe
@@ -877,9 +834,7 @@ class LocalMovesUnderLockTest {
         addSeries(THIRD, "Third")
         refreshed(THIRD)
         markRead("Third/Ch 4")
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
-        }
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
         val third = File(local, "Third")
         FakeSafProvider.listingFault = { if (it == third) FakeSafProvider.ChildListingFault.Without("Ch 4") else null }
         val names = combine.organizePlan(
@@ -889,9 +844,7 @@ class LocalMovesUnderLockTest {
             listOf("Vol 1" to "1", "Third/" to "2"),
         )
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
-        }
+        withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
         FakeSafProvider.listingFault = null
         refreshed(KEPT)
 
@@ -908,20 +861,14 @@ class LocalMovesUnderLockTest {
         addSeries(THIRD, "Third")
         refreshed(THIRD)
         markRead("Third/Ch 4")
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
-        }
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Third/"), "Split") }
-        }
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Third/"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
         val third = File(local, "Third")
         FakeSafProvider.listingFault = { if (it == third) FakeSafProvider.ChildListingFault.Without("Ch 4") else null }
         val names = combine.organizePlan(ContentType.MANGA, series(split), "Split", listOf("Third/" to "1"))
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
-        }
+        withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
         FakeSafProvider.listingFault = null
         refreshed(split)
 
@@ -935,9 +882,7 @@ class LocalMovesUnderLockTest {
         refreshed(KEPT)
         missingMember("Gone")
 
-        val result = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Gone") }
-        }
+        val result = withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Gone") }
 
         result.result::class shouldBe LocalMoveResult.Failed::class
     }
@@ -966,15 +911,11 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
         markRead("Kept/Vol 2/Ch 2")
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
         val names = combine.organizePlan(ContentType.MANGA, series(split), "Split", listOf("Kept/Vol 2" to "Vol. 2"))
 
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
-        }
+        val move = withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
 
         listOf(move.result is LocalMoveResult.Moved, entries("Split"), readUrls(split)) shouldBe
             listOf(true, listOf("Split - Vol. 2"), listOf("Split/Split - Vol. 2/Ch 2"))
@@ -1019,9 +960,7 @@ class LocalMovesUnderLockTest {
         File(local, "Delta/Ch 1/001.png").writeBytes(byteArrayOf(4))
         addSeries(THIRD, "Delta")
         refreshed(THIRD)
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
-        }
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
         File(local, "Delta").renameTo(File(local, "Delta Moved"))
         refreshed(KEPT)
 
@@ -1035,9 +974,7 @@ class LocalMovesUnderLockTest {
         File(local, "Delta/cover.png").writeBytes(byteArrayOf(5))
         addSeries(THIRD, "Delta")
         refreshed(THIRD)
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
-        }
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
 
         listOf(source.volumeCover("Kept", "Delta/")?.name, source.volumeCover("Kept", "")?.name) shouldBe
             listOf("cover.png", null)
@@ -1058,9 +995,7 @@ class LocalMovesUnderLockTest {
     fun `a member another series also lists from is not linked from this one`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
-        }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
         File(local, "Kept").renameTo(File(local, "Elsewhere"))
 
@@ -1073,9 +1008,7 @@ class LocalMovesUnderLockTest {
         combined()
         File(local, "Other").renameTo(File(local, "Elsewhere"))
 
-        val removed = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.removeMember(ContentType.MANGA, series(KEPT), "Other") }
-        }
+        val removed = withTimeout(20_000) { combine.removeMember(ContentType.MANGA, series(KEPT), "Other") }
         val keptAfter = urls(KEPT)
         File(local, "Elsewhere").renameTo(File(local, "Other"))
         refreshed(OTHER)
@@ -1100,16 +1033,14 @@ class LocalMovesUnderLockTest {
         val refusedWhileBlocked = refresh(series(KEPT).toManga(), fetchChapters = true).isFailure
         FakeSafProvider.onCall = null
 
-        val repaired = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(20_000) {
-                while (refresh(series(KEPT).toManga(), fetchChapters = true).isFailure) delay(50)
-            }
-        }
+        // The blocked organize's retry, run to idle in virtual time.
+        advanceUntilIdle()
+        val repaired = refresh(series(KEPT).toManga(), fetchChapters = true).isSuccess
 
         listOf(
             organize.result is LocalMoveResult.Failed,
             refusedWhileBlocked,
-            repaired != null,
+            repaired,
             readUrls(KEPT),
         ) shouldBe
             listOf(true, true, true, listOf("Other/Vol 1/Ch 1"))
@@ -1131,9 +1062,7 @@ class LocalMovesUnderLockTest {
         val stuck = files()
         val waitedBefore = combine.waitsForRepair(ContentType.MANGA, series(KEPT))
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.forgetUnfinished(ContentType.MANGA, series(KEPT)) }
-        }
+        withTimeout(20_000) { combine.forgetUnfinished(ContentType.MANGA, series(KEPT)) }
         val listed = refresh(series(KEPT).toManga(), fetchChapters = true).isSuccess
 
         listOf(
@@ -1162,13 +1091,10 @@ class LocalMovesUnderLockTest {
         FakeSafProvider.onCall = null
         journal.failedReads = 1
 
-        val repaired = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(20_000) {
-                while (refresh(series(KEPT).toManga(), fetchChapters = true).isFailure) delay(50)
-            }
-        }
+        // The blocked organize's retry, run to idle in virtual time.
+        advanceUntilIdle()
 
-        repaired shouldNotBe null
+        refresh(series(KEPT).toManga(), fetchChapters = true).isSuccess shouldBe true
     }
 
     @Test
@@ -1203,9 +1129,7 @@ class LocalMovesUnderLockTest {
             if (call == "queryDocument" && target == local && byOrganizer && hiccups-- > 0) error("the provider died")
         }
 
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
-        }
+        val move = withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
         FakeSafProvider.onCall = null
         val refused = refresh(series(KEPT).toManga(), fetchChapters = true).isFailure
 
@@ -1218,9 +1142,7 @@ class LocalMovesUnderLockTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)
         markRead("Kept/Vol 1/Ch 1")
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 1", "Vol 2"), "Split") }
-        }
+        withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 1", "Vol 2"), "Split") }
         val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
         val vol1 = File(local, "Kept/Vol 1")
         FakeSafProvider.listingFault = { if (it == vol1) FakeSafProvider.ChildListingFault.Without("Ch 1") else null }
@@ -1231,25 +1153,20 @@ class LocalMovesUnderLockTest {
             listOf("Kept/Vol 1" to "1", "Kept/Vol 2" to "2"),
         )
 
-        withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
-        }
+        withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
         FakeSafProvider.listingFault = null
         refresh(series(KEPT).toManga(), fetchChapters = true)
 
         urls(KEPT) shouldBe emptyList()
     }
 
-    private suspend fun combined() = withContext(Dispatchers.Default) {
+    private suspend fun combined() =
         withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
-    }
 
     private suspend fun organized(): LocalVolumeMove {
         val labels = listOf("Vol 1" to "Vol. 1", "Other/Vol 1" to "Vol. 2")
         val names = combine.organizePlan(ContentType.MANGA, series(KEPT), "Kept", labels)
-        return withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
-        }
+        return withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
     }
 
     /** Every page under the local folder, in hidden folders too, by its path and bytes; marker files left out. */

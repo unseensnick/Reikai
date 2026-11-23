@@ -18,7 +18,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import mihon.core.archive.ArchiveReader
@@ -54,6 +53,9 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.FakeSafProvider
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -74,7 +76,7 @@ class LocalNovelVolumesTest {
     val tmp = TemporaryFolder()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private lateinit var appScope: CoroutineScope
     private val takenOut = mutableListOf<Long>()
     private lateinit var root: File
     private lateinit var driver: JdbcSqliteDriver
@@ -86,7 +88,16 @@ class LocalNovelVolumesTest {
     private lateinit var volumes: LocalVolumeRepositoryImpl
 
     @Before
-    fun setUp() = runTest {
+    fun setUp() {
+        // Before the app scope is built, so it and every IO hop below run on the one test scheduler.
+        virtualDispatchers()
+        appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        runTest { open() }
+        // Undoes what the coEverys in open did to Default, as restubDefaultDispatcher says
+        restubDefaultDispatcher()
+    }
+
+    private suspend fun open() {
         openBooksInMemory()
         FakeSafProvider.install(context, tmp.root)
         root = tmp.newFolder("Reikai", "novels")
@@ -189,9 +200,11 @@ class LocalNovelVolumesTest {
     @After
     fun tearDown() {
         // Joined, not only cancelled: a repair still retrying would otherwise reach the next test's fakes.
+        restubDefaultDispatcher()
         runTest { appScope.coroutineContext.job.cancelAndJoin() }
         driver.close()
         unmockkStatic("mihon.core.archive.UniFileExtensionsKt")
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -399,8 +412,7 @@ class LocalNovelVolumesTest {
         }
     }
 
-    private suspend fun <T> onApp(work: suspend () -> T): T =
-        withContext(Dispatchers.Default) { withTimeout(20_000) { work() } }
+    private suspend fun <T> onApp(work: suspend () -> T): T = withTimeout(20_000) { work() }
 
     private fun book(path: String) {
         File(root, path).apply { parentFile!!.mkdirs() }.writeBytes(path.toByteArray())

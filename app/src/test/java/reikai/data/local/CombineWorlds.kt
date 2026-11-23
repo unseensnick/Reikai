@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import mihon.core.archive.ArchiveReader
@@ -94,6 +93,7 @@ internal class FlakyNotes(private val real: LocalVolumeRepository) : LocalVolume
 /**
  * Local series of one content type on the fake picked-folder provider with a real database and engine, each
  * folder a series of its own with one volume, so one conformance test drives a combine for manga and novels alike.
+ * Built after `virtualDispatchers()`, so its app scope and every IO hop run on the test's scheduler.
  */
 internal abstract class CombineWorld(val type: ContentType, protected val context: Context) {
     protected val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -138,8 +138,8 @@ internal abstract class CombineWorld(val type: ContentType, protected val contex
     /** Makes the next Undo find the volumes changed since, so it fails. */
     suspend fun changeOwnersBehindUndo() = driver.exec("DELETE FROM local_volume_owner")
 
-    suspend fun <T> onApp(work: suspend () -> T): T =
-        withContext(Dispatchers.Default) { withTimeout(20_000) { work() } }
+    /** [work] on the app, which runs on the test's virtual dispatchers; a stall fails by name. */
+    suspend fun <T> onApp(work: suspend () -> T): T = withTimeout(20_000) { work() }
 
     protected suspend fun openDatabase() {
         Class.forName("org.sqlite.JDBC", true, ClassLoader.getSystemClassLoader())

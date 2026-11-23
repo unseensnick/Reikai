@@ -8,14 +8,13 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import nl.adaptivity.xmlutil.serialization.XML
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -27,6 +26,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.storage.FakeSafProvider
 import reikai.storage.rename
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.LocalSource
 import tachiyomi.source.local.io.LocalSourceFileSystem
@@ -48,12 +49,16 @@ class LocalRenameUnderLockTest {
 
     @Before
     fun setUp() {
+        virtualDispatchers()
         FakeSafProvider.install(context, tmp.root)
         local = tmp.newFolder("Reikai", "local")
         // A chapter of pages, since reading an archive's metadata needs the device's native library.
         File(local, "Series/Vol 1/Ch 1").mkdirs()
         File(local, "Series/Vol 1/Ch 1/001.jpg").writeBytes(byteArrayOf(1))
     }
+
+    @After
+    fun tearDown() = resetVirtualDispatchers()
 
     private val source by lazy {
         val fileSystem = LocalSourceFileSystem(
@@ -81,10 +86,10 @@ class LocalRenameUnderLockTest {
     fun `a refresh started between a rename's disk step and its row step waits and lists the new addresses`() =
         runTest {
             val rows = mutableListOf("Series/Vol 1/Ch 1")
-            listed("Series") // warm, so the listing below is a few milliseconds of real time
+            listed("Series")
             val diskDone = CompletableDeferred<Unit>()
             val rowsGo = CompletableDeferred<Unit>()
-            val rename = launch(Dispatchers.IO) {
+            val rename = launch {
                 locks.withSeries(ContentType.MANGA, "Series") {
                     check(FakeSafProvider.picked(context, File(local, "Series")).findFile("Vol 1")!!.rename("Vol 2"))
                     diskDone.complete(Unit)
@@ -95,9 +100,9 @@ class LocalRenameUnderLockTest {
             diskDone.await()
 
             // What the refresh listed, beside the rows as they stood the moment it had listed them.
-            val refresh = async(Dispatchers.IO) { listed("Series").let { it to rows.toList() } }
-            // Real time, off the test scheduler, so a listing nothing holds back has long finished before the rows move.
-            withContext(Dispatchers.Default) { withTimeoutOrNull(1500) { refresh.await() } }
+            val refresh = async { listed("Series").let { it to rows.toList() } }
+            // Run to idle, so a listing nothing holds back has finished before the rows move.
+            advanceUntilIdle()
             rowsGo.complete(Unit)
             rename.join()
 

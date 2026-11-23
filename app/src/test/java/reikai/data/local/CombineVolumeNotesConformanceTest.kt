@@ -17,6 +17,9 @@ import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 
 /**
  * What a combine, its Undo and a restore do to volume rows (saved order, names and notes), one case for manga and
@@ -32,13 +35,18 @@ class CombineVolumeNotesConformanceTest(private val type: ContentType) {
     private lateinit var world: CombineWorld
 
     @Before
-    fun setUp() = runTest {
+    fun setUp() {
+        virtualDispatchers()
         world = if (type == ContentType.NOVELS) NovelCombineWorld(context) else MangaCombineWorld(context)
-        world.open(tmp, mapOf(KEPT to "Kept", OTHER to "Other", THIRD to "Third"))
+        runTest { world.open(tmp, mapOf(KEPT to "Kept", OTHER to "Other", THIRD to "Third")) }
+        restubDefaultDispatcher()
     }
 
     @After
-    fun tearDown() = runTest { world.close() }
+    fun tearDown() {
+        runTest { world.close() }
+        resetVirtualDispatchers()
+    }
 
     @Test
     fun `a combine shows each series' notes under its own volumes, keeps the series' own, and Undo takes them off`() =

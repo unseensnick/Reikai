@@ -14,6 +14,9 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
 import org.robolectric.Robolectric
 import reikai.domain.library.ContentType
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import java.io.File
 
 /** An import into a series already stored reads the series' details again, through the real engine on both types. */
@@ -27,16 +30,21 @@ class LocalImportRefreshConformanceTest(private val type: ContentType) {
     private lateinit var world: CombineWorld
 
     @Before
-    fun setUp() = runTest {
+    fun setUp() {
+        virtualDispatchers()
         Robolectric.setupContentProvider(ImportDocuments::class.java, ImportDocuments.AUTHORITY)
         world = if (type == ContentType.NOVELS) NovelCombineWorld(context) else MangaCombineWorld(context)
-        world.open(tmp, mapOf(ID to "Kept"))
+        runTest { world.open(tmp, mapOf(ID to "Kept")) }
+        restubDefaultDispatcher()
     }
 
     @After
-    fun tearDown() = runTest {
-        ImportDocuments.documents.clear()
-        world.close()
+    fun tearDown() {
+        runTest {
+            ImportDocuments.documents.clear()
+            world.close()
+        }
+        resetVirtualDispatchers()
     }
 
     @Test
