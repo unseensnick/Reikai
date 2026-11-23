@@ -161,7 +161,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Move to bottom on a series' only queued chapter no longer sends that series to the front of the download queue.**
 - **Dragging a download queue card back before its first move took effect now leaves the queue in the order shown.**
 - **Sorting the download queue no longer restarts the manga chapter downloading when the sort leaves manga in the same order.**
-- **Chapters downloaded as CBZ now keep their pages in reading order inside the archive, so other comic apps read them in order (from Mihon).** Upstream: mihonapp/mihon#4208.
+- **Chapters downloaded as CBZ now store their pages in reading order inside the archive (from Mihon).** Upstream: mihonapp/mihon#4208.
 
 ### Reader
 
@@ -486,7 +486,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Setting the first chapter read by hand in the tracker sheet now fills in the start date (from Mihon).** Upstream: mihonapp/mihon#3930.
 - **Kavita tracking no longer fails on a series with a fractional rating (from Mihon).** Upstream: mihonapp/mihon#4200.
 - **Tapping beside the Track button in tracker search no longer picks the result underneath it (from Mihon).** Upstream: mihonapp/mihon#4042.
-- **Logging in to Kitsu now gets past its Cloudflare check (from Mihon).** Upstream: mihonapp/mihon#4054.
+- **Logging in to Kitsu now tries to pass its Cloudflare check first instead of failing on it (from Mihon).** Upstream: mihonapp/mihon#4054.
 
 ### Other
 
