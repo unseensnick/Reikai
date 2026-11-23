@@ -13,6 +13,7 @@ import logcat.LogPriority
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient
+import reikai.data.track.exchangeLoginCode
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
@@ -30,15 +31,15 @@ class MangaDexLoginHelper(
      *  Login given the generated authorization code
      */
     suspend fun login(authorizationCode: String): Boolean {
-        val loginFormBody = FormBody.Builder()
-            .add("client_id", MdConstants.Login.clientId)
-            .add("grant_type", MdConstants.Login.authorizationCode)
-            .add("code", authorizationCode)
-            .add("code_verifier", MdUtil.getPkceChallengeCode())
-            .add("redirect_uri", MdConstants.Login.redirectUri)
-            .build()
+        val exchange = preferences.exchangeLoginCode(mdList) { codeVerifier ->
+            val loginFormBody = FormBody.Builder()
+                .add("client_id", MdConstants.Login.clientId)
+                .add("grant_type", MdConstants.Login.authorizationCode)
+                .add("code", authorizationCode)
+                .add("code_verifier", codeVerifier)
+                .add("redirect_uri", MdConstants.Login.redirectUri)
+                .build()
 
-        val error = runCatchingCancellable {
             val data = with(MdUtil.jsonParser) {
                 client.newCall(
                     POST(MdApi.baseAuthUrl + MdApi.token, headers = headers, body = loginFormBody),
@@ -46,7 +47,8 @@ class MangaDexLoginHelper(
             }
             mangaDexAuthInterceptor.setAuth(data)
             MdUtil.usernameFromToken(data.accessToken)?.let { mdList.saveDisplayUsername(it) }
-        }.exceptionOrNull()
+        } ?: return false
+        val error = exchange.exceptionOrNull()
 
         return when (error == null) {
             true -> true

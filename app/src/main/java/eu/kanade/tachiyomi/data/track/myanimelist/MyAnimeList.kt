@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import kotlinx.serialization.json.Json
+import reikai.data.track.exchangeLoginCode
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -168,8 +169,12 @@ class MyAnimeList(
     override suspend fun login(username: String, password: String) = login(password)
 
     suspend fun login(authCode: String) {
+        // RK --> the exchange sends the stored verifier; no pending login sends nothing and keeps the session,
+        // and a cancelled exchange rethrows here rather than reaching the catch below, which signs out.
+        val exchange = trackPreferences.exchangeLoginCode(this) { api.getAccessToken(authCode, it) } ?: return
+        // RK <--
         try {
-            val oauth = api.getAccessToken(authCode)
+            val oauth = exchange.getOrThrow() // RK
             interceptor.setAuth(oauth)
             val username = api.getCurrentUser()
             saveDisplayUsername(username)

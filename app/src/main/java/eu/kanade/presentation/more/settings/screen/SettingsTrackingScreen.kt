@@ -68,7 +68,6 @@ import eu.kanade.tachiyomi.util.system.isOnline
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
-import exh.md.utils.MdUtil
 import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -76,6 +75,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.roundedfilled.Visibility
 import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
+import reikai.data.track.newLoginPkce
 import reikai.domain.track.shownIn
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.RevealableSecureTextField
@@ -216,7 +216,13 @@ data object SettingsTrackingScreen : SearchableSettings {
                 preferenceItems = listOf(
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.myAnimeList,
-                        login = { context.openInBrowser(MyAnimeListApi.authUrl(), forceDefaultBrowser = true) },
+                        // RK: the login URL stores its PKCE verifier for the redirect
+                        login = {
+                            context.openInBrowser(
+                                MyAnimeListApi.authUrl(trackPreferences, trackerManager.myAnimeList),
+                                forceDefaultBrowser = true,
+                            )
+                        },
                         logout = { dialog = LogoutDialog(trackerManager.myAnimeList) },
                     ),
                     Preference.PreferenceItem.TrackerPreference(
@@ -266,7 +272,9 @@ data object SettingsTrackingScreen : SearchableSettings {
                         tracker = trackerManager.mdList,
                         login = {
                             context.openInBrowser(
-                                MdConstants.Login.authUrl(MdUtil.getPkceChallengeCode()),
+                                MdConstants.Login.authUrl(
+                                    trackPreferences.newLoginPkce(trackerManager.mdList).codeChallenge,
+                                ),
                                 forceDefaultBrowser = true,
                             )
                         },

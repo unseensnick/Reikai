@@ -2,9 +2,7 @@
 
 package exh.md.utils
 
-import android.util.Base64
 import androidx.core.net.toUri
-import java.security.MessageDigest
 import kotlin.time.Duration.Companion.minutes
 
 object MdConstants {
@@ -34,14 +32,8 @@ object MdConstants {
         const val authorizationCode = "authorization_code"
         const val refreshToken = "refresh_token"
 
-        fun authUrl(codeVerifier: String): String {
-            val bytes = codeVerifier.toByteArray()
-            val messageDigest = MessageDigest.getInstance("SHA-256")
-            messageDigest.update(bytes)
-            val digest = messageDigest.digest()
-            val encoding = Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-            val codeChallenge = Base64.encodeToString(digest, encoding)
-
+        /** [codeChallenge] is the S256 challenge of the verifier the code exchange will send. */
+        fun authUrl(codeChallenge: String): String {
             return (MdApi.baseAuthUrl + MdApi.login).toUri().buildUpon()
                 .appendQueryParameter("client_id", clientId)
                 .appendQueryParameter("response_type", "code")

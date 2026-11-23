@@ -46,6 +46,19 @@ class TrackPreferences(
 
     fun trackToken(tracker: Tracker) = preferenceStore.getString(Preference.privateKey("track_token_${tracker.id}"), "")
 
+    // RK --> a browser login in progress, stored so its redirect still completes in a new process
+    // (reikai/data/track/TrackerLoginPkce.kt). App state, so no backup carries one device's login to another.
+    fun trackPkceCodeVerifier(tracker: Tracker) = preferenceStore.getString(
+        Preference.appStateKey("track_pkce_code_verifier_${tracker.id}"),
+        "",
+    )
+
+    fun trackOAuthState(tracker: Tracker) = preferenceStore.getString(
+        Preference.appStateKey("track_oauth_state_${tracker.id}"),
+        "",
+    )
+    // RK <--
+
     val anilistScoreType: Preference<String> = preferenceStore.getString("anilist_score_type", Anilist.POINT_10)
 
     val kitsuScoreType: Preference<String> = preferenceStore.getString("kitsu_score_type", Kitsu.RATING_ADVANCED)
