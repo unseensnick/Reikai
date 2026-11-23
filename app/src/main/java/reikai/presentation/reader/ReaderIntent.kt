@@ -80,3 +80,12 @@ internal fun followsReadAloud(
  *  while it is going; the reader keeps to [chapterId] when read aloud reads another series. */
 fun novelResumeIntent(context: Context, novelId: Long, chapterId: Long, sourceScoped: Boolean = false): Intent =
     ReaderActivity.newNovelIntent(context, novelId, chapterId, sourceScoped, followSession = NovelTtsSession.isActive())
+
+/** The entry and scope the open reader reads: a novel reader's own view, which a follow can have changed from
+ *  its launch's, else the launch's. */
+internal fun openView(
+    intentEntry: EntryId?,
+    intentSourceScoped: Boolean,
+    novelView: Pair<Long, Boolean>?,
+): Pair<EntryId?, Boolean> =
+    novelView?.let { (id, scoped) -> EntryId.Novel(id) to scoped } ?: (intentEntry to intentSourceScoped)

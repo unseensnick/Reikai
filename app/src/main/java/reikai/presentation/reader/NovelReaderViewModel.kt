@@ -200,7 +200,11 @@ class NovelReaderViewModel(
     }
 
     /** The novel and scope this reader reads: the launch's, or read aloud's view of the series it follows. */
-    private val view = readAloudSession.state.value.viewFor(launchNovelId, launchSourceScoped, followSession)
+    private val view = savedState.get<LongArray>(SAVED_VIEW)?.let { (id, scoped) -> id to (scoped == 1L) }
+        ?: readAloudSession.state.value.viewFor(launchNovelId, launchSourceScoped, followSession).also { (id, scoped) ->
+            // After a kill there is no read aloud to ask again, and the saved chapter belongs to this view.
+            savedState[SAVED_VIEW] = longArrayOf(id, if (scoped) 1L else 0L)
+        }
 
     val novelId: Long = view.first
 
@@ -284,7 +288,7 @@ class NovelReaderViewModel(
      * of it, which would otherwise see 0 while this initializer had not run.
      */
     private val openingChapterId: Long = savedState.get<Long>(SAVED_CHAPTER_ID)
-        ?: spokenChapter()?.takeIf { followSession }
+        ?: spokenChapter()?.takeIf { followSession || readAloudSession.isSpoken(initialChapterId) }
         ?: initialChapterId
 
     /** Whether the first load reopens after a process kill, which [newestStampedChapter] may move on. */
@@ -782,10 +786,13 @@ class NovelReaderViewModel(
         // Asked of any scope: a chapter opened from one source of the series is no less the reader's own pick,
         // and the series in another view of it (a merged one by source) is one whatever the chapter.
         readAloudSession.state.value.let { session ->
-            val spoken = session.speech.progress?.chapterId ?: readAloudSession.moves.value?.chapterId
+            val spoken = readAloudSession.moves.value?.chapterId
             val series = session.series
             val conflicts = series != null && series.touches(novelId) &&
-                (!series.includes(novelId, sourceScoped) || (spoken != null && spoken != openingChapterId))
+                (
+                    !series.includes(novelId, sourceScoped) ||
+                        (spoken != null && !readAloudSession.isSpoken(openingChapterId))
+                    )
             if (!followSession && conflicts) readAloudSession.stop()
         }
         holdReadClockWhileSpeaking()
@@ -1664,6 +1671,9 @@ private const val SAVED_CHAPTER_ID = "novel_chapter_id"
 
 /** The chapter being read with its position, kept beside it for the same process kill. */
 private const val SAVED_POSITION = "novel_chapter_position"
+
+/** The novel and scope the reader opened in, which a follow can take from read aloud, kept for the same kill. */
+private const val SAVED_VIEW = "novel_reader_view"
 
 /** Chapters held in the forward-prefetch cache. Small: it exists to make one step instant, not to
  *  keep a session's reading in memory. */

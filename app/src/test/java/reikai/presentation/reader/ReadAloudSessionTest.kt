@@ -54,8 +54,9 @@ class ReadAloudSessionTest {
         }
     }
 
-    /** The second novel of the last merged series [reading] built. */
+    /** The second novel of the last merged series [reading] built, and its copy of chapter 1. */
     private var member: Long = -1L
+    private var partnerCopy: Long = -1L
 
     private class Reading(
         val model: NovelReaderViewModel,
@@ -83,11 +84,14 @@ class ReadAloudSessionTest {
         val source = harness.source("src")
         if (privateSource) harness.incognito(source)
         val novel = harness.novel(source)
-        val chapters = (1..3).map { harness.chapter(novel, it.toDouble()) }
+        // Titled when merged, which is what the stitch pairs two sources' copies of a chapter on.
+        val chapters = (1..3).map {
+            harness.chapter(novel, it.toDouble(), name = if (merged) "Chapter $it - Part $it" else "Chapter $it.0")
+        }
         secondChapter?.let { source.texts[chapters[1].url] = it }
         if (merged) {
             val other = harness.novel(harness.source("other"), title = "Other")
-            harness.chapter(other, 1.0)
+            partnerCopy = harness.chapter(other, 1.0, name = "Chapter 1 - Part 1").id
             harness.merge(novel, other)
             member = other
         }
@@ -618,7 +622,7 @@ class ReadAloudSessionTest {
     enum class Outcome { Joins, Stops, Untouched }
 
     /** Which novel and chapter a launch names: the one read aloud speaks, another of it, its merge partner's, another novel. */
-    enum class Target { Spoken, OtherChapter, Member, OtherNovel }
+    enum class Target { Spoken, OtherChapter, Member, PartnerCopy, OtherNovel }
 
     /**
      * Every way a reader can open while read aloud plays, each reachable: a follow is the notification (the
@@ -642,6 +646,7 @@ class ReadAloudSessionTest {
             Target.Spoken -> reading.novel to reading.chapters[0].id
             Target.OtherChapter -> reading.novel to reading.chapters[2].id
             Target.Member -> member to harness.chapter(member, 2.0).id
+            Target.PartnerCopy -> member to partnerCopy
             Target.OtherNovel -> harness.novel(harness.source("elsewhere"), title = "Elsewhere").let { other ->
                 other to harness.chapter(other, 1.0).id
             }
@@ -687,6 +692,48 @@ class ReadAloudSessionTest {
         harness.progressOf(chapters[0]) shouldBe 5_000L
     }
 
+    /** Read from here on another chapter moves speech there, which is where its notification reopens. */
+    @Test
+    fun `a reader reopened from the notification stays on the chapter read aloud was started from`() =
+        sessionTest { harness ->
+            val reading = reading(harness)
+            reading.model.readAloud.detach(reading.surface)
+            repeat(2) { finishParagraph(harness) }
+            val there = HarnessSurface(
+                mutableMapOf(reading.chapters[2].id to listOf("Elsewhere")),
+                ReadAloudPosition(reading.chapters[2].id, 0),
+            )
+            reading.model.readAloud.attach(there)
+            reading.model.readAloud.readFromHere()
+            advanceUntilIdle()
+            reading.model.readAloud.detach(there)
+            harness.leave()
+            runCurrent()
+
+            val rejoined = harness.open(reading.novel, reading.chapters[2].id, followSession = true)
+            advanceUntilIdle()
+
+            rejoined.chapter.value?.chapterId shouldBe reading.chapters[2].id
+        }
+
+    /** After a kill there is no read aloud to ask, and the chapter saved belongs to the view it was read in. */
+    @Test
+    fun `a reader that took read aloud's view reopens in it after a process kill`() = sessionTest { harness ->
+        val reading = reading(harness, merged = true, sourceScoped = true)
+        closeReader(harness, reading)
+        val chapter = harness.chapter(member, 2.0).id
+        val savedState = SavedStateHandle()
+        harness.open(member, chapter, followSession = true, savedState = savedState)
+        advanceUntilIdle()
+        harness.readAloudSession.stop()
+        harness.leave()
+        advanceUntilIdle()
+
+        val restored = harness.open(member, chapter, followSession = true, savedState = savedState)
+
+        (restored.novelId to restored.sourceScoped) shouldBe (reading.novel to true)
+    }
+
     companion object {
         /** A follow takes the session's view; an explicit open joins only in that view on the spoken chapter. */
         @JvmStatic
@@ -718,6 +765,19 @@ class ReadAloudSessionTest {
                                         opened,
                                         true,
                                         if (follow) Outcome.Joins else Outcome.Stops,
+                                    )
+                            }
+                            // The partner's copy of the spoken chapter is that chapter, so opened in the group
+                            // it joins; from its own source it is another novel's view.
+                            if (merged) {
+                                rows +=
+                                    Arguments.of(
+                                        follow,
+                                        Target.PartnerCopy,
+                                        session,
+                                        opened,
+                                        true,
+                                        if (follow || (!session && !opened)) Outcome.Joins else Outcome.Stops,
                                     )
                             }
                         }

@@ -159,7 +159,11 @@ class ReadAloudSession(
     val state: StateFlow<ReadAloudSessionState>
         field = MutableStateFlow(ReadAloudSessionState())
 
-    /** The chapter speech last moved on to by itself, null while nothing is read aloud. */
+    /**
+     * The chapter speech is on, null while nothing is read aloud: set as it moves on by itself (while the
+     * next chapter loads, before a paragraph of it is spoken) and as it starts any chapter, so it is the one
+     * answer to where read aloud is.
+     */
     val moves: StateFlow<ReadAloudMove?>
         field = MutableStateFlow<ReadAloudMove?>(null)
 
@@ -216,6 +220,14 @@ class ReadAloudSession(
     fun onRendererLanded() = running?.controller?.onRendererLanded()
 
     fun onWindowChanged() = running?.controller?.onWindowChanged()
+
+    /** Whether [chapterId] is the chapter being spoken, or another source's copy of it in the series' stitch. */
+    fun isSpoken(chapterId: Long): Boolean {
+        val spoken = moves.value?.chapterId ?: return false
+        if (chapterId == spoken) return true
+        val units = running?.order?.stitch?.associate { it.chapterId to it.unit } ?: return false
+        return units[chapterId]?.let { it == units[spoken] } == true
+    }
 
     /** A reader opened, which can follow speech and drains the deletes its reading queued. */
     fun register(reader: ReadAloudLink) {
@@ -373,6 +385,9 @@ class ReadAloudSession(
             }
             holdPausedStop(speech.playback)
             if (playing) speech.progress?.let(::prefetchNear)
+            speech.progress?.chapterId?.takeIf { it != moves.value?.chapterId }?.let { chapterId ->
+                if (running === this) moves.value = ReadAloudMove(series, chapterId)
+            }
             if (running === this) state.value = ReadAloudSessionState(series, speech, listening.msPerWord)
         }
 
@@ -549,10 +564,6 @@ class ReadAloudSession(
         }
     }
 
-    /**
-     * Ends [session]: the time heard and the listening credit written, its held place written and given
-     * back to the reader, the deletes its finishes queued drained when no reader of the series is left to.
-     */
     private companion object {
         /** How long a paused session waits for someone to come back to it. */
         val PAUSED_STOP = 30.minutes
@@ -561,6 +572,10 @@ class ReadAloudSession(
         const val PREFETCH_PARAGRAPHS = 3
     }
 
+    /**
+     * Ends [session]: the time heard and the listening credit written, its held place written and given
+     * back to the reader, the deletes its finishes queued drained when no reader of the series is left to.
+     */
     private fun teardown(session: Running) {
         if (running !== session) return
         running = null

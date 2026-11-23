@@ -144,6 +144,7 @@ import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.reader.followsReadAloud
 import reikai.presentation.reader.isSameLaunch
 import reikai.presentation.reader.navigation.actionAt
+import reikai.presentation.reader.openView
 import reikai.presentation.reader.pageColorAdjust
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
@@ -850,13 +851,19 @@ class ReaderActivity : BaseActivity() {
         // A restart already under way: singleTask can deliver it here again while this one is dying.
         if (isFinishing) return
         val requestedChapter = intent.getLongExtra("chapter", NO_ID)
+        // The reader's own view, which a follow can have taken from read aloud rather than from its launch.
+        val (openEntry, openSourceScoped) = openView(
+            this.intent.entryId(),
+            this.intent.getBooleanExtra("source_scoped", false),
+            novelSession?.let { novelViewModel.novelId to novelViewModel.sourceScoped },
+        )
         val sameLaunch = isSameLaunch(
             requested,
             requestedChapter,
             intent.getBooleanExtra("source_scoped", false),
-            this.intent.entryId(),
+            openEntry,
             engine.currentChapterId.value,
-            this.intent.getBooleanExtra("source_scoped", false),
+            openSourceScoped,
             followsReadAloud(
                 intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false),
                 requested,

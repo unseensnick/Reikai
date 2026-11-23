@@ -127,6 +127,18 @@ class ReaderIntentTest {
         followsReadAloud(true, entry, speaking(sessionSourceScoped)) shouldBe follows
     }
 
+    /** A follow may have opened the reader in read aloud's view, which is the view a new launch is compared with. */
+    @Test
+    fun `the open reader's own view is what a launch is compared with`() {
+        openView(EntryId.Novel(2L), intentSourceScoped = false, novelView = 1L to true) shouldBe
+            (EntryId.Novel(1L) to true)
+    }
+
+    @Test
+    fun `a manga reader is compared by its launch`() {
+        openView(EntryId.Manga(2L), intentSourceScoped = false, novelView = null) shouldBe (EntryId.Manga(2L) to false)
+    }
+
     companion object {
         private fun speaking(sourceScoped: Boolean) =
             ReadAloudSessionState(ReadAloudSeries(novelId = 1L, memberIds = listOf(1L, 2L), sourceScoped))
