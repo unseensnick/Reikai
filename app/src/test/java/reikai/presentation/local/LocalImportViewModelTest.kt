@@ -4,18 +4,15 @@ import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -30,7 +27,9 @@ import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.FolderUnreadableException
-import reikai.util.testAppScope
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import java.util.Collections
 import kotlin.time.Duration.Companion.seconds
 
@@ -42,9 +41,15 @@ class LocalImportViewModelTest {
     private val importing = CompletableDeferred<Unit>()
     private val importStarted = CompletableDeferred<Unit>()
 
+    // Counted here rather than with coVerify, which records the stubbed Dispatchers getters with the call.
+    private var looks = 0
+
     // The file system and the database are the boundary: previews answer from a table, imports wait on a gate.
     private val localImport = mockk<LocalImport> {
-        coEvery { inspect(any(), any()) } answers { firstArg() }
+        coEvery { inspect(any(), any()) } answers {
+            looks++
+            firstArg()
+        }
         coEvery { preview(listOf(first)) } returns (listOf(group("a", first)) to emptyList())
         coEvery { preview(listOf(second)) } returns (listOf(group("b", second)) to emptyList())
         coEvery { preview(listOf(broken)) } returns
@@ -65,25 +70,31 @@ class LocalImportViewModelTest {
         coEvery { resolveBatchCategories() } returns BatchCategories.Default(listOf(7L))
     }
 
-    private val appScope = testAppScope()
+    private lateinit var appScope: CoroutineScope
 
-    private fun model() = LocalImportViewModel(
-        initialUris = emptyList(),
-        localImport = localImport,
-        combineLocalVolumes = mockk(),
-        novelAdder = novelAdder,
-        mangaAdder = mangaAdder,
-        appScope = appScope,
-    )
+    // The app scope is the test's background scope, so the test both drives and ends what runs there.
+    private fun TestScope.model(): LocalImportViewModel {
+        // The tests stub with coEvery, which leaves Default answering a bare mock.
+        restubDefaultDispatcher()
+        appScope = backgroundScope
+        return LocalImportViewModel(
+            initialUris = emptyList(),
+            localImport = localImport,
+            combineLocalVolumes = mockk(),
+            novelAdder = novelAdder,
+            mangaAdder = mangaAdder,
+            appScope = appScope,
+        )
+    }
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
     }
 
     @AfterEach
     fun tearDown() {
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -223,7 +234,7 @@ class LocalImportViewModelTest {
 
         model.confirmCategories(ContentType.MANGA, emptyList())
         // Long enough for a confirm that does not wait to copy the group before its second look answers.
-        withContext(Dispatchers.Default) { withTimeoutOrNull(1.seconds) { model.state.first { !it.isImporting } } }
+        withTimeoutOrNull(1.seconds) { model.state.first { !it.isImporting } }
         look.complete(Unit)
         model.settle()
 
@@ -271,9 +282,7 @@ class LocalImportViewModelTest {
 
         model.startImport()
         gate.complete(Unit)
-        val after = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(5.seconds) { model.state.first { it.result != null } }
-        }
+        val after = withTimeoutOrNull(5.seconds) { model.state.first { it.result != null } }
         model.settle()
 
         (after != null) shouldBe true
@@ -304,7 +313,7 @@ class LocalImportViewModelTest {
         model.state.first { !it.isReading }
         model.settle()
 
-        coVerify(exactly = 0) { localImport.inspect(any(), any()) }
+        looks shouldBe 0
     }
 
     @Test

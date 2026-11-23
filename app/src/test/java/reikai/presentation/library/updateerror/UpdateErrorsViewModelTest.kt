@@ -12,15 +12,11 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -36,6 +32,9 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.updateerror.NovelUpdateError
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import kotlin.time.Duration.Companion.seconds
 
@@ -48,7 +47,7 @@ class UpdateErrorsViewModelTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkStatic(WORK_MANAGER_EXTENSIONS)
         every { context.workManager } returns workManager
         mockkObject(LibraryUpdateWorker.Companion, NovelUpdateWorker.Companion)
@@ -62,7 +61,7 @@ class UpdateErrorsViewModelTest {
     fun tearDown() {
         unmockkObject(LibraryUpdateWorker.Companion, NovelUpdateWorker.Companion)
         unmockkStatic(WORK_MANAGER_EXTENSIONS)
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -117,10 +116,8 @@ class UpdateErrorsViewModelTest {
 
         library.shownContent.set(ContentType.MANGA)
 
-        withContext(Dispatchers.Default) {
-            withTimeoutOrNull(5.seconds) {
-                viewModel.state.first { (it as? UpdateErrorsScreenState.Success)?.contentType == ContentType.MANGA }
-            }
+        withTimeoutOrNull(5.seconds) {
+            viewModel.state.first { (it as? UpdateErrorsScreenState.Success)?.contentType == ContentType.MANGA }
         }.let { (it as? UpdateErrorsScreenState.Success)?.contentType } shouldBe ContentType.MANGA
     }
 
@@ -189,9 +186,7 @@ class UpdateErrorsViewModelTest {
         }
         val viewModel = viewModel(ContentType.ALL, novels = listOf(novelError(1L, "404")), novelSources = novelSources)
 
-        withContext(Dispatchers.Default) {
-            withTimeout(5.seconds) { viewModel.titles() }
-        } shouldBe listOf("n1")
+        withTimeout(5.seconds) { viewModel.titles() } shouldBe listOf("n1")
     }
 
     private suspend fun UpdateErrorsViewModel.titles() =
@@ -213,17 +208,21 @@ class UpdateErrorsViewModelTest {
         custom: Map<EntryId, EntryCustomInfo> = emptyMap(),
         novelSources: NovelSourceManager = mockk(relaxed = true),
         shown: ContentType = ContentType.ALL,
-    ) = UpdateErrorsViewModel(
-        initialContentType = chip,
-        getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(manga) },
-        deleteLibraryUpdateErrors = mockk(relaxed = true),
-        getNovelUpdateErrors = mockk { every { subscribeAll() } returns flowOf(novels) },
-        deleteNovelUpdateErrors = mockk(relaxed = true),
-        sourceManager = mockk(relaxed = true),
-        novelSourceManager = novelSources,
-        getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(custom) },
-        reikaiLibraryPreferences = library.also { it.shownContent.set(shown) },
-    )
+    ) = run {
+        // The tests stub with coEvery, which leaves Default answering a bare mock.
+        restubDefaultDispatcher()
+        UpdateErrorsViewModel(
+            initialContentType = chip,
+            getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(manga) },
+            deleteLibraryUpdateErrors = mockk(relaxed = true),
+            getNovelUpdateErrors = mockk { every { subscribeAll() } returns flowOf(novels) },
+            deleteNovelUpdateErrors = mockk(relaxed = true),
+            sourceManager = mockk(relaxed = true),
+            novelSourceManager = novelSources,
+            getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(custom) },
+            reikaiLibraryPreferences = library.also { it.shownContent.set(shown) },
+        )
+    }
 
     private fun mangaError(id: Long, message: String) = LibraryUpdateError(
         errorId = id,
