@@ -22,9 +22,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -49,6 +49,8 @@ import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.browse.FakeMangaLibrary
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -56,7 +58,6 @@ import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class RelatedMangasBrowseViewModelTest {
@@ -70,11 +71,15 @@ class RelatedMangasBrowseViewModelTest {
     fun setUp() {
         // Spied, not stubbed: unstubbed lookups run as before, and a case can check the message it asked for.
         mockkStatic(LOCALIZE)
+        // The model loads on IO, which this puts on the test scheduler beside Main.
+        virtualDispatchers(UnconfinedTestDispatcher())
     }
 
     @AfterEach
     fun tearDown() {
         unmockkStatic(LOCALIZE)
+        // Main stays set, so the extension can stop the models on it before it resets Main.
+        unmockkStatic(Dispatchers::class)
     }
 
     /** Tracker-origin, so an add skips it without resolving anything and goes straight to finishing. */
@@ -172,18 +177,15 @@ class RelatedMangasBrowseViewModelTest {
             getCustomMangaInfo = mockk { every { subscribe(MANGA_ID) } returns customInfo },
             appScope = appScope,
         ),
-    )
+    ).also { restubDefaultDispatcher() }
 
     private val titles = MutableStateFlow(Manga.create().copy(id = MANGA_ID, title = "Before"))
 
     private val customInfo = MutableStateFlow<CustomMangaInfo?>(null)
 
     // Apart from the screen's, so a case can close the screen and still see what the app scope finishes.
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    // The model loads on the IO dispatcher, so waits run in real time rather than the test clock.
-    private suspend fun <T> settle(block: suspend () -> T): T =
-        withContext(Dispatchers.Default) { withTimeout(5.seconds) { block() } }
+    // Built on first use, after setUp, so it takes the virtual IO.
+    private val appScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
 
     @Test
     fun `a selection an add cleared does not come back with the next pick`() = runTest {
@@ -201,21 +203,21 @@ class RelatedMangasBrowseViewModelTest {
     @Test
     fun `the title is the manga's current one, edits included`() = runTest {
         val viewModel = viewModel()
-        settle { viewModel.state.first { it.title == "Before" } }
+        viewModel.state.first { it.title == "Before" }
 
         titles.value = titles.value.copy(title = "After")
 
-        settle { viewModel.state.first { it.title == "After" } }.title shouldBe "After"
+        viewModel.state.first { it.title == "After" }.title shouldBe "After"
     }
 
     @Test
     fun `the title is the one Edit info set`() = runTest {
         val viewModel = viewModel()
-        settle { viewModel.state.first { it.title == "Before" } }
+        viewModel.state.first { it.title == "Before" }
 
         customInfo.value = CustomMangaInfo(MANGA_ID, title = "Edited")
 
-        settle { viewModel.state.first { it.title == "Edited" } }.title shouldBe "Edited"
+        viewModel.state.first { it.title == "Edited" }.title shouldBe "Edited"
     }
 
     /** Held at the first title's filing while the screen closes, then let go. */
@@ -232,10 +234,10 @@ class RelatedMangasBrowseViewModelTest {
         }
 
         viewModel.confirmCategories(rows, listOf(X), skipped = 0)
-        settle { held.await() }
+        held.await()
         viewModel.viewModelScope.cancel()
         release.complete(Unit)
-        settle { appScope.coroutineContext.job.children.toList().joinAll() }
+        appScope.coroutineContext.job.children.toList().joinAll()
 
         library.filed.keys shouldBe setOf(10L, 11L)
     }
@@ -244,7 +246,7 @@ class RelatedMangasBrowseViewModelTest {
     fun `with no load behind it the grid settles on the empty state`() = runTest {
         val viewModel = viewModel(cache = RelatedMangaCache())
 
-        settle { viewModel.state.first { it.content != RelatedMangasBrowseViewModel.Content.Loading } }.content shouldBe
+        viewModel.state.first { it.content != RelatedMangasBrowseViewModel.Content.Loading }.content shouldBe
             RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 0)
     }
 
@@ -254,16 +256,16 @@ class RelatedMangasBrowseViewModelTest {
             put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID)), emptyMap()), isComplete = false)
         }
         val viewModel = viewModel(cache = cache)
-        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.state.first { it.items.isNotEmpty() }
         viewModel.toggleSelection("a")
         viewModel.addSelectedToLibrary()
         // The favourite write reaches the grid through the library's own subscription, on IO, so the
         // cleared selection can land first. Updating the pool before the mark lands races the two.
-        settle { viewModel.state.first { it.selectedUrls.isEmpty() && it.items.single().inLibrary } }
+        viewModel.state.first { it.selectedUrls.isEmpty() && it.items.single().inLibrary }
 
         cache.put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID), candidate("b", SOURCE_ID)), emptyMap()))
 
-        settle { viewModel.state.first { it.items.size == 2 } }
+        viewModel.state.first { it.items.size == 2 }
             .items.first { it.candidate.manga.url == "a" }.inLibrary shouldBe true
     }
 
@@ -273,10 +275,10 @@ class RelatedMangasBrowseViewModelTest {
             put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID)), emptyMap()))
         }
         val viewModel = viewModel(cache = cache)
-        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.state.first { it.items.isNotEmpty() }
         viewModel.toggleSelection("a")
         viewModel.addSelectedToLibrary()
-        settle { viewModel.state.first { it.selectedUrls.isEmpty() } }
+        viewModel.state.first { it.selectedUrls.isEmpty() }
 
         library.chapterDefaultsStamped shouldBe setOf(10L)
     }
@@ -286,7 +288,7 @@ class RelatedMangasBrowseViewModelTest {
         val viewModel =
             viewModel(assembly = hiding(setOf(TitleNormalizer.normalize("a"), TitleNormalizer.normalize("b"))))
 
-        settle { viewModel.state.first { it.items.size == 2 } }.content shouldBe
+        viewModel.state.first { it.items.size == 2 }.content shouldBe
             RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 2)
     }
 
@@ -306,7 +308,7 @@ class RelatedMangasBrowseViewModelTest {
         }
         val viewModel = viewModel(cache = cache, assembly = assemblyFromLibrary())
 
-        settle { viewModel.state.first { it.items.isNotEmpty() } }.items.single().inLibrary shouldBe true
+        viewModel.state.first { it.items.isNotEmpty() }.items.single().inLibrary shouldBe true
     }
 
     /** The badge already calls it in the library, so adding it would file the series twice. */
@@ -325,11 +327,11 @@ class RelatedMangasBrowseViewModelTest {
             put(MANGA_ID, RelatedPool(listOf(candidate("/series/1", SOURCE_ID, title = "Series")), emptyMap()))
         }
         val viewModel = viewModel(cache = cache, assembly = assemblyFromLibrary())
-        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.state.first { it.items.isNotEmpty() }
         viewModel.toggleSelection("/series/1")
 
         viewModel.addSelectedToLibrary()
-        settle { viewModel.state.first { it.selectedUrls.isEmpty() } }
+        viewModel.state.first { it.selectedUrls.isEmpty() }
 
         library.rows.values.filter { it.favorite }.map { it.id } shouldBe listOf(26L)
     }
@@ -351,7 +353,7 @@ class RelatedMangasBrowseViewModelTest {
         }
         val viewModel = viewModel(cache = cache, assembly = assemblyFromLibrary())
 
-        settle { viewModel.state.first { it.items.isNotEmpty() } }.content shouldBe
+        viewModel.state.first { it.items.isNotEmpty() }.content shouldBe
             RelatedMangasBrowseViewModel.Content.Empty(hiddenCount = 1)
     }
 
@@ -363,13 +365,14 @@ class RelatedMangasBrowseViewModelTest {
             put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID), candidate("b", SOURCE_ID)), emptyMap()))
         }
         val viewModel = viewModel(cache = cache)
-        settle { viewModel.state.first { it.items.size == 2 } }
+        viewModel.state.first { it.items.size == 2 }
         viewModel.toggleSelection("a")
         viewModel.toggleSelection("b")
 
         viewModel.addSelectedToLibrary()
 
-        verify(timeout = 5_000) { any<Context>().stringResource(MR.strings.bulk_added_with_skipped, 1, 1) }
+        advanceUntilIdle()
+        verify { any<Context>().stringResource(MR.strings.bulk_added_with_skipped, 1, 1) }
     }
 
     /** Grouped, the grid draws a1 a2 under one header and b1 b2 under the next, though the rank interleaves them. */
@@ -392,7 +395,7 @@ class RelatedMangasBrowseViewModelTest {
             )
         }
         val viewModel = viewModel(cache = cache)
-        settle { viewModel.state.first { it.items.size == 4 } }
+        viewModel.state.first { it.items.size == 4 }
         viewModel.toggleGrouping()
 
         viewModel.toggleSelection("a1")
@@ -411,12 +414,12 @@ class RelatedMangasBrowseViewModelTest {
             put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID)), emptyMap()))
         }
         val viewModel = viewModel(cache = cache)
-        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.state.first { it.items.isNotEmpty() }
         viewModel.toggleSelection("a")
 
         viewModel.addSelectedToLibrary()
 
-        val picker = settle { viewModel.state.first { it.dialog != null } }.dialog
+        val picker = viewModel.state.first { it.dialog != null }.dialog
         (picker as RelatedMangasBrowseViewModel.Dialog.ChangeCategory).initialSelection.map { it.value.id } shouldBe
             listOf(4L, 3L)
     }
@@ -452,11 +455,11 @@ class RelatedMangasBrowseViewModelTest {
     @Test
     fun `a related add of a source coming back to its merged series keeps the series in its categories`() = runTest {
         val viewModel = returningMember()
-        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.state.first { it.items.isNotEmpty() }
         viewModel.toggleSelection("b")
 
         viewModel.addSelectedToLibrary()
-        settle { viewModel.state.first { it.selectedUrls.isEmpty() } }
+        viewModel.state.first { it.selectedUrls.isEmpty() }
 
         listOf(library.rows[10L]?.favorite, library.filed[10L], library.filed[5L]) shouldBe
             listOf(true, listOf(X), listOf(X))
@@ -469,7 +472,8 @@ class RelatedMangasBrowseViewModelTest {
         val row = library.insert(Manga.create().copy(id = 10L, url = "b", source = SOURCE_ID))
 
         viewModel.confirmCategories(listOf(row), listOf(Y), skipped = 0)
-        verify(timeout = 5_000) { any<Context>().stringResource(MR.strings.bulk_added_to_library, 1) }
+        advanceUntilIdle()
+        verify { any<Context>().stringResource(MR.strings.bulk_added_to_library, 1) }
 
         listOf(library.filed[10L], library.filed[5L]) shouldBe listOf(listOf(X), listOf(X))
     }
@@ -480,7 +484,7 @@ class RelatedMangasBrowseViewModelTest {
 
         LibraryPreferences(store).portraitColumns.set(4)
 
-        settle { viewModel.state.first { it.columns.portrait == 4 } }.columns.portrait shouldBe 4
+        viewModel.state.first { it.columns.portrait == 4 }.columns.portrait shouldBe 4
     }
 
     private companion object {

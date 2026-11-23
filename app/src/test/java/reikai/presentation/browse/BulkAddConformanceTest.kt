@@ -12,18 +12,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.novel.host.NovelItem
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
-import kotlin.time.Duration.Companion.seconds
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * A bulk add decides what is already in the library when it runs, not when the entry was selected.
@@ -32,11 +29,14 @@ import kotlin.time.Duration.Companion.seconds
  */
 class BulkAddConformanceTest {
 
+    // The facade adds on IO and its app scope runs there too, so both go on the test scheduler.
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -88,10 +88,6 @@ interface BulkAddProbe {
     suspend fun failureAcrossClose(): Throwable?
 }
 
-// The facade adds on the IO dispatcher, so the wait runs in real time rather than the test clock.
-private suspend fun <T> settle(block: suspend () -> T): T =
-    withContext(Dispatchers.Default) { withTimeout(5.seconds) { block() } }
-
 /** Adds [model]'s selection, closes its screen while [holdFiling] holds the add, then lets the add go on. */
 private suspend fun closeScreenMidFiling(
     model: EntryBulkFavoriteViewModel<*>,
@@ -107,10 +103,10 @@ private suspend fun closeScreenMidFiling(
         if (failing) error(BulkAddConformanceTest.FILING_FAILED)
     }
     model.addFavorite()
-    settle { held.await() }
+    held.await()
     model.viewModelScope.cancel()
     release.complete(Unit)
-    settle { appScope.coroutineContext.job.children.toList().joinAll() }
+    appScope.coroutineContext.job.children.toList().joinAll()
 }
 
 private fun appScope(handler: CoroutineExceptionHandler = CoroutineExceptionHandler { _, _ -> }) =
@@ -140,7 +136,7 @@ class MangaBulkAddProbe : BulkAddProbe {
 
         model.select(listed)
         model.addFavorite()
-        settle { model.state.first { !it.selectionMode } }
+        model.state.first { !it.selectionMode }
 
         return BulkAddEffects(library.favoriteWrites.isNotEmpty(), library.filed[1L].orEmpty())
     }
@@ -185,7 +181,7 @@ class NovelBulkAddProbe : BulkAddProbe {
 
         model.toggleSelection(FakeNovelLibrary.SOURCE_ID, NovelItem(name = "a", path = "/a", cover = null))
         model.addFavorite()
-        settle { model.state.first { !it.selectionMode } }
+        model.state.first { !it.selectionMode }
 
         return BulkAddEffects(library.favoriteWrites.isNotEmpty(), library.filed[1L].orEmpty())
     }

@@ -2,14 +2,9 @@ package reikai.presentation.browse.globalsearch
 
 import eu.kanade.domain.source.service.SourcePreferences
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -18,7 +13,8 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.recents.EmittingPreferenceStore
-import kotlin.time.Duration.Companion.seconds
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * Global search remembers which sources it last covered, and says why a finished search shows nothing
@@ -41,14 +37,15 @@ class GlobalSearchEngineTest {
         override suspend fun search(row: BrowseSearchRow, query: String): List<EntryBrowseRow> = emptyList()
     }
 
+    // The engine searches on IO, which this puts on the test scheduler beside Main.
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(dispatcher)
+        virtualDispatchers(dispatcher)
     }
 
     @AfterEach
     fun tearDown() {
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     private fun engine(
@@ -73,9 +70,7 @@ class GlobalSearchEngineTest {
 
         preferences.shownContent.set(ContentType.MANGA)
 
-        withContext(Dispatchers.Default) {
-            withTimeoutOrNull(5.seconds) { engine.state.first { it.contentType == ContentType.MANGA } }
-        }?.contentType shouldBe ContentType.MANGA
+        engine.state.first { it.contentType == ContentType.MANGA }.contentType shouldBe ContentType.MANGA
     }
 
     @Test

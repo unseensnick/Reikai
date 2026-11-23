@@ -6,21 +6,15 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -36,7 +30,9 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.recents.EmittingPreferenceStore
-import reikai.util.testAppScope
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import kotlin.time.Duration.Companion.milliseconds
@@ -50,11 +46,11 @@ import tachiyomi.domain.source.model.Source as DomainSource
  */
 class FeedViewModelTest {
 
-    // viewModelScope is Main-based, so the model needs a Main the test controls.
-    private val dispatcher = StandardTestDispatcher()
-
+    // viewModelScope is Main-based and the model works on IO, so both go on one scheduler the test drives.
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(dispatcher)
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     private val models = mutableListOf<FeedViewModel>()
 
@@ -63,18 +59,18 @@ class FeedViewModelTest {
     @AfterEach
     fun tearDown() {
         models.forEach { it.viewModelScope.cancel() }
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `a row whose source is installed after the feed was built fills in`(probe: FeedRegistryProbe) = runTest {
         val model = feedViewModel(probe)
-        settle { model.state.first { it.loaded } }
+        model.state.first { it.loaded }
 
         probe.install()
 
-        settle { model.state.first { it.entries.single().row.state !is EntrySearchState.Unavailable } }
+        model.state.first { it.entries.single().row.state !is EntrySearchState.Unavailable }
             .entries.single().sourceName shouldBe SOURCE_NAME
     }
 
@@ -87,7 +83,7 @@ class FeedViewModelTest {
         )
         val model = feedViewModel(probe, preferences = preferences)
 
-        settle { model.state.first { it.loaded } }.entries shouldBe emptyList()
+        model.state.first { it.loaded }.entries shouldBe emptyList()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -97,7 +93,7 @@ class FeedViewModelTest {
         preferences.shownContent.set(probe.key.contentType)
         val model = feedViewModel(probe, preferences = preferences)
 
-        settle { model.state.first { it.loaded } }.entries.size shouldBe 1
+        model.state.first { it.loaded }.entries.size shouldBe 1
     }
 
     @ParameterizedTest(name = "{0}")
@@ -110,7 +106,7 @@ class FeedViewModelTest {
 
         model.openAddDialog()
 
-        (settle { model.state.first { it.dialog != null } }.dialog is FeedDialog.TooManyRows) shouldBe false
+        (model.state.first { it.dialog != null }.dialog is FeedDialog.TooManyRows) shouldBe false
     }
 
     @ParameterizedTest(name = "{0}")
@@ -123,7 +119,7 @@ class FeedViewModelTest {
 
         model.openAddDialog()
 
-        val picker = settle { model.state.first { it.dialog != null } }.dialog as FeedDialog.PickSource
+        val picker = model.state.first { it.dialog != null }.dialog as FeedDialog.PickSource
         picker.sources shouldBe emptyList()
     }
 
@@ -137,7 +133,7 @@ class FeedViewModelTest {
 
         model.openAddDialog()
 
-        val picker = settle { model.state.first { it.dialog != null } }.dialog as FeedDialog.PickSource
+        val picker = model.state.first { it.dialog != null }.dialog as FeedDialog.PickSource
         picker.sources.map { it.key } shouldBe listOf(probe.key)
     }
 
@@ -160,7 +156,7 @@ class FeedViewModelTest {
 
         model.reorder(listOf(4L, 2L))
 
-        settle { written.await() } shouldBe listOf(1L, 4L, 3L, 2L)
+        written.await() shouldBe listOf(1L, 4L, 3L, 2L)
     }
 
     @ParameterizedTest(name = "{0}")
@@ -168,7 +164,7 @@ class FeedViewModelTest {
     fun `a row whose source is gone is named by the name it had`(probe: FeedRegistryProbe) = runTest {
         val model = feedViewModel(probe)
 
-        val entry = settle { model.state.first { it.loaded } }.entries.single()
+        val entry = model.state.first { it.loaded }.entries.single()
 
         listOf(entry.row.name, entry.sourceName) shouldBe listOf(STORED_NAME, STORED_NAME)
     }
@@ -178,12 +174,13 @@ class FeedViewModelTest {
     fun `a feed change made while the feed is hidden waits until it is shown`(probe: FeedRegistryProbe) = runTest {
         val rows = MutableStateFlow(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L)))
         val model = feedViewModel(probe, rows)
-        settle { model.state.first { it.loaded } }
+        model.state.first { it.loaded }
         advanceTimeBy(6.seconds)
         runCurrent()
 
         rows.value += FeedSavedSearch(2L, probe.key, null, true, 1L)
-        withContext(Dispatchers.Default) { delay(500.milliseconds) }
+        advanceTimeBy(500.milliseconds)
+        runCurrent()
 
         model.state.value.entries.size shouldBe 1
     }
@@ -193,21 +190,22 @@ class FeedViewModelTest {
     fun `a feed change held while hidden lands once the feed is shown`(probe: FeedRegistryProbe) = runTest {
         val rows = MutableStateFlow(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L)))
         val model = feedViewModel(probe, rows)
-        settle { model.state.first { it.loaded } }
+        model.state.first { it.loaded }
         advanceTimeBy(6.seconds)
         runCurrent()
         rows.value += FeedSavedSearch(2L, probe.key, null, true, 1L)
 
-        settle { model.state.first { it.entries.size == 2 } }.entries.size shouldBe 2
+        model.state.first { it.entries.size == 2 }.entries.size shouldBe 2
     }
 
-    private fun feedViewModel(
+    // The app scope is the test's background scope, so the test both drives and ends what runs there.
+    private fun TestScope.feedViewModel(
         probe: FeedRegistryProbe,
         rows: Flow<List<FeedSavedSearch>> = flowOf(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L))),
         preferences: ReikaiSourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
         onOrders: (List<Long>) -> Unit = {},
     ) = FeedViewModel(
-        appScope = testAppScope(),
+        appScope = backgroundScope,
         feedRepository = mockk {
             every { subscribeGlobal() } returns rows
             coEvery { countGlobal() } coAnswers { rows.first().size.toLong() }
@@ -224,7 +222,7 @@ class FeedViewModelTest {
         networkToLocalManga = mockk(relaxed = true),
         novelSourceManager = probe.novelRegistry,
         getEnabledNovelSources = mockk { coEvery { get() } answers { probe.enabledNovels } },
-    ).also(models::add)
+    ).also(models::add).also { restubDefaultDispatcher() }
 
     companion object {
         const val SOURCE_NAME = "Installed later"
@@ -234,10 +232,6 @@ class FeedViewModelTest {
         fun probes() = listOf(MangaFeedRegistryProbe(), NovelFeedRegistryProbe())
     }
 }
-
-// The model works on the IO dispatcher, so the wait runs in real time rather than the test clock.
-private suspend fun <T> settle(block: suspend () -> T): T =
-    withContext(Dispatchers.Default) { withTimeout(5.seconds) { block() } }
 
 /** Both registries over lists the test can change, with one type's source to install. */
 interface FeedRegistryProbe {

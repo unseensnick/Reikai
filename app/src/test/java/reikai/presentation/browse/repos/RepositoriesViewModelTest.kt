@@ -4,17 +4,11 @@ import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -22,7 +16,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
-import kotlin.time.Duration.Companion.seconds
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 class RepositoriesViewModelTest {
 
@@ -31,12 +26,14 @@ class RepositoriesViewModelTest {
     private var model: RepositoriesViewModel? = null
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
     fun tearDown() {
         model?.viewModelScope?.cancel()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     private fun model(): RepositoriesViewModel {
@@ -55,9 +52,7 @@ class RepositoriesViewModelTest {
         ).also { model = it }
     }
 
-    private suspend fun settled() = withContext(Dispatchers.Default) {
-        withTimeout(5.seconds) { model().state.first { !it.isLoading } }
-    }
+    private suspend fun settled() = model().state.first { !it.isLoading }
 
     @Test
     fun `a repo Show keeps out of the list is still counted, so an add does not just vanish`() = runTest {
