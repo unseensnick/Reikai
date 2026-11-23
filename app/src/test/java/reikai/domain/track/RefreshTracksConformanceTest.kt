@@ -10,19 +10,22 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.model.NovelTrack
+import reikai.util.mockIoDispatcher
+import reikai.util.restubDefaultDispatcher
 import tachiyomi.domain.track.model.Track
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
@@ -132,26 +135,31 @@ class RefreshTracksConformanceTest {
 
     /**
      * A refresh read before a push lands would store the progress the push just moved past. The manga
-     * refresh reads on Dispatchers.IO, outside the test clock, so the push is held until that read happens,
-     * or for a real second when the lock keeps it from happening.
+     * refresh reads on Dispatchers.IO, here on the test's scheduler, so a read the lock fails to hold back
+     * happens before the push lands.
      */
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a refresh during a chapter push stores what the push sent`(type: Type) = runTest {
-        var remote = 5.0
-        val read = CompletableDeferred<Unit>()
-        val h = Harness(listOf(FIRST), listOf(tracker(FIRST, remote = { remote.also { read.complete(Unit) } })))
-        val pushLands = CompletableDeferred<Unit>()
-        launch { ChapterPushLock.around(listOf(type.entry)) { pushLands.await().also { remote = 12.0 } } }
-        runCurrent()
+        mockIoDispatcher(StandardTestDispatcher(testScheduler))
+        try {
+            var remote = 5.0
+            val h = Harness(listOf(FIRST), listOf(tracker(FIRST, remote = { remote })))
+            val refreshing = type.refresh(h)
+            restubDefaultDispatcher()
+            val pushLands = CompletableDeferred<Unit>()
+            launch { ChapterPushLock.around(listOf(type.entry)) { pushLands.await().also { remote = 12.0 } } }
+            runCurrent()
 
-        val refresh = async { type.refresh(h)() }
-        runCurrent()
-        withContext(Dispatchers.Default) { withTimeoutOrNull(1_000) { read.await() } }
-        pushLands.complete(Unit)
-        refresh.await()
+            val refresh = async { refreshing() }
+            advanceUntilIdle()
+            pushLands.complete(Unit)
+            refresh.await()
 
-        h.stored shouldBe listOf(12.0)
+            h.stored shouldBe listOf(12.0)
+        } finally {
+            unmockkStatic(Dispatchers::class)
+        }
     }
 
     private companion object {
