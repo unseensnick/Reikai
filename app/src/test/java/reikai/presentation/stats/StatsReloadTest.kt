@@ -2,54 +2,40 @@ package reikai.presentation.stats
 
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Test
-import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class StatsReloadTest {
 
-    private class Load(val result: CompletableDeferred<String> = CompletableDeferred()) {
-        val started = CompletableDeferred<Unit>()
-        val settled = CompletableDeferred<Unit>()
-    }
-
+    // suspendCoroutine ignores cancellation, as a blocking query does: the older load runs to its end.
     @Test
     fun `an older load finishing after a newer one does not replace it`() = runTest {
-        val older = Load()
-        val newer = Load()
-        val loads = ConcurrentLinkedQueue(listOf(older, newer))
-        val reload = StatsReload(backgroundScope) {
-            val load = loads.remove()
-            load.started.complete(Unit)
-            try {
-                load.result.await()
-            } finally {
-                load.settled.complete(Unit)
-            }
-        }
+        val older = CompletableDeferred<String>()
+        val newer = CompletableDeferred<String>()
+        val loads = ArrayDeque(listOf(older, newer))
+        val reload = reloadOn(this) { loads.removeFirst().uncancellably() }
 
-        // The loads run on IO, so every wait here is on real time.
-        val landed = withContext(Dispatchers.Default) {
-            withTimeout(5.seconds) {
-                reload.reload()
-                older.started.await()
-                reload.reload()
-                newer.started.await()
-                newer.result.complete("newer")
-                reload.value.first { it == "newer" }
-                older.result.complete("older")
-                older.settled.await()
-            }
-            withTimeoutOrNull(500.milliseconds) { reload.value.first { it == "older" } }
-        }
+        reload.reload()
+        advanceUntilIdle()
+        reload.reload()
+        advanceUntilIdle()
+        newer.complete("newer")
+        advanceUntilIdle()
+        older.complete("older")
+        advanceUntilIdle()
 
-        landed shouldBe null
+        reload.value.value shouldBe "newer"
     }
+
+    private suspend fun CompletableDeferred<String>.uncancellably(): String = suspendCoroutine { done ->
+        invokeOnCompletion { done.resume(getCompleted()) }
+    }
+
+    private fun reloadOn(scope: TestScope, load: suspend () -> String): StatsReload<String> =
+        StatsReload(scope, load, loadOn = StandardTestDispatcher(scope.testScheduler))
 }

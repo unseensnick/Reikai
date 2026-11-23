@@ -119,7 +119,7 @@ class StatsViewModel(
 
     // RK --> both content types loaded on each refresh, then folded per selected type on chip change.
     // StatsContent refreshes whenever it comes back on screen: as a tab this model lives all session.
-    private val ingredients = StatsReload(viewModelScope) {
+    private val ingredients = StatsReload(viewModelScope, load = {
         val library = statsLibraryLoader.load()
         StatsIngredients(
             library = library,
@@ -133,7 +133,7 @@ class StatsViewModel(
                 novelDownloadManager().getDownloadCount(it.novel)
             },
         )
-    }
+    })
 
     fun refresh() = ingredients.reload()
     // RK <--

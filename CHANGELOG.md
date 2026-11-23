@@ -313,6 +313,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Statistics' Reading time bars can be picked by dragging along the chart, since a month's bars are too thin to tap.**
 - **Statistics' Reading time month names follow your language's date order.**
 - **Statistics' Reading time and Most read lists open faster when they hold series you have since removed from the library.**
+- **Statistics no longer go back to older numbers when you return to the screen twice in quick succession.**
 
 ### Settings
 
