@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -15,9 +16,10 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -35,6 +37,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.updates.NovelUpdatesViewModel
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -58,15 +61,22 @@ class RecentsFeedCustomInfoTest {
     @RegisterExtension
     val main = MainDispatcherExtension()
 
+    // The query runs on IO, which this puts on the test scheduler beside Main.
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
+
+    // Main stays set, so the extension can stop the models on it before it resets Main.
+    @AfterEach
+    fun tearDown() = unmockkStatic(Dispatchers::class)
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("feeds")
     fun `a feed shows a row under the user's custom title`(feed: TitleProbe) = runTest {
         val titles = feed.build(main)
 
-        // The query runs on the IO dispatcher, which virtual time does not reach.
-        withContext(Dispatchers.Default) {
-            withTimeout(5_000) { titles.first { it.isNotEmpty() } }
-        } shouldBe listOf(CUSTOM)
+        titles.first { it.isNotEmpty() } shouldBe listOf(CUSTOM)
     }
 
     companion object {

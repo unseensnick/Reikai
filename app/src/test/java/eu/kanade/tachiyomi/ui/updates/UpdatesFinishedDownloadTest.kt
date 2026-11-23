@@ -6,16 +6,19 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.category.RecentsSurface
@@ -23,6 +26,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
@@ -43,6 +47,16 @@ class UpdatesFinishedDownloadTest {
     @RegisterExtension
     val main = MainDispatcherExtension()
 
+    // The feed runs on IO, which this puts on the test scheduler beside Main.
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
+
+    // Main stays set, so the extension can stop the model on it before it resets Main.
+    @AfterEach
+    fun tearDown() = unmockkStatic(Dispatchers::class)
+
     private val queue = MutableStateFlow<List<Download>>(emptyList())
     private val ticks = MutableSharedFlow<Download>(extraBufferCapacity = 8)
     private val onDisk = mutableSetOf<Long>()
@@ -61,7 +75,8 @@ class UpdatesFinishedDownloadTest {
     @Test
     fun `a status tick arriving after a chapter finished does not show it as downloading`() = runTest {
         val model = main.track(updatesModel(listOf(update(7L), update(8L))))
-        backgroundScope.launch { model.state.collect { } }
+        // On the test scope, not its background one, so advanceUntilIdle runs the feed it drives.
+        val screen = launch { model.state.collect { } }
         val finishing = download(7L).apply { status = Download.State.DOWNLOADING }
         val next = download(8L).apply { status = Download.State.QUEUE }
         queue.value = listOf(finishing, next)
@@ -75,24 +90,23 @@ class UpdatesFinishedDownloadTest {
         next.status = Download.State.DOWNLOADING
         awaitState(model, 8L, Download.State.DOWNLOADING) { ticks.emit(next) }
 
-        model.stateOf(7L) shouldBe Download.State.DOWNLOADED
+        val shown = model.stateOf(7L)
+        screen.cancel()
+
+        shown shouldBe Download.State.DOWNLOADED
     }
 
-    private suspend fun awaitState(
+    private suspend fun TestScope.awaitState(
         model: UpdatesViewModel,
         chapterId: Long,
         expected: Download.State,
         nudge: suspend () -> Unit,
     ) {
-        // The feed runs on the IO dispatcher, which virtual time does not reach.
-        withContext(Dispatchers.Default) {
-            withTimeout(5_000) {
-                while (model.stateOf(chapterId) != expected) {
-                    nudge()
-                    delay(20)
-                }
-            }
-        }
+        // Settled first, so a tick the nudge emits has the feed subscribed to receive it.
+        advanceUntilIdle()
+        nudge()
+        advanceUntilIdle()
+        check(model.stateOf(chapterId) == expected) { "Chapter $chapterId never showed $expected" }
     }
 
     private fun UpdatesViewModel.stateOf(chapterId: Long): Download.State? =

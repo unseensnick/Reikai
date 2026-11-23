@@ -7,17 +7,19 @@ import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -33,13 +35,13 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.updates.NovelUpdatesViewModel
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.service.UpdatesPreferences
-import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Every feed model reads the category selection of the surface that built it. The combined tab builds
@@ -63,6 +65,16 @@ class RecentsFeedSurfaceTest {
     @RegisterExtension
     val main = MainDispatcherExtension()
 
+    // The query runs on IO, which this puts on the test scheduler beside Main.
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
+
+    // Main stays set, so the extension can stop the models on it before it resets Main.
+    @AfterEach
+    fun tearDown() = unmockkStatic(Dispatchers::class)
+
     @ParameterizedTest(name = "{0} on {1}")
     @MethodSource("feeds")
     fun `a feed model reads the category selection of the surface that built it`(
@@ -70,13 +82,12 @@ class RecentsFeedSurfaceTest {
         surface: RecentsSurface,
         excluded: Long,
     ) = runTest {
-        // Written on the query's IO thread and read here, so a list safe to share between them.
-        val asked = CopyOnWriteArrayList<List<Long>>()
+        val asked = mutableListOf<List<Long>>()
         val state = feed.build(surface, preferences, main) { asked += it }
-        backgroundScope.launch { state.collect { } }
-
-        // The query runs on the IO dispatcher, which virtual time does not reach.
-        withContext(Dispatchers.Default) { withTimeout(5_000) { while (asked.isEmpty()) delay(10) } }
+        // On the test scope, not its background one, so advanceUntilIdle runs the query before returning.
+        val collector = launch { state.collect { } }
+        advanceUntilIdle()
+        collector.cancel()
 
         asked.first() shouldBe listOf(excluded)
     }

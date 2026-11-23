@@ -11,13 +11,13 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,10 +30,12 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
@@ -54,6 +56,7 @@ import reikai.presentation.browse.EntryAddDialog
 import reikai.presentation.browse.components.EntryDuplicateCardUi
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.components.DownloadProgress
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.Preference
@@ -85,6 +88,16 @@ class RecentsEngineTest {
     @JvmField
     @RegisterExtension
     val main = MainDispatcherExtension()
+
+    // The assembly runs on Default and the resolves on IO, which this puts on the test scheduler beside Main.
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
+
+    // Main stays set, so the extension can stop the engines on it before it resets Main.
+    @AfterEach
+    fun tearDown() = unmockkStatic(Dispatchers::class)
 
     private fun engine(
         providers: List<RecentsProvider>,
@@ -1600,7 +1613,7 @@ class RecentsEngineTest {
 
     /**
      * A library update writes the chapter table once per entry, and a clear per write sent every drawn
-     * row back to loading its whole chapter list. The wait is real time: the assembly runs on Default.
+     * row back to loading its whole chapter list.
      */
     @Test
     fun `a target input change keeps the resolved rows until the changes go quiet`() = runTest {
@@ -1611,7 +1624,8 @@ class RecentsEngineTest {
         fake.awaitTargetInputWatcher()
 
         fake.changeTargetInput()
-        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+        advanceTimeBy(100.milliseconds)
+        runCurrent()
 
         engine.targets.value shouldBe mapOf(row.lane to target)
     }

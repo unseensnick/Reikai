@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -15,9 +16,10 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -33,6 +35,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.local.LocalNovelSource
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.updates.NovelUpdatesViewModel
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
@@ -55,6 +58,16 @@ class LocalRecentsDownloadConformanceTest {
     @RegisterExtension
     val main = MainDispatcherExtension()
 
+    // The query runs on IO, which this puts on the test scheduler beside Main.
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
+
+    // Main stays set, so the extension can stop the models on it before it resets Main.
+    @AfterEach
+    fun tearDown() = unmockkStatic(Dispatchers::class)
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("feeds")
     fun `a local row is kept by the Downloaded filter as downloaded`(feed: LocalRowProbe) = runTest {
@@ -67,10 +80,7 @@ class LocalRecentsDownloadConformanceTest {
         rowsOf(feed).map { it.offered() } shouldBe listOf(false)
     }
 
-    // The query runs on the IO dispatcher, which virtual time does not reach.
-    private suspend fun rowsOf(feed: LocalRowProbe) = withContext(Dispatchers.Default) {
-        withTimeout(5_000) { feed.build(main).first { it != null } }
-    }.orEmpty()
+    private suspend fun rowsOf(feed: LocalRowProbe) = feed.build(main).first { it != null }.orEmpty()
 
     companion object {
         private const val ID = 7L
