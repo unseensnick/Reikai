@@ -477,6 +477,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Tapping a self-hosted server tracker whose server can't be reached now says why instead of reporting no match.**
 - **The warning before a tracker replaces its list entry now stays up when the screen rotates.**
 - **A cover filled in from the MDList tracker now loads on a series from any source (from Komikku).**
+- **Finishing a chapter now updates each tracker once, even when you reach the last page twice before the first update lands (from Mihon).** Upstream: mihonapp/mihon#4306.
+- **Refreshing trackers while a chapter's progress is being sent no longer puts the older progress back in the tracker sheet.**
 
 ### Other
 

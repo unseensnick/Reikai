@@ -143,7 +143,10 @@ class NovelChapterFinishTest {
     fun `a refused push of a sibling's copy queues the trunk's number`() = runTest {
         val store = mockk<NovelDelayedTrackingStore>(relaxed = true)
         val refusing = TrackNovelChapter(
-            getNovelTracks = mockk { coEvery { awaitGroup(2L) } returns listOf(novelTrack()) },
+            getNovelTracks = mockk {
+                coEvery { groupIds(any()) } answers { listOf(firstArg()) }
+                coEvery { awaitGroup(2L) } returns listOf(novelTrack())
+            },
             trackerManager = refusingTracker(),
             upsertNovelTrack = mockk(relaxed = true),
             delayedTrackingStore = store,

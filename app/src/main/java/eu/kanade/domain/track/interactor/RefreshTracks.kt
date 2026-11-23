@@ -9,7 +9,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
+import reikai.domain.entry.EntryId
 import reikai.domain.manga.GetTracksInGroup
+import reikai.domain.track.ChapterPushLock
 import tachiyomi.domain.track.interactor.UpsertTrack
 
 @Inject
@@ -27,6 +29,11 @@ class RefreshTracks(
      * @return Failed updates.
      */
     suspend fun await(mangaId: Long): List<Pair<Tracker?, Throwable>> {
+        // RK: under the chapter push's lock, or a refresh read before a push lands stores the stale progress
+        return ChapterPushLock.around(getTracks.groupIds(mangaId).map(EntryId::Manga)) { refresh(mangaId) }
+    }
+
+    private suspend fun refresh(mangaId: Long): List<Pair<Tracker?, Throwable>> { // RK
         return supervisorScope {
             return@supervisorScope getTracks.await(mangaId)
                 .map { it to trackerManager.get(it.trackerId) }

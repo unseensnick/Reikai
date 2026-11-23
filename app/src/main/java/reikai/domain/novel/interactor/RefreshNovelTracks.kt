@@ -6,14 +6,16 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.track.toDbTrack
 import reikai.domain.novel.track.toNovelTrack
+import reikai.domain.track.ChapterPushLock
 
 /**
  * Novel twin of [eu.kanade.domain.track.interactor.RefreshTracks], pinned by RefreshTracksConformanceTest:
  * pulls the latest remote state for every bound novel track and persists it. No EnhancedTracker
  * chapter-sync: no novel-capable tracker is an EnhancedTracker. Merge-group-aware: refreshes tracks
- * bound on any member of the group.
+ * bound on any member of the group. Runs under [ChapterPushLock], as the manga refresh does.
  *
  * @return the failed updates.
  */
@@ -24,7 +26,10 @@ class RefreshNovelTracks(
     private val upsertNovelTrack: UpsertNovelTrack,
 ) {
 
-    suspend fun await(novelId: Long): List<Pair<Tracker?, Throwable>> {
+    suspend fun await(novelId: Long): List<Pair<Tracker?, Throwable>> =
+        ChapterPushLock.around(getNovelTracks.groupIds(novelId).map(EntryId::Novel)) { refresh(novelId) }
+
+    private suspend fun refresh(novelId: Long): List<Pair<Tracker?, Throwable>> {
         return supervisorScope {
             getNovelTracks.awaitGroup(novelId)
                 .map { it to trackerManager.get(it.trackerId) }

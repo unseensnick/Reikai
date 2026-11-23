@@ -10,9 +10,17 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.model.NovelTrack
 import tachiyomi.domain.track.model.Track
@@ -28,7 +36,10 @@ class RefreshTracksConformanceTest {
         MANGA {
             override fun refresh(h: Harness): suspend () -> List<Pair<Tracker?, Throwable>> {
                 val interactor = RefreshTracks(
-                    getTracks = mockk { coEvery { await(ENTRY_ID) } returns h.trackerIds.map(::mangaTrack) },
+                    getTracks = mockk {
+                        coEvery { groupIds(ENTRY_ID) } returns listOf(ENTRY_ID)
+                        coEvery { await(ENTRY_ID) } returns h.trackerIds.map(::mangaTrack)
+                    },
                     trackerManager = h.trackerManager,
                     upsertTrack = mockk {
                         coEvery { await(any()) } answers { h.stored += firstArg<Track>().lastChapterRead }
@@ -37,11 +48,16 @@ class RefreshTracksConformanceTest {
                 )
                 return { interactor.await(ENTRY_ID) }
             }
+
+            override val entry = EntryId.Manga(ENTRY_ID)
         },
         NOVEL {
             override fun refresh(h: Harness): suspend () -> List<Pair<Tracker?, Throwable>> {
                 val interactor = RefreshNovelTracks(
-                    getNovelTracks = mockk { coEvery { awaitGroup(ENTRY_ID) } returns h.trackerIds.map(::novelTrack) },
+                    getNovelTracks = mockk {
+                        coEvery { groupIds(ENTRY_ID) } returns listOf(ENTRY_ID)
+                        coEvery { awaitGroup(ENTRY_ID) } returns h.trackerIds.map(::novelTrack)
+                    },
                     trackerManager = h.trackerManager,
                     upsertNovelTrack = mockk {
                         coEvery { await(any()) } answers { h.stored += firstArg<NovelTrack>().lastChapterRead }
@@ -49,10 +65,13 @@ class RefreshTracksConformanceTest {
                 )
                 return { interactor.await(ENTRY_ID) }
             }
+
+            override val entry = EntryId.Novel(ENTRY_ID)
         },
         ;
 
         abstract fun refresh(h: Harness): suspend () -> List<Pair<Tracker?, Throwable>>
+        abstract val entry: EntryId
     }
 
     /** One track per tracker in [trackerIds]; [trackers] are the ones the app knows, by id. */
@@ -111,6 +130,30 @@ class RefreshTracksConformanceTest {
         type.refresh(h)() shouldBe emptyList()
     }
 
+    /**
+     * A refresh read before a push lands would store the progress the push just moved past. The manga
+     * refresh reads on Dispatchers.IO, outside the test clock, so the push is held until that read happens,
+     * or for a real second when the lock keeps it from happening.
+     */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a refresh during a chapter push stores what the push sent`(type: Type) = runTest {
+        var remote = 5.0
+        val read = CompletableDeferred<Unit>()
+        val h = Harness(listOf(FIRST), listOf(tracker(FIRST, remote = { remote.also { read.complete(Unit) } })))
+        val pushLands = CompletableDeferred<Unit>()
+        launch { ChapterPushLock.around(listOf(type.entry)) { pushLands.await().also { remote = 12.0 } } }
+        runCurrent()
+
+        val refresh = async { type.refresh(h)() }
+        runCurrent()
+        withContext(Dispatchers.Default) { withTimeoutOrNull(1_000) { read.await() } }
+        pushLands.complete(Unit)
+        refresh.await()
+
+        h.stored shouldBe listOf(12.0)
+    }
+
     private companion object {
         const val ENTRY_ID = 7L
         const val FIRST = 3L
@@ -118,12 +161,17 @@ class RefreshTracksConformanceTest {
         const val REMOTE_PROGRESS = 20.0
         val RATE_LIMITED = HttpException(429)
 
-        fun tracker(id: Long, loggedIn: Boolean = true, failure: Exception? = null) = mockk<BaseTracker> {
+        fun tracker(
+            id: Long,
+            loggedIn: Boolean = true,
+            failure: Exception? = null,
+            remote: () -> Double = { REMOTE_PROGRESS },
+        ) = mockk<BaseTracker> {
             every { this@mockk.id } returns id
             every { isLoggedIn } returns loggedIn
             coEvery { refresh(any()) } answers {
                 failure?.let { throw it }
-                firstArg<DbTrack>().apply { last_chapter_read = REMOTE_PROGRESS }
+                firstArg<DbTrack>().apply { last_chapter_read = remote() }
             }
         }
 

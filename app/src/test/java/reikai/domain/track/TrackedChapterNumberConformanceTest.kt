@@ -192,6 +192,8 @@ class TrackedChapterNumberConformanceTest {
                 val chapter = ChapterRepositoryImpl(t.database).getChapterById(chapterId)!!
                 TrackChapter(
                     getTracks = mockk {
+                        coEvery { groupIds(any()) } answers { listOf(firstArg()) }
+
                         coEvery { await(chapter.mangaId) } returns listOf(mangaTrack(chapter.mangaId))
                     },
                     trackerManager = refusingTracker(),
@@ -244,6 +246,8 @@ class TrackedChapterNumberConformanceTest {
                 val chapter = NovelChapterRepositoryImpl(t.database).getById(chapterId)!!
                 TrackNovelChapter(
                     getNovelTracks = mockk {
+                        coEvery { groupIds(any()) } answers { listOf(firstArg()) }
+
                         coEvery { awaitGroup(chapter.novelId) } returns listOf(novelTrack(chapter.novelId))
                     },
                     trackerManager = refusingTracker(),

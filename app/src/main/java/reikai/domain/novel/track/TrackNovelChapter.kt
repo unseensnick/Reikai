@@ -6,9 +6,11 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.UpsertNovelTrack
 import reikai.domain.novel.model.NovelTrack
+import reikai.domain.track.ChapterPushLock
 import reikai.domain.track.ChapterPushOutcome
 import reikai.domain.track.pushChapterProgress
 
@@ -33,11 +35,15 @@ class TrackNovelChapter(
         novelId: Long,
         chapterNumber: Double,
         setupJobOnFailure: Boolean = true,
-    ): ChapterPushOutcome = push(context, getNovelTracks.awaitGroup(novelId), chapterNumber, setupJobOnFailure)
+    ): ChapterPushOutcome = ChapterPushLock.around(getNovelTracks.groupIds(novelId).map(EntryId::Novel)) {
+        push(context, getNovelTracks.awaitGroup(novelId), chapterNumber, setupJobOnFailure)
+    }
 
     /** The delayed-tracking drain's push, of the queued row alone, as `TrackChapter.retry` does. */
     suspend fun retry(context: Context, track: NovelTrack, chapterNumber: Double): ChapterPushOutcome =
-        push(context, listOf(track), chapterNumber, setupJobOnFailure = false)
+        ChapterPushLock.around(getNovelTracks.groupIds(track.novelId).map(EntryId::Novel)) {
+            push(context, listOf(track), chapterNumber, setupJobOnFailure = false)
+        }
 
     private suspend fun push(
         context: Context,

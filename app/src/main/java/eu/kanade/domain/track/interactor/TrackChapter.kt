@@ -11,7 +11,9 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import reikai.domain.entry.EntryId
 import reikai.domain.manga.GetTracksInGroup
+import reikai.domain.track.ChapterPushLock
 import reikai.domain.track.ChapterPushOutcome
 import reikai.domain.track.pushChapterProgress
 import tachiyomi.domain.track.interactor.UpsertTrack
@@ -35,14 +37,20 @@ class TrackChapter(
         mangaId: Long,
         chapterNumber: Double,
         setupJobOnFailure: Boolean = true,
-    ): ChapterPushOutcome = push(context, mangaId, getTracks.await(mangaId), chapterNumber, setupJobOnFailure) // RK
+        // RK --> one push per merge group at a time, see ChapterPushLock
+    ): ChapterPushOutcome = ChapterPushLock.around(getTracks.groupIds(mangaId).map(EntryId::Manga)) {
+        push(context, mangaId, getTracks.await(mangaId), chapterNumber, setupJobOnFailure)
+    }
+    // RK <--
 
     // RK --> the delayed-tracking drain's push, of the queued row alone. The queue keeps the number read but
     // not which source of a merged series it was read on, so no other row can be judged against it: a
     // server tracker on that row's source would take a sibling source's numbering. Upstream retried every
     // tracker of the row's entry.
     suspend fun retry(context: Context, track: Track, chapterNumber: Double): ChapterPushOutcome =
-        push(context, track.mangaId, listOf(track), chapterNumber, setupJobOnFailure = false)
+        ChapterPushLock.around(getTracks.groupIds(track.mangaId).map(EntryId::Manga)) {
+            push(context, track.mangaId, listOf(track), chapterNumber, setupJobOnFailure = false)
+        }
 
     // [mangaId] is the entry the chapter was read on, [tracks] the rows to push to
     private suspend fun push(

@@ -29,7 +29,10 @@ class ForwardOnlyPushConformanceTest {
         MANGA {
             override suspend fun push(h: Harness) {
                 TrackChapter(
-                    getTracks = mockk { coEvery { await(ENTRY_ID) } returns listOf(mangaTrack()) },
+                    getTracks = mockk {
+                        coEvery { groupIds(any()) } answers { listOf(firstArg()) }
+                        coEvery { await(ENTRY_ID) } returns listOf(mangaTrack())
+                    },
                     trackerManager = h.trackerManager,
                     upsertTrack = mockk<UpsertTrack> {
                         coEvery { await(any()) } answers { h.stored += firstArg<Track>().lastChapterRead }
@@ -41,7 +44,10 @@ class ForwardOnlyPushConformanceTest {
         NOVEL {
             override suspend fun push(h: Harness) {
                 TrackNovelChapter(
-                    getNovelTracks = mockk { coEvery { awaitGroup(ENTRY_ID) } returns listOf(novelTrack()) },
+                    getNovelTracks = mockk {
+                        coEvery { groupIds(any()) } answers { listOf(firstArg()) }
+                        coEvery { awaitGroup(ENTRY_ID) } returns listOf(novelTrack())
+                    },
                     trackerManager = h.trackerManager,
                     upsertNovelTrack = mockk<UpsertNovelTrack> {
                         coEvery { await(any()) } answers { h.stored += firstArg<NovelTrack>().lastChapterRead }
