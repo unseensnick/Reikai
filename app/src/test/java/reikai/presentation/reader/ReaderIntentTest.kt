@@ -139,6 +139,16 @@ class ReaderIntentTest {
         openView(EntryId.Manga(2L), intentSourceScoped = false, novelView = null) shouldBe (EntryId.Manga(2L) to false)
     }
 
+    /** The notification names the view of the reader read aloud speaks through, so tapping it changes nothing. */
+    @Test
+    fun `a notification tap into the reader read aloud speaks through is the same launch`() {
+        val series = ReadAloudSeries(novelId = 1L, memberIds = listOf(1L, 2L), sourceScoped = false)
+        val (novelId, sourceScoped) = series.openedAs(readerView = 2L to false)
+        val (openEntry, openSourceScoped) = openView(EntryId.Novel(1L), false, novelView = 2L to false)
+
+        isSameLaunch(EntryId.Novel(novelId), 5L, sourceScoped, openEntry, 5L, openSourceScoped) shouldBe true
+    }
+
     companion object {
         private fun speaking(sourceScoped: Boolean) =
             ReadAloudSessionState(ReadAloudSeries(novelId = 1L, memberIds = listOf(1L, 2L), sourceScoped))

@@ -572,7 +572,7 @@ class ReadAloudSessionTest {
             chapters = mutableMapOf(chapters[0].id to listOf("One", "Two")),
             firstVisible = ReadAloudPosition(chapters[0].id, 0),
         )
-        harness.readAloudSession.start(ReadAloudSeries(novel, listOf(novel), false), null, emptyMap(), surface)
+        harness.readAloudSession.start(ReadAloudSeries(novel, listOf(novel), false), null, emptyMap(), surface, null)
         harness.readAloudSession.play()
         advanceUntilIdle()
         harness.engines.last().init()
@@ -732,6 +732,25 @@ class ReadAloudSessionTest {
         val restored = harness.open(member, chapter, followSession = true, savedState = savedState)
 
         (restored.novelId to restored.sourceScoped) shouldBe (reading.novel to true)
+    }
+
+    /** Before speech has published a paragraph, the chapter it started on is still where it is. */
+    @Test
+    fun `a follow before speech has spoken opens on the chapter read aloud started on`() = sessionTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val chapters = (1..3).map { harness.chapter(novel, it.toDouble()) }
+        harness.readAloudSession.start(
+            ReadAloudSeries(novel, listOf(novel), false),
+            null,
+            emptyMap(),
+            null,
+            startChapter = chapters[0].id,
+        )
+
+        val opened = harness.open(novel, chapters[2].id, followSession = true)
+        advanceUntilIdle()
+
+        opened.chapter.value?.chapterId shouldBe chapters[0].id
     }
 
     companion object {

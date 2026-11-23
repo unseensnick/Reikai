@@ -265,6 +265,7 @@ class NovelReaderViewModel(
         memberIds = { memberIds },
         order = { readingOrder },
         titles = { window.value.chapters.associate { it.chapterId to it.title } },
+        chapterId = { currentChapterId },
     )
 
     /** How far read aloud is through [chapterId] by its words, while it speaks that chapter of this series. */

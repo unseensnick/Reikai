@@ -81,6 +81,10 @@ data class ReadAloudSeries(val novelId: Long, val memberIds: List<Long>, val sou
         else -> novelId in memberIds
     }
 
+    /** The novel and scope read aloud is reached through: the [readerView] lending it a page, else its own. */
+    fun openedAs(readerView: Pair<Long, Boolean>?): Pair<Long, Boolean> =
+        readerView?.takeIf { (id, scoped) -> includes(id, scoped) } ?: (novelId to sourceScoped)
+
     /** Whether opening [novelId], in either scope, opens a novel speech is reading. */
     fun touches(novelId: Long): Boolean = novelId == this.novelId || novelId in memberIds
 }
@@ -106,7 +110,7 @@ data class ReadAloudSessionState(
     }
 }
 
-/** Speech moved on to [chapterId] of [series] by itself, which a reader of the series follows. */
+/** Speech is on [chapterId] of [series], wherever it got there from, which a reader of the series follows. */
 data class ReadAloudMove(val series: ReadAloudSeries, val chapterId: Long)
 
 /** Builds the voice, which a test fakes. */
@@ -160,9 +164,9 @@ class ReadAloudSession(
         field = MutableStateFlow(ReadAloudSessionState())
 
     /**
-     * The chapter speech is on, null while nothing is read aloud: set as it moves on by itself (while the
-     * next chapter loads, before a paragraph of it is spoken) and as it starts any chapter, so it is the one
-     * answer to where read aloud is.
+     * The chapter speech is on, null while nothing is read aloud: the reader's chapter as a session starts,
+     * then each chapter it moves on to (once that chapter has loaded, before a paragraph of it is spoken) and
+     * each it begins being read from, so it is the one answer to where read aloud is.
      */
     val moves: StateFlow<ReadAloudMove?>
         field = MutableStateFlow<ReadAloudMove?>(null)
@@ -188,10 +192,14 @@ class ReadAloudSession(
         order: NovelReadingOrder?,
         titles: Map<Long, String>,
         surface: ReadAloudSurface?,
+        startChapter: Long?,
     ) {
         running?.let { teardown(it) }
         running = Running(series, order).also { session ->
             session.titles.putAll(titles)
+            session.readerView = series.novelId to series.sourceScoped
+            // Where read aloud is until it speaks: a reopen before then follows to this chapter.
+            startChapter?.let { moves.value = ReadAloudMove(series, it) }
             surface?.let(session.controller::attach)
             state.value = ReadAloudSessionState(series)
         }
@@ -213,7 +221,12 @@ class ReadAloudSession(
 
     fun previousParagraph() = running?.controller?.previousParagraph()
 
-    fun attach(surface: ReadAloudSurface) = running?.controller?.attach(surface)
+    /** [view] is the lending reader's novel and scope, which the notification then reopens. */
+    fun attach(surface: ReadAloudSurface, view: Pair<Long, Boolean>) {
+        val session = running ?: return
+        session.readerView = view
+        session.controller.attach(surface)
+    }
 
     fun detach(surface: ReadAloudSurface) = running?.controller?.detach(surface)
 
@@ -288,6 +301,9 @@ class ReadAloudSession(
 
         /** Set once the session has stopped, which a write still waiting on the order then sees. */
         @Volatile var ended = false
+
+        /** The view of the reader lending speech its page, which the notification reopens the reader in. */
+        @Volatile var readerView: Pair<Long, Boolean>? = null
 
         /** The time heard of the chapter being spoken, written into History on every pause and chapter end. */
         val heard = ReadSessionClock()
@@ -551,9 +567,9 @@ class ReadAloudSession(
                     paragraph = paragraph,
                     paragraphCount = paragraphCount,
                     isAdult = isAdult,
-                    novelId = series.novelId,
+                    novelId = series.openedAs(readerView).first,
                     chapterId = chapterId,
-                    sourceScoped = series.sourceScoped,
+                    sourceScoped = series.openedAs(readerView).second,
                     stopReason = stopReason,
                 ),
             )
