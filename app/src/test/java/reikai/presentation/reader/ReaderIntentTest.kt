@@ -119,19 +119,25 @@ class ReaderIntentTest {
     /** Continue on one novel while another is read aloud asks for that novel's resume chapter. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("follows")
-    fun `a launch follows read aloud only into the series it reads`(entry: EntryId, follows: Boolean) {
-        followsReadAloud(true, entry, false, speaking) shouldBe follows
+    fun `a launch follows read aloud only into the series it reads`(
+        entry: EntryId,
+        sessionSourceScoped: Boolean,
+        follows: Boolean,
+    ) {
+        followsReadAloud(true, entry, speaking(sessionSourceScoped)) shouldBe follows
     }
 
     companion object {
-        private val speaking =
-            ReadAloudSessionState(ReadAloudSeries(novelId = 1L, memberIds = listOf(1L, 2L), sourceScoped = false))
+        private fun speaking(sourceScoped: Boolean) =
+            ReadAloudSessionState(ReadAloudSeries(novelId = 1L, memberIds = listOf(1L, 2L), sourceScoped))
 
         @JvmStatic
         fun follows() = listOf(
-            Arguments.of(EntryId.Novel(2L), true),
-            Arguments.of(EntryId.Novel(3L), false),
-            Arguments.of(EntryId.Manga(1L), false),
+            Arguments.of(EntryId.Novel(2L), false, true),
+            // In another view of the series, which the follow then takes on.
+            Arguments.of(EntryId.Novel(2L), true, true),
+            Arguments.of(EntryId.Novel(3L), false, false),
+            Arguments.of(EntryId.Manga(1L), false, false),
         )
     }
 }

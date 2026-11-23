@@ -51,6 +51,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.ChapterCopyMarkRepository
+import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
@@ -253,6 +254,10 @@ class NovelReaderViewModelHarness private constructor(
     /** Makes read aloud's reads of the reading order fail, as a database read that throws does. */
     @Volatile
     var failOrderReads = false
+
+    /** Holds the next read of the reading order read aloud makes until the gate completes; later reads pass. */
+    @Volatile
+    var orderGate: CompletableDeferred<Unit>? = null
 
     /** Stops every later disk probe of a chapter list at the returned gate, freezing that list's rebuild. */
     fun holdDiskProbes(): DiskProbeGate = DiskProbeGate().also { diskProbeGate = it }
@@ -556,8 +561,14 @@ class NovelReaderViewModelHarness private constructor(
                 novelRepo,
                 chapterRepo,
                 object : ChapterCopyMarkRepository by copyMarks {
-                    override suspend fun loadedMarks(type: ContentType) =
-                        if (failOrderReads) throw java.io.IOException("unreadable") else copyMarks.loadedMarks(type)
+                    override suspend fun loadedMarks(type: ContentType): Map<Long, Map<String, CopyMark>> {
+                        orderGate?.let { gate ->
+                            orderGate = null
+                            gate.await()
+                        }
+                        if (failOrderReads) throw java.io.IOException("unreadable")
+                        return copyMarks.loadedMarks(type)
+                    }
                 },
                 novelPreferences,
                 basePreferences,
@@ -612,9 +623,9 @@ class NovelReaderViewModelHarness private constructor(
         val context = mockk<Context>(relaxed = true)
         return NovelReaderViewModel(
             appScope = appScope,
-            novelId = novelId,
+            launchNovelId = novelId,
             initialChapterId = chapterId,
-            sourceScoped = sourceScoped,
+            launchSourceScoped = sourceScoped,
             savedState = savedState,
             followSession = followSession,
             readAloudSession = readAloudSession,

@@ -42,6 +42,7 @@ import reikai.domain.novel.tts.ReadAloudStop
 import reikai.domain.novel.tts.TtsPauseReason
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterIncognito
+import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.Listening
 import reikai.domain.reader.ReadAloudProgress
 import reikai.domain.reader.ReadSessionClock
@@ -92,6 +93,17 @@ data class ReadAloudSessionState(
     val msPerWord: Double? = null,
 ) {
     fun isOf(novelId: Long, sourceScoped: Boolean): Boolean = series?.includes(novelId, sourceScoped) == true
+
+    /**
+     * The novel and scope a launch of [novelId] in [sourceScoped] reads. One that [follows] read aloud into the
+     * series it reads takes read aloud's view of it, so the reader it opens is read aloud's by construction:
+     * a resume is a request for what is playing.
+     */
+    fun viewFor(novelId: Long, sourceScoped: Boolean, follows: Boolean): Pair<Long, Boolean> {
+        val series = series?.takeIf { follows && it.touches(novelId) && !it.includes(novelId, sourceScoped) }
+            ?: return novelId to sourceScoped
+        return if (series.sourceScoped) series.novelId to true else novelId to false
+    }
 }
 
 /** Speech moved on to [chapterId] of [series] by itself, which a reader of the series follows. */
@@ -261,6 +273,9 @@ class ReadAloudSession(
         val titles = ConcurrentHashMap<Long, String>()
 
         var pauseReason = TtsPauseReason.User
+
+        /** Set once the session has stopped, which a write still waiting on the order then sees. */
+        @Volatile var ended = false
 
         /** The time heard of the chapter being spoken, written into History on every pause and chapter end. */
         val heard = ReadSessionClock()
@@ -439,8 +454,14 @@ class ReadAloudSession(
                 return resolved.copiesToOpen?.idOf(after) ?: after
             }
 
-            override fun savePosition(chapterId: Long, share: Double) =
-                withOrder(chapterId) { progressSlot.reportSpoken(chapterId, share, it) }
+            // One that lands after the stop is written as a plain place: speech no longer holds it from a reader.
+            override fun savePosition(chapterId: Long, share: Double) = withOrder(chapterId) { context ->
+                if (ended) {
+                    progressSlot.persist(chapterId, ChapterProgress.Percent.of(share), context)
+                } else {
+                    progressSlot.reportSpoken(chapterId, share, context)
+                }
+            }
 
             override fun finishChapter(chapterId: Long) {
                 withOrder(chapterId) { progressSlot.finishSpoken(chapterId, it) }
@@ -543,6 +564,7 @@ class ReadAloudSession(
     private fun teardown(session: Running) {
         if (running !== session) return
         running = null
+        session.ended = true
         session.writeHeard()
         session.listening.next(playing = false, progress = null, nowMs = nowMs()).listened?.let { (chapterId, ms) ->
             appScope.launch {

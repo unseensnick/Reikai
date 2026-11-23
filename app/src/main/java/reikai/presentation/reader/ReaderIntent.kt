@@ -67,15 +67,14 @@ internal fun isSameLaunch(
     (requestedChapter == NO_ID || requestedChapter == openChapter || requestedFollows)
 
 /**
- * Whether a launch [following] read aloud into [entry], in [sourceScoped], follows what [session] reads: a
- * Continue on one novel while another is spoken asks for its own resume chapter.
+ * Whether a launch [following] read aloud into [entry] follows what [session] reads, in whichever view it
+ * reads it: a Continue on one novel while another is spoken asks for its own resume chapter.
  */
 internal fun followsReadAloud(
     following: Boolean,
     entry: EntryId,
-    sourceScoped: Boolean,
     session: ReadAloudSessionState,
-): Boolean = following && entry is EntryId.Novel && session.isOf(entry.rawId, sourceScoped)
+): Boolean = following && entry is EntryId.Novel && session.series?.touches(entry.rawId) == true
 
 /** The reader on [chapterId] as a resume opens it (Continue, Stats, the details Resume), following read aloud
  *  while it is going; the reader keeps to [chapterId] when read aloud reads another series. */

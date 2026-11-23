@@ -292,9 +292,9 @@ class ReaderActivity : BaseActivity() {
                 graph.viewModelFactory
                     .createManuallyAssistedFactory(NovelReaderViewModel.Factory::class)()
                     .create(
-                        novelId = intent.entryId()?.rawId ?: -1L,
+                        launchNovelId = intent.entryId()?.rawId ?: -1L,
                         initialChapterId = intent.getLongExtra("chapter", -1L),
-                        sourceScoped = intent.getBooleanExtra("source_scoped", false),
+                        launchSourceScoped = intent.getBooleanExtra("source_scoped", false),
                         // The model's own, as ReaderViewModel takes one off the graph's extras: a
                         // process kill must reopen the chapter being read, not the launch chapter.
                         savedState = createSavedStateHandle(),
@@ -860,7 +860,6 @@ class ReaderActivity : BaseActivity() {
             followsReadAloud(
                 intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false),
                 requested,
-                intent.getBooleanExtra("source_scoped", false),
                 graph.readAloudSession.state.value,
             ),
         )

@@ -54,6 +54,9 @@ class ReadAloudSessionTest {
         }
     }
 
+    /** The second novel of the last merged series [reading] built. */
+    private var member: Long = -1L
+
     private class Reading(
         val model: NovelReaderViewModel,
         val surface: HarnessSurface,
@@ -74,6 +77,8 @@ class ReadAloudSessionTest {
         startAt: Int = 0,
         /** Read as one series with a second novel of its own source. */
         merged: Boolean = false,
+        /** The scope the reader that starts read aloud was opened in. */
+        sourceScoped: Boolean = false,
     ): Reading {
         val source = harness.source("src")
         if (privateSource) harness.incognito(source)
@@ -84,8 +89,9 @@ class ReadAloudSessionTest {
             val other = harness.novel(harness.source("other"), title = "Other")
             harness.chapter(other, 1.0)
             harness.merge(novel, other)
+            member = other
         }
-        val model = harness.open(novel, chapters[0].id, savedState = savedState)
+        val model = harness.open(novel, chapters[0].id, sourceScoped = sourceScoped, savedState = savedState)
         advanceUntilIdle()
         val surface = HarnessSurface(
             chapters = mutableMapOf(chapters[0].id to paragraphs),
@@ -608,7 +614,120 @@ class ReadAloudSessionTest {
             harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
         }
 
+    /** What a reader opened while read aloud plays ends up doing. */
+    enum class Outcome { Joins, Stops, Untouched }
+
+    /** Which novel and chapter a launch names: the one read aloud speaks, another of it, its merge partner's, another novel. */
+    enum class Target { Spoken, OtherChapter, Member, OtherNovel }
+
+    /**
+     * Every way a reader can open while read aloud plays, each reachable: a follow is the notification (the
+     * session's own view), Continue, History or Stats (group) and the details Resume on a source chip
+     * (source); an explicit open is a chapter tap on the All chip (group) or a source chip, an Updates row,
+     * a new-chapter notification (source). Member rows need a merged series; the rest are run both ways.
+     */
+    @ParameterizedTest(name = "{0} {1}: session source {2}, opened source {3}, merged {4}")
+    @MethodSource("openings")
+    fun `a reader opened while read aloud plays joins it, stops it or leaves it`(
+        follow: Boolean,
+        target: Target,
+        sessionSourceScoped: Boolean,
+        openedSourceScoped: Boolean,
+        merged: Boolean,
+        expected: Outcome,
+    ) = sessionTest { harness ->
+        val reading = reading(harness, merged = merged, sourceScoped = sessionSourceScoped)
+        closeReader(harness, reading)
+        val (novel, chapter) = when (target) {
+            Target.Spoken -> reading.novel to reading.chapters[0].id
+            Target.OtherChapter -> reading.novel to reading.chapters[2].id
+            Target.Member -> member to harness.chapter(member, 2.0).id
+            Target.OtherNovel -> harness.novel(harness.source("elsewhere"), title = "Elsewhere").let { other ->
+                other to harness.chapter(other, 1.0).id
+            }
+        }
+
+        val opened = harness.open(novel, chapter, sourceScoped = openedSourceScoped, followSession = follow)
+        advanceUntilIdle()
+
+        val session = harness.readAloudSession.state.value
+        val outcome = when {
+            session.speech.playback == TtsPlayback.Stopped -> Outcome.Stops
+            opened.readAloud.owns() && opened.chapter.value?.chapterId == reading.chapters[0].id -> Outcome.Joins
+            else -> Outcome.Untouched
+        }
+        outcome shouldBe expected
+    }
+
+    /** A place that waited for the order lands after read aloud stopped, when it is no longer speech's to hold. */
+    @Test
+    fun `a place written after read aloud stopped does not hold the reader's landing back`() = sessionTest { harness ->
+        val gate = CompletableDeferred<Unit>()
+        harness.orderGate = gate
+        val chapters = startedWithoutOrder(harness)
+
+        harness.readAloudSession.stop()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        harness.progressSlot.isSpokenHeld(chapters[0].id) shouldBe false
+    }
+
+    /** The order arrives for one write while an older one still waits on it, which must land first. */
+    @Test
+    fun `a newer place is not overwritten by an older one that waited for the order`() = sessionTest { harness ->
+        val gate = CompletableDeferred<Unit>()
+        harness.orderGate = gate
+        val chapters = startedWithoutOrder(harness)
+
+        finishParagraph(harness)
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        harness.progressOf(chapters[0]) shouldBe 5_000L
+    }
+
     companion object {
+        /** A follow takes the session's view; an explicit open joins only in that view on the spoken chapter. */
+        @JvmStatic
+        fun openings(): List<Arguments> {
+            val rows = mutableListOf<Arguments>()
+            for (follow in listOf(true, false)) {
+                for (session in listOf(false, true)) {
+                    for (opened in listOf(false, true)) {
+                        for (merged in listOf(false, true)) {
+                            val sameView = !merged || session == opened
+                            for (target in listOf(Target.Spoken, Target.OtherChapter)) {
+                                val joins = follow || (sameView && target == Target.Spoken)
+                                rows +=
+                                    Arguments.of(
+                                        follow,
+                                        target,
+                                        session,
+                                        opened,
+                                        merged,
+                                        if (joins) Outcome.Joins else Outcome.Stops,
+                                    )
+                            }
+                            if (merged) {
+                                rows +=
+                                    Arguments.of(
+                                        follow,
+                                        Target.Member,
+                                        session,
+                                        opened,
+                                        true,
+                                        if (follow) Outcome.Joins else Outcome.Stops,
+                                    )
+                            }
+                        }
+                        rows += Arguments.of(follow, Target.OtherNovel, session, opened, false, Outcome.Untouched)
+                    }
+                }
+            }
+            return rows
+        }
+
         @JvmStatic
         fun pausesLeftAlone() = listOf(
             Arguments.of(TtsPauseReason.User, TtsPlayback.Stopped),

@@ -142,10 +142,10 @@ import kotlin.time.Instant
  */
 @AssistedInject
 class NovelReaderViewModel(
-    @Assisted val novelId: Long,
+    @Assisted private val launchNovelId: Long,
     @Assisted val initialChapterId: Long,
-    /** Source scope walks only [novelId]'s own chapters; group scope aggregates the merge group. */
-    @Assisted val sourceScoped: Boolean,
+    @Assisted private val launchSourceScoped: Boolean,
+
     /** The host's, so the chapter being read survives a process kill. Assisted like the ids above,
      *  since this model is built through the manual factory rather than off the graph's extras. */
     @Assisted private val savedState: SavedStateHandle,
@@ -190,14 +190,22 @@ class NovelReaderViewModel(
     @ContributesIntoMap(AppScope::class)
     interface Factory : ManualViewModelAssistedFactory {
         fun create(
-            novelId: Long,
+            launchNovelId: Long,
             initialChapterId: Long,
-            sourceScoped: Boolean,
+            launchSourceScoped: Boolean,
             savedState: SavedStateHandle,
             followSession: Boolean,
             io: CoroutineDispatcher,
         ): NovelReaderViewModel
     }
+
+    /** The novel and scope this reader reads: the launch's, or read aloud's view of the series it follows. */
+    private val view = readAloudSession.state.value.viewFor(launchNovelId, launchSourceScoped, followSession)
+
+    val novelId: Long = view.first
+
+    /** Source scope walks only [novelId]'s own chapters; group scope aggregates the merge group. */
+    val sourceScoped: Boolean = view.second
 
     // Shadow the shared launchIO, which hard-codes Dispatchers.IO: members win over imported extensions,
     // so every launch below runs on [io].
