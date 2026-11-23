@@ -140,13 +140,17 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
                         chapterToOpen(chapterId, it.chapters, it.resumeChapter, NovelChapter::id)
                     }?.let { ch ->
                         val sourceScoped = live.selectedSourceNovelId != null
-                        // The resume chapter is the Resume button's, which follows read aloud as Continue does.
-                        val intent = if (ch.id == live.resumeChapter?.id) {
-                            novelResumeIntent(context, ch.novelId, ch.id, sourceScoped)
-                        } else {
-                            ReaderActivity.newNovelIntent(context, ch.novelId, ch.id, sourceScoped)
-                        }
-                        context.startActivity(intent)
+                        context.startActivity(ReaderActivity.newNovelIntent(context, ch.novelId, ch.id, sourceScoped))
+                    }
+                },
+                // Resume follows read aloud as Continue does; a tap on the same chapter is an open of it.
+                onResume = { chapterId ->
+                    val live = viewModel.state.value as? NovelDetailsState.Loaded
+                    live?.let {
+                        chapterToOpen(chapterId, it.chapters, it.resumeChapter, NovelChapter::id)
+                    }?.let { ch ->
+                        val sourceScoped = live.selectedSourceNovelId != null
+                        context.startActivity(novelResumeIntent(context, ch.novelId, ch.id, sourceScoped))
                     }
                 },
                 // Not browsable for an uninstalled plugin, whose catalogue would open on nothing;

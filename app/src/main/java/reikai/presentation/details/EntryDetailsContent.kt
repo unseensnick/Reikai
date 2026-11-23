@@ -87,6 +87,9 @@ private const val HIDDEN_CHAPTER_ALPHA = 0.4f
 data class EntryDetailsNavigation(
     val navigateUp: () -> Unit,
     val onOpenChapter: (chapterId: Long) -> Unit,
+    /** The Start/Resume button, where resuming opens differently from tapping that chapter (a novel's follows
+     *  read aloud); null opens the chapter as a tap does. */
+    val onResume: ((chapterId: Long) -> Unit)? = null,
     val viewedSource: DetailsViewedSource,
     val onOpenFilterSettings: () -> Unit,
     /** Smart update's interval editor; the body drops it outside the library ([forState]), and null
@@ -498,7 +501,7 @@ private fun EntryDetailsSmallContent(
         onCancelSelection = behavior::clearSelection,
         fabVisible = state.resumeChapterId != null && !state.selectionMode,
         fabIsResume = state.hasStarted,
-        onFabClick = { state.resumeChapterId?.let(nav.perType.onOpenChapter) },
+        onFabClick = { state.resumeChapterId?.let(nav.perType.onResume ?: nav.perType.onOpenChapter) },
         fabSide = chrome.readButtonSide,
         onFabDocked = chrome.onReadButtonDocked,
         topBar = { titleAlpha, backgroundAlpha ->
@@ -552,7 +555,7 @@ private fun EntryDetailsLargeContent(
         onCancelSelection = behavior::clearSelection,
         fabVisible = state.resumeChapterId != null && !state.selectionMode,
         fabIsResume = state.hasStarted,
-        onFabClick = { state.resumeChapterId?.let(nav.perType.onOpenChapter) },
+        onFabClick = { state.resumeChapterId?.let(nav.perType.onResume ?: nav.perType.onOpenChapter) },
         fabSide = chrome.readButtonSide,
         onFabDocked = chrome.onReadButtonDocked,
         topBar = { modifier ->

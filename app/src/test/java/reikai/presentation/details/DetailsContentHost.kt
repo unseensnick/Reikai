@@ -46,6 +46,12 @@ internal class DetailsContentHost(
     private val snackbarHostState: SnackbarHostState = SnackbarHostState(),
     // Built with the host rather than the composition, as a screen keeps it with its model.
     private val volumeMoves: VolumeMoves = VolumeMoves(CoroutineScope(Dispatchers.Unconfined), snackbarHostState),
+    private val nav: EntryDetailsNavigation = EntryDetailsNavigation(
+        navigateUp = {},
+        onOpenChapter = {},
+        viewedSource = DetailsViewedSource(SourceKey.Manga(1L), browsable = true),
+        onOpenFilterSettings = {},
+    ),
 ) {
     @Composable
     fun Content() {
@@ -58,12 +64,7 @@ internal class DetailsContentHost(
             isTabletUi = false,
             chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Disabled,
             chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Disabled,
-            nav = EntryDetailsNavigation(
-                navigateUp = {},
-                onOpenChapter = {},
-                viewedSource = DetailsViewedSource(SourceKey.Manga(1L), browsable = true),
-                onOpenFilterSettings = {},
-            ),
+            nav = nav,
             settings = DetailsSettings(
                 UiPreferences(store),
                 ReikaiLibraryPreferences(store),
