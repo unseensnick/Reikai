@@ -483,6 +483,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Finishing a chapter now updates each tracker once, even when you reach the last page twice before the first update lands (from Mihon).** Upstream: mihonapp/mihon#4306.
 - **Refreshing trackers while a chapter's progress is being sent no longer puts the older progress back in the tracker sheet.**
 - **Setting the first chapter read by hand in the tracker sheet now fills in the start date (from Mihon).** Upstream: mihonapp/mihon#3930.
+- **Kavita tracking no longer fails on a series with a fractional rating (from Mihon).** Upstream: mihonapp/mihon#4200.
 
 ### Other
 
