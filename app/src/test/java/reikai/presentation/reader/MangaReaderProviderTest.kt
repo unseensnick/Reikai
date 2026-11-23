@@ -14,7 +14,6 @@ import io.kotest.matchers.shouldNotBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,12 +23,15 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
@@ -37,6 +39,15 @@ import kotlin.time.Duration.Companion.seconds
 
 /** How manga reports a chapter it could not open, and whether the reader can stay open after it. */
 class MangaReaderProviderTest {
+
+    // The chapter rows are built on IO, which this puts on the test scheduler beside Main.
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers()
+    }
+
+    @AfterEach
+    fun tearDown() = resetVirtualDispatchers()
 
     private val failed = Chapter.create().copy(id = 5L)
 
@@ -171,13 +182,10 @@ class MangaReaderProviderTest {
             every { downloadTargets } returns DownloadTargets.OWN
         }
         val rows = provider(ReaderViewModel.State(), viewModel, downloadManager).chapterList.rows
-        // The rows are built on the IO dispatcher, so they are awaited in real time, bounded.
-        val failedRow = backgroundScope.async(Dispatchers.Default) {
+        val failedRow = backgroundScope.async {
             withTimeoutOrNull(WAIT) { rows.first { it.single().downloadState == Download.State.ERROR } }
         }
-        withContext(Dispatchers.Default) {
-            withTimeoutOrNull(WAIT) { statusChanges.subscriptionCount.first { it > 0 } }
-        }
+        withTimeoutOrNull(WAIT) { statusChanges.subscriptionCount.first { it > 0 } }
 
         download.status = Download.State.ERROR
         statusChanges.emit(download)
