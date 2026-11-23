@@ -427,6 +427,7 @@ class ChapterRecognitionTest {
             listOf(ChapterNumbering("1", "7"), ChapterNumbering(null, "2"))
     }
 
+    // RK: mihonapp/mihon#4107 (open upstream), ported ahead with its fix
     @Test
     fun `Name holding a number sign is read on its own`() {
         // A literal # was read as a number, so these were grouped and read past the last name's numbers
