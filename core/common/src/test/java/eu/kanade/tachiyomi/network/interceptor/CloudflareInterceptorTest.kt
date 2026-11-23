@@ -38,7 +38,8 @@ import kotlin.concurrent.thread
 
 /**
  * [CloudflareInterceptor.intercept] driven through the real method, with the WebView half faked
- * by name, since it needs a device: the per-host lock, and the page a failed solve offers to open.
+ * by name, since it needs a device: the per-host lock, and the page a failed solve offers to open. Real
+ * threads stay: the interceptor is synchronous and its per-host lock blocks, which no virtual clock reaches.
  */
 class CloudflareInterceptorTest {
 

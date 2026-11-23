@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
+// Real threads on purpose: the driver's lock is a blocking monitor, which one virtual-time thread cannot contend.
 class SerialSqliteDriverTest {
 
     // sqlite-jdbc follows a query that finds nothing with a commit of its own, which fails while another

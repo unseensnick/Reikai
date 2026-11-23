@@ -100,6 +100,7 @@ class MangaDexAuthInterceptorTest {
         savedLoginAfter { response(it, code) } shouldBe ""
     }
 
+    // Real threads: the refresh is serialized by a blocking monitor in a synchronous interceptor.
     @Test
     @DisplayName("a request that waited on a refresh sends the token that refresh fetched")
     fun waitingRequestTakesFetchedToken() {
