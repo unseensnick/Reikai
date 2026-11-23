@@ -483,6 +483,9 @@
     <string name="channel_mangadex_sync">MangaDex sync</string>
     <!-- RK: novel read-aloud notification and sleep timer -->
     <string name="tts_reading_aloud">Reading aloud</string>
+    <string name="tts_stopped_load_failed">Stopped: the next chapter would not load</string>
+    <string name="tts_stopped_load_timed_out">Stopped: the next chapter took too long to load</string>
+    <string name="tts_stopped_voice_silent">Stopped: the voice is not speaking</string>
     <string name="tts_novel_read_aloud">Novel read aloud</string>
     <string name="tts_stop">Stop</string>
     <string name="tts_play">Play</string>

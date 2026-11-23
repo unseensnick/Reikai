@@ -1,6 +1,7 @@
 package reikai.data.novel.tts
 
 import android.annotation.SuppressLint
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
@@ -10,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -29,6 +31,7 @@ import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,13 +44,16 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.data.notification.shownEntryName
+import reikai.domain.novel.tts.ReadAloudStop
 import reikai.domain.novel.tts.TtsPauseReason
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.util.notificationIcon
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
@@ -113,9 +119,23 @@ class NovelTtsService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
         // Every start may be a startForegroundService, which must reach startForeground even when it
-        // is about to stop again.
-        startForeground(Notifications.ID_NOVEL_TTS, buildNotification(NovelTtsSession.state.value))
+        // is about to stop again. The system can refuse one from the background, which pauses speech
+        // rather than crashing; the session's paused stop ends it if nobody comes back to it.
+        try {
+            startForeground(Notifications.ID_NOVEL_TTS, buildNotification(NovelTtsSession.state.value))
+        } catch (e: IllegalStateException) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                e !is ForegroundServiceStartNotAllowedException
+            ) {
+                throw e
+            }
+            logcat(LogPriority.WARN, e) { "Read aloud could not come to the foreground" }
+            NovelTtsSession.onPause(TtsPauseReason.Refused)
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         foreground = true
+        running = true
         // Nothing to read: a media button after playback ended, or a play that failed before this ran.
         // The session's callbacks may still reach a reader, and a button must not start it again.
         if (NovelTtsSession.state.value.playback == TtsPlayback.Stopped) {
@@ -181,6 +201,7 @@ class NovelTtsService : Service() {
         if (state.playback == TtsPlayback.Stopped) {
             // Before the first start command there is nothing to stop yet; that command stops instead.
             if (foreground) stopForegroundAndSelf()
+            state.stopReason?.let { showStopped(state, it) }
             return
         }
         updateMediaSession(state)
@@ -268,6 +289,7 @@ class NovelTtsService : Service() {
     private fun stopForegroundAndSelf() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         foreground = false
+        running = false
         // By id, so a start that arrived since is not stopped along with this one.
         stopSelf(lastStartId)
     }
@@ -343,7 +365,54 @@ class NovelTtsService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(playing)
             .setSilent(true)
+            .setContentIntent(openReader(state))
+            // Swiping it away, where the system allows that, is stopping read aloud.
+            .setDeleteIntent(
+                PendingIntent.getBroadcast(
+                    this,
+                    DISMISS_REQUEST,
+                    Intent(this, ReadAloudDismissReceiver::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
             .build()
+    }
+
+    /**
+     * The reader on the chapter being spoken, following read aloud rather than opening a chapter of its
+     * own. One request code, so each build replaces the last one's chapter.
+     */
+    private fun openReader(state: NovelTtsSession.State): PendingIntent? {
+        val novelId = state.novelId ?: return null
+        val chapterId = state.chapterId ?: return null
+        val intent = ReaderActivity.newNovelIntent(this, novelId, chapterId, state.sourceScoped, followSession = true)
+        return PendingIntent.getActivity(
+            this,
+            OPEN_READER_REQUEST,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    /** Why speech stopped by itself, left up for a few seconds once the media notification has gone. */
+    @SuppressLint("MissingPermission")
+    private fun showStopped(state: NovelTtsSession.State, reason: ReadAloudStop) {
+        val text = when (reason) {
+            ReadAloudStop.LoadFailed -> MR.strings.tts_stopped_load_failed
+            ReadAloudStop.LoadTimedOut -> MR.strings.tts_stopped_load_timed_out
+            ReadAloudStop.EngineSilent -> MR.strings.tts_stopped_voice_silent
+        }
+        val notice = NotificationCompat.Builder(this, Notifications.CHANNEL_NOVEL_TTS)
+            .setSmallIcon(notificationIcon)
+            .setContentTitle(contentTitle(state))
+            .setContentText(stringResource(text))
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSilent(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(STOPPED_NOTICE_MS)
+            .build()
+        // Without notification permission there is nowhere to say it, and nothing else to do.
+        runCatching { NotificationManagerCompat.from(this).notify(Notifications.ID_NOVEL_TTS, notice) }
     }
 
     /** The notification's and the lock screen's title, which name the novel only while content is shown. */
@@ -380,6 +449,7 @@ class NovelTtsService : Service() {
     }
 
     override fun onDestroy() {
+        running = false
         setNoisyReceiver(false)
         mediaButtonClaim.release()
         AudioManagerCompat.abandonAudioFocusRequest(audioManager, focusRequest)
@@ -395,8 +465,16 @@ class NovelTtsService : Service() {
         private const val ACTION_STOP = "reikai.tts.STOP"
         private const val ACTION_NEXT = "reikai.tts.NEXT"
         private const val ACTION_PREVIOUS = "reikai.tts.PREVIOUS"
+        private const val OPEN_READER_REQUEST = 1
+        private const val DISMISS_REQUEST = 2
+        private const val STOPPED_NOTICE_MS = 8_000L
+
+        /** Set once the service is in the foreground, so a second play does not start it again. */
+        @Volatile
+        private var running = false
 
         fun start(context: Context) {
+            if (running) return
             ContextCompat.startForegroundService(context, Intent(context, NovelTtsService::class.java))
         }
     }

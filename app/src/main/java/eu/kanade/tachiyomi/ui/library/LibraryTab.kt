@@ -70,6 +70,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import mihon.icons.materialsymbols.roundedfilled.VisibilityOff // RK
 import reikai.data.local.LocalMoveResult // RK
+import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -394,7 +395,11 @@ fun LibraryTab() {
             val resume = novelModel.getResume(item.manga.id)
             if (resume != null) {
                 withUIContext {
-                    context.startActivity(ReaderActivity.newNovelIntent(context, resume.novelId, resume.id))
+                    // Read aloud playing is where the reader is, so Continue opens on what it speaks.
+                    val follow = NovelTtsSession.isActive()
+                    context.startActivity(
+                        ReaderActivity.newNovelIntent(context, resume.novelId, resume.id, followSession = follow),
+                    )
                 }
             } else {
                 snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))

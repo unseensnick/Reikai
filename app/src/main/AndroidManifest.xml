@@ -844,6 +844,11 @@
             </intent-filter>
         </service>
 
+        <!-- RK: the read aloud notification swiped away, which stops read aloud -->
+        <receiver
+            android:name="reikai.data.novel.tts.ReadAloudDismissReceiver"
+            android:exported="false" />
+
         <!-- RK: hands headset and Bluetooth media buttons to NovelTtsService. Exported because the
              system delivers MEDIA_BUTTON from outside the app; it only forwards to that service. -->
         <receiver

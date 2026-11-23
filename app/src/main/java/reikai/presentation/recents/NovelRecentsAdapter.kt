@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
@@ -293,6 +294,8 @@ class NovelRecentsAdapter(
         item.entryId.rawId,
         chapter.chapterId,
         sourceScoped = item.lane.sourceScoped,
+        // A History row of the series read aloud is reading opens where it speaks.
+        followSession = NovelTtsSession.isActive(),
     )
 
     override fun rowUi(item: RecentsItem): RecentsRowUi = novelRowUi(item)

@@ -4,9 +4,15 @@ import reikai.domain.readinglog.PaceUnit
 
 /**
  * Where read-aloud is in the chapter it speaks: the words before [paragraph], the one being spoken, of
- * [words]. It moves a paragraph at a time, since the voice reports nothing finer.
+ * [words], of [paragraphs] in all. It moves a paragraph at a time, since the voice reports nothing finer.
  */
-data class ReadAloudProgress(val chapterId: Long, val paragraph: Int, val wordsSpoken: Long, val words: Long)
+data class ReadAloudProgress(
+    val chapterId: Long,
+    val paragraph: Int,
+    val wordsSpoken: Long,
+    val words: Long,
+    val paragraphs: Int = 0,
+)
 
 /** One moment of read-aloud: the chapter, when, the paragraph being spoken and the words before it. */
 data class ListeningMark(val chapterId: Long, val atMs: Long, val paragraph: Int, val words: Long)

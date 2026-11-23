@@ -6,10 +6,13 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -29,6 +32,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.UpsertNovelHistory
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.text.NovelWords
 import reikai.domain.novel.tts.NovelTtsEngine
@@ -37,6 +41,7 @@ import reikai.domain.novel.tts.TtsPauseReason
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.Listening
+import reikai.domain.reader.ReadAloudProgress
 import reikai.domain.reader.ReadSessionClock
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.ReadingPaceRepository
@@ -53,6 +58,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
 
 /**
@@ -185,10 +191,13 @@ class ReadAloudSession(
 
     fun unregister(reader: ReadAloudLink) {
         readers.remove(reader)
+        running?.holdPausedStop()
     }
 
     fun setOnScreen(reader: ReadAloudLink, onScreen: Boolean) {
         if (readers.containsKey(reader)) readers[reader] = onScreen
+        // The paused stop waits only while nobody is looking, so a reader coming or going decides it again.
+        running?.holdPausedStop()
     }
 
     private fun readerOf(series: ReadAloudSeries, onScreen: Boolean): Boolean =
@@ -230,18 +239,26 @@ class ReadAloudSession(
         var heardChapter: Long? = null
         var listening = Listening()
 
+        private val navigation = Navigation()
+
+        /** The next chapter's text, fetched while the end of this one is spoken, by the chapter it is for. */
+        private var prefetch: Pair<Long, Deferred<Pair<String, String?>>>? = null
+
+        /** Stops a session left paused with no reader of it on screen, see [PAUSED_STOP]. */
+        private var pausedStop: Job? = null
+
         val controller = ReadAloudController(
             scope = scope,
             preferences = novelPreferences,
             createEngine = engines::create,
-            navigation = Navigation(),
+            navigation = navigation,
             transport = Transport(),
             onStopped = { teardown(this) },
         )
 
         init {
             controller.state.onEach(::record).launchIn(scope)
-            scope.launch {
+            scope.launch(Dispatchers.IO) {
                 val owner = getNextNovelChapter.viewerFlags(series.novelId).ownerId
                 val novel = novelRepo.getById(series.novelId)
                 val ownerRow = if (owner == series.novelId) novel else novelRepo.getById(owner)
@@ -270,7 +287,54 @@ class ReadAloudSession(
             } else if (!playing) {
                 writeHeard()
             }
+            holdPausedStop(speech.playback)
+            if (playing) speech.progress?.let(::prefetchNear)
             if (running === this) state.value = ReadAloudSessionState(series, speech, listening.msPerWord)
+        }
+
+        /**
+         * A session paused for [PAUSED_STOP] with no reader of its series on screen stops, so a notification
+         * nobody comes back to does not hold the app alive. A call or a navigation prompt gives focus back
+         * by itself, so the pause it made is not counted.
+         */
+        fun holdPausedStop(playback: TtsPlayback = controller.state.value.playback) {
+            val counts = playback == TtsPlayback.Paused && pauseReason != TtsPauseReason.TransientFocusLoss
+            if (!counts || readerOf(series, onScreen = true)) {
+                pausedStop?.cancel()
+                pausedStop = null
+                return
+            }
+            if (pausedStop != null) return
+            pausedStop = scope.launch {
+                delay(PAUSED_STOP)
+                controller.stop()
+            }
+        }
+
+        /** Fetches the next chapter while the last paragraphs of [at]'s are spoken, so it is waiting when they end. */
+        private fun prefetchNear(at: ReadAloudProgress) {
+            if (at.paragraph < at.paragraphs - PREFETCH_PARAGRAPHS) return
+            if (prefetch?.first == at.chapterId) return
+            prefetch = at.chapterId to scope.async {
+                val next = navigation.chapterAfter(at.chapterId) ?: error("No chapter after ${at.chapterId}")
+                withContext(Dispatchers.IO) {
+                    val row = chapterRepo.getById(next) ?: error("Chapter not found: $next")
+                    textLoader.load(row)
+                }.also { prefetched = next }
+            }
+        }
+
+        /** The chapter [prefetch] fetched, once it has. */
+        @Volatile private var prefetched: Long? = null
+
+        /** [chapterId]'s text, taken from the prefetch when that fetched it, else read now. */
+        suspend fun textOf(chapterId: Long, row: NovelChapter): Pair<String, String?> {
+            val fetched = prefetch?.second?.takeIf { prefetched == chapterId || !it.isCompleted }
+            if (fetched != null) {
+                val text = runCatching { fetched.await() }.getOrNull()
+                if (text != null && prefetched == chapterId) return text
+            }
+            return textLoader.load(row)
         }
 
         /** History and the reading log for the time heard since the last write, kept through a process kill. */
@@ -298,7 +362,9 @@ class ReadAloudSession(
 
             override suspend fun chapterAfter(chapterId: Long): Long? {
                 // Read again at every chapter end, so a chapter marked, hidden or downloaded since counts.
-                val resolved = orderResolver.resolve(series.novelId, chapterId, series.sourceScoped)
+                val resolved = withContext(Dispatchers.IO) {
+                    orderResolver.resolve(series.novelId, chapterId, series.sourceScoped)
+                }
                 order = resolved
                 val after = resolved.chapterAfter(resolved.currentId) ?: return null
                 return resolved.copiesToOpen?.idOf(after) ?: after
@@ -316,7 +382,7 @@ class ReadAloudSession(
                 val row = chapterRepo.getById(chapterId) ?: error("Chapter not found: $chapterId")
                 titles[chapterId] = row.name
                 val (html, baseUrl) = try {
-                    textLoader.load(row)
+                    textOf(chapterId, row)
                 } catch (e: EmptyChapterException) {
                     throw Exception(context.stringResource(MR.strings.novel_chapter_empty), e)
                 }
@@ -396,6 +462,14 @@ class ReadAloudSession(
      * Ends [session]: the time heard and the listening credit written, its held place written and given
      * back to the reader, the deletes its finishes queued drained when no reader of the series is left to.
      */
+    private companion object {
+        /** How long a paused session waits for someone to come back to it. */
+        val PAUSED_STOP = 30.minutes
+
+        /** How near a chapter's end, in paragraphs, the next chapter is fetched. */
+        const val PREFETCH_PARAGRAPHS = 3
+    }
+
     private fun teardown(session: Running) {
         if (running !== session) return
         running = null

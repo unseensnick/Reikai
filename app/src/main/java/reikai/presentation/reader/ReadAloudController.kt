@@ -585,7 +585,7 @@ class ReadAloudController(
     private fun publish(stopReason: ReadAloudStop? = null) {
         val progress = position?.let { at ->
             val paragraph = at.paragraph.coerceIn(0, paragraphs.size)
-            ReadAloudProgress(at.chapterId, paragraph, wordsBefore[paragraph], wordsBefore.last())
+            ReadAloudProgress(at.chapterId, paragraph, wordsBefore[paragraph], wordsBefore.last(), paragraphs.size)
         }
         state.value = ReadAloudState(playback, progress)
         val title = chapterId?.let(navigation::titleOf).orEmpty()

@@ -150,6 +150,7 @@ import reikai.presentation.reader.setAsCoverMessage
 import reikai.presentation.reader.settings.ReaderSettingsPages
 import reikai.presentation.reader.settings.ReaderSettingsSheet
 import reikai.presentation.reader.text.hasTravelled
+import reikai.util.MainActivityTarget
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -840,6 +841,8 @@ class ReaderActivity : BaseActivity() {
     // instead of building a new instance. Without this the new intent was dropped and the reader
     // stayed on whatever it was already showing, which a second content type makes far likelier to
     // hit. Restarting is the honest answer: the entry a session is for is read once, at construction.
+    private var restartingForLaunch = false
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val requested = intent.entryId() ?: return
@@ -856,6 +859,7 @@ class ReaderActivity : BaseActivity() {
         )
         if (sameLaunch) return
         setIntent(intent)
+        restartingForLaunch = true
         finish()
         startActivity(intent)
     }
@@ -917,6 +921,10 @@ class ReaderActivity : BaseActivity() {
     override fun finish() {
         // RK: the session runs its own deferred deletions; a rejected launch built no session to ask.
         if (!launchRejected) engine.provider.onActivityFinish()
+        // RK --> a reader opened on its own task (the read aloud notification) leaves to the library,
+        // not out of the app; a restart for a new launch is no leaving.
+        if (isTaskRoot && !restartingForLaunch) startActivity(Intent(this, MainActivityTarget::class.java))
+        // RK <--
         super.finish()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(

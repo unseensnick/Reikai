@@ -68,6 +68,9 @@ enum class TtsPauseReason {
 
     /** The sleep timer ran out. */
     SleepTimer,
+
+    /** The system would not let read aloud play from the background. */
+    Refused,
 }
 
 /** An installed TTS engine: [packageName] feeds the backend constructor, [label] is user-facing. */

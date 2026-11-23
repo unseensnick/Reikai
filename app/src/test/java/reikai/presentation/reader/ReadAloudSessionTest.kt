@@ -14,6 +14,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.tts.TtsPauseReason
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterProgress
@@ -365,5 +368,71 @@ class ReadAloudSessionTest {
         advanceUntilIdle()
 
         rejoined.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(50)
+    }
+
+    /** Half an hour paused with nobody back on it, except a pause a call made, which resumes by itself. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("pausesLeftAlone")
+    fun `a session left paused with no reader on screen stops after half an hour`(
+        reason: TtsPauseReason,
+        after: TtsPlayback,
+    ) = sessionTest { harness ->
+        val reading = reading(harness)
+        closeReader(harness, reading)
+        harness.notification.onPause(reason)
+        runCurrent()
+
+        advanceTimeBy(31.minutes)
+        runCurrent()
+
+        harness.readAloudSession.state.value.speech.playback shouldBe after
+    }
+
+    @Test
+    fun `a paused session with its reader on screen does not stop`() = sessionTest { harness ->
+        val reading = reading(harness)
+        reading.model.readAloud.pause()
+        runCurrent()
+
+        advanceTimeBy(31.minutes)
+        runCurrent()
+
+        harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Paused
+    }
+
+    @Test
+    fun `the next chapter's text is fetched while the last paragraphs of this one are spoken`() =
+        sessionTest { harness ->
+            val reading = reading(harness)
+            closeReader(harness, reading)
+
+            repeat(2) { finishParagraph(harness) }
+
+            reading.source.chaptersAsked.contains(reading.chapters[2].url) shouldBe true
+        }
+
+    @Test
+    fun `a paused session stops half an hour after its reader leaves the screen`() = sessionTest { harness ->
+        val reading = reading(harness)
+        reading.model.readAloud.pause()
+        runCurrent()
+        advanceTimeBy(20.minutes)
+
+        reading.model.saveHistory()
+        advanceTimeBy(31.minutes)
+        runCurrent()
+
+        harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
+    }
+
+    companion object {
+        @JvmStatic
+        fun pausesLeftAlone() = listOf(
+            Arguments.of(TtsPauseReason.User, TtsPlayback.Stopped),
+            Arguments.of(TtsPauseReason.SleepTimer, TtsPlayback.Stopped),
+            Arguments.of(TtsPauseReason.FocusLoss, TtsPlayback.Stopped),
+            Arguments.of(TtsPauseReason.Refused, TtsPlayback.Stopped),
+            Arguments.of(TtsPauseReason.TransientFocusLoss, TtsPlayback.Paused),
+        )
     }
 }

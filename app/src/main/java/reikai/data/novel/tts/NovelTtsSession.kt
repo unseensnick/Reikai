@@ -46,6 +46,9 @@ object NovelTtsSession {
     var onPrevious: () -> Unit = {}
     var onSeek: (paragraph: Int) -> Unit = {}
 
+    /** Whether read aloud is playing or paused, which a reopen of the reader then follows. */
+    fun isActive(): Boolean = state.value.playback != TtsPlayback.Stopped
+
     fun publish(value: State) {
         state.value = value
         sleepTimer.onPublished(value.playback)
