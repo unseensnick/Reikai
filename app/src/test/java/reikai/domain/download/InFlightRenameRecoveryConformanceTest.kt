@@ -12,13 +12,11 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -29,9 +27,12 @@ import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadProvider
 import reikai.storage.IN_FLIGHT_SUFFIX
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
 import reikai.util.stubUniFileStatics
 import reikai.util.testAppScope
 import reikai.util.unstubUniFileStatics
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -39,8 +40,6 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.io.IOException
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * A letter-case rename of a source's or a series' download folder goes through an in-flight name, and a kill between
@@ -56,10 +55,14 @@ class InFlightRenameRecoveryConformanceTest {
     lateinit var cacheDir: File
 
     @BeforeEach
-    fun stubStatics() = stubUniFileStatics()
+    fun setUp() {
+        stubUniFileStatics()
+        virtualDispatchers()
+    }
 
     @AfterEach
     fun tearDown() {
+        resetVirtualDispatchers()
         unstubUniFileStatics()
         unmockkAll()
     }
@@ -140,11 +143,14 @@ interface RecoveryHalf {
     suspend fun findSeriesDir(root: File): UniFile?
 }
 
-private suspend fun awaitOnRealThreads(condition: () -> Boolean): Boolean = withContext(Dispatchers.Default) {
-    withTimeoutOrNull(20.seconds) {
-        while (!condition()) delay(10.milliseconds)
-        true
-    } ?: false
+/**
+ * Whether [condition] holds once the index's work, on the test's virtual dispatchers, has run to idle. Asked
+ * first too, since a query is what starts a stale index's scan.
+ */
+private suspend fun settled(condition: () -> Boolean): Boolean {
+    condition()
+    checkNotNull(currentCoroutineContext()[TestCoroutineScheduler]).advanceUntilIdle()
+    return condition()
 }
 
 class MangaRecoveryHalf : RecoveryHalf {
@@ -191,7 +197,8 @@ class MangaRecoveryHalf : RecoveryHalf {
             },
             downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         )
-        return awaitOnRealThreads { cache.getDownloadCount(manga) == 1 }.also { scope.cancel() }
+        restubDefaultDispatcher()
+        return settled { cache.getDownloadCount(manga) == 1 }.also { scope.cancel() }
     }
 
     override suspend fun findSeriesDir(root: File): UniFile? = provider(root).findMangaDir(manga.title, source)
@@ -235,7 +242,7 @@ class NovelRecoveryHalf : RecoveryHalf {
             provider = provider(root),
             downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         )
-        return awaitOnRealThreads { cache.getDownloadCount(novel) == 1 }
+        return settled { cache.getDownloadCount(novel) == 1 }
     }
 
     override suspend fun findSeriesDir(root: File): UniFile? = provider(root).findNovelDir(novel)

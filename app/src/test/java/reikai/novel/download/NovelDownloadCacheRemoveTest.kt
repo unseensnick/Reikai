@@ -5,13 +5,11 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -19,22 +17,22 @@ import org.junit.jupiter.api.io.TempDir
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.util.resetVirtualDispatchers
 import reikai.util.stubUniFileStatics
 import reikai.util.testAppScope
 import reikai.util.unstubUniFileStatics
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
  * Removing a batch of a novel's chapters from the download index, over a real disk the index first scans.
- * The cache works on its own IO threads, so the checks wait in real time.
+ * The cache works on the test's virtual dispatchers.
  */
 class NovelDownloadCacheRemoveTest {
 
@@ -45,10 +43,16 @@ class NovelDownloadCacheRemoveTest {
     lateinit var cacheDir: File
 
     @BeforeEach
-    fun stubStatics() = stubUniFileStatics()
+    fun setUp() {
+        stubUniFileStatics()
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun restoreStatics() = unstubUniFileStatics()
+    fun tearDown() {
+        resetVirtualDispatchers()
+        unstubUniFileStatics()
+    }
 
     private val novel = Novel.create().copy(id = 1L, source = "src", title = "Novel")
     private val removed = (1L..3L).map(::chapter)
@@ -73,7 +77,7 @@ class NovelDownloadCacheRemoveTest {
     }
 
     /** A cache over four downloaded chapters, returned once its first scan has indexed them. */
-    private suspend fun scannedCache(): NovelDownloadCache {
+    private suspend fun TestScope.scannedCache(): NovelDownloadCache {
         (removed + kept).forEach { provider.writeChapter(novel, it, "<p>${it.name}</p>") }
         val cache = NovelDownloadCache(
             scope = testAppScope(),
@@ -82,7 +86,8 @@ class NovelDownloadCacheRemoveTest {
             provider = provider,
             downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         )
-        awaitOnRealThreads { cache.getDownloadCount(novel) == 4 } shouldBe true
+        advanceUntilIdle()
+        cache.getDownloadCount(novel) shouldBe 4
         return cache
     }
 
@@ -91,8 +96,9 @@ class NovelDownloadCacheRemoveTest {
         val cache = scannedCache()
 
         cache.removeChapters(novel, removed)
+        advanceUntilIdle()
 
-        awaitOnRealThreads { removed.none { cache.isChapterDownloaded(novel, it) } } shouldBe true
+        removed.none { cache.isChapterDownloaded(novel, it) } shouldBe true
     }
 
     @Test
@@ -100,7 +106,7 @@ class NovelDownloadCacheRemoveTest {
         val cache = scannedCache()
 
         cache.removeChapters(novel, removed)
-        awaitOnRealThreads { cache.getDownloadCount(novel) == 1 }
+        advanceUntilIdle()
 
         cache.isChapterDownloaded(novel, kept) shouldBe true
     }
@@ -110,33 +116,17 @@ class NovelDownloadCacheRemoveTest {
     fun `removing a batch of one novel's chapters signals one change`() = runTest {
         val cache = scannedCache()
         val signals = AtomicInteger()
-        backgroundScope.launch(Dispatchers.Default) { cache.changes.collect { signals.incrementAndGet() } }
+        val collector = launch { cache.changes.collect { signals.incrementAndGet() } }
         // The replayed signal and the scan's own arrive first; only what follows the batch is counted.
-        awaitOnRealThreads { signals.get() >= 1 }
-        awaitQuiet(signals)
+        advanceUntilIdle()
         val before = signals.get()
 
         cache.removeChapters(novel, removed)
-        awaitOnRealThreads { cache.getDownloadCount(novel) == 1 && signals.get() > before }
-        awaitQuiet(signals)
+        // Run to idle, the index's delayed save included, so a late signal is counted rather than missed.
+        advanceUntilIdle()
+        collector.cancel()
 
         signals.get() - before shouldBe 1
-    }
-
-    private suspend fun awaitOnRealThreads(condition: () -> Boolean): Boolean = withContext(Dispatchers.Default) {
-        withTimeoutOrNull(20.seconds) {
-            while (!condition()) delay(10.milliseconds)
-            true
-        } ?: false
-    }
-
-    /** Waits until no signal has arrived for a while, so a late one is counted rather than missed. */
-    private suspend fun awaitQuiet(signals: AtomicInteger) = withContext(Dispatchers.Default) {
-        var last = -1
-        while (signals.get() != last) {
-            last = signals.get()
-            delay(QUIET_MS.milliseconds)
-        }
     }
 
     private fun chapter(id: Long) = NovelChapter(
@@ -153,8 +143,4 @@ class NovelDownloadCacheRemoveTest {
         dateUpload = null,
         page = "",
     )
-
-    private companion object {
-        const val QUIET_MS = 300L
-    }
 }

@@ -11,11 +11,13 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.NovelPreferences
@@ -28,8 +30,11 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
 import reikai.presentation.recents.EmittingPreferenceStore
-import reikai.util.realTimeSourceContacts
+import reikai.util.resetVirtualDispatchers
+import reikai.util.restubDefaultDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.Chapter
@@ -46,6 +51,14 @@ import kotlin.time.Instant
  * user allowed deleting those.
  */
 class ManualDeleteConformanceTest {
+
+    @BeforeEach
+    fun setUp() {
+        virtualDispatchers()
+    }
+
+    @AfterEach
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("halves")
@@ -71,9 +84,8 @@ class ManualDeleteConformanceTest {
         @JvmStatic
         fun halves() = listOf(MangaManualDeleteHalf(), NovelManualDeleteHalf())
 
-        /** Both deletes run on their engine's own IO scope, so the result is awaited in real time; a stall fails by name. */
-        suspend fun <T> awaitOnRealThreads(deferred: CompletableDeferred<T>): T =
-            withContext(Dispatchers.Default) { withTimeout(WAIT) { deferred.await() } }
+        /** Both deletes run on their engine's own IO scope, on the test's virtual dispatchers; a stall fails by name. */
+        suspend fun <T> awaitDelete(deferred: CompletableDeferred<T>): T = withTimeout(WAIT) { deferred.await() }
     }
 }
 
@@ -122,6 +134,7 @@ class MangaManualDeleteHalf : ManualDeleteHalf {
             sourceTitles = mockk(),
         )
 
+        restubDefaultDispatcher()
         manager.deleteChapters(
             targets.map {
                 Chapter.create().copy(id = it.id, mangaId = manga.id, read = it.read, bookmark = it.bookmarked)
@@ -130,7 +143,7 @@ class MangaManualDeleteHalf : ManualDeleteHalf {
             mockk(),
         )
 
-        return ManualDeleteConformanceTest.awaitOnRealThreads(removed)
+        return ManualDeleteConformanceTest.awaitDelete(removed)
     }
 }
 
@@ -175,12 +188,13 @@ class NovelManualDeleteHalf : ManualDeleteHalf {
             adultChecker = mockk(),
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
-            sourceContacts = realTimeSourceContacts(),
+            sourceContacts = checkNotNull(currentCoroutineContext()[TestCoroutineScheduler]).sourceContacts(),
         )
 
+        restubDefaultDispatcher()
         manager.deleteChapters(targets.map { chapter(it, novel.id) })
 
-        ManualDeleteConformanceTest.awaitOnRealThreads(done)
+        ManualDeleteConformanceTest.awaitDelete(done)
         return removed
     }
 
