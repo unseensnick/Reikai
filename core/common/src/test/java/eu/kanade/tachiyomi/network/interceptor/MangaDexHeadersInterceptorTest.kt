@@ -12,12 +12,17 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
 /** Runs through [addUserAgentInterceptors], so it fails if the shared client puts the default one first. */
-class MangaDexUserAgentInterceptorTest {
+class MangaDexHeadersInterceptorTest {
 
-    private val appUserAgent = MangaDexUserAgentInterceptor.defaultUserAgent()
+    private val appUserAgent = MangaDexHeadersInterceptor.defaultUserAgent()
     private val browserUserAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/141.0.0.0 Mobile"
 
-    private fun sentUserAgent(request: Request): String? {
+    private fun sentUserAgent(request: Request): String? = sent(request).header("User-Agent")
+
+    private fun sentReferer(url: String, referer: String): String? =
+        sent(Request.Builder().url(url).header("Referer", referer).build()).header("Referer")
+
+    private fun sent(request: Request): Request {
         var sent: Request? = null
         val client = OkHttpClient.Builder()
             .addUserAgentInterceptors { browserUserAgent }
@@ -35,7 +40,7 @@ class MangaDexUserAgentInterceptorTest {
             )
             .build()
         client.newCall(request).execute().close()
-        return sent?.header("User-Agent")
+        return sent!!
     }
 
     @ParameterizedTest
@@ -67,6 +72,22 @@ class MangaDexUserAgentInterceptorTest {
         val request = Request.Builder().url("https://api.mangadex.org/manga").header("User-Agent", "Custom/1.0").build()
 
         sentUserAgent(request) shouldBe "Custom/1.0"
+    }
+
+    @Test
+    fun `a MangaDex cover drops another site's Referer, which gets the hotlink placeholder`() {
+        sentReferer("https://uploads.mangadex.org/covers/a/b.jpg", "https://www.mangakakalot.gg/") shouldBe null
+    }
+
+    @Test
+    fun `a MangaDex request keeps MangaDex's own Referer`() {
+        sentReferer("https://uploads.mangadex.org/covers/a/b.jpg", "https://mangadex.org/") shouldBe
+            "https://mangadex.org/"
+    }
+
+    @Test
+    fun `another host keeps its Referer`() {
+        sentReferer("https://example.org/a.jpg", "https://www.mangakakalot.gg/") shouldBe "https://www.mangakakalot.gg/"
     }
 
     @ParameterizedTest

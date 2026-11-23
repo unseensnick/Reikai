@@ -7,7 +7,7 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.network.POST
-import eu.kanade.tachiyomi.network.interceptor.MangaDexUserAgentInterceptor
+import eu.kanade.tachiyomi.network.interceptor.MangaDexHeadersInterceptor
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.util.PkceUtil
@@ -197,7 +197,7 @@ class MdUtil {
             // would otherwise send as OkHttp's default.
             val headers = Headers.Builder()
                 .add("Authorization", "Bearer ${oauth.accessToken}")
-                .add("User-Agent", MangaDexUserAgentInterceptor.defaultUserAgent())
+                .add("User-Agent", MangaDexHeadersInterceptor.defaultUserAgent())
                 .build()
 
             return POST(MdApi.baseAuthUrl + MdApi.token, body = formBody, headers = headers)

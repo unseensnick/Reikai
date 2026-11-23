@@ -3,7 +3,7 @@ package exh.md.network
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
-import eu.kanade.tachiyomi.network.interceptor.MangaDexUserAgentInterceptor
+import eu.kanade.tachiyomi.network.interceptor.MangaDexHeadersInterceptor
 import exh.md.utils.MdApi
 import exh.md.utils.MdUtil
 import io.kotest.matchers.shouldBe
@@ -78,7 +78,7 @@ class MangaDexAuthInterceptorTest {
             response(it, 503)
         }
 
-        sent.get() shouldBe MangaDexUserAgentInterceptor.defaultUserAgent()
+        sent.get() shouldBe MangaDexHeadersInterceptor.defaultUserAgent()
     }
 
     @Test
