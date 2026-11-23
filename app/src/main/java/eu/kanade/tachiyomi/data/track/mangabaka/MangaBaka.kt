@@ -151,7 +151,8 @@ class MangaBaka(
 
     suspend fun login(code: String) {
         // RK --> the exchange sends the stored verifier; no pending login sends nothing and keeps the session,
-        // and a cancelled exchange rethrows here rather than reaching the catch below, which signs out.
+        // and a cancelled token call rethrows here rather than reaching the catch below, which signs out.
+        // A cancel during the user lookup still signs out: the code is spent by then and cannot be retried.
         val exchange = trackPreferences.exchangeLoginCode(this) { api.getAccessToken(code, it) } ?: return
         // RK <--
         try {

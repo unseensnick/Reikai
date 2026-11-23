@@ -478,7 +478,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
-- **Logging in to MyAnimeList or the MDList tracker now completes when Android closes Reikai while you sign in (from Komikku).** A login that cannot complete no longer signs you out either.
+- **Logging in to MyAnimeList or the MDList tracker now completes when Android closes Reikai while you sign in (from Komikku).** A sign-in link opened with no sign-in in progress no longer signs you out.
 - **Logging in to the Comick tracker or MangaBaka now completes when Android closes Reikai while you sign in.**
 - **Changing a tracker's status, score or dates no longer sends an older reading progress back to the tracker.**
 - **Confirming the tracker's chapter picker without moving it no longer rounds progress like 12.5 down to 12.**
