@@ -5,6 +5,9 @@ import io.mockk.every
 import io.mockk.mockk
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.source.SourceKey
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelExtensionFormat.APK
@@ -31,7 +34,9 @@ import reikai.presentation.migrate.flow.showsFormat
 
 /**
  * Every list that shows novel sources names each one's packaging once it holds two kinds, so two
- * sources with one name (an app and an IReader copy of one site) can be told apart. The feed's
+ * sources with one name (an app and an IReader copy of one site) can be told apart. When to name it
+ * is NovelExtensionFormat.tellsApart's rule, pinned in its own test; each surface here is fed an app
+ * and an IReader copy, so a surface handing the kernel the wrong list (or none) goes red. The feed's
  * add-source dialog passes its whole list straight to the kernel, so it has no case here.
  */
 class SourceFormatLabelTest {
@@ -41,115 +46,106 @@ class SourceFormatLabelTest {
         sourceDetail("English", "APK") shouldBe "English • APK"
     }
 
-    @Test
-    fun `global search names packaging once two kinds are searched`() {
-        GlobalSearchEngine.State(rows = listOf(searchRow(APK), searchRow(IREADER))).showsFormat shouldBe true
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("surfaces")
+    fun `each surface hands the kernel every source it shows`(name: String, showsFormat: () -> Boolean) {
+        showsFormat() shouldBe true
     }
 
-    @Test
-    fun `global search names none while every source is packaged alike`() {
-        GlobalSearchEngine.State(rows = listOf(searchRow(APK), searchRow(APK))).showsFormat shouldBe false
-    }
+    companion object {
+        @JvmStatic
+        fun surfaces() = listOf(
+            Arguments.of(
+                "global search",
+                { GlobalSearchEngine.State(rows = listOf(searchRow(APK), searchRow(IREADER))).showsFormat },
+            ),
+            Arguments.of(
+                "the Sources tab",
+                { SourcesEngine.State(items = listOf(sourceItem(APK), sourceItem(IREADER))).showsFormat },
+            ),
+            Arguments.of(
+                "the sources filter",
+                {
+                    NovelSourcesFilterViewModel.State.Success(
+                        items = listOf("en" to listOf(novelSource(APK), novelSource(IREADER))),
+                        disabledSources = emptySet(),
+                        disabledLanguages = emptySet(),
+                    ).showsFormat
+                },
+            ),
+            Arguments.of("the feed", { FeedState(entries = listOf(feedEntry(APK), feedEntry(IREADER))).showsFormat }),
+            Arguments.of(
+                "the migrate list",
+                { MigrateSourcesEngine.State(items = listOf(migrateRow(APK), migrateRow(IREADER))).showsFormat },
+            ),
+            Arguments.of(
+                "the migration source picker, counting both of its sections",
+                {
+                    EntryMigrationConfigViewModel.State(
+                        selected = listOf(pickerSource(APK)),
+                        available = listOf(pickerSource(IREADER)),
+                    ).showsFormat
+                },
+            ),
+            Arguments.of(
+                "a migration search",
+                { listOf(pickerSource(APK).loadingStrip(), pickerSource(IREADER).loadingStrip()).showsFormat },
+            ),
+        )
 
-    @Test
-    fun `the Sources tab names packaging once it shows two kinds`() {
-        SourcesEngine.State(items = listOf(sourceItem(APK), sourceItem(IREADER))).showsFormat shouldBe true
-    }
-
-    @Test
-    fun `the Sources tab names none while every source is packaged alike`() {
-        SourcesEngine.State(items = listOf(sourceItem(APK), sourceItem(APK))).showsFormat shouldBe false
-    }
-
-    @Test
-    fun `the sources filter names packaging once it lists two kinds`() {
-        NovelSourcesFilterViewModel.State.Success(
-            items = listOf("en" to listOf(novelSource(APK), novelSource(IREADER))),
-            disabledSources = emptySet(),
-            disabledLanguages = emptySet(),
-        ).showsFormat shouldBe true
-    }
-
-    @Test
-    fun `the feed names packaging once it holds two kinds`() {
-        FeedState(entries = listOf(feedEntry(APK), feedEntry(IREADER))).showsFormat shouldBe true
-    }
-
-    @Test
-    fun `the migrate list names packaging once it holds two kinds`() {
-        MigrateSourcesEngine.State(items = listOf(migrateRow(APK), migrateRow(IREADER))).showsFormat shouldBe true
-    }
-
-    @Test
-    fun `the migration source picker counts both of its sections`() {
-        EntryMigrationConfigViewModel.State(
-            selected = listOf(pickerSource(APK)),
-            available = listOf(pickerSource(IREADER)),
-        ).showsFormat shouldBe true
-    }
-
-    @Test
-    fun `a migration search names packaging once two kinds are searched`() {
-        listOf(pickerSource(APK).loadingStrip(), pickerSource(IREADER).loadingStrip()).showsFormat shouldBe true
-    }
-
-    @Test
-    fun `a migration search names none while every source is packaged alike`() {
-        listOf(pickerSource(APK).loadingStrip(), pickerSource(APK).loadingStrip()).showsFormat shouldBe false
-    }
-
-    private fun searchRow(format: NovelExtensionFormat) = BrowseSearchRow(
-        key = SourceKey.Novel("s-$format"),
-        name = "Site",
-        lang = "en",
-        isPinned = false,
-        state = EntrySearchState.Loading,
-        source = Unit,
-        format = format,
-    )
-
-    private fun sourceItem(format: NovelExtensionFormat) = SourcesListItem.Row(
-        BrowseSourceRow(
+        private fun searchRow(format: NovelExtensionFormat) = BrowseSearchRow(
             key = SourceKey.Novel("s-$format"),
             name = "Site",
             lang = "en",
             isPinned = false,
-            isUsedLast = false,
-            supportsLatest = true,
-            extensionName = "Site",
-            contentWarning = ContentWarning.SAFE,
+            state = EntrySearchState.Loading,
             source = Unit,
             format = format,
-        ),
-    )
+        )
 
-    private fun novelSource(format: NovelExtensionFormat) = mockk<NovelSource> {
-        every { this@mockk.format } returns format
+        private fun sourceItem(format: NovelExtensionFormat) = SourcesListItem.Row(
+            BrowseSourceRow(
+                key = SourceKey.Novel("s-$format"),
+                name = "Site",
+                lang = "en",
+                isPinned = false,
+                isUsedLast = false,
+                supportsLatest = true,
+                extensionName = "Site",
+                contentWarning = ContentWarning.SAFE,
+                source = Unit,
+                format = format,
+            ),
+        )
+
+        private fun novelSource(format: NovelExtensionFormat) = mockk<NovelSource> {
+            every { this@mockk.format } returns format
+        }
+
+        private fun feedEntry(format: NovelExtensionFormat) = FeedEntry(
+            feedId = format.ordinal.toLong(),
+            savedSearch = null,
+            row = searchRow(format),
+            sourceName = "Site",
+            listing = EntryBrowseListing.Latest,
+        )
+
+        private fun migrateRow(format: NovelExtensionFormat) = BrowseMigrateRow(
+            key = SourceKey.Novel("s-$format"),
+            name = "Site",
+            lang = "en",
+            count = 1,
+            isStub = false,
+            source = Unit,
+            format = format,
+        )
+
+        private fun pickerSource(format: NovelExtensionFormat) = MigrationSourceUi(
+            key = "s-$format",
+            name = "Site",
+            lang = "en",
+            icon = MigrationSourceIcon.NovelUrl(null),
+            format = format,
+        )
     }
-
-    private fun feedEntry(format: NovelExtensionFormat) = FeedEntry(
-        feedId = format.ordinal.toLong(),
-        savedSearch = null,
-        row = searchRow(format),
-        sourceName = "Site",
-        listing = EntryBrowseListing.Latest,
-    )
-
-    private fun migrateRow(format: NovelExtensionFormat) = BrowseMigrateRow(
-        key = SourceKey.Novel("s-$format"),
-        name = "Site",
-        lang = "en",
-        count = 1,
-        isStub = false,
-        source = Unit,
-        format = format,
-    )
-
-    private fun pickerSource(format: NovelExtensionFormat) = MigrationSourceUi(
-        key = "s-$format",
-        name = "Site",
-        lang = "en",
-        icon = MigrationSourceIcon.NovelUrl(null),
-        format = format,
-    )
 }
