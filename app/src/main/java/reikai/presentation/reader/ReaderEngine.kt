@@ -37,13 +37,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
-import mihon.core.metro.AppCoroutineScope
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterPace
 import reikai.domain.reader.ChapterProgress
-import reikai.domain.reader.Listening
 import reikai.domain.reader.LiveReading
 import reikai.domain.reader.ReaderProgressLook
 import reikai.domain.reader.ReaderTimeLeft
@@ -56,7 +54,6 @@ import reikai.domain.readinglog.ReadingPace
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.readinglog.learnPace
 import tachiyomi.core.common.util.lang.withIOContext
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
@@ -75,7 +72,6 @@ class ReaderEngine(
     private val uiPreferences: UiPreferences,
     getEntryCustomInfo: GetEntryCustomInfo,
     private val paceRepository: ReadingPaceRepository,
-    @AppCoroutineScope private val appScope: CoroutineScope,
     // Unbound in the graph, so the default is what the app runs on; a test passes its scheduler's.
     timeSource: TimeSource = TimeSource.Monotonic,
 ) : ViewModel() {
@@ -124,14 +120,10 @@ class ReaderEngine(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    // Each chapter this session measured, to whether its reading is recorded.
-    private val recordedChapters = ConcurrentHashMap<Long, Boolean>()
-
     // Eager whether or not time left is shown, so a length is kept and the pace goes on learning while it
     // is off, and turning it on finds a pace already known. Asked once a chapter, since history only
     // changes when the reader moves to another one.
     private val chapterPace: StateFlow<ChapterPace?> = chapterLength
-        .onEach { length -> length?.let { recordedChapters[it.chapterId] = it.recorded } }
         .mapLatest { length ->
             length?.let {
                 withIOContext {
@@ -309,17 +301,6 @@ class ReaderEngine(
 
     private val clock = timeSource.markNow()
 
-    // Below readAloudState, which it reads as it is built. Each step's listened time is written on the app
-    // scope, so a reader closing mid-paragraph still keeps what was listened before it.
-    private val listening: StateFlow<Listening> = readAloudState
-        .map { (it.playback == TtsPlayback.Playing) to it.progress }
-        .distinctUntilChanged()
-        .scan(Listening()) { state, (playing, progress) ->
-            state.next(playing, progress, clock.elapsedNow().inWholeMilliseconds)
-        }
-        .onEach { it.listened?.let(::recordListened) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, Listening())
-
     // The pace measured in the open chapter, which the time left shows until finished chapters teach one.
     private val reading: StateFlow<LiveReading> =
         combine(chapterLength, navigator.map { it.progress }.distinctUntilChanged(), ::Pair)
@@ -342,30 +323,16 @@ class ReaderEngine(
             // The position and the live pace from one step, so a page turn recomputes this once.
             reading,
             readAloudState,
-            listening,
-        ) { show, pace, live, speech, heard ->
+        ) { show, pace, live, speech ->
             val progress = speech.progress
             when {
                 !show -> null
                 speech.playback == TtsPlayback.Playing && progress != null ->
-                    listeningTimeLeft(progress, heard.msPerWord, pace?.listening ?: ReadingPace.Learning)
+                    listeningTimeLeft(progress, speech.msPerWord, pace?.listening ?: ReadingPace.Learning)
                 else -> pace?.let { chapterTimeLeft(it, live.progress, live.msPerUnit) }
             }
         }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    // Only a chapter whose length said it is recorded: one in incognito, or never measured, keeps nothing.
-    private fun recordListened(listened: Pair<Long, Long>) {
-        if (recordedChapters[listened.first] != true) return
-        // The app scope runs on IO already; launchIO would leave a test's dispatcher for a real thread.
-        appScope.launch { paceRepository.addListenedTime(listened.first, listened.second) }
-    }
-
-    override fun onCleared() {
-        // The paragraph being spoken when the reader closes has had no step to credit it yet.
-        listening.value.next(playing = false, progress = null, nowMs = clock.elapsedNow().inWholeMilliseconds)
-            .listened?.let(::recordListened)
-    }
 
     fun previousChapter() = stepChapter { provider.previousChapter() }
 

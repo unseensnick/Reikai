@@ -373,7 +373,7 @@ class NovelReaderViewModelTest {
         model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
         advanceUntilIdle()
         val snapshot = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) })
-        model.saveSpokenPosition(opened.id, 0.7)
+        harness.saveSpoken(model, opened.id, 0.7)
         advanceUntilIdle()
 
         val restored = harness.open(novel, opened.id, savedState = snapshot)
@@ -381,30 +381,6 @@ class NovelReaderViewModelTest {
 
         restored.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(70)
     }
-
-    /** Read aloud opens the next chapter behind the snapshot, and History is what holds where it got to. */
-    @Test
-    fun `a recorded novel reopens after a process kill on the chapter opened while away`() =
-        readTimeTest { harness, clock ->
-            val novel = harness.novel(harness.source("src"))
-            val opened = harness.chapter(novel, 1.0)
-            val next = harness.chapter(novel, 2.0, progressPercent = 50)
-            val savedState = SavedStateHandle()
-            val model = harness.open(novel, opened.id, savedState = savedState)
-            model.awaitIdleOn(opened)
-            val snapshot = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) })
-            model.saveHistory()
-            advanceUntilIdle()
-            clock.advance(10.minutes)
-            model.nextChapter()
-            model.awaitIdleOn(next)
-            advanceUntilIdle()
-
-            val restored = harness.open(novel, opened.id, savedState = snapshot)
-            restored.loadState.first { it == ReaderLoadState.Idle }
-
-            restored.chapter.value?.chapterId shouldBe next.id
-        }
 
     @Test
     fun `a novel opened on a chapter opens on it whatever History read last`() = readTimeTest { harness, clock ->
@@ -458,7 +434,7 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
         model.rendererLanded(model.window.value.generation)
         model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
-        model.saveSpokenPosition(opened.id, 0.7)
+        harness.saveSpoken(model, opened.id, 0.7)
         advanceUntilIdle()
 
         val restored = harness.open(novel, opened.id, savedState = savedState)
@@ -478,7 +454,7 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
         model.rendererLanded(model.window.value.generation)
         model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
-        model.finishSpokenChapter(opened.id)
+        harness.finishSpoken(model, opened.id)
         advanceUntilIdle()
 
         val restored = harness.open(novel, opened.id, savedState = savedState)
@@ -499,7 +475,7 @@ class NovelReaderViewModelTest {
             advanceUntilIdle()
             model.rendererLanded(model.window.value.generation)
             model.saveProgress(chapter.id, ChapterProgress.Percent.ofWhole(20))
-            model.saveSpokenPosition(chapter.id, 0.4)
+            harness.saveSpoken(model, chapter.id, 0.4)
             advanceUntilIdle()
             model.rendererLanded(model.window.value.generation)
             model.saveProgress(chapter.id, ChapterProgress.Percent.ofWhole(20))
@@ -520,7 +496,7 @@ class NovelReaderViewModelTest {
         val model = harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        model.finishSpokenChapter(opened.id)
+        harness.finishSpoken(model, opened.id)
         advanceUntilIdle()
 
         harness.isRead(opened) shouldBe true
@@ -533,8 +509,8 @@ class NovelReaderViewModelTest {
         val model = harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        model.saveSpokenPosition(opened.id, 0.4)
-        model.finishSpokenChapter(opened.id)
+        harness.saveSpoken(model, opened.id, 0.4)
+        harness.finishSpoken(model, opened.id)
         advanceUntilIdle()
 
         harness.progressOf(opened) shouldBe ChapterProgress.Percent.FULL
@@ -548,7 +524,7 @@ class NovelReaderViewModelTest {
         val model = harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        model.saveSpokenPosition(opened.id, 0.4)
+        harness.saveSpoken(model, opened.id, 0.4)
         advanceUntilIdle()
 
         harness.progressOf(opened) shouldBe 4_000L
@@ -566,7 +542,7 @@ class NovelReaderViewModelTest {
         model.rendererLanded(model.window.value.generation)
         model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(10))
         model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(20))
-        model.saveSpokenPosition(opened.id, 0.4)
+        harness.saveSpoken(model, opened.id, 0.4)
         advanceUntilIdle()
         return model to opened
     }
@@ -600,7 +576,7 @@ class NovelReaderViewModelTest {
         val opened = harness.chapter(novel, 1.0)
         val model = harness.open(novel, opened.id)
         advanceUntilIdle()
-        model.saveSpokenPosition(opened.id, 0.4)
+        harness.saveSpoken(model, opened.id, 0.4)
         advanceUntilIdle()
 
         val reopened = harness.open(novel, opened.id)

@@ -2,6 +2,8 @@ package reikai.presentation.reader
 
 import android.content.Context
 import android.content.Intent
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.lifecycleScope
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
@@ -273,7 +275,9 @@ class NovelReaderProvider(
             controller.state,
             controlsVisible.changes(),
             sleepTimer.timer,
-        ) { speech, visible, timer -> ReaderReadAloudState(speech.playback, visible, timer, speech.progress) }
+        ) { session, visible, timer ->
+            ReaderReadAloudState(session.speech.playback, visible, timer, session.speech.progress, session.msPerWord)
+        }
 
         override fun play() = controller.play()
 
@@ -437,6 +441,16 @@ class NovelReaderProvider(
             is TextViewport -> {
                 // Before the first load, which is what reports the renderer landing to read-aloud.
                 viewModel.readAloud.attach(viewport.readAloud)
+                // Lent only while the reader is started, so read aloud never waits on a stopped page to answer.
+                host.lifecycle.addObserver(
+                    LifecycleEventObserver { _, event ->
+                        when (event) {
+                            Lifecycle.Event.ON_START -> viewModel.readAloud.attach(viewport.readAloud)
+                            Lifecycle.Event.ON_STOP -> viewModel.readAloud.detach(viewport.readAloud)
+                            else -> Unit
+                        }
+                    },
+                )
                 loadChapters(host, viewport)
             }
             else -> logcat(LogPriority.ERROR) { "Novel viewport renders no text: ${viewport::class}" }
@@ -496,7 +510,7 @@ class NovelReaderProvider(
                     viewport.load(anchor, settings)
                     // The renderer has let go of the window it had, so its reports count again.
                     viewModel.rendererLanded(state.generation)
-                    viewModel.readAloud.onRendererLanded(anchor.chapterId)
+                    viewModel.readAloud.onRendererLanded()
                     rendered = listOf(anchor.chapterId)
                 }
                 val wanted = state.chapters.map { it.chapterId }

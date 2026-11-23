@@ -3,22 +3,41 @@ package reikai.presentation.reader
 import android.content.Context
 import reikai.data.novel.tts.NovelTtsService
 import reikai.data.novel.tts.NovelTtsSession
-import reikai.domain.novel.tts.TtsPlayback
+import reikai.domain.novel.tts.TtsPauseReason
+
+/** The media notification's side of a read aloud session. */
+interface ReadAloudNotification {
+
+    /** Routes the notification's controls to these and brings the notification up. */
+    fun connect(
+        onPlay: () -> Unit,
+        onPause: (TtsPauseReason) -> Unit,
+        onStop: () -> Unit,
+        onNext: () -> Unit,
+        onPrevious: () -> Unit,
+        onSeek: (paragraph: Int) -> Unit,
+    )
+
+    fun publish(state: NovelTtsSession.State)
+
+    /** True once when the sleep timer is set to stop at this chapter's end instead of reading on. */
+    fun takeStopAtChapterEnd(): Boolean
+
+    /** Takes the notification down, unless another session has connected since. */
+    fun release()
+}
 
 /**
- * [ReadAloudTransport] over the app-wide [NovelTtsSession]. It only writes to that singleton while the
- * callbacks it installed are still the session's. [isAdult] is the open novel's verdict, read on each publish.
+ * [ReadAloudNotification] over the app-wide [NovelTtsSession]. It only writes to that singleton while the
+ * callbacks it installed are still the session's.
  */
-class NovelTtsSessionTransport(
-    private val context: Context,
-    private val isAdult: () -> Boolean,
-) : ReadAloudTransport {
+class NovelTtsSessionTransport(private val context: Context) : ReadAloudNotification {
 
     private var installed: (() -> Unit)? = null
 
     override fun connect(
         onPlay: () -> Unit,
-        onPause: () -> Unit,
+        onPause: (TtsPauseReason) -> Unit,
         onStop: () -> Unit,
         onNext: () -> Unit,
         onPrevious: () -> Unit,
@@ -34,9 +53,8 @@ class NovelTtsSessionTransport(
         NovelTtsService.start(context)
     }
 
-    override fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int) {
-        if (!owns()) return
-        NovelTtsSession.publish(NovelTtsSession.State(playback, title, paragraph, paragraphCount, isAdult()))
+    override fun publish(state: NovelTtsSession.State) {
+        if (owns()) NovelTtsSession.publish(state)
     }
 
     override fun takeStopAtChapterEnd() = owns() && NovelTtsSession.sleepTimer.takeEndOfChapter()

@@ -69,14 +69,6 @@ class ReaderEngineTest {
     @RegisterExtension
     val main = MainDispatcherExtension { UnconfinedTestDispatcher(scheduler) }
 
-    private val appScope = CoroutineScope(UnconfinedTestDispatcher(scheduler))
-
-    // Runs before the extension's teardown, so the engines' saves stop with them.
-    @AfterEach
-    fun tearDown() {
-        appScope.cancel()
-    }
-
     private fun engine(
         provider: FakeReaderProvider = FakeReaderProvider(),
         themeCoverBased: Boolean = true,
@@ -90,7 +82,6 @@ class ReaderEngineTest {
         ),
         mockk { every { subscribeAll() } returns flowOf(customInfo) },
         paceRepository,
-        appScope,
         scheduler.timeSource,
     ).also(main::track)
 
@@ -162,6 +153,25 @@ class ReaderEngineTest {
     }
 
     @Test
+    fun `while read aloud plays, time left runs at the voice's pace read aloud measured`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        provider.showTimeLeft.value = true
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Percent(0))
+        val readAloud = FakeReadAloud()
+        readAloud.state.value = ReaderReadAloudState(
+            playback = TtsPlayback.Playing,
+            progress = ReadAloudProgress(chapterId = 9, paragraph = 0, wordsSpoken = 1_500, words = 2_000),
+            msPerWord = 100.0,
+        )
+        provider.readAloudSlot = readAloud
+        val engine = engine(provider)
+
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
+
+        engine.timeLeft.first { it is ReaderTimeLeft.Remaining } shouldBe ReaderTimeLeft.Remaining(50.seconds)
+    }
+
+    @Test
     fun `a chapter's length is kept while time left is off, which shows nothing`() = runTest(scheduler) {
         val provider = FakeReaderProvider()
         provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(0, 30))
@@ -185,76 +195,6 @@ class ReaderEngineTest {
         engine.timeLeft.first { it != null }
 
         paceRepository.lengths.value shouldBe emptyList()
-    }
-
-    @ParameterizedTest(name = "recorded {0}")
-    @MethodSource("listenedByRecorded")
-    fun `read-aloud time is kept only for a recorded chapter`(recorded: Boolean, kept: List<Long>) =
-        runTest(scheduler) {
-            val provider = FakeReaderProvider()
-            val readAloud = FakeReadAloud()
-            readAloud.state.value = ReaderReadAloudState(
-                playback = TtsPlayback.Playing,
-                progress = ReadAloudProgress(chapterId = 9, paragraph = 0, wordsSpoken = 0, words = 2_000),
-            )
-            provider.readAloudSlot = readAloud
-            engine(provider)
-            provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000, recorded = recorded)
-            advanceUntilIdle()
-            advanceTimeBy(5.seconds)
-
-            readAloud.state.value = readAloud.state.value.copy(
-                progress = ReadAloudProgress(chapterId = 9, paragraph = 1, wordsSpoken = 100, words = 2_000),
-            )
-            advanceUntilIdle()
-
-            paceRepository.listened.value.map { it.first } shouldBe kept
-        }
-
-    @Test
-    fun `read-aloud credits the chapter the time between two paragraphs`() = runTest(scheduler) {
-        val provider = FakeReaderProvider()
-        val readAloud = FakeReadAloud()
-        provider.readAloudSlot = readAloud
-        engine(provider)
-        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
-        advanceUntilIdle()
-        // Speech starts a while into the session, so the credit is measured from its start, not the open.
-        advanceTimeBy(1.seconds)
-        readAloud.state.value = ReaderReadAloudState(
-            playback = TtsPlayback.Playing,
-            progress = ReadAloudProgress(chapterId = 9, paragraph = 0, wordsSpoken = 0, words = 2_000),
-        )
-        advanceUntilIdle()
-        advanceTimeBy(5.seconds)
-
-        readAloud.state.value = readAloud.state.value.copy(
-            progress = ReadAloudProgress(chapterId = 9, paragraph = 1, wordsSpoken = 100, words = 2_000),
-        )
-        advanceUntilIdle()
-
-        paceRepository.listened.value shouldBe listOf(9L to 5_000L)
-    }
-
-    /** The paragraph being spoken has had no step to credit it, so closing the reader is its last chance. */
-    @Test
-    fun `closing the reader keeps the read-aloud time of the paragraph being spoken`() = runTest(scheduler) {
-        val provider = FakeReaderProvider()
-        val readAloud = FakeReadAloud()
-        readAloud.state.value = ReaderReadAloudState(
-            playback = TtsPlayback.Playing,
-            progress = ReadAloudProgress(chapterId = 9, paragraph = 0, wordsSpoken = 0, words = 2_000),
-        )
-        provider.readAloudSlot = readAloud
-        val engine = engine(provider)
-        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
-        advanceUntilIdle()
-        advanceTimeBy(5.seconds)
-
-        ViewModelStore().apply { put("engine", engine) }.clear()
-        advanceUntilIdle()
-
-        paceRepository.listened.value.map { it.first } shouldBe listOf(9L)
     }
 
     /** Ids overlap across the two types, so the override is found by the entry's typed id. */
@@ -1134,12 +1074,6 @@ class ReaderEngineTest {
     }
 
     companion object {
-        @JvmStatic
-        fun listenedByRecorded(): List<Arguments> = listOf(
-            Arguments.of(true, listOf(9L)),
-            Arguments.of(false, emptyList<Long>()),
-        )
-
         @JvmStatic
         fun editedEntries(): List<Arguments> = listOf(
             Arguments.of(EntryId.Manga(1L), CustomMangaInfo(mangaId = 1L, title = "Mine")),

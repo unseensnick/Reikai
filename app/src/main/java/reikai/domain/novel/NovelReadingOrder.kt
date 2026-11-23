@@ -46,6 +46,7 @@ class NovelOrderInputs(
  * [aheadIds] is [orderedIds] before Downloaded only narrows it, which download-ahead walks.
  */
 data class NovelReadingOrder(
+    val scope: MergeScope,
     val currentId: Long,
     val orderedIds: List<Long>,
     val aheadIds: List<Long>,
@@ -124,6 +125,7 @@ fun novelReadingOrder(inputs: NovelOrderInputs): NovelReadingOrder = with(inputs
         inOrder
     }
     NovelReadingOrder(
+        scope = scope,
         currentId = current,
         orderedIds = visible.map { it.id },
         aheadIds = inOrder.map { it.id },

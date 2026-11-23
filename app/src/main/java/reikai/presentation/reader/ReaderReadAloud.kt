@@ -14,6 +14,8 @@ data class ReaderReadAloudState(
     val sleepTimer: SleepTimer = SleepTimer.Off,
     /** Where speech is in the chapter it reads, which time left counts down while it plays. */
     val progress: ReadAloudProgress? = null,
+    /** The voice's pace measured since play, which that countdown runs at once it is known. */
+    val msPerWord: Double? = null,
 )
 
 /**

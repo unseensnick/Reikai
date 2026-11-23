@@ -39,6 +39,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import mihon.domain.extension.model.ContentWarning
+import org.jsoup.Jsoup
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.coil.NovelChapterPictureCache
 import reikai.data.merge.MergeGroupRepositoryImpl
@@ -83,7 +84,9 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.reader.ChapterIncognito
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.source.SourceKey
 import reikai.domain.track.ownChapterNumbers
 import reikai.novel.download.NovelDownloadCache
@@ -478,27 +481,132 @@ class NovelReaderViewModelHarness private constructor(
         )
     }
 
+    private val reikaiPreferences = ReikaiLibraryPreferences(store)
+    private val mergeManager = NovelMergeManager(groups, reikaiPreferences, onMerged = {}) {}
+
+    private val getNextNovelChapter by lazy {
+        val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiPreferences)
+        GetNextNovelChapter(
+            chapterRepo,
+            novelRepo,
+            novelPreferences,
+            mergeManager,
+            NovelMergedChapterProvider(mergeManager, ReconcileMergedChapters(units, setOf(stitcher))),
+            NovelChapterSettings(novelRepo),
+        )
+    }
+
+    // BasePreferences builds an extension-installer preference whose default calls into
+    // android.graphics, so only the incognito switch is carried over. The manga-extension
+    // lookup is never reached for a novel source.
+    private val getIncognitoState by lazy {
+        GetIncognitoState(
+            mockk<BasePreferences> { every { incognitoMode } returns this@NovelReaderViewModelHarness.incognito },
+            sourcePreferences,
+            mockk(),
+        )
+    }
+
+    // Only the Downloaded only switch; BasePreferences itself cannot be built on the JVM.
+    private val basePreferences by lazy {
+        mockk<BasePreferences> { every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly }
+    }
+
+    /** Every voice read aloud built, the latest last; each starts once a test says so. */
+    val engines = mutableListOf<HarnessTtsEngine>()
+
+    /** The read aloud notification, as the service would show it. */
+    val notification = HarnessNotification()
+
+    /** What read aloud credited as listened, by chapter, in milliseconds. */
+    val listened = java.util.concurrent.ConcurrentHashMap<Long, Long>()
+
+    /** The lengths read aloud measured, by chapter, in words. */
+    val lengths = java.util.concurrent.ConcurrentHashMap<Long, Long>()
+
+    private val paceRepository = mockk<ReadingPaceRepository>(relaxed = true) {
+        coEvery { addListenedTime(any(), any()) } answers {
+            listened.merge(firstArg(), secondArg(), Long::plus)
+        }
+        coEvery { setLength(any(), any(), any()) } answers { lengths[secondArg()] = thirdArg() }
+    }
+
+    /** The app's one read aloud session, which every model opened here reads through. */
+    private val readAloudSessionLazy = lazy {
+        ReadAloudSession(
+            appScope = appScope,
+            context = mockk(relaxed = true),
+            novelPreferences = novelPreferences,
+            novelRepo = novelRepo,
+            chapterRepo = chapterRepo,
+            sourceManager = sourceManager,
+            installer = installer,
+            chapterTextCache = chapterTextCache,
+            downloadManagerProvider = { downloadManager },
+            orderResolver = NovelReadingOrderResolver(
+                getNextNovelChapter,
+                novelRepo,
+                chapterRepo,
+                copyMarks,
+                novelPreferences,
+                basePreferences,
+                downloadCache,
+                sourceManager,
+            ),
+            progressSlot = progressSlot,
+            chapterFinish = chapterFinish,
+            upsertNovelHistory = UpsertNovelHistory(history),
+            readingLog = NoReadingLog,
+            paceRepository = paceRepository,
+            getIncognitoState = getIncognitoState,
+            adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
+            getNextNovelChapter = getNextNovelChapter,
+            deleteChaptersBehindReader = deleteChaptersBehindReader,
+            engines = { pkg, onInit -> HarnessTtsEngine(pkg, onInit).also { engines += it } },
+            // The native renderer's count needs android.text; a paragraph is each block's text here.
+            text = { html, _ -> Jsoup.parse(html).select("p").map { it.text() }.filter(String::isNotBlank) },
+            notification = notification,
+            timeSource = scheduler.timeSource,
+        )
+    }
+    val readAloudSession by readAloudSessionLazy
+
+    /** What read aloud writes beside [model]'s session, by the rules it saves by. */
+    private fun spokenContext(model: NovelReaderViewModel) = NovelWriteContext(
+        memberIds = model.memberIds,
+        stitch = emptyList(),
+        orderedIds = emptyList(),
+        incognito = ChapterIncognito(
+            sourceOf = { owner -> novelRepo.getById(owner)?.source?.let(SourceKey::Novel) },
+            isIncognito = getIncognitoState::await,
+        ),
+    )
+
+    /** Read aloud reaching [share] of [chapterId]'s words beside [model]. */
+    fun saveSpoken(model: NovelReaderViewModel, chapterId: Long, share: Double) =
+        progressSlot.reportSpoken(chapterId, share, spokenContext(model))
+
+    /** Read aloud reaching [chapterId]'s end beside [model]. */
+    fun finishSpoken(model: NovelReaderViewModel, chapterId: Long) =
+        progressSlot.finishSpoken(chapterId, spokenContext(model))
+
     /** [savedState] is the host's, which a test hands a second model to reopen it as after a process kill. */
     fun open(
         novelId: Long,
         chapterId: Long,
         sourceScoped: Boolean = false,
         savedState: SavedStateHandle = SavedStateHandle(),
+        followSession: Boolean = false,
     ): NovelReaderViewModel {
         val context = mockk<Context>(relaxed = true)
-        val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
-        val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences, onMerged = {}) {}
-        val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
-        val mergedChapterProvider = NovelMergedChapterProvider(
-            mergeManager,
-            ReconcileMergedChapters(units, setOf(stitcher)),
-        )
         return NovelReaderViewModel(
             appScope = appScope,
             novelId = novelId,
             initialChapterId = chapterId,
             sourceScoped = sourceScoped,
             savedState = savedState,
+            followSession = followSession,
+            readAloudSession = readAloudSession,
             novelRepo = novelRepo,
             chapterRepo = chapterRepo,
             sourceManager = sourceManager,
@@ -517,13 +625,8 @@ class NovelReaderViewModelHarness private constructor(
             // BasePreferences builds an extension-installer preference whose default calls into
             // android.graphics, so only the incognito switch is carried over. The manga-extension
             // lookup is never reached for a novel source.
-            getIncognitoState = GetIncognitoState(
-                mockk<BasePreferences> {
-                    every { incognitoMode } returns this@NovelReaderViewModelHarness.incognito
-                },
-                sourcePreferences,
-                mockk(),
-            ),
+            getIncognitoState = getIncognitoState,
+
             setNovelViewerFlags = spyk(SetNovelViewerFlags(novelRepo)) {
                 coEvery { awaitSetOrientation(any(), any()) } coAnswers {
                     if (slowFlagWrite(firstArg(), secondArg())) slowWrite()
@@ -534,20 +637,10 @@ class NovelReaderViewModelHarness private constructor(
             chapterTextCache = chapterTextCache,
             pageFetcher = mockk { every { chapterSaved } returns pageSaves },
             deleteChaptersBehindReader = deleteChaptersBehindReader,
-            // Only the Downloaded only switch; BasePreferences itself cannot be built on the JVM.
-            basePreferences = mockk<BasePreferences> {
-                every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
-            },
+            basePreferences = basePreferences,
             context = context,
-            adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
-            getNextNovelChapter = GetNextNovelChapter(
-                chapterRepo,
-                novelRepo,
-                novelPreferences,
-                mergeManager,
-                mergedChapterProvider,
-                NovelChapterSettings(novelRepo),
-            ),
+            getNextNovelChapter = getNextNovelChapter,
+
             setNovelCustomCover = SetNovelCustomCover(
                 novelRepo,
                 UpdateNovel(novelRepo, mockk(relaxed = true)),
@@ -680,6 +773,8 @@ class NovelReaderViewModelHarness private constructor(
         diskProbeGate?.open()
         pluginLoadGate.complete(Unit)
         withContext(NonCancellable) {
+            // A session runs on the app scope until stopped, as it outlives every reader.
+            if (readAloudSessionLazy.isInitialized()) readAloudSession.stop()
             leaveModels()
             // After the models, since a model's last held position is written onto the app scope as it ends,
             // and until none is left, since a held write that lands launches the write behind it

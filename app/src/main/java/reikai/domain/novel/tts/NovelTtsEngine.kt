@@ -43,6 +43,33 @@ interface NovelTtsEngine {
  *  notification service. */
 enum class TtsPlayback { Stopped, Playing, Paused }
 
+/** Why read aloud stopped by itself rather than being stopped, which the notification says before it goes. */
+enum class ReadAloudStop {
+    /** The next chapter would not load. */
+    LoadFailed,
+
+    /** The next chapter took longer to load than speech waits for. */
+    LoadTimedOut,
+
+    /** The voice ended paragraph after paragraph without saying any of them. */
+    EngineSilent,
+}
+
+/** What paused read aloud, since only some pauses count towards stopping a session left paused. */
+enum class TtsPauseReason {
+    /** A control: the reader's, the notification's, a headset's, or headphones unplugged. */
+    User,
+
+    /** A call or a navigation prompt, which gives focus back. */
+    TransientFocusLoss,
+
+    /** Another app took audio focus for good. */
+    FocusLoss,
+
+    /** The sleep timer ran out. */
+    SleepTimer,
+}
+
 /** An installed TTS engine: [packageName] feeds the backend constructor, [label] is user-facing. */
 data class TtsEngineInfo(val packageName: String, val label: String)
 

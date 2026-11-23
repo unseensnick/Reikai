@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -8,11 +9,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.NovelTtsEngine
+import reikai.domain.novel.tts.ReadAloudStop
 import reikai.domain.novel.tts.TtsEngineInfo
 import reikai.domain.novel.tts.TtsPiece
 import reikai.domain.novel.tts.TtsPlayback
@@ -20,6 +24,7 @@ import reikai.domain.novel.tts.TtsUtteranceSplitter
 import reikai.domain.novel.tts.TtsVoice
 import reikai.presentation.recents.EmittingPreferenceStore
 import java.util.Locale
+import kotlin.time.Duration.Companion.seconds
 
 class ReadAloudControllerTest {
 
@@ -60,6 +65,12 @@ class ReadAloudControllerTest {
     private fun TestScope.act(block: () -> Unit) {
         block()
         advanceUntilIdle()
+    }
+
+    /** [act] for a step taken while the next chapter loads, which leaves its timeout waiting. */
+    private fun TestScope.meanwhile(block: () -> Unit) {
+        block()
+        runCurrent()
     }
 
     @Test
@@ -148,7 +159,7 @@ class ReadAloudControllerTest {
         act { engine.pieceStarts.last()(0) }
         act { engine.finishLast() }
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         surface.ranges.last() shouldBe null
     }
@@ -159,7 +170,7 @@ class ReadAloudControllerTest {
         val controller = playing()
         act { engine.pieceStarts.last()(0) }
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         surface.ranges.last() shouldBe (0 until 1)
     }
@@ -224,7 +235,7 @@ class ReadAloudControllerTest {
         act { engine.pieceStarts.last()(2) }
         act { controller.pause() }
         surface.chapters[1L] = listOf("One. Two.", "Three, split. Four. Five.", "Six. Seven.")
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         act { controller.play() }
 
@@ -657,7 +668,7 @@ class ReadAloudControllerTest {
     }
 
     @Test
-    fun `a chapter spoken to its end is finished before the next one opens`() = runTest {
+    fun `a chapter spoken to its end is finished before the next one loads`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
         navigation.after[1L] = 2L
         surface.firstVisible = ReadAloudPosition(1L, 2)
@@ -665,7 +676,7 @@ class ReadAloudControllerTest {
 
         act { engine.finishLast() }
 
-        navigation.finishedBeforeOpen shouldBe listOf(1L)
+        navigation.finishedBeforeLoad shouldBe listOf(1L)
     }
 
     @Test
@@ -745,7 +756,7 @@ class ReadAloudControllerTest {
     }
 
     @Test
-    fun `a sleep timer set for the chapter end does not open the next chapter`() = runTest {
+    fun `a sleep timer set for the chapter end does not load the next chapter`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
         navigation.after[1L] = 2L
         surface.firstVisible = ReadAloudPosition(1L, 2)
@@ -754,47 +765,92 @@ class ReadAloudControllerTest {
 
         act { engine.finishLast() }
 
-        navigation.opened shouldBe emptyList()
+        navigation.loaded shouldBe emptyList()
+    }
+
+    /** Ends chapter 1 on its last paragraph with chapter 2 after it, which the renderer does not hold. */
+    private fun TestScope.endingOnAChapterToLoad(): ReadAloudController {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        return playing().also { meanwhile { engine.finishLast() } }
     }
 
     @Test
-    fun `a next chapter the renderer lacks is opened for read aloud`() = runTest {
+    fun `a next chapter the renderer lacks is loaded for read aloud`() = runTest {
+        endingOnAChapterToLoad()
+
+        navigation.loaded shouldBe listOf(2L)
+    }
+
+    @Test
+    fun `a chapter loaded for read aloud starts once it has loaded`() = runTest {
+        endingOnAChapterToLoad()
+
+        act { navigation.complete(2L, listOf("x", "y")) }
+
+        engine.spoken shouldBe listOf("c", "x")
+    }
+
+    /** The renderer's paragraphs are what it highlights, so a renderer holding the chapter by then is spoken from. */
+    @Test
+    fun `a chapter the renderer came to hold while it loaded is spoken as the renderer shows it`() = runTest {
+        endingOnAChapterToLoad()
+        surface.chapters[2L] = listOf("X", "y")
+
+        act { navigation.complete(2L, listOf("x", "y")) }
+
+        engine.spoken shouldBe listOf("c", "X")
+    }
+
+    @Test
+    fun `speech moving on to a loaded chapter tells the reader to follow`() = runTest {
+        endingOnAChapterToLoad()
+
+        act { navigation.complete(2L, listOf("x", "y")) }
+
+        navigation.moved shouldBe listOf(2L)
+    }
+
+    @Test
+    fun `speech moving on inside the renderer's window tells the reader to follow`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
         navigation.after[1L] = 2L
+        surface.chapters[2L] = listOf("x", "y")
         surface.firstVisible = ReadAloudPosition(1L, 2)
         playing()
 
         act { engine.finishLast() }
 
-        navigation.opened shouldBe listOf(2L)
+        navigation.moved shouldBe listOf(2L)
     }
 
     @Test
-    fun `a chapter opened for read aloud starts once the renderer lands on it`() = runTest {
-        preferences.readerTtsAutoPageAdvance().set(true)
-        navigation.after[1L] = 2L
-        surface.firstVisible = ReadAloudPosition(1L, 2)
-        val controller = playing()
-        act { engine.finishLast() }
-        surface.chapters[2L] = listOf("x", "y")
+    fun `loading the next chapter reads as playing`() = runTest {
+        val controller = endingOnAChapterToLoad()
 
-        act { controller.onRendererLanded(2L) }
-
-        engine.spoken shouldBe listOf("c", "x")
+        controller.state.value.playback shouldBe TtsPlayback.Playing
     }
 
     @Test
-    fun `play after a pause while the next chapter opens does not repeat the last paragraph`() = runTest {
-        preferences.readerTtsAutoPageAdvance().set(true)
-        navigation.after[1L] = 2L
-        surface.firstVisible = ReadAloudPosition(1L, 2)
-        val controller = playing()
-        act { engine.finishLast() }
-        act { controller.pause() }
+    fun `play after a pause while the next chapter loads does not repeat the last paragraph`() = runTest {
+        val controller = endingOnAChapterToLoad()
+        meanwhile { controller.pause() }
 
-        act { controller.play() }
+        meanwhile { controller.play() }
 
         engine.spoken shouldBe listOf("c")
+    }
+
+    @Test
+    fun `a pause while the next chapter loads holds it at its first paragraph`() = runTest {
+        val controller = endingOnAChapterToLoad()
+        meanwhile { controller.pause() }
+
+        act { navigation.complete(2L, listOf("x", "y")) }
+
+        (controller.state.value.playback to surface.highlights.last()) shouldBe
+            (TtsPlayback.Paused to ReadAloudPosition(2L, 0))
     }
 
     @Test
@@ -804,80 +860,120 @@ class ReadAloudControllerTest {
         navigation.after[1L] = 2L
         surface.firstVisible = ReadAloudPosition(1L, 2)
         val controller = playing()
-        act { engine.pieceStarts.last()(1) }
-        act { engine.finishLast() }
-        act { controller.pause() }
-        surface.chapters[2L] = listOf("Eight. Nine.")
-        act { controller.onRendererLanded(2L) }
+        meanwhile { engine.pieceStarts.last()(1) }
+        meanwhile { engine.finishLast() }
+        meanwhile { controller.pause() }
+        act { navigation.complete(2L, listOf("Eight. Nine.")) }
 
-        act { controller.play() }
+        meanwhile { controller.play() }
 
         engine.spoken.last() shouldBe "Eight. Nine."
     }
 
     @Test
-    fun `a paragraph step while the next chapter opens does not open it again`() = runTest {
-        preferences.readerTtsAutoPageAdvance().set(true)
-        navigation.after[1L] = 2L
-        surface.firstVisible = ReadAloudPosition(1L, 2)
-        val controller = playing()
-        act { engine.finishLast() }
+    fun `a paragraph step while the next chapter loads does not load it again`() = runTest {
+        val controller = endingOnAChapterToLoad()
 
-        act { controller.nextParagraph() }
+        meanwhile { controller.nextParagraph() }
 
-        navigation.opened shouldBe listOf(2L)
+        navigation.loaded shouldBe listOf(2L)
     }
 
-    /** The notification's seek bar still holds the finished chapter's paragraphs while the next one opens. */
+    /** The notification's seek bar still holds the finished chapter's paragraphs while the next one loads. */
     @Test
-    fun `a seek while the next chapter opens does not speak the finished chapter again`() = runTest {
-        preferences.readerTtsAutoPageAdvance().set(true)
-        navigation.after[1L] = 2L
-        surface.firstVisible = ReadAloudPosition(1L, 2)
-        val controller = playing()
-        act { engine.finishLast() }
+    fun `a seek while the next chapter loads does not speak the finished chapter again`() = runTest {
+        val controller = endingOnAChapterToLoad()
 
-        act { controller.seekToParagraph(2) }
+        meanwhile { controller.seekToParagraph(2) }
 
         engine.spoken shouldBe listOf("c")
     }
 
     @Test
-    fun `play after a pause while the next chapter opens starts it once the renderer lands`() = runTest {
-        preferences.readerTtsAutoPageAdvance().set(true)
-        navigation.after[1L] = 2L
-        surface.firstVisible = ReadAloudPosition(1L, 2)
-        val controller = playing()
-        act { engine.finishLast() }
-        act { controller.pause() }
-        act { controller.play() }
-        surface.chapters[2L] = listOf("x", "y")
+    fun `play after a pause while the next chapter loads starts it once it has loaded`() = runTest {
+        val controller = endingOnAChapterToLoad()
+        meanwhile { controller.pause() }
+        meanwhile { controller.play() }
 
-        act { controller.onRendererLanded(2L) }
+        act { navigation.complete(2L, listOf("x", "y")) }
 
         engine.spoken shouldBe listOf("c", "x")
     }
 
     @Test
-    fun `a chapter that fails to load while awaited stops playback`() = runTest {
-        preferences.readerTtsAutoPageAdvance().set(true)
-        navigation.after[1L] = 2L
-        surface.firstVisible = ReadAloudPosition(1L, 2)
-        val controller = playing()
-        act { engine.finishLast() }
+    fun `a chapter that fails to load stops playback`() = runTest {
+        val controller = endingOnAChapterToLoad()
 
-        act { controller.onChapterLoadFailed() }
+        meanwhile { navigation.fail(2L) }
 
         controller.state.value.playback shouldBe TtsPlayback.Stopped
     }
 
     @Test
-    fun `a load failure with no chapter awaited leaves playback going`() = runTest {
+    fun `a chapter that fails to load says so as it stops`() = runTest {
+        endingOnAChapterToLoad()
+
+        meanwhile { navigation.fail(2L) }
+
+        transport.stopReason shouldBe ReadAloudStop.LoadFailed
+    }
+
+    @Test
+    fun `a chapter that takes too long to load stops playback and says so`() = runTest {
+        endingOnAChapterToLoad()
+
+        act { advanceTimeBy(91.seconds) }
+
+        (transport.published to transport.stopReason) shouldBe (TtsPlayback.Stopped to ReadAloudStop.LoadTimedOut)
+    }
+
+    /** A voice the system took away ends each paragraph at once and says nothing. */
+    @Test
+    fun `three paragraphs the voice ends unsaid build the voice again`() = runTest {
+        surface.chapters[1L] = listOf("a", "b", "c", "d", "e")
+        surface.firstVisible = ReadAloudPosition(1L, 0)
+        playing()
+
+        repeat(3) { act { engine.finishLast(said = false) } }
+
+        engines.size shouldBe 2
+    }
+
+    @Test
+    fun `a voice built again that still says nothing stops playback and says so`() = runTest {
+        surface.chapters[1L] = listOf("a", "b", "c", "d", "e", "f", "g")
+        surface.firstVisible = ReadAloudPosition(1L, 0)
         val controller = playing()
+        repeat(3) { act { engine.finishLast(said = false) } }
+        act { engine.init(true) }
 
-        act { controller.onChapterLoadFailed() }
+        repeat(3) { act { engine.finishLast(said = false) } }
 
-        controller.state.value.playback shouldBe TtsPlayback.Playing
+        (controller.state.value.playback to transport.stopReason) shouldBe
+            (TtsPlayback.Stopped to ReadAloudStop.EngineSilent)
+    }
+
+    @Test
+    fun `a chapter the voice said none of is not finished`() = runTest {
+        surface.firstVisible = ReadAloudPosition(1L, 1)
+        playing()
+
+        repeat(2) { act { engine.finishLast(said = false) } }
+
+        navigation.finished shouldBe emptyList()
+    }
+
+    @Test
+    fun `a paragraph the voice says resets the count of unsaid ones`() = runTest {
+        surface.chapters[1L] = listOf("a", "b", "c", "d", "e")
+        surface.firstVisible = ReadAloudPosition(1L, 0)
+        playing()
+
+        repeat(2) { act { engine.finishLast(said = false) } }
+        act { engine.finishLast() }
+        repeat(2) { act { engine.finishLast(said = false) } }
+
+        engines.size shouldBe 1
     }
 
     @Test
@@ -900,21 +996,35 @@ class ReadAloudControllerTest {
         val controller = playing()
         surface.chapters[1L] = listOf("new", "a", "b", "c")
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         surface.highlights.last() shouldBe ReadAloudPosition(1L, 2)
     }
 
+    /** Two renderers count one chapter's paragraphs differently, and how far through its words each is they share. */
     @Test
-    fun `a renderer laying the chapter out again takes the match nearest the old paragraph`() = runTest {
-        surface.chapters[1L] = listOf("a", "b", "c", "b")
-        surface.firstVisible = ReadAloudPosition(1L, 3)
+    fun `a renderer laying the chapter out again takes the match nearest the old paragraph's share of the words`() =
+        runTest {
+            surface.chapters[1L] = listOf("a", "b", "c", "b")
+            surface.firstVisible = ReadAloudPosition(1L, 3)
+            val controller = playing()
+            surface.chapters[1L] = listOf("b", "x", "b", "a", "c", "b", "b")
+
+            act { controller.onRendererLanded() }
+
+            surface.highlights.last() shouldBe ReadAloudPosition(1L, 5)
+        }
+
+    @Test
+    fun `a paragraph missing from the new layout takes the one nearest its share of the words`() = runTest {
+        surface.chapters[1L] = listOf("a", "b", "c", "d")
+        surface.firstVisible = ReadAloudPosition(1L, 2)
         val controller = playing()
-        surface.chapters[1L] = listOf("b", "x", "b", "a", "c", "b", "b")
+        surface.chapters[1L] = listOf("w", "x", "y", "z", "q", "r", "s", "t")
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
-        surface.highlights.last() shouldBe ReadAloudPosition(1L, 2)
+        surface.highlights.last() shouldBe ReadAloudPosition(1L, 4)
     }
 
     @Test
@@ -923,7 +1033,7 @@ class ReadAloudControllerTest {
         val controller = playing()
         surface.chapters[1L] = listOf("a")
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         surface.highlights.last() shouldBe ReadAloudPosition(1L, 0)
     }
@@ -934,7 +1044,7 @@ class ReadAloudControllerTest {
         surface.chapters[1L] = listOf("new", "a", "b", "c")
         surface.answerDelayMs = SLOW_ANSWER_MS
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         surface.highlights.last() shouldBe ReadAloudPosition(1L, 2)
     }
@@ -945,7 +1055,7 @@ class ReadAloudControllerTest {
         surface.answerDelayMs = SLOW_ANSWER_MS
         val before = surface.highlights.size
 
-        controller.onRendererLanded(1L)
+        controller.onRendererLanded()
 
         surface.highlights.drop(before) shouldBe listOf(ReadAloudPosition(1L, 1))
     }
@@ -955,7 +1065,7 @@ class ReadAloudControllerTest {
         val controller = playing()
         surface.chapters.remove(1L)
         surface.chapters[2L] = listOf("x")
-        act { controller.onRendererLanded(2L) }
+        act { controller.onRendererLanded() }
         surface.chapters[1L] = listOf("new", "a", "b", "c")
 
         act { controller.onWindowChanged() }
@@ -972,7 +1082,7 @@ class ReadAloudControllerTest {
         val before = surface.highlights.size
 
         act {
-            controller.onRendererLanded(1L)
+            controller.onRendererLanded()
             controller.onWindowChanged()
         }
 
@@ -986,7 +1096,7 @@ class ReadAloudControllerTest {
         act { controller.pause() }
         val before = surface.follows.size
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         surface.follows.drop(before) shouldBe listOf(false, false)
     }
@@ -996,7 +1106,7 @@ class ReadAloudControllerTest {
         val controller = playing()
         val before = surface.follows.size
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         surface.follows.drop(before) shouldBe listOf(true, true)
     }
@@ -1008,7 +1118,7 @@ class ReadAloudControllerTest {
         surface.firstVisible = ReadAloudPosition(1L, 2)
         val controller = playing()
         surface.chapters.remove(1L)
-        act { controller.onRendererLanded(3L) }
+        act { controller.onRendererLanded() }
         surface.chapters[2L] = listOf("x", "y")
         act { engine.finishLast() }
         val before = surface.highlights.size
@@ -1025,11 +1135,10 @@ class ReadAloudControllerTest {
         surface.firstVisible = ReadAloudPosition(1L, 2)
         val controller = playing()
         surface.chapters.remove(1L)
-        act { controller.onRendererLanded(3L) }
-        act { engine.finishLast() }
-        act { controller.pause() }
-        surface.chapters[2L] = listOf("x", "y")
-        act { controller.onRendererLanded(2L) }
+        act { controller.onRendererLanded() }
+        meanwhile { engine.finishLast() }
+        meanwhile { controller.pause() }
+        act { navigation.complete(2L, listOf("x", "y")) }
         val before = surface.highlights.size
 
         act { controller.onWindowChanged() }
@@ -1042,7 +1151,7 @@ class ReadAloudControllerTest {
         val controller = playing()
         surface.chapters[1L] = listOf("new", "a", "b", "c")
 
-        act { controller.onRendererLanded(1L) }
+        act { controller.onRendererLanded() }
 
         engine.spoken shouldBe listOf("b")
     }
@@ -1181,7 +1290,7 @@ class ReadAloudControllerTest {
         val pieceStarts = mutableListOf<(Int) -> Unit>()
 
         /** Every paragraph's finish, kept after a stop, since the real one can already be on its way. */
-        private val finishes = mutableListOf<() -> Unit>()
+        private val finishes = mutableListOf<(said: Boolean) -> Unit>()
         var stops = 0
         var shutDown = false
         var lastRate: Float? = null
@@ -1194,9 +1303,9 @@ class ReadAloudControllerTest {
 
         fun init(ready: Boolean) = onInit(ready)
 
-        fun finish(index: Int) = finishes[index]()
+        fun finish(index: Int) = finishes[index](true)
 
-        fun finishLast() = finishes.last()()
+        fun finishLast(said: Boolean = true) = finishes.last()(said)
 
         override fun availableEngines() = emptyList<TtsEngineInfo>()
         override fun availableVoices() = emptyList<TtsVoice>()
@@ -1218,11 +1327,20 @@ class ReadAloudControllerTest {
             return TtsUtteranceSplitter.pieces(text, maxLength = 1000, Locale.ENGLISH, bySentence)
         }
 
-        /** What was spoken, as its pieces joined, so a paragraph spoken whole reads as itself. */
+        /** What was spoken, as its pieces joined, so a paragraph spoken whole reads as itself. A finish says
+         *  its paragraph first, as a voice does, unless [finishLast] is told it went unsaid. */
         override fun speak(pieces: List<TtsPiece>, onPieceStart: (index: Int) -> Unit, onDone: () -> Unit) {
             spoken += pieces.joinToString(" ") { it.text }
-            pieceStarts += onPieceStart
-            finishes += onDone
+            var started = false
+            val start: (Int) -> Unit = {
+                started = true
+                onPieceStart(it)
+            }
+            pieceStarts += start
+            finishes += { said ->
+                if (said && !started && pieces.isNotEmpty()) start(0)
+                onDone()
+            }
         }
 
         override fun stop() {
@@ -1264,11 +1382,13 @@ class ReadAloudControllerTest {
 
     private class FakeNavigation : ReadAloudNavigation {
         val after = mutableMapOf<Long, Long>()
-        val opened = mutableListOf<Long>()
+        val loaded = mutableListOf<Long>()
+        val moved = mutableListOf<Long>()
         val saved = mutableListOf<Pair<Long, Double>>()
         val finished = mutableListOf<Long>()
+        private val loads = mutableMapOf<Long, CompletableDeferred<List<String>>>()
 
-        override fun chapterAfter(chapterId: Long) = after[chapterId]
+        override suspend fun chapterAfter(chapterId: Long) = after[chapterId]
 
         override fun savePosition(chapterId: Long, share: Double) {
             saved += chapterId to share
@@ -1278,12 +1398,26 @@ class ReadAloudControllerTest {
             finished += chapterId
         }
 
-        /** What [finished] held when each chapter was opened. */
-        val finishedBeforeOpen = mutableListOf<Long>()
+        /** What [finished] held when each chapter was loaded. */
+        val finishedBeforeLoad = mutableListOf<Long>()
 
-        override fun openForReadAloud(chapterId: Long) {
-            finishedBeforeOpen += finished
-            opened += chapterId
+        /** Waits for a test to [complete] or [fail] the chapter, as a source fetch does. */
+        override suspend fun loadParagraphs(chapterId: Long): List<String> {
+            finishedBeforeLoad += finished
+            loaded += chapterId
+            return loads.getOrPut(chapterId) { CompletableDeferred() }.await()
+        }
+
+        fun complete(chapterId: Long, paragraphs: List<String>) {
+            loads.getOrPut(chapterId) { CompletableDeferred() }.complete(paragraphs)
+        }
+
+        fun fail(chapterId: Long) {
+            loads.getOrPut(chapterId) { CompletableDeferred() }.completeExceptionally(IllegalStateException("offline"))
+        }
+
+        override fun movedTo(chapterId: Long) {
+            moved += chapterId
         }
 
         override fun titleOf(chapterId: Long) = "Chapter $chapterId"
@@ -1319,9 +1453,19 @@ class ReadAloudControllerTest {
             this.onSeek = onSeek
         }
 
-        override fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int) {
+        var stopReason: ReadAloudStop? = null
+
+        override fun publish(
+            playback: TtsPlayback,
+            chapterId: Long?,
+            title: String,
+            paragraph: Int,
+            paragraphCount: Int,
+            stopReason: ReadAloudStop?,
+        ) {
             published = playback
             this.paragraph = paragraph to paragraphCount
+            if (stopReason != null) this.stopReason = stopReason
         }
 
         override fun takeStopAtChapterEnd() = stopAtChapterEnd.also { stopAtChapterEnd = false }

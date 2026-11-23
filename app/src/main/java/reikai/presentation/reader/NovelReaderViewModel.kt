@@ -149,6 +149,9 @@ class NovelReaderViewModel(
     /** The host's, so the chapter being read survives a process kill. Assisted like the ids above,
      *  since this model is built through the manual factory rather than off the graph's extras. */
     @Assisted private val savedState: SavedStateHandle,
+    /** The launch reopens read aloud where it is (its notification, Continue, History), rather than
+     *  asking for a chapter of its own, which stops it. */
+    @Assisted private val followSession: Boolean,
     @AppCoroutineScope private val appScope: CoroutineScope,
     private val novelRepo: NovelRepository,
     private val chapterRepo: NovelChapterRepository,
@@ -170,13 +173,13 @@ class NovelReaderViewModel(
     private val basePreferences: BasePreferences,
     private val context: Context,
     private val pageFetcher: NovelPageFetcher,
-    private val adultChecker: AdultContentChecker,
     private val getNextNovelChapter: GetNextNovelChapter,
     private val setNovelCustomCover: SetNovelCustomCover,
     private val pictureCache: NovelChapterPictureCache,
     private val readerPreferences: ReaderPreferences,
     private val progressSlot: NovelProgressSlot,
     private val chapterFinish: NovelChapterFinish,
+    private val readAloudSession: ReadAloudSession,
     // Dispatchers.IO in the app, which is what launchIO would have used. Passed in so a JVM test can
     // run the whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher,
@@ -191,6 +194,7 @@ class NovelReaderViewModel(
             initialChapterId: Long,
             sourceScoped: Boolean,
             savedState: SavedStateHandle,
+            followSession: Boolean,
             io: CoroutineDispatcher,
         ): NovelReaderViewModel
     }
@@ -241,14 +245,32 @@ class NovelReaderViewModel(
     @Volatile
     private var onScreen = true
 
+    /** Read aloud as this reader sees it: the app's session while it reads this series, else nothing. */
+    val readAloud = ReadAloudLink(readAloudSession, novelId, sourceScoped) { memberIds }
+
+    /** How far read aloud is through [chapterId] by its words, while it speaks that chapter of this series. */
+    private fun spokenShare(chapterId: Long): Double? = readAloudSession.state.value
+        .takeIf { it.isOf(novelId, sourceScoped) }
+        ?.speech?.progress
+        ?.takeIf { it.chapterId == chapterId && it.words > 0 }
+        ?.let { it.wordsSpoken.toDouble() / it.words }
+
+    /** The chapter read aloud is speaking, while it reads this series. */
+    private fun spokenChapter(): Long? = readAloudSession.state.value
+        .takeIf { it.isOf(novelId, sourceScoped) }
+        ?.speech?.progress?.chapterId
+        ?: readAloudSession.moves.value?.takeIf { it.series.includes(novelId, sourceScoped) }?.chapterId
+
     /**
-     * The chapter this session opens on: the one being read when the process was killed, or the one
-     * the launch named. Seamless crossing means a session spans many chapters with no open of their
-     * own, so the launch chapter can be several chapters behind by then. `ReaderViewModel` restores
-     * the same thing from its own handle. Declared above every reader of it, which would otherwise
-     * see 0 while this initializer had not run.
+     * The chapter this session opens on: the one being read when the process was killed, read aloud's
+     * when the launch follows it, or the one the launch named. Seamless crossing means a session spans
+     * many chapters with no open of their own, so the launch chapter can be several chapters behind by
+     * then. `ReaderViewModel` restores the same thing from its own handle. Declared above every reader
+     * of it, which would otherwise see 0 while this initializer had not run.
      */
-    private val openingChapterId: Long = savedState.get<Long>(SAVED_CHAPTER_ID) ?: initialChapterId
+    private val openingChapterId: Long = savedState.get<Long>(SAVED_CHAPTER_ID)
+        ?: spokenChapter()?.takeIf { followSession }
+        ?: initialChapterId
 
     /** Whether the first load reopens after a process kill, which [newestStampedChapter] may move on. */
     private var restoringAfterKill = savedState.contains(SAVED_CHAPTER_ID)
@@ -442,11 +464,6 @@ class NovelReaderViewModel(
     /** The opened entry's own title, which a merged session keeps even as chapters cross sources. */
     internal val entryTitle: StateFlow<String?>
         field = MutableStateFlow<String?>(null)
-
-    /** Whether the opened novel is adult, for read-aloud's notification. Adult until the row is read, as
-     *  a privacy switch reads it: a generic title beats a leaked one. */
-    @Volatile
-    private var isAdultEntry = true
 
     /** The opened novel's id once its row loads, which the app bar's title tap opens the details of. */
     internal val detailsNovelId: StateFlow<Long?>
@@ -743,41 +760,13 @@ class NovelReaderViewModel(
         }
     }
 
-    /**
-     * Read aloud's place, through the held write the renderers' reports take but leaving [progress] to
-     * the screen: with Keep in view on, the scroll that follows reports where the screen is, after this.
-     */
-    internal fun saveSpokenPosition(chapterId: Long, share: Double) =
-        progressSlot.reportSpoken(chapterId, share, writeContext())
-
-    /** A held paragraph written after the end would put a chapter just heard back on that paragraph. */
-    internal fun finishSpokenChapter(chapterId: Long) = progressSlot.finishSpoken(chapterId, writeContext())
-
-    /** Above the init block, whose first load can fail and report it here. */
-    val readAloud = ReadAloudController(
-        scope = viewModelScope,
-        preferences = novelPreferences,
-        createEngine = { enginePackage, onInit -> SystemTtsEngine(context, enginePackage, onInit) },
-        navigation = object : ReadAloudNavigation {
-            override fun chapterAfter(chapterId: Long) = this@NovelReaderViewModel.chapterAfter(chapterId)
-
-            override fun savePosition(chapterId: Long, share: Double) = saveSpokenPosition(chapterId, share)
-
-            override fun finishChapter(chapterId: Long) = finishSpokenChapter(chapterId)
-
-            // Forward, so it finishes the chapter it leaves the way the next-chapter button does.
-            override fun openForReadAloud(chapterId: Long) = goTo(chapterId, markDepartedRead = true)
-
-            override fun titleOf(chapterId: Long) =
-                window.value.chapters.firstOrNull { it.chapterId == chapterId }?.title
-                    ?: chapter.value?.title.orEmpty()
-        },
-        transport = NovelTtsSessionTransport(context) { isAdultEntry },
-    )
-
     init {
-        readAloudOffScreen()
-        holdReadClockInMenu()
+        readAloudSession.register(readAloud)
+        // One series, one place: a launch naming another chapter of the series read aloud is reading,
+        // rather than following it, is the reader choosing to read there.
+        spokenChapter()?.let { spoken -> if (!followSession && spoken != openingChapterId) readAloud.stop() }
+        holdReadClockWhileSpeaking()
+        followReadAloud()
         // Kept as each is written, so it is never a place the save skipped.
         progressSlot.persisted.onEach { (id, at) -> keepPosition(id, at) }.launchIn(viewModelScope)
         viewModelScope.launchIO {
@@ -801,7 +790,6 @@ class NovelReaderViewModel(
             }
             novel?.let {
                 entryTitle.value = it.title
-                isAdultEntry = it.id in adultChecker.adultNovelIdsAmong(listOf(it))
                 detailsNovelId.value = it.id
                 cover.value = it.thumbnailUrl?.takeIf(String::isNotBlank)?.let(it::asNovelCover)
             }
@@ -938,7 +926,6 @@ class NovelReaderViewModel(
         updateHistory()
         currentChapterId = target
         currentNovelId = owner
-        stampArrivalWhileAway(target, owner)
         startReadSession()
         this.bookmarked.value = bookmarked
         chapter.value = arriving
@@ -1033,7 +1020,6 @@ class NovelReaderViewModel(
                     // its own load running, for the text this one processed by the old settings.
                     if (requested != pendingChapterId || generation != textGeneration) return@launchIO
                     commitOpen(row, html, baseUrl, bookmarked)
-                    stampArrivalWhileAway(row.id, row.novelId)
                     skipMark?.takeIf { (target, _) -> target == requested }?.let { (_, departed) ->
                         skipMark = null
                         markReadOnSkip(departed)
@@ -1054,7 +1040,6 @@ class NovelReaderViewModel(
                     chapterId = target,
                     blockedUrl = e.cloudflareBlockedUrl(),
                 )
-                readAloud.onChapterLoadFailed()
             }
         }
     }
@@ -1099,7 +1084,9 @@ class NovelReaderViewModel(
             url = url,
             html = html,
             baseUrl = baseUrl,
-            progress = NovelResume.progress(
+            // Where read aloud is speaking first: it is ahead of every write, and in incognito or a chapter
+            // already read none of them holds it.
+            progress = spokenShare(id)?.let(ChapterProgress.Percent::of) ?: NovelResume.progress(
                 read,
                 unstoredPosition(id, novelId) ?: lastTextProgress,
                 novelPreferences.readerPreserveReadingPosition().get(),
@@ -1117,54 +1104,27 @@ class NovelReaderViewModel(
         )
     }
 
-    /**
-     * [updateHistory] on the app scope, so a reader closing still writes it, as manga's saveHistory. Read aloud playing
-     * on is reading the reader still does, so its session starts again at once and is saved when the speech stops
-     * ([readAloudOffScreen]) or the reader comes back.
-     */
+    /** [updateHistory] on the app scope, so a reader closing still writes it, as manga's saveHistory. Read
+     *  aloud going on keeps its own clock, so this one stays stopped until the reader comes back. */
     fun saveHistory() {
         onScreen = false
+        readAloudSession.setOnScreen(readAloud, false)
         // Immediate so the read time is taken when the reader pauses
-        appScope.launch(Dispatchers.Main.immediate) {
-            updateHistory()
-            if (readAloud.state.value.playback == TtsPlayback.Playing) chapterReadSession.resume(Clock.System.now())
-        }
-    }
-
-    /** Off screen, speech starting counts as reading and speech stopping ends the session, so listening with the
-     *  screen off counts for exactly as long as it plays. */
-    private fun readAloudOffScreen() {
-        readAloud.state
-            .map { it.playback == TtsPlayback.Playing }
-            .distinctUntilChanged()
-            .drop(1)
-            .onEach { playing ->
-                if (onScreen) return@onEach
-                if (playing) chapterReadSession.resume(Clock.System.now()) else updateHistory()
-            }
-            .launchIn(viewModelScope)
+        appScope.launch(Dispatchers.Main.immediate) { updateHistory() }
     }
 
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
-     *  chapter switch and, through [ReaderProvider.saveHistory], on leaving the reader. */
-    private suspend fun updateHistory() {
+     *  chapter switch and, through [ReaderProvider.saveHistory], on leaving the reader. [onlyRead] writes
+     *  nothing when no time was read, for a move this reader made only to follow read aloud. */
+    private suspend fun updateHistory(onlyRead: Boolean = false) {
         val chapter = this.chapter.value ?: return
         if (incognito.of(chapter.novelId)) return
         val id = chapter.chapterId
         val now = Clock.System.now()
         val duration = chapterReadSession.take(now)
+        if (onlyRead && duration <= 0L) return
         upsertNovelHistory.await(NovelHistoryUpdate(id, now, duration))
         readingLog.record(ContentType.NOVELS, id, now, duration)
-    }
-
-    /**
-     * Off screen it is read aloud that moves the reader on, and History is what a process kill reopens on
-     * ([newestStampedChapter]), so the chapter it reaches is stamped now rather than when speech stops.
-     * Stamped with no read time, which leaves the session's clock running.
-     */
-    private suspend fun stampArrivalWhileAway(chapterId: Long, ownerId: Long) {
-        if (onScreen || incognito.of(ownerId)) return
-        upsertNovelHistory.await(NovelHistoryUpdate(chapterId, Clock.System.now(), 0L))
     }
 
     /**
@@ -1192,36 +1152,71 @@ class NovelReaderViewModel(
         holdReadClock()
     }
 
-    /** Speech playing is reading whether or not the menu is open, so starting or stopping it re-decides the hold. */
-    private fun holdReadClockInMenu() {
-        readAloud.state
-            .map { it.playback }
+    /** Whether read aloud is playing this series, whose time its own clock counts. */
+    private fun isSpeaking(): Boolean = readAloudSession.state.value.let {
+        it.isOf(novelId, sourceScoped) && it.speech.playback == TtsPlayback.Playing
+    }
+
+    /** One clock at a time: while speech plays, the time is listening, which read aloud counts. */
+    private fun holdReadClockWhileSpeaking() {
+        readAloudSession.state
+            .map { it.isOf(novelId, sourceScoped) && it.speech.playback == TtsPlayback.Playing }
             .distinctUntilChanged()
             .onEach { holdReadClock() }
             .launchIn(viewModelScope)
     }
 
-    private fun holdReadClock() = chapterReadSession.hold(
-        held = isMenuOpen && readAloud.state.value.playback != TtsPlayback.Playing,
-        now = Clock.System.now(),
-    )
+    private fun holdReadClock() = chapterReadSession.hold(held = isMenuOpen || isSpeaking(), now = Clock.System.now())
 
     /** Called through [ReaderProvider.restartReadTimer] on resume, since leaving the reader stamped
-     *  [updateHistory] and stopped the clock, unless read aloud kept it running. */
+     *  [updateHistory] and stopped the clock. */
     fun restartReadTimer() {
         onScreen = true
+        readAloudSession.setOnScreen(readAloud, true)
         chapterReadSession.resume(Clock.System.now())
     }
 
     /**
-     * Starts the read clock, or [resume]s it, only while something is reading, by the rule [saveHistory] and
-     * [readAloudOffScreen] apply. A chapter landing while the reader is away (a page saved in the in-app
-     * browser, a slow open) otherwise starts it, and [restartReadTimer]'s resume then keeps that start.
+     * Starts the read clock, or [resume]s it, only while the reader is on screen. A chapter landing while
+     * the reader is away (read aloud moving on, a page saved in the in-app browser, a slow open) otherwise
+     * starts it, and [restartReadTimer]'s resume then keeps that start.
      */
     private fun startReadSession(resume: Boolean = false) {
-        if (!onScreen && readAloud.state.value.playback != TtsPlayback.Playing) return
+        if (!onScreen) return
         val now = Clock.System.now()
         if (resume) chapterReadSession.resume(now) else chapterReadSession.start(now)
+    }
+
+    /** Opens each chapter read aloud moves on to by itself, whether or not this reader is on screen. */
+    private fun followReadAloud() {
+        readAloudSession.moves
+            .onEach { move ->
+                if (move == null || !move.series.includes(novelId, sourceScoped)) return@onEach
+                // On screen, a chapter the window holds is reached by the scroll, which a new open would undo.
+                val inWindow = onScreen && window.value.chapters.any { it.chapterId == move.chapterId }
+                if (!inWindow && move.chapterId != currentChapterId && move.chapterId != pendingChapterId) {
+                    followSession(move.chapterId)
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    /**
+     * Opens [chapterId], where read aloud has moved on to. Not a step of the reader's: the chapter left was
+     * finished by speech and History stamped by it, so nothing is stamped, marked or flushed here, only
+     * the time read by hand before speech took over. The order is read again around the new chapter.
+     */
+    private fun followSession(chapterId: Long) {
+        viewModelScope.launchIO {
+            lane.withLock {
+                updateHistory(onlyRead = true)
+                pendingChapterId = chapterId
+                sourceReloadId = null
+                skipMark = null
+                resolveReadingOrder(around = chapterId)
+            }
+            load()
+        }
     }
 
     /** Called through [ReaderProvider.onActivityFinish] on leaving the reader, which is when the
@@ -1396,14 +1391,17 @@ class NovelReaderViewModel(
         sourceManager,
     )
 
-    /** Builds the order the reader pages in, once per session, by the rule read aloud also steps by. */
-    private suspend fun resolveReadingOrder() {
-        val order = orderResolver.resolve(novelId, currentChapterId, sourceScoped)
+    /**
+     * Builds the order the reader pages in, by the rule read aloud also steps by: once per session, and again
+     * [around] a chapter read aloud moved on to, which leaves the chapter on screen as it is until it loads.
+     */
+    private suspend fun resolveReadingOrder(around: Long = currentChapterId) {
+        val order = orderResolver.resolve(novelId, around, sourceScoped)
         memberIds = order.memberIds
         groupStitch = order.stitch
         downloadTargets = order.downloadTargets
         order.copiesToOpen?.let { copiesToOpen = it }
-        currentChapterId = order.currentId
+        if (around == currentChapterId) currentChapterId = order.currentId
         gapPresent = order.gapPresent
         aheadIds = order.aheadIds
         orderedIds = order.orderedIds
@@ -1573,25 +1571,9 @@ class NovelReaderViewModel(
         return warmFailures[id]?.let { BoundaryFailure(it.message, it.failedAtElapsedMs, id) }
     }
 
-    /**
-     * Enqueues the next N unread, un-downloaded chapters in reading order, the novel twin of manga's
-     * autoDownloadWhileReading, pinned by [chaptersToDownloadAhead]. Runs in incognito, which
-     * keeps history out and not downloads, as in manga. Unlike manga it needs neither chapter on disk:
-     * manga's gate keeps a streamed chapter's page loads from sharing the source with the download,
-     * and a novel chapter is one request. Read fresh, so a chapter finished here is not queued again.
-     */
+    /** Download-ahead from the chapter being read, by the rule read aloud downloads ahead by too. */
     private suspend fun maybeDownloadAhead() {
-        val ahead = novelPreferences.autoDownloadWhileReading().get()
-        if (ahead <= 0) return
-        val index = aheadIds.indexOf(currentChapterId)
-        if (index < 0) return
-        val pooled = groupPool()
-        val candidates = pooled.resolve(aheadIds.drop(index + 1))
-        val flags = groupFlags(pooled, candidates, novelRepo.ownersOf(pooled + candidates))
-        // Already on disk is left to downloadChapters, which drops it, as manga's queue does.
-        val picked = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
-        val toDownload = downloadTargets.of(picked, pooled + picked) { it.id }
-        if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
+        readingOrder?.let { orderResolver.downloadAhead(it, currentChapterId, downloadManager) }
     }
 
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on.
@@ -1618,7 +1600,8 @@ class NovelReaderViewModel(
         // As a held write did when it was this model's: the reader closing writes it now.
         flushProgress()
         finishHold.close()
-        readAloud.shutdown()
+        // Read aloud goes on without the reader, which only stops lending it a surface.
+        readAloudSession.unregister(readAloud)
     }
 }
 

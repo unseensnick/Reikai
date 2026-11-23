@@ -15,6 +15,9 @@ import reikai.domain.library.ContentType
 private const val EXTRA_ENTRY_TYPE = "entry_type"
 private const val EXTRA_ENTRY_ID = "entry_id"
 
+/** A novel launch that reopens read aloud where it is speaking. */
+internal const val EXTRA_FOLLOW_SESSION = "follow_session"
+
 fun Intent.putEntryId(entryId: EntryId): Intent = apply {
     putExtra(EXTRA_ENTRY_TYPE, entryId.contentType.name)
     putExtra(EXTRA_ENTRY_ID, entryId.rawId)

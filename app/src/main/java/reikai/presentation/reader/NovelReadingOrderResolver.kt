@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.library.ContentType
+import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelOrderInputs
@@ -14,9 +15,11 @@ import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.novelReadingOrder
 import reikai.domain.novel.ownersOf
+import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.readerChapterFilters
 import reikai.domain.source.isInstalled
 import reikai.novel.download.NovelDownloadCache
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 
 /**
@@ -66,5 +69,30 @@ class NovelReadingOrderResolver(
                     ?.readerChapterFilters(novelPreferences, downloadedOnly),
             ),
         )
+    }
+
+    /**
+     * Enqueues the next N unread, un-downloaded chapters after [currentId] in [order]'s reading order, the
+     * novel twin of manga's autoDownloadWhileReading, pinned by [chaptersToDownloadAhead]. Runs in
+     * incognito, which keeps history out and not downloads, as in manga. Unlike manga it needs neither
+     * chapter on disk: manga's gate keeps a streamed chapter's page loads from sharing the source with the
+     * download, and a novel chapter is one request. Read fresh, so a chapter finished here is not queued again.
+     */
+    suspend fun downloadAhead(order: NovelReadingOrder, currentId: Long, downloads: NovelDownloadManager) {
+        val ahead = novelPreferences.autoDownloadWhileReading().get()
+        if (ahead <= 0) return
+        val index = order.aheadIds.indexOf(currentId)
+        if (index < 0) return
+        val pooled = order.memberIds.flatMap { chapterRepo.getByNovelId(it) }
+        val byId = pooled.associateBy { it.id }
+        val candidates = order.aheadIds.drop(index + 1).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
+        val novels = novelRepo.ownersOf(pooled + candidates)
+        val flags = GroupChapterFlags(order.scope, pooled, candidates, order.stitch, { it.id }, { it.read }, {
+            it.bookmark
+        }) { novelDownloadCache.downloadedChapterIds(pooled, novels) }
+        // Already on disk is left to downloadChapters, which drops it, as manga's queue does.
+        val picked = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
+        val toDownload = order.downloadTargets.of(picked, pooled + picked) { it.id }
+        if (toDownload.isNotEmpty()) downloads.downloadChapters(toDownload)
     }
 }

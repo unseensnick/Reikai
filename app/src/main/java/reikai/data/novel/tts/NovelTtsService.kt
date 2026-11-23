@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.notification.shownEntryName
+import reikai.domain.novel.tts.TtsPauseReason
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.util.notificationIcon
 import tachiyomi.core.common.i18n.pluralStringResource
@@ -164,9 +165,9 @@ class NovelTtsService : Service() {
     private fun play() = NovelTtsSession.onPlay()
 
     /** Every pause not caused by a focus loss, so no later gain resumes it. */
-    private fun pause() {
+    private fun pause(reason: TtsPauseReason = TtsPauseReason.User) {
         carryOut(focusPolicy.onUserPause())
-        NovelTtsSession.onPause()
+        NovelTtsSession.onPause(reason)
     }
 
     private fun next() = NovelTtsSession.onNext()
@@ -197,7 +198,7 @@ class NovelTtsService : Service() {
                 // suspend for collectLatest to cancel this on the cleared value.
                 while (timer.timer.value == value) {
                     delay(timer.untilNextTick(value))
-                    if (timer.expire()) pause() else refreshNotification()
+                    if (timer.expire()) pause(TtsPauseReason.SleepTimer) else refreshNotification()
                 }
             }
     }
@@ -207,7 +208,10 @@ class NovelTtsService : Service() {
             TtsFocusPolicy.Focus.Keep -> Unit
             TtsFocusPolicy.Focus.Request -> {
                 val result = AudioManagerCompat.requestAudioFocus(audioManager, focusRequest)
-                respond(focusPolicy.onRequestResult(result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED))
+                respond(
+                    focusPolicy.onRequestResult(result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED),
+                    TtsPauseReason.FocusLoss,
+                )
             }
             TtsFocusPolicy.Focus.Abandon -> AudioManagerCompat.abandonAudioFocusRequest(audioManager, focusRequest)
         }
@@ -221,15 +225,24 @@ class NovelTtsService : Service() {
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> TtsFocusPolicy.Change.LossTransientCanDuck
             else -> return
         }
-        respond(focusPolicy.onFocusChange(mapped))
+        val reason = when (mapped) {
+            TtsFocusPolicy.Change.LossTransient,
+            TtsFocusPolicy.Change.LossTransientCanDuck,
+            -> TtsPauseReason.TransientFocusLoss
+            // A gain pausing is the sleep timer having run out during the loss.
+            TtsFocusPolicy.Change.Gain -> TtsPauseReason.SleepTimer
+            TtsFocusPolicy.Change.Loss -> TtsPauseReason.FocusLoss
+        }
+        respond(focusPolicy.onFocusChange(mapped), reason)
     }
 
-    private fun respond(response: TtsFocusPolicy.Response) {
+    /** [reason] is what a pause in [response] is put down to. */
+    private fun respond(response: TtsFocusPolicy.Response, reason: TtsPauseReason) {
         when (response) {
             TtsFocusPolicy.Response.Nothing -> Unit
-            TtsFocusPolicy.Response.Pause -> NovelTtsSession.onPause()
+            TtsFocusPolicy.Response.Pause -> NovelTtsSession.onPause(reason)
             TtsFocusPolicy.Response.PauseAndAbandon -> {
-                NovelTtsSession.onPause()
+                NovelTtsSession.onPause(reason)
                 AudioManagerCompat.abandonAudioFocusRequest(audioManager, focusRequest)
             }
             TtsFocusPolicy.Response.Resume -> NovelTtsSession.onPlay()

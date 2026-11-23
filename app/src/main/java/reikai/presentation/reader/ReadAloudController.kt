@@ -1,19 +1,26 @@
 package reikai.presentation.reader
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import logcat.LogPriority
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.text.NovelWords
 import reikai.domain.novel.tts.NovelTtsEngine
+import reikai.domain.novel.tts.ReadAloudStop
 import reikai.domain.novel.tts.TtsPiece
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ReadAloudProgress
+import tachiyomi.core.common.util.system.logcat
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.seconds
 
 /** [progress] is where speech is in its chapter, null before a chapter is taken up. */
 data class ReadAloudState(
@@ -21,11 +28,11 @@ data class ReadAloudState(
     val progress: ReadAloudProgress? = null,
 )
 
-/** The chapters read-aloud can move through and where it has got to, answered by the reader model. */
+/** The chapters read-aloud can move through and where it has got to, answered by the session. */
 interface ReadAloudNavigation {
 
     /** The chapter a forward step from [chapterId] lands on, null when there is none. */
-    fun chapterAfter(chapterId: Long): Long?
+    suspend fun chapterAfter(chapterId: Long): Long?
 
     /** Speech has reached [share] of [chapterId]'s words, saved as the reader's place in it. */
     fun savePosition(chapterId: Long, share: Double)
@@ -33,8 +40,11 @@ interface ReadAloudNavigation {
     /** Speech has reached [chapterId]'s end, which finishes it as reading to the end does. */
     fun finishChapter(chapterId: Long)
 
-    /** Opens [chapterId] as a forward step that is not the reader navigating away from read-aloud. */
-    fun openForReadAloud(chapterId: Long)
+    /** [chapterId]'s paragraphs with no renderer to ask, read as the reader reads them; throws when it cannot. */
+    suspend fun loadParagraphs(chapterId: Long): List<String>
+
+    /** Speech has moved on to [chapterId] by itself, which a reader of the series follows. */
+    fun movedTo(chapterId: Long)
 
     fun titleOf(chapterId: Long): String
 }
@@ -52,7 +62,15 @@ interface ReadAloudTransport {
         onSeek: (paragraph: Int) -> Unit,
     )
 
-    fun publish(playback: TtsPlayback, title: String, paragraph: Int, paragraphCount: Int)
+    /** [stopReason] is set only on the Stopped a stop by itself publishes. */
+    fun publish(
+        playback: TtsPlayback,
+        chapterId: Long?,
+        title: String,
+        paragraph: Int,
+        paragraphCount: Int,
+        stopReason: ReadAloudStop? = null,
+    )
 
     /** True once when the sleep timer is set to stop at this chapter's end instead of reading on. */
     fun takeStopAtChapterEnd(): Boolean
@@ -62,10 +80,11 @@ interface ReadAloudTransport {
 }
 
 /**
- * Read-aloud on the shared reader host: which paragraph is spoken, over [NovelTtsEngine] for the voice
- * and a [ReadAloudSurface] for the text. Speech outlives the renderer, which the Activity rebuilds, so
- * the surface comes and goes through [attach] and [detach]. Everything runs on [scope], so call from
- * its thread; engine callbacks arrive on a binder thread and are moved onto it.
+ * Read-aloud's speech: which paragraph is spoken, over [NovelTtsEngine] for the voice and a
+ * [ReadAloudSurface] for the text while a reader lends one. Speech outlives the reader, so the surface
+ * comes and goes through [attach] and [detach], and a chapter reached with none is read through
+ * [ReadAloudNavigation.loadParagraphs]. Everything runs on [scope], so call from its thread; engine
+ * callbacks arrive on a binder thread and are moved onto it.
  */
 class ReadAloudController(
     private val scope: CoroutineScope,
@@ -73,6 +92,8 @@ class ReadAloudController(
     private val createEngine: (enginePackage: String, onInit: (ready: Boolean) -> Unit) -> NovelTtsEngine,
     private val navigation: ReadAloudNavigation,
     private val transport: ReadAloudTransport,
+    /** Called once speech has stopped, whether a caller stopped it or it came to a stop by itself. */
+    private val onStopped: () -> Unit = {},
 ) {
 
     val state: StateFlow<ReadAloudState>
@@ -117,12 +138,27 @@ class ReadAloudController(
      */
     private var unplaced = false
 
-    /** The chapter opened for read-aloud to carry on in once the renderer lands on it. */
+    /** The chapter being loaded to carry on in, which holds every command that would act on the last one. */
     private var pendingChapter: Long? = null
+
+    /** The load of [pendingChapter], its own job so a pause does not cancel it. */
+    private var loadJob: Job? = null
 
     /** Raised by every speak and every command, so a finish from speech since replaced is ignored. */
     private var token = 0
     private var job: Job? = null
+
+    /** Whether the paragraph being spoken had anything to say, and whether the voice has begun saying it. */
+    private var speaking = false
+    private var pieceStarted = false
+
+    /** Paragraphs in a row the voice ended without starting, which an engine gone quiet produces. */
+    private var silentParagraphs = 0
+    private var rebuiltForSilence = false
+
+    /** Whether this chapter had anything to say, and whether any of it was heard. */
+    private var speakableInChapter = false
+    private var spokeInChapter = false
 
     private val remotePlay = { play() }
     private val remotePause = { pause() }
@@ -188,10 +224,14 @@ class ReadAloudController(
         command { playAt(index.coerceIn(0, paragraphs.lastIndex)) }
     }
 
-    fun stop() {
+    fun stop() = stop(reason = null)
+
+    private fun stop(reason: ReadAloudStop?) {
         token++
         job?.cancel()
         job = null
+        loadJob?.cancel()
+        loadJob = null
         pendingChapter = null
         awaitingInit = false
         engine?.stop()
@@ -204,7 +244,8 @@ class ReadAloudController(
         unplaced = false
         playback = TtsPlayback.Stopped
         surface?.highlight(null)
-        publish()
+        publish(reason)
+        onStopped()
     }
 
     fun shutdown() {
@@ -218,25 +259,14 @@ class ReadAloudController(
         if (playback != TtsPlayback.Stopped) stop()
     }
 
-    /** Safe from any thread, since a load fails on the loader's. */
-    fun onChapterLoadFailed() {
-        scope.launch { if (pendingChapter != null) stop() }
-    }
-
     /**
-     * The renderer started over on a window anchored at [landedId]. Either that is the chapter read-aloud
-     * opened, or the same text was laid out again (a rotation, a mode switch, a setting reload), where
-     * the paragraphs may have shifted and speech already going must not restart.
+     * The renderer started over: the same text laid out again (a
+     * rotation, a mode switch, a setting reload) or a reader that has just joined, where the paragraphs
+     * may differ from the ones speech holds and speech already going must not restart. While the next
+     * chapter loads there is nothing to place: the load takes up whatever the renderer holds by then.
      */
-    fun onRendererLanded(landedId: Long) {
-        if (pendingChapter == landedId) {
-            command {
-                val landed = ask { paragraphs(landedId) } ?: return@command stop()
-                if (playback == TtsPlayback.Paused) holdAt(landedId, landed) else beginChapter(landedId, landed, 0)
-            }
-            return
-        }
-        if (playback == TtsPlayback.Stopped) return
+    fun onRendererLanded() {
+        if (playback == TtsPlayback.Stopped || pendingChapter != null) return
         unplaced = true
         // Drawn as soon as the renderer can, since a layout that did not shift needs no relocation.
         surface?.highlight(position, sentence, follows = playback == TtsPlayback.Playing)
@@ -299,6 +329,8 @@ class ReadAloudController(
         chapterId = id
         takeUp(chapter)
         unplaced = false
+        speakableInChapter = false
+        spokeInChapter = false
         if (chapter.isEmpty()) return endChapter()
         playAt(index.coerceIn(0, chapter.lastIndex))
     }
@@ -323,6 +355,8 @@ class ReadAloudController(
 
     private suspend fun endChapter() {
         val ended = chapterId ?: return stop()
+        // A chapter the voice said none of was not heard, so it is neither finished nor passed.
+        if (speakableInChapter && !spokeInChapter) return stop(ReadAloudStop.EngineSilent)
         // First, since neither stopping nor carrying on below moves a screen that would finish it.
         navigation.finishChapter(ended)
         if (transport.takeStopAtChapterEnd()) return stop()
@@ -330,9 +364,38 @@ class ReadAloudController(
         val next = navigation.chapterAfter(ended) ?: return stop()
         // A renderer holding a window already has it, and carrying on there keeps the reader's scroll.
         val held = ask { paragraphs(next) }
-        if (held != null) return beginChapter(next, held, 0)
+        if (held != null) {
+            navigation.movedTo(next)
+            return beginChapter(next, held, 0)
+        }
         pendingChapter = next
-        navigation.openForReadAloud(next)
+        loadJob = scope.launch { loadNext(next) }
+    }
+
+    /**
+     * Reads [next] with no renderer, on its own job: a pause while it loads holds the chapter at its first
+     * paragraph rather than cancelling the load. A renderer that came to hold it meanwhile is spoken from.
+     */
+    private suspend fun loadNext(next: Long) {
+        val loaded = try {
+            withTimeout(LOAD_TIMEOUT) { navigation.loadParagraphs(next) }
+        } catch (e: TimeoutCancellationException) {
+            return stop(ReadAloudStop.LoadTimedOut)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN, e) { "Read aloud could not load chapter $next" }
+            return stop(ReadAloudStop.LoadFailed)
+        }
+        if (pendingChapter != next) return
+        val shown = ask { paragraphs(next) } ?: loaded
+        navigation.movedTo(next)
+        if (playback == TtsPlayback.Paused) {
+            pendingChapter = null
+            holdAt(next, shown)
+        } else {
+            command { beginChapter(next, shown, 0) }
+        }
     }
 
     /** Paused across a chapter handoff: take the new chapter up without speaking it. */
@@ -340,6 +403,8 @@ class ReadAloudController(
         chapterId = id
         takeUp(chapter)
         unplaced = false
+        speakableInChapter = false
+        spokeInChapter = false
         moveTo(id, 0)
         surface?.highlight(position)
         publish()
@@ -357,6 +422,9 @@ class ReadAloudController(
         }
         val spoken = ++token
         val pieces = speaker.pieces(paragraphs[at.paragraph], bySentence)
+        speaking = pieces.isNotEmpty()
+        pieceStarted = false
+        if (speaking) speakableInChapter = true
         sentences = if (bySentence) pieces else emptyList()
         // Clamped for LAST_SENTENCE too, since a paragraph with nothing to speak has no last piece.
         val first = (if (sentenceIndex == LAST_SENTENCE) pieces.lastIndex else sentenceIndex)
@@ -364,9 +432,17 @@ class ReadAloudController(
         sentenceIndex = first
         speaker.speak(
             pieces = pieces.drop(first),
-            onPieceStart = { index -> if (bySentence) scope.launch { onSentenceStart(spoken, first + index) } },
+            onPieceStart = { index -> scope.launch { onPieceStart(spoken, first + index, bySentence) } },
             onDone = { scope.launch { onParagraphDone(spoken) } },
         )
+    }
+
+    private fun onPieceStart(spoken: Int, index: Int, bySentence: Boolean) {
+        if (spoken != token) return
+        pieceStarted = true
+        spokeInChapter = true
+        silentParagraphs = 0
+        if (bySentence) onSentenceStart(spoken, index)
     }
 
     private fun onSentenceStart(spoken: Int, index: Int) {
@@ -379,7 +455,16 @@ class ReadAloudController(
 
     private fun onParagraphDone(spoken: Int) {
         if (spoken != token || playback != TtsPlayback.Playing) return
-        command { playAt((position?.paragraph ?: 0) + 1) }
+        val at = position?.paragraph ?: 0
+        if (speaking && !pieceStarted && ++silentParagraphs >= SILENT_PARAGRAPHS) {
+            if (rebuiltForSilence) return stop(ReadAloudStop.EngineSilent)
+            // Once, on the paragraph it went quiet on: a voice the system restarted under it comes back.
+            rebuiltForSilence = true
+            silentParagraphs = 0
+            discardEngine()
+            return command { playAt(at) }
+        }
+        command { playAt(at + 1) }
     }
 
     /** Finds [position] in the renderer's layout, or leaves it unplaced while the window lacks its chapter. */
@@ -390,10 +475,13 @@ class ReadAloudController(
         val at = position?.takeIf { it.chapterId == id && unplaced } ?: return
         unplaced = false
         val spokenText = paragraphs.getOrNull(at.paragraph)
-        val index = laidOut.indices
-            .filter { laidOut[it] == spokenText }
-            .minByOrNull { abs(it - at.paragraph) }
-            ?: at.paragraph.coerceIn(0, laidOut.lastIndex)
+        // By how far through the chapter's words each sits, which two renderers' counts of one chapter share
+        // where their paragraph indices need not.
+        val spokenShare = shareOf(wordsBefore, at.paragraph)
+        val laidOutWords = wordsBeforeOf(laidOut)
+        val nearest = compareBy<Int> { abs(shareOf(laidOutWords, it) - spokenShare) }
+        val index = laidOut.indices.filter { laidOut[it] == spokenText }.minWithOrNull(nearest)
+            ?: laidOut.indices.minWith(nearest)
         takeUp(laidOut)
         // The sentence state holds only in the text it was taken from, which a different match is not.
         if (laidOut[index] == spokenText) position = ReadAloudPosition(id, index) else moveTo(id, index)
@@ -461,13 +549,27 @@ class ReadAloudController(
     private companion object {
         /** A [playAt] start naming the paragraph's last sentence, for a step back into it. */
         const val LAST_SENTENCE = -1
+
+        /** Paragraphs the voice may end unsaid in a row before the engine is taken for gone quiet. */
+        const val SILENT_PARAGRAPHS = 3
+
+        /** How long speech waits on the next chapter, which is a network fetch and a plugin starting. */
+        val LOAD_TIMEOUT = 90.seconds
     }
 
     private fun takeUp(chapter: List<String>) {
         paragraphs = chapter
-        wordsBefore = LongArray(chapter.size + 1)
-        chapter.forEachIndexed { i, text -> wordsBefore[i + 1] = wordsBefore[i] + NovelWords.count(text) }
+        wordsBefore = wordsBeforeOf(chapter)
     }
+
+    private fun wordsBeforeOf(chapter: List<String>): LongArray {
+        val before = LongArray(chapter.size + 1)
+        chapter.forEachIndexed { i, text -> before[i + 1] = before[i] + NovelWords.count(text) }
+        return before
+    }
+
+    private fun shareOf(before: LongArray, index: Int): Double =
+        before.last().takeIf { it > 0 }?.let { before[index.coerceIn(0, before.lastIndex)].toDouble() / it } ?: 0.0
 
     /**
      * The spoken paragraph as the reader's place, whether or not the screen follows it: as the share of the
@@ -480,13 +582,13 @@ class ReadAloudController(
         navigation.savePosition(at.chapterId, if (words > 0) wordsBefore[at.paragraph].toDouble() / words else 0.0)
     }
 
-    private fun publish() {
+    private fun publish(stopReason: ReadAloudStop? = null) {
         val progress = position?.let { at ->
             val paragraph = at.paragraph.coerceIn(0, paragraphs.size)
             ReadAloudProgress(at.chapterId, paragraph, wordsBefore[paragraph], wordsBefore.last())
         }
         state.value = ReadAloudState(playback, progress)
         val title = chapterId?.let(navigation::titleOf).orEmpty()
-        transport.publish(playback, title, position?.paragraph ?: 0, paragraphs.size)
+        transport.publish(playback, chapterId, title, position?.paragraph ?: 0, paragraphs.size, stopReason)
     }
 }

@@ -117,6 +117,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.presentation.components.copyPictureToClipboard
+import reikai.presentation.reader.EXTRA_FOLLOW_SESSION
 import reikai.presentation.reader.LocalPageColorAdjust
 import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
@@ -199,10 +200,14 @@ class ReaderActivity : BaseActivity() {
             novelId: Long,
             chapterId: Long,
             sourceScoped: Boolean = false,
+            followSession: Boolean = false,
         ): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("chapter", chapterId)
                 if (sourceScoped) putExtra("source_scoped", true)
+                // Reopens read aloud where it is speaking rather than at [chapterId], which a different
+                // chapter would otherwise stop it at.
+                if (followSession) putExtra(EXTRA_FOLLOW_SESSION, true)
                 putEntryId(EntryId.Novel(novelId))
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
@@ -291,6 +296,7 @@ class ReaderActivity : BaseActivity() {
                         // The model's own, as ReaderViewModel takes one off the graph's extras: a
                         // process kill must reopen the chapter being read, not the launch chapter.
                         savedState = createSavedStateHandle(),
+                        followSession = intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false),
                         io = Dispatchers.IO,
                     )
             }
