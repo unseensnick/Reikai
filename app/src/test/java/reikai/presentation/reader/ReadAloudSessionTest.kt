@@ -595,6 +595,19 @@ class ReadAloudSessionTest {
         harness.isRead(chapters[0]) shouldBe true
     }
 
+    /** One source of a merged series is a different view of it, so even the spoken chapter stops speech. */
+    @Test
+    fun `opening the spoken chapter of a merged series from one source stops read aloud`() =
+        sessionTest { harness ->
+            val reading = reading(harness, merged = true)
+            closeReader(harness, reading)
+
+            harness.open(reading.novel, reading.chapters[0].id, sourceScoped = true)
+            advanceUntilIdle()
+
+            harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
+        }
+
     companion object {
         @JvmStatic
         fun pausesLeftAlone() = listOf(
