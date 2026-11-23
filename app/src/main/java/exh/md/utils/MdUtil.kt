@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.interceptor.MangaDexHeadersInterceptor
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.all.MangaDex
-import eu.kanade.tachiyomi.util.PkceUtil
 import exh.md.dto.MangaAttributesDto
 import exh.md.dto.MangaDataDto
 import exh.source.getMainSource
@@ -181,30 +180,22 @@ class MdUtil {
             null
         }
 
-        private var codeVerifier: String? = null
-
+        // Only the refresh grant's own fields: Keycloak checks PKCE on the code grant alone, a refresh takes
+        // no redirect_uri, and it never reads a bearer token, which would be the expired one anyway.
         fun refreshTokenRequest(oauth: MALOAuth): Request {
             val formBody = FormBody.Builder()
                 .add("client_id", MdConstants.Login.clientId)
                 .add("grant_type", MdConstants.Login.refreshToken)
                 .add("refresh_token", oauth.refreshToken)
-                .add("code_verifier", getPkceChallengeCode())
-                .add("redirect_uri", MdConstants.Login.redirectUri)
                 .build()
 
-            // The interceptor calls this itself, so it never reaches the point where the token is
-            // added automatically. Add the Authorization header manually, and the User-Agent, which it
-            // would otherwise send as OkHttp's default.
+            // The interceptor calls this itself, so it never passes the interceptor that sets the
+            // User-Agent, which would otherwise be OkHttp's default.
             val headers = Headers.Builder()
-                .add("Authorization", "Bearer ${oauth.accessToken}")
                 .add("User-Agent", MangaDexHeadersInterceptor.defaultUserAgent())
                 .build()
 
             return POST(MdApi.baseAuthUrl + MdApi.token, body = formBody, headers = headers)
-        }
-
-        fun getPkceChallengeCode(): String {
-            return codeVerifier ?: PkceUtil.generateCodeVerifier().also { codeVerifier = it }
         }
 
         // Picks the MangaDex enhanced source that drives login, sync and the MDList tracker: the one

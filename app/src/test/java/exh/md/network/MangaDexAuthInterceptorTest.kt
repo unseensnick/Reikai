@@ -10,6 +10,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.serialization.encodeToString
+import okhttp3.FormBody
 import okhttp3.Interceptor
 import okhttp3.Protocol
 import okhttp3.Request
@@ -79,6 +80,35 @@ class MangaDexAuthInterceptorTest {
         }
 
         sent.get() shouldBe MangaDexHeadersInterceptor.defaultUserAgent()
+    }
+
+    @Test
+    @DisplayName("a refresh sends only the refresh grant's own fields, with the stored refresh token")
+    fun refreshSendsOnlyRefreshGrantFields() {
+        val sent = AtomicReference<List<Pair<String, String>>>()
+        savedLoginAfter {
+            val form = it.body as FormBody
+            sent.set((0 until form.size).map { i -> form.name(i) to form.value(i) })
+            response(it, 503)
+        }
+
+        sent.get() shouldBe listOf(
+            "client_id" to "tachiyomisy",
+            "grant_type" to "refresh_token",
+            "refresh_token" to "refresh",
+        )
+    }
+
+    @Test
+    @DisplayName("a refresh sends no Authorization header, which would carry the expired access token")
+    fun refreshSendsNoAuthorization() {
+        val sent = AtomicReference<String?>("unset")
+        savedLoginAfter {
+            sent.set(it.header("Authorization"))
+            response(it, 503)
+        }
+
+        sent.get() shouldBe null
     }
 
     @Test
