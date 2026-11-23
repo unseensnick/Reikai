@@ -70,15 +70,14 @@ import reikai.domain.merge.GroupViewerFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.mergeMemberName
-import reikai.domain.merge.withOpenedChapter
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelReadingOrder
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
-import reikai.domain.novel.gapPresent
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.SetNovelCustomCover
@@ -103,16 +102,10 @@ import reikai.domain.reader.ReadSessionClock
 import reikai.domain.reader.ReaderProgressSave
 import reikai.domain.reader.ReaderProgressWrites
 import reikai.domain.reader.chaptersToDownloadAhead
-import reikai.domain.reader.downloadedOrCurrent
 import reikai.domain.reader.isChapterComplete
-import reikai.domain.reader.isForwardEligible
-import reikai.domain.reader.navigableChapters
-import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.neighbourChapters
-import reikai.domain.reader.readerChapterFilters
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey
-import reikai.domain.source.isInstalled
 import reikai.domain.track.TrackedChapterNumber
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
@@ -1498,109 +1491,36 @@ class NovelReaderViewModel(
         }
     }
 
-    /**
-     * Builds the order the reader pages in, once per session. Source scope walks the opened novel's own
-     * chapters; group scope aggregates the merge group, so History, Updates and the library need not
-     * pass a list. A group-scoped chapter the unified list does not show is put back through
-     * [withOpenedChapter], the kernel the manga reader shares, rather than leaving prev and next with
-     * nowhere to step from.
-     */
+    /** Reads [orderedIds] and the rest of the session's order again, from the chapter being read. */
+    private val orderResolver = NovelReadingOrderResolver(
+        getNextNovelChapter,
+        novelRepo,
+        chapterRepo,
+        copyMarks,
+        novelPreferences,
+        basePreferences,
+        novelDownloadCache,
+        sourceManager,
+    )
+
+    /** Builds the order the reader pages in, once per session, by the rule read aloud also steps by. */
     private suspend fun resolveReadingOrder() {
-        val reading = getNextNovelChapter.readingRows(novelId, sourceScoped, ::isInstalled) { chapters, owners ->
-            novelDownloadCache.downloadedChapterIds(chapters, owners)
-        }
-        val pooled = reading.pooled
-        val stitch = reading.stitch
-        memberIds = reading.memberIds
-        groupStitch = stitch
-        downloadTargets = reading.downloadTargets
-        // The chapters stay chapters through both filters. Reducing to ids here meant re-reading every
-        // one of them back out of the database a row at a time, before the first page could be drawn.
-        val chapters = if (sourceScoped) {
-            reading.rows
-        } else {
-            val listed = reading.rows
-            reading.copies?.let { copies ->
-                copiesToOpen = copies
-                currentChapterId = copies.idOf(currentChapterId)
-            }
-            withOpenedChapter(
-                unified = listed,
-                opened = listed.find { it.id == currentChapterId }
-                    ?: pooled.find { it.id == currentChapterId }
-                    ?: chapterRepo.getById(currentChapterId),
-                stitch = stitch,
-                id = { it.id },
-                // A novel source lists its chapters oldest-first, so the merged list runs that way too.
-                byNumber = compareBy { it.chapterNumber },
-                restamp = { chapter, order -> chapter.copy(sourceOrder = order) },
-            )
-        }
-        val sorted = chapters.sortedWith(getNextNovelChapter.readingOrder(novelId))
-        val members = pooled.ifEmpty { sorted }
-        // Every copy is asked before duplicates go, so the copy a group keeps is one a forward step may land on.
-        val eligible = resolveForwardEligible(sorted, groupFlags(members, sorted, novelRepo.ownersOf(members)))
-        gapPresent = sorted.gapPresent()
-        val onDisk = if (basePreferences.downloadedOnly.get()) {
-            novelDownloadCache.downloadedChapterIds(sorted, novelRepo.ownersOf(sorted))
-        } else {
-            null
-        }
-        val inOrder = navigable(sorted, onDisk) { it.id in eligible }
-        aheadIds = inOrder.map { it.id }
-        val current = inOrder.find { it.id == currentChapterId }
-        val visible = if (onDisk != null && current != null) {
-            inOrder.downloadedOrCurrent(current, { it.id }, onDisk)
-        } else {
-            inOrder
-        }
-        orderedIds = visible.map { it.id }
-        forwardEligibleIds = eligible
+        val order = orderResolver.resolve(novelId, currentChapterId, sourceScoped)
+        memberIds = order.memberIds
+        groupStitch = order.stitch
+        downloadTargets = order.downloadTargets
+        order.copiesToOpen?.let { copiesToOpen = it }
+        currentChapterId = order.currentId
+        gapPresent = order.gapPresent
+        aheadIds = order.aheadIds
+        orderedIds = order.orderedIds
+        forwardEligibleIds = order.forwardEligibleIds
+        readingOrder = order
     }
 
-    /**
-     * The chapters paging steps through, by the rule the manga reader runs ([navigableChapters]). A novel
-     * has no origin to break a duplicate tie with: every chapter of one has the same source. Hidden is
-     * the details screen's and the resume's rule. [onDisk] is what is on disk under Downloaded only.
-     */
-    private suspend fun navigable(
-        chapters: List<NovelChapter>,
-        onDisk: Set<Long>?,
-        isForwardEligible: (NovelChapter) -> Boolean,
-    ): List<NovelChapter> {
-        val isHidden = getNextNovelChapter.hiddenAmong(chapters)
-        val marks = copyMarks.loadedMarks(ContentType.NOVELS)
-        val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
-        return chapters.navigableChapters(
-            current,
-            isHidden = isHidden,
-            isForwardEligible = isForwardEligible,
-            downloadedOnlyIds = { onDisk },
-            skipDuplicates = novelPreferences.readerSkipDuplicateChapters().get(),
-            numberOf = { it.chapterNumber },
-            nameOf = { it.name },
-            idOf = { it.id },
-            originOf = { it.scanlator },
-            ownerOf = { it.novelId },
-            markOf = { chapter -> marks[chapter.novelId]?.get(chapter.url) },
-        )
-    }
-
-    /** Which chapters a forward step may stop on, per the skip settings and the chapter-list filters
-     *  its merge group shares. The open chapter stays eligible either way. */
-    private suspend fun resolveForwardEligible(
-        chapters: List<NovelChapter>,
-        flags: GroupChapterFlags<NovelChapter>,
-    ): Set<Long> {
-        val skipRead = novelPreferences.readerSkipRead().get()
-        val skipFiltered = novelPreferences.readerSkipFiltered().get()
-        if (!skipRead && !skipFiltered) return chapters.mapTo(HashSet()) { it.id }
-        val novel = getNextNovelChapter.chapterSettings(novelId) ?: return chapters.mapTo(HashSet()) { it.id }
-        val filters = novel.readerChapterFilters(novelPreferences, basePreferences.downloadedOnly.get())
-        return chapters.filterTo(HashSet()) { ch ->
-            ch.id == currentChapterId || flags.isForwardEligible(ch, skipRead, skipFiltered, filters)
-        }.mapTo(HashSet()) { it.id }
-    }
+    /** The order [resolveReadingOrder] read last, which [chapterAfter] steps through. */
+    @Volatile
+    private var readingOrder: NovelReadingOrder? = null
 
     /** [shown] as the merge group answers for it, over [pooled], every member's chapters. */
     private fun groupFlags(
@@ -1744,8 +1664,7 @@ class NovelReaderViewModel(
     )
 
     /** The chapter a forward step from [id] lands on, null when there is none to step to. */
-    private fun chapterAfter(id: Long): Long? =
-        orderedIds.neighbourChapter(orderedIds.indexOf(id), forward = true) { it in forwardEligibleIds }
+    private fun chapterAfter(id: Long): Long? = readingOrder?.chapterAfter(id)
 
     /** Warms whatever the reach needs that is not cached yet; a warm republishes the window itself. */
     private fun extendWindowForward() {
@@ -1781,9 +1700,6 @@ class NovelReaderViewModel(
         val toDownload = downloadTargets.of(picked, pooled + picked) { it.id }
         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
     }
-
-    // The first open already waits on the plugin host to read the chapter's stylesheet, so this adds no wait.
-    private suspend fun isInstalled(novel: Novel) = sourceManager.isInstalled(novel.source)
 
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on.
      *  Outlives the session. Twin of ReaderViewModel.markChapterReadOnSkip, pinned by

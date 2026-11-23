@@ -1,11 +1,16 @@
 package reikai.domain.novel.text
 
+import org.jsoup.Jsoup
+
 /**
  * Counts words the way a reader would. Chinese and Japanese put no space between words, so each Han,
  * Hiragana or Katakana character counts as one; any other run of text counts once, when it holds a
  * letter or digit, so a dash or a stray quote is no word.
  */
 object NovelWords {
+
+    /** A processed chapter's length, the one a chapter's pace and time left are measured against. */
+    fun ofHtml(html: String): Long = count(Jsoup.parse(html).body().text()).toLong()
 
     fun count(text: String, from: Int = 0, to: Int = text.length): Int {
         var words = 0

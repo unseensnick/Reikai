@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import org.jsoup.Jsoup
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.tts.NovelTtsSession
@@ -174,7 +173,7 @@ class NovelReaderProvider(
         .filterNotNull()
         .distinctUntilChangedBy { it.chapterId }
         .map { chapter ->
-            val words = NovelWords.count(Jsoup.parse(chapter.html).body().text()).toLong()
+            val words = NovelWords.ofHtml(chapter.html)
             ChapterLength(
                 ContentType.NOVELS,
                 viewModel.memberIds.toSet(),

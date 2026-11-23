@@ -1,6 +1,7 @@
 package reikai.domain.novel.text
 
 import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
@@ -31,5 +32,11 @@ class NovelWordsTest {
     )
     fun `counts what runs between spaces`(text: String, words: Int) {
         NovelWords.countSpaced(text) shouldBe words
+    }
+
+    /** A chapter's length is its shown text, so the markup around it counts for nothing. */
+    @Test
+    fun `a chapter's markup is not counted`() {
+        NovelWords.ofHtml("<p class=\"x\">One <b>two</b></p><script>var three = 3</script>") shouldBe 2L
     }
 }

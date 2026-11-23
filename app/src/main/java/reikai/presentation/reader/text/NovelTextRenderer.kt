@@ -2,7 +2,6 @@ package reikai.presentation.reader.text
 
 import android.content.Context
 import android.graphics.Color
-import android.text.Html
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ImageSpan
@@ -22,15 +21,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import logcat.LogPriority
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
-import org.jsoup.nodes.TextNode
-import reikai.novel.content.NovelChapterAddress
-import reikai.novel.content.NovelImageSources
 import reikai.presentation.reader.NovelTextScale
-import tachiyomi.core.common.util.system.logcat
 
 /**
  * Turns a processed chapter into styled text across [ChapterTextBlock]'s chunk views.
@@ -124,18 +115,10 @@ class NovelTextRenderer(
             val spannable = withContext(Dispatchers.Default) {
                 // The normalising walks and copies the whole chapter, which for a downloaded one with its
                 // images inlined is megabytes, so it belongs here rather than on the caller's thread.
-                val normalized = normalizeHtmlForRendering(html, baseUrl)
+                val width = context.resources.displayMetrics.widthPixels
+                val text = chapterSpanned(html, baseUrl, width, imageGetter) { ensureActive() }
                 ensureActive()
-                val spanned = Html.fromHtml(normalized, Html.FROM_HTML_MODE_LEGACY, imageGetter, NovelChapterTags)
-                ensureActive()
-                SpannableStringBuilder(spanned)
-                    .also { collapseBlankLines(it) }
-                    .also { resizeSizedText(it) }
-                    .also { placeImages(it, textSizePx.toInt(), spacingPx, contentWidth) }
-                    .also { NovelChapterTags.placeRules(it) }
-                    .also { shrinkScripts(it) }
-                    .also { NovelChapterLinks.apply(it, context, baseUrl, onAnchor) }
-                    .also { if (bionic) NovelBionicSpans.apply(it) }
+                styleForScreen(text, context, textSizePx.toInt(), spacingPx, contentWidth, baseUrl, bionic, onAnchor)
             }
 
             // A later render or the block's removal has replaced this one: the rest is work nobody reads.
@@ -238,78 +221,6 @@ class NovelTextRenderer(
         }
     }
 
-    /**
-     * `Html.fromHtml` has no CSS and no `picture` support, so the markup is reshaped into what it can
-     * read. Failing open leaves the chapter as it was rather than blanking it. It also ignores table,
-     * definition-list and `pre` layout, which are rebuilt here into the lines a WebView shows for them.
-     */
-    private fun normalizeHtmlForRendering(html: String, baseUrl: String?): String = try {
-        val doc = Jsoup.parse(html)
-        doc.select("style, script").remove()
-        NovelChapterTags.prepare(doc, baseUrl)
-        doc.select("video source, audio source").remove()
-        // `source` is a void element and Html.fromHtml corrupts the rest of the document without one.
-        NovelImageSources.unwrapPictures(doc)
-        rebuildBlockLayout(doc)
-        val targetWidth = context.resources.displayMetrics.widthPixels
-        doc.select("img").forEach { img ->
-            NovelImageSources.srcsetCandidate(img, targetWidth)?.let { img.attr("src", it) }
-            if (img.hasAttr("src")) img.attr("src", NovelChapterAddress.absolute(baseUrl, img.attr("src")))
-            val parent = img.parent()
-            if (parent?.tagName() == "p" || parent?.tagName() == "div") {
-                liftOutOfText(img, parent)
-            } else {
-                img.wrap("<p style=\"text-align:center;\"></p>")
-            }
-        }
-        // The WebView mode loads the chapter with this base, so its relative links arrive absolute and
-        // open in the browser. Left relative here they reach the link policy as a non-http URL, which
-        // it blocks, and the tap did nothing with nothing said.
-        doc.select("a[href]").forEach { it.attr("href", NovelChapterAddress.absolute(baseUrl, it.attr("href"))) }
-        doc.body().html()
-    } catch (e: Exception) {
-        logcat(LogPriority.WARN, e) { "Chapter markup left unprepared" }
-        html
-    }
-
-    /** A table row, a term and its definition each take a line, cells a space apart, and a `pre` keeps
-     *  its line breaks, as they lay out in a WebView. */
-    private fun rebuildBlockLayout(doc: Document) {
-        doc.select("td, th").forEach { cell ->
-            if (cell.previousElementSibling() != null) cell.before(" ")
-            cell.tagName("span")
-        }
-        doc.select("tr, dt, dd").tagName("div")
-        doc.select("pre").forEach { it.html(it.html().replace("\n", "<br>")) }
-    }
-
-    /**
-     * The WebView's stylesheet lays every image out as a block, so text either side of one reads as its
-     * own line there. The paragraph is split around it to match, the image taking the centred block an
-     * image outside a paragraph gets; a side left with nothing to show is dropped. A paragraph showing
-     * only the image is centred where it stands.
-     */
-    private fun liftOutOfText(img: Element, parent: Element) {
-        val siblings = parent.childNodes()
-        // Another picture counts: two in one paragraph each take their own block, as the page lays them out.
-        val showsSomethingElse = siblings.any {
-            it !== img &&
-                ((it is TextNode && !it.isBlank) || (it is Element && (it.hasText() || it.isOrHoldsImage())))
-        }
-        if (!showsSomethingElse) {
-            parent.attr("style", "text-align:center;")
-            return
-        }
-        val after = parent.shallowClone().appendChildren(siblings.drop(siblings.indexOf(img) + 1))
-        parent.after(after)
-        parent.after(Element("p").attr("style", "text-align:center;").appendChild(img))
-        listOf(parent, after)
-            .filter { !it.hasText() && !it.isOrHoldsImage() }
-            .forEach(Element::remove)
-    }
-
-    private fun Element.isOrHoldsImage() = tagName() == "img" || selectFirst("img") != null
-
     private fun applyParagraphSpans(spannable: SpannableStringBuilder, spacingPx: Int, indentPx: Int) {
         var i = 0
         var paragraphStart = 0
@@ -354,6 +265,28 @@ class NovelTextRenderer(
 
     companion object {
         private const val CHUNK_TARGET_CHARS = 6_000
+
+        /**
+         * [chapterSpanned]'s text styled for the screen. Spans only: a pass that changed the characters
+         * would move read aloud's paragraphs away from the ones it counts with no renderer open, which
+         * `ChapterParagraphsTest` holds the two to.
+         */
+        internal fun styleForScreen(
+            text: SpannableStringBuilder,
+            context: Context,
+            emPx: Int,
+            spacingPx: Int,
+            contentWidth: Int,
+            baseUrl: String?,
+            bionic: Boolean,
+            onAnchor: (widget: TextView, index: Int) -> Unit,
+        ): SpannableStringBuilder = text
+            .also { resizeSizedText(it) }
+            .also { placeImages(it, emPx, spacingPx, contentWidth) }
+            .also { NovelChapterTags.placeRules(it) }
+            .also { shrinkScripts(it) }
+            .also { NovelChapterLinks.apply(it, context, baseUrl, onAnchor) }
+            .also { if (bionic) NovelBionicSpans.apply(it) }
 
         /**
          * Splits at the first paragraph boundary past every [CHUNK_TARGET_CHARS], so each chunk's layout
