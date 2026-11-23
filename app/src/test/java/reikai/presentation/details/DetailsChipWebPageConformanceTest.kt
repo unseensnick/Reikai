@@ -17,16 +17,12 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -36,6 +32,8 @@ import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -58,7 +56,7 @@ class DetailsChipWebPageConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -69,7 +67,7 @@ class DetailsChipWebPageConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -108,14 +106,12 @@ class DetailsChipWebPageConformanceTest {
                 sourceManager = sources,
             ).also { store.put("manga", it) }
             return try {
-                val shown = withContext(Dispatchers.Default) {
-                    withTimeout(30_000) {
-                        val success = model.state.filterIsInstance<MangaViewModel.State.Success>()
-                        // A chip outside the group is refused, so pick it once the group has resolved.
-                        success.first { it.mergeSources.size == 2 }
-                        model.selectSource(SIBLING)
-                        success.first { it.webPage?.viewed == EntryId.Manga(SIBLING) }.webPage
-                    }
+                val shown = withTimeout(30_000) {
+                    val success = model.state.filterIsInstance<MangaViewModel.State.Success>()
+                    // A chip outside the group is refused, so pick it once the group has resolved.
+                    success.first { it.mergeSources.size == 2 }
+                    model.selectSource(SIBLING)
+                    success.first { it.webPage?.viewed == EntryId.Manga(SIBLING) }.webPage
                 }
                 shown to
                     EntryWebPage(
@@ -124,7 +120,7 @@ class DetailsChipWebPageConformanceTest {
                         EntryId.Manga(SIBLING),
                     )
             } finally {
-                // The model reads on the real IO dispatcher, so it stops before the database closes.
+                // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
                 store.clear()
                 job.join()
@@ -155,17 +151,15 @@ class DetailsChipWebPageConformanceTest {
                 val sibling = harness.novel(harness.source("beta"))
                 harness.merge(anchor, sibling)
                 val model = harness.openDetails(anchor)
-                val shown = withContext(Dispatchers.Default) {
-                    withTimeout(10_000) {
-                        // A chip outside the group is refused, so pick it once the group has resolved.
-                        model.state.first { it is NovelDetailsState.Loaded && it.mergeSources.size == 2 }
-                        model.selectSource(sibling)
-                        (
-                            model.state.first {
-                                it is NovelDetailsState.Loaded && it.webPage?.viewed == EntryId.Novel(sibling)
-                            } as NovelDetailsState.Loaded
-                            ).webPage
-                    }
+                val shown = withTimeout(10_000) {
+                    // A chip outside the group is refused, so pick it once the group has resolved.
+                    model.state.first { it is NovelDetailsState.Loaded && it.mergeSources.size == 2 }
+                    model.selectSource(sibling)
+                    (
+                        model.state.first {
+                            it is NovelDetailsState.Loaded && it.webPage?.viewed == EntryId.Novel(sibling)
+                        } as NovelDetailsState.Loaded
+                        ).webPage
                 }
                 shown to
                     EntryWebPage(

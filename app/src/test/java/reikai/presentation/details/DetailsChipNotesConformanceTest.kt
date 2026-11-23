@@ -17,16 +17,12 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -34,6 +30,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -58,7 +56,7 @@ class DetailsChipNotesConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -72,7 +70,7 @@ class DetailsChipNotesConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -109,18 +107,16 @@ class DetailsChipNotesConformanceTest {
             select: (() -> Unit)?,
             edit: String?,
             write: suspend (String) -> Unit,
-        ): String? = withContext(Dispatchers.Default) {
-            withTimeout(30_000) {
-                val loaded = state.filterIsInstance<EntryDetailsScreenState.Loaded>()
-                // A chip outside the group is refused, so pick it once the group has resolved.
-                loaded.first { it.mergeSources.size == 2 }
-                select?.invoke()
-                val shown = loaded.first { it.mergeSources.size == 2 && it.viewedEntryId == viewed }
-                if (edit == null) return@withTimeout shown.details.notes
-                write(edit)
-                withTimeoutOrNull(5_000) { loaded.first { it.details.notes == edit } }?.details?.notes
-                    ?: loaded.first().details.notes
-            }
+        ): String? = withTimeout(30_000) {
+            val loaded = state.filterIsInstance<EntryDetailsScreenState.Loaded>()
+            // A chip outside the group is refused, so pick it once the group has resolved.
+            loaded.first { it.mergeSources.size == 2 }
+            select?.invoke()
+            val shown = loaded.first { it.mergeSources.size == 2 && it.viewedEntryId == viewed }
+            if (edit == null) return@withTimeout shown.details.notes
+            write(edit)
+            withTimeoutOrNull(5_000) { loaded.first { it.details.notes == edit } }?.details?.notes
+                ?: loaded.first().details.notes
         }
     }
 
@@ -155,7 +151,7 @@ class DetailsChipNotesConformanceTest {
                         edit = edit,
                     ) { mangas.update(MangaUpdate(SIBLING) { notes = it }) }
             } finally {
-                // The model reads on the real IO dispatcher, so it stops before the database closes.
+                // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
                 store.clear()
                 job.join()

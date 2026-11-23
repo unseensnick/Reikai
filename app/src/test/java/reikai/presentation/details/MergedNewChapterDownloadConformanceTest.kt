@@ -16,17 +16,13 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
@@ -44,6 +40,8 @@ import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -63,7 +61,7 @@ class MergedNewChapterDownloadConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -74,7 +72,7 @@ class MergedNewChapterDownloadConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest
@@ -103,13 +101,12 @@ class MergedNewChapterDownloadConformanceTest {
     private enum class Member { ANCHOR, SIBLING }
 
     /** Entry the filter was asked about, to the entries owning the chapters it was handed, once both arrive. */
-    private suspend fun judgedOnce(calls: Map<Long, Set<Long>>, roleOf: (Long) -> Member): Map<Member, Set<Member>> =
-        withContext(Dispatchers.Default) {
-            withTimeoutOrNull(10_000) { while (calls.values.flatten().toSet().size < 2) delay(20) }
-            // Anything else a wrong rule would ask lands in the same pass.
-            delay(200)
-            calls.entries.associate { (owner, chapters) -> roleOf(owner) to chapters.mapTo(HashSet(), roleOf) }
-        }
+    private suspend fun judgedOnce(calls: Map<Long, Set<Long>>, roleOf: (Long) -> Member): Map<Member, Set<Member>> {
+        withTimeoutOrNull(10_000) { while (calls.values.flatten().toSet().size < 2) delay(20) }
+        // Anything else a wrong rule would ask lands in the same pass.
+        delay(200)
+        return calls.entries.associate { (owner, chapters) -> roleOf(owner) to chapters.mapTo(HashSet(), roleOf) }
+    }
 
     private suspend fun TestScope.mangaJudged(
         contacts: SourceContacts = SourceContacts { 0L },
@@ -155,15 +152,13 @@ class MergedNewChapterDownloadConformanceTest {
             sourceContacts = contacts,
         ).also { store.put("manga", it) }
         try {
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.mergeSources.size == 2 }
-                }
+            withTimeout(30_000) {
+                model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.mergeSources.size == 2 }
             }
             model.fetchAllFromSource(manualFetch = true)
             return judgedOnce(calls) { if (it == ANCHOR) Member.ANCHOR else Member.SIBLING }
         } finally {
-            // The model reads on the real IO dispatcher, so it stops before the database closes.
+            // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
             store.clear()
             job.join()
@@ -193,11 +188,9 @@ class MergedNewChapterDownloadConformanceTest {
                 }
             }
             val model = harness.openDetails(anchor)
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) {
-                    model.state.filterIsInstance<NovelDetailsState.Loaded>()
-                        .first { it.mergeSources.size == 2 && it.sourceName == "alpha" }
-                }
+            withTimeout(10_000) {
+                model.state.filterIsInstance<NovelDetailsState.Loaded>()
+                    .first { it.mergeSources.size == 2 && it.sourceName == "alpha" }
             }
             model.refresh()
             judgedOnce(calls) { if (it == anchor) Member.ANCHOR else Member.SIBLING }

@@ -8,19 +8,17 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import java.util.Collections
@@ -33,10 +31,12 @@ import java.util.Collections
 class ReaderLoadFailureConformanceTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")

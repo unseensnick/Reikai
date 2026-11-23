@@ -2,19 +2,17 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.viewer.calculateChapterGap
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.presentation.reader.text.NovelSeam
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * A boundary the reader steps across because chapter 2 is passed over is not a gap: chapter 2 still
@@ -30,10 +28,12 @@ class ReaderChapterGapConformanceTest {
     }
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")

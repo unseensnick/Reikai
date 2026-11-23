@@ -39,6 +39,7 @@ import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.track.EntryTrackPort
 import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.ownChapterNumbers
+import reikai.util.restubDefaultDispatcher
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
@@ -77,7 +78,7 @@ internal fun mangaDetailsModel(
     sourceContacts: SourceContacts = SourceContacts { 0L },
     localSeriesRelink: LocalSeriesRelink = mockk(),
     customInfo: Map<Long, CustomMangaInfo> = emptyMap(),
-    beforeModel: () -> Unit = {},
+    beforeModel: () -> Unit = ::restubDefaultDispatcher,
 ): MangaViewModel {
     // Built ahead of the hook: recording a coEvery reads Dispatchers.Default, which undoes a static stub of it
     val mergeManager = mockk<MangaMergeManager> {

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import reikai.util.mockIoDispatcher
+import reikai.util.resetVirtualDispatchers
 
 /**
  * A merged novel's details list follows its siblings' chapter rows live. The subscription window itself is
@@ -37,7 +38,7 @@ class NovelDetailsViewModelSubscriptionTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test

@@ -4,17 +4,10 @@ import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -23,6 +16,8 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.manga.model.Manga
 import java.util.concurrent.ConcurrentHashMap
 
@@ -36,10 +31,12 @@ import java.util.concurrent.ConcurrentHashMap
 class SourceScopedDownloadAheadConformanceTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -191,7 +188,7 @@ class NovelSourceScopedAhead : SourceScopedAheadProbe {
 
             // A step runs download-ahead again from the chapter it lands on; one call queues the whole window.
             model.nextChapter()
-            withContext(Dispatchers.Default) { withTimeoutOrNull(5_000) { while (queued.isEmpty()) delay(20) } }
+            scope.advanceUntilIdle()
 
             queued.intersect(setOf(3.0, 4.0, 5.0))
         }

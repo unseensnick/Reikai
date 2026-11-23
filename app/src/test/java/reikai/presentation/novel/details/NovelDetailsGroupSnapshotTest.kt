@@ -23,7 +23,8 @@ import java.util.concurrent.TimeUnit
  * A chapter list names the group it was built for. The group moves on while a rebuild is in flight, and
  * a list that then took the chips or the chip picked from the screen's live group would show one
  * group's rows under another's switcher. Each case holds a rebuild at its disk probe, moves the group
- * on, and reads what that rebuild wrote.
+ * on, and reads what that rebuild wrote. On real threads: the probe is a plain call, so the gate holds a
+ * rebuild by blocking its thread, which one virtual-time thread cannot do.
  */
 class NovelDetailsGroupSnapshotTest {
 

@@ -1,13 +1,9 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -15,6 +11,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.CopyMark
 import reikai.domain.library.ContentType
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * Skip duplicates keeps one copy of each chapter number, and the skip filters then say which chapters a
@@ -39,10 +37,12 @@ class SkipDuplicateForwardConformanceTest {
     }
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")

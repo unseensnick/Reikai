@@ -15,15 +15,11 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +28,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -53,7 +51,7 @@ class DetailsRemovalScopeConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -64,7 +62,7 @@ class DetailsRemovalScopeConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -87,11 +85,11 @@ class DetailsRemovalScopeConformanceTest {
         }
 
         /** Waits for the write to start, cancels the page's scope, lets the write go, then waits for it. */
-        suspend fun closeMidWrite(cancelPage: () -> Unit): Boolean = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(WAIT_MS) { started.await() } ?: return@withContext false
+        suspend fun closeMidWrite(cancelPage: () -> Unit): Boolean {
+            withTimeoutOrNull(WAIT_MS) { started.await() } ?: return false
             cancelPage()
             gate.complete(Unit)
-            withTimeoutOrNull(WAIT_MS) { finished.await() } != null
+            return withTimeoutOrNull(WAIT_MS) { finished.await() } != null
         }
     }
 

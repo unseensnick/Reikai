@@ -1,19 +1,15 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * The page a process-death restore and a reload put the reader back on is saved beside the chapter it
@@ -23,10 +19,12 @@ import reikai.domain.merge.ChapterUnit
 class MangaRestorePageTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `a page of a neighbour whose switch failed does not replace the saved page`() = runTest {
@@ -36,7 +34,6 @@ class MangaRestorePageTest {
             harness.chapter(20L, manga, 2.0)
             harness.open(manga, chapterId = 10L, failing = setOf(20L)) { model, state ->
                 val chapters = state.viewerChapters!!
-                // The switch loads on the IO dispatcher, off the virtual clock, and fails there.
                 harness.settle(model) {
                     model.onPageSelected(loadedPages(chapters.currChapter, 10)[5])
                     model.onPageSelected(loadedPages(chapters.nextChapter!!, 10)[0])
@@ -69,11 +66,8 @@ class MangaRestorePageTest {
                 restored = 11L to 18,
             ) { _, state ->
                 val opened = state.viewerChapters!!.currChapter
-                // Stamped by the model's state collector just after the chapter is published, on the
-                // thread that published it, so the test thread can see the chapter before the page.
-                withContext(Dispatchers.Default) {
-                    withTimeoutOrNull(5_000) { while (opened.requestedPage == 0) delay(20) }
-                }
+                // Stamped by the model's state collector just after the chapter is published.
+                advanceUntilIdle()
                 opened.chapter.id to opened.requestedPage
             }
 

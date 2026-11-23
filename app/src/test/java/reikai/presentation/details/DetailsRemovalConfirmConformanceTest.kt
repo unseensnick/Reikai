@@ -15,17 +15,13 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -36,6 +32,8 @@ import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -61,7 +59,7 @@ class DetailsRemovalConfirmConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -72,7 +70,7 @@ class DetailsRemovalConfirmConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -147,9 +145,9 @@ class DetailsRemovalConfirmConformanceTest {
                 },
             ).also { store.put("manga", it) }
             return try {
-                withContext(Dispatchers.Default) { withTimeout(WAIT_MS) { block(model, removed) } }
+                withTimeout(WAIT_MS) { block(model, removed) }
             } finally {
-                // The model reads on the real IO dispatcher, so it stops before the database closes.
+                // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
                 store.clear()
                 job.join()
@@ -170,15 +168,13 @@ class DetailsRemovalConfirmConformanceTest {
                 val removed = CopyOnWriteArrayList<Long>()
                 harness.removeNovelsFromLibrary = recording(removed)
                 val model = harness.openDetails(harness.novel(harness.source("alpha")))
-                withContext(Dispatchers.Default) {
-                    withTimeout(WAIT_MS) {
-                        model.state.first { it is NovelDetailsState.Loaded }
-                        model.toggleFavorite()
-                        model.state.first {
-                            (it as? NovelDetailsState.Loaded)?.dialog is NovelDetailsDialog.RemoveFromLibrary
-                        }
-                        delay(SETTLE_MS)
+                withTimeout(WAIT_MS) {
+                    model.state.first { it is NovelDetailsState.Loaded }
+                    model.toggleFavorite()
+                    model.state.first {
+                        (it as? NovelDetailsState.Loaded)?.dialog is NovelDetailsDialog.RemoveFromLibrary
                     }
+                    delay(SETTLE_MS)
                 }
                 true to removed.toList()
             }
@@ -190,7 +186,7 @@ class DetailsRemovalConfirmConformanceTest {
                 val novel = harness.novel(harness.source("alpha"), inLibrary = false)
                 val model = harness.openDetails(novel, shown = false)
                 model.removeFromLibrary(listOf(novel))
-                withContext(Dispatchers.Default) { delay(SETTLE_MS) }
+                delay(SETTLE_MS)
                 removed.toList()
             }
 

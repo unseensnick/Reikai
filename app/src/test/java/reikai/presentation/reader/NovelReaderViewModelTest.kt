@@ -13,18 +13,13 @@ import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -34,6 +29,8 @@ import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -44,10 +41,12 @@ import kotlin.time.Instant
 class NovelReaderViewModelTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     private fun readerTest(block: suspend TestScope.(NovelReaderViewModelHarness) -> Unit) = runTest {
         NovelReaderViewModelHarness.create(testScheduler).use { block(it) }
@@ -813,7 +812,7 @@ class NovelReaderViewModelTest {
         harness.readTimeOf(novel, opened) shouldBe 10.minutes.inWholeMilliseconds
     }
 
-    /** The load runs on the real IO dispatcher, so the commit is awaited rather than advanced to. */
+    /** Waits for [chapter] to be the one loaded and its load to have committed. */
     private suspend fun NovelReaderViewModel.awaitIdleOn(chapter: SeededChapter) {
         this.chapter.first { it?.chapterId == chapter.id }
         loadState.first { it == ReaderLoadState.Idle }
@@ -849,9 +848,7 @@ class NovelReaderViewModelTest {
         model.reloadChapter(fromSource = true)
         advanceUntilIdle()
 
-        verify(timeout = 5_000) {
-            harness.pictureCache.evict(match { "https://a.test/plate.png" in it }, any(), source.id)
-        }
+        verify { harness.pictureCache.evict(match { "https://a.test/plate.png" in it }, any(), source.id) }
     }
 
     /** A text change while a step loads starts that load over, and the step still marks the chapter it left. */
@@ -874,15 +871,8 @@ class NovelReaderViewModelTest {
         source.chaptersAsked.clear()
 
         model.nextChapter()
-        withContext(Dispatchers.Default) {
-            withTimeout(5_000) {
-                while (second.url !in
-                    source.chaptersAsked
-                ) {
-                    delay(10)
-                }
-            }
-        }
+        advanceUntilIdle()
+        check(second.url in source.chaptersAsked) { "The step never asked for the next chapter" }
         model.setRenderingMode(NovelRenderingMode.WEBVIEW)
         advanceUntilIdle()
         gate.complete(Unit)

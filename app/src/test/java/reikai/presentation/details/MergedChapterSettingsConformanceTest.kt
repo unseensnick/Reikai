@@ -16,16 +16,12 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -36,6 +32,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -54,7 +52,7 @@ class MergedChapterSettingsConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -68,7 +66,7 @@ class MergedChapterSettingsConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest
@@ -157,10 +155,10 @@ class MergedChapterSettingsConformanceTest {
     }
 
     /** [Group.ownerFilters] once two quick picks have had time to land; the writes run on the app scope. */
-    private suspend fun Group.ownerFiltersOnceSettled(expected: Int): Set<String> = withContext(Dispatchers.Default) {
+    private suspend fun Group.ownerFiltersOnceSettled(expected: Int): Set<String> {
         withTimeoutOrNull(SETTLE_MS) { while (ownerFilters().size < expected) delay(20) }
         delay(SETTLE_GRACE_MS)
-        ownerFilters()
+        return ownerFilters()
     }
 
     private class MangaPage(private val model: MangaViewModel) : Page {
@@ -184,13 +182,11 @@ class MergedChapterSettingsConformanceTest {
     private suspend fun Page.settled(
         chip: Long? = null,
         until: (EntryDetailsScreenState.Loaded) -> Boolean = { true },
-    ): EntryDetailsScreenState.Loaded = withContext(Dispatchers.Default) {
-        withTimeout(10_000) {
-            behavior.state.first {
-                it is EntryDetailsScreenState.Loaded && it.isMerged && it.selectedSourceId == chip &&
-                    (chip == null || it.viewedEntryId == chip) && until(it)
-            } as EntryDetailsScreenState.Loaded
-        }
+    ): EntryDetailsScreenState.Loaded = withTimeout(10_000) {
+        behavior.state.first {
+            it is EntryDetailsScreenState.Loaded && it.isMerged && it.selectedSourceId == chip &&
+                (chip == null || it.viewedEntryId == chip) && until(it)
+        } as EntryDetailsScreenState.Loaded
     }
 
     /** [block] over the group [OWNER], [SIBLING], with a way to open its details page through a member. */
@@ -237,7 +233,7 @@ class MergedChapterSettingsConformanceTest {
             }
             return group.block()
         } finally {
-            // The models read on the real IO dispatcher, so they stop before the database closes.
+            // The models stop reading before the database closes.
             val jobs = models.map { it.viewModelScope.coroutineContext.job }
             store.clear()
             jobs.forEach { it.join() }

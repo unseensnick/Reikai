@@ -9,22 +9,19 @@ import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.reader.ChapterRetryCooldown.RETRY_COOLDOWN_MS
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -54,10 +51,12 @@ class ChapterRetryCooldownConformanceTest {
     }
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -116,7 +115,7 @@ class ChapterRetryCooldownConformanceTest {
                         now += elapsedMs
                         if (retry == Retry.UnpromptedAfterOpen) {
                             model.reloadChapter(fromSource = false)
-                            withContext(Dispatchers.Default) { withTimeout(10_000) { reloaded.await() } }
+                            withTimeout(10_000) { reloaded.await() }
                         }
                         model.preload(next, userAsked = retry == Retry.User)
                         attempts.get() == 2

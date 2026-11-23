@@ -17,16 +17,12 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -35,6 +31,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -75,7 +73,7 @@ class DetailsSeriesTagsConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
@@ -87,7 +85,7 @@ class DetailsSeriesTagsConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -142,11 +140,9 @@ class DetailsSeriesTagsConformanceTest {
     @MethodSource("probes")
     fun `an unmerged entry under an Edit info title lists its own source's title`(probe: Probe) = runTest {
         probe.opened(this, Series(customTitle = "Mine", merged = false)) { opened ->
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    opened.behavior.state.filterIsInstance<EntryDetailsScreenState.Loaded>()
-                        .first { it.details.header.title == "Mine" }
-                }
+            withTimeout(30_000) {
+                opened.behavior.state.filterIsInstance<EntryDetailsScreenState.Loaded>()
+                    .first { it.details.header.title == "Mine" }
             }.details.header.altTitles
         } shouldBe listOf(ANCHOR_TITLE)
     }
@@ -181,13 +177,11 @@ class DetailsSeriesTagsConformanceTest {
             viewed: Long,
             select: (() -> Unit)? = null,
             ready: (EntryDetailsScreenState.Loaded) -> Boolean = { true },
-        ): EntryDetailsScreenState.Loaded = withContext(Dispatchers.Default) {
-            withTimeout(30_000) {
-                val loaded = behavior.state.filterIsInstance<EntryDetailsScreenState.Loaded>()
-                loaded.first { it.mergeSources.size == 2 }
-                select?.invoke()
-                loaded.first { it.mergeSources.size == 2 && it.viewedEntryId == viewed && ready(it) }
-            }
+        ): EntryDetailsScreenState.Loaded = withTimeout(30_000) {
+            val loaded = behavior.state.filterIsInstance<EntryDetailsScreenState.Loaded>()
+            loaded.first { it.mergeSources.size == 2 }
+            select?.invoke()
+            loaded.first { it.mergeSources.size == 2 && it.viewedEntryId == viewed && ready(it) }
         }
     }
 

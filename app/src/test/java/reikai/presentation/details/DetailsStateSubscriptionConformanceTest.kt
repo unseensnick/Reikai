@@ -36,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import reikai.util.mockIoDispatcher
+import reikai.util.resetVirtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -94,7 +95,7 @@ class DetailsStateSubscriptionConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")

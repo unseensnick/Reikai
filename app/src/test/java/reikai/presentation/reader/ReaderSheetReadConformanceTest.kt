@@ -2,15 +2,10 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -19,6 +14,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.renderStoredStitch
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.chapter.model.Chapter
 
 /**
@@ -56,10 +53,12 @@ class ReaderSheetReadConformanceTest {
     }
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -108,17 +107,14 @@ class ReaderSheetReadConformanceTest {
         fun probes() = listOf(MangaProbe(), NovelProbe())
 
         /** Waits for [id]'s download to be removed, the sign the whole mark has run. */
-        private suspend fun removed(deleted: List<Long>, id: Long) = withContext(Dispatchers.Default) {
+        private suspend fun removed(deleted: List<Long>, id: Long) =
             withTimeoutOrNull(15_000) { while (id !in deleted) delay(20) }
-        }
 
-        /** The sheet writes on the IO dispatcher, which virtual time does not reach, so this polls; a busy CI runner has
-         *  taken over 3 s for such a write, and a settled one ends the wait at once. */
-        private suspend fun settlesAt(expected: Boolean, read: suspend () -> Boolean?): Boolean? =
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
-                read()
-            }
+        /** [read] once it answers [expected], or once the sheet's writes have had all the virtual time they need. */
+        private suspend fun settlesAt(expected: Boolean, read: suspend () -> Boolean?): Boolean? {
+            withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
+            return read()
+        }
     }
 
     class MangaProbe : Probe {

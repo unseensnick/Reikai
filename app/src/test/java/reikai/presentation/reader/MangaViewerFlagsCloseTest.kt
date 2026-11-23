@@ -2,19 +2,16 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -25,10 +22,12 @@ import tachiyomi.domain.manga.model.Manga
 class MangaViewerFlagsCloseTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `a reading mode picked as the reader closes is stored on every source`() = runTest {
@@ -64,11 +63,10 @@ class MangaViewerFlagsCloseTest {
         listOf(owner, sibling).map { manga -> settled(harness, manga, mask, expected) }
     }
 
-    private suspend fun settled(harness: MangaReaderViewModelHarness, manga: Manga, mask: Long, expected: Long) =
-        withContext(Dispatchers.Default) {
-            val read = suspend { harness.storedManga(manga.id).viewerFlags and mask }
-            // A busy CI runner has taken over 3 s for this write; a settled one ends the wait at once.
-            withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
-            read()
-        }
+    /** [manga]'s stored flag under [mask], once the writes have landed or [expected] has been waited for. */
+    private suspend fun settled(harness: MangaReaderViewModelHarness, manga: Manga, mask: Long, expected: Long): Long {
+        val read = suspend { harness.storedManga(manga.id).viewerFlags and mask }
+        withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
+        return read()
+    }
 }

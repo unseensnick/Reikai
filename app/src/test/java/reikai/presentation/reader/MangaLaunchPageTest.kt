@@ -1,16 +1,14 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * A page preview opens the chapter it was tapped in at that page, even when another source of the
@@ -20,10 +18,12 @@ import reikai.domain.merge.ChapterUnit
 class MangaLaunchPageTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `a page preview opens the chapter tapped rather than another source's copy on disk`() = runTest {

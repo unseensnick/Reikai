@@ -1,21 +1,19 @@
 package reikai.presentation.reader
 
 import android.os.SystemClock
-import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
-import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
-import io.mockk.MockKMatcherScope
-import io.mockk.coVerify
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The manga reader preloads the next chapter as soon as the current one opens, unless the device is
@@ -26,6 +24,7 @@ class ReaderLoadAheadTest {
 
     @BeforeEach
     fun setUp() {
+        virtualDispatchers()
         mockkStatic(SystemClock::class)
         every { SystemClock.elapsedRealtime() } returns 1_000L
     }
@@ -33,7 +32,7 @@ class ReaderLoadAheadTest {
     @AfterEach
     fun tearDown() {
         unmockkStatic(SystemClock::class)
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -51,40 +50,48 @@ class ReaderLoadAheadTest {
         nextChapterLoads(wifi = false, wifiOnly = false, expected = 1)
     }
 
+    // Counted through the loader's own hook: a coVerify while Dispatchers is mocked records its getters.
     @Test
     fun `a failed eager preload holds the viewer's own preload`() = runTest {
+        val nextLoads = AtomicInteger()
         MangaReaderViewModelHarness.create().use { harness ->
             val manga = harness.manga(1L, source = 100L, title = "Series")
             harness.chapter(10L, manga, 1.0)
             harness.chapter(20L, manga, 2.0)
-            harness.open(manga, chapterId = 10L, failing = setOf(20L), wifi = true) { model, state ->
-                coVerify(timeout = 5_000, exactly = 1) { anyConstructed<ChapterLoader>().loadChapter(next(), any()) }
-                // The failure is recorded just after the call returns, on the preload's own thread
-                withContext(Dispatchers.Default) { delay(300) }
+            harness.open(
+                manga,
+                chapterId = 10L,
+                failing = setOf(20L),
+                wifi = true,
+                onLoad = { id, _ -> if (id == 20L) nextLoads.incrementAndGet() },
+            ) { model, state ->
+                // Settles the eager preload, whose failure is recorded just after its load call returns
+                advanceUntilIdle()
+                check(nextLoads.get() == 1) { "The eager preload never ran" }
 
                 model.preload(state.viewerChapters!!.nextChapter!!)
+                advanceUntilIdle()
 
-                coVerify(exactly = 1) { anyConstructed<ChapterLoader>().loadChapter(next(), any()) }
+                nextLoads.get()
             }
-        }
+        } shouldBe 1
     }
 
-    private suspend fun nextChapterLoads(wifi: Boolean, wifiOnly: Boolean, expected: Int) {
+    private suspend fun TestScope.nextChapterLoads(wifi: Boolean, wifiOnly: Boolean, expected: Int) {
+        val nextLoads = AtomicInteger()
         MangaReaderViewModelHarness.create().use { harness ->
             val manga = harness.manga(1L, source = 100L, title = "Series")
             harness.chapter(10L, manga, 1.0)
             harness.chapter(20L, manga, 2.0)
             val preferences = mapOf<String, Any>("pref_reader_load_ahead_only_over_wifi" to wifiOnly)
-            harness.open(manga, chapterId = 10L, preferences = preferences, wifi = wifi) { _, _ ->
-                // The preload runs on the IO dispatcher, out of virtual time's reach: a load that never comes gets a
-                // second to show up, and one that does gets as long as a busy runner needs.
-                withContext(Dispatchers.Default) { delay(1_000) }
-                coVerify(timeout = 10_000, exactly = expected) {
-                    anyConstructed<ChapterLoader>().loadChapter(next(), any())
-                }
-            }
+            harness.open(
+                manga,
+                chapterId = 10L,
+                preferences = preferences,
+                wifi = wifi,
+                onLoad = { id, _ -> if (id == 20L) nextLoads.incrementAndGet() },
+            ) { _, _ -> advanceUntilIdle() }
         }
+        nextLoads.get() shouldBe expected
     }
-
-    private fun MockKMatcherScope.next() = match<ReaderChapter> { it.chapter.id == 20L }
 }

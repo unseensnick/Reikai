@@ -1,25 +1,25 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.novel.local.LocalNovelSource
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /** A local novel's chapters are its own files, so the seam marks them on the device, as manga's transition does. */
 class NovelReaderLocalSeamTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `a local novel's chapter reads as downloaded with nothing downloaded`() = runTest {

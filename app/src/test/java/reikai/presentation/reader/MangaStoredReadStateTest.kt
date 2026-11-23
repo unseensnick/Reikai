@@ -3,14 +3,12 @@ package reikai.presentation.reader
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -21,10 +19,12 @@ import tachiyomi.domain.library.service.LibraryPreferences
 class MangaStoredReadStateTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `reading a copy marked read with its twin keeps it read`() = runTest {
@@ -81,7 +81,6 @@ class MangaStoredReadStateTest {
             onEnqueueDelete = onEnqueueDelete,
         ) { model, state ->
             val five = state.viewerChapters!!.currChapter
-            // The saves run on the app scope, off the virtual clock.
             harness.settle(model) { model.onPageSelected(loadedPages(five, 2)[1]) }
             probe(harness, model)
         }

@@ -18,15 +18,11 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -35,6 +31,8 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.presentation.reader.FakeNovelSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -55,7 +53,7 @@ class UnifiedViewMemberConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -70,7 +68,7 @@ class UnifiedViewMemberConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest
@@ -153,7 +151,7 @@ class UnifiedViewMemberConformanceTest {
                 noVolumePicking(),
             ).settled(installed.any { it }).shown(ids)
         } finally {
-            // The model reads on the real IO dispatcher, so it stops before the database closes.
+            // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
             store.clear()
             job.join()
@@ -184,17 +182,15 @@ class UnifiedViewMemberConformanceTest {
      * missing. Each case waits for its own end state, so a page still serving the opened missing member is not taken.
      */
     private suspend fun EntryDetailsBehavior.settled(anyInstalled: Boolean): EntryDetailsScreenState.Loaded =
-        withContext(Dispatchers.Default) {
-            withTimeout(30_000) {
-                state.first {
-                    it is EntryDetailsScreenState.Loaded && it.isMerged &&
-                        if (anyInstalled) {
-                            it.webPage != null
-                        } else {
-                            it.details.header.sourceState == EntrySourceState.Missing
-                        }
-                } as EntryDetailsScreenState.Loaded
-            }
+        withTimeout(30_000) {
+            state.first {
+                it is EntryDetailsScreenState.Loaded && it.isMerged &&
+                    if (anyInstalled) {
+                        it.webPage != null
+                    } else {
+                        it.details.header.sourceState == EntrySourceState.Missing
+                    }
+            } as EntryDetailsScreenState.Loaded
         }
 
     private fun EntryDetailsScreenState.Loaded.shown(ids: List<Long>) = Shown(

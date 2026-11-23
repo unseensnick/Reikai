@@ -4,17 +4,13 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -23,6 +19,8 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownload
 import reikai.presentation.reader.FakeNovelSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -33,10 +31,12 @@ import java.util.concurrent.ConcurrentHashMap
 class NovelDetailsDownloadStateTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `a chapter that failed before the list loaded shows its error`() = runTest {
@@ -48,10 +48,8 @@ class NovelDetailsDownloadStateTest {
             )
 
             val model = harness.openDetails(novelId)
-            val loaded = withContext(Dispatchers.Default) {
-                withTimeout(10_000) {
-                    model.state.filterIsInstance<NovelDetailsState.Loaded>().first { it.chapters.isNotEmpty() }
-                }
+            val loaded = withTimeout(10_000) {
+                model.state.filterIsInstance<NovelDetailsState.Loaded>().first { it.chapters.isNotEmpty() }
             }
 
             loaded.downloadStateOf(failed.id) shouldBe Download.State.ERROR
@@ -74,27 +72,21 @@ class NovelDetailsDownloadStateTest {
                     firstArg<List<NovelChapter>>().forEach { queued += it.id }
                 }
                 val model = harness.openDetails(m)
-                withContext(Dispatchers.Default) {
-                    withTimeout(30_000) {
-                        model.state.filterIsInstance<NovelDetailsState.Loaded>().first { it.chapters.size == 2 }
-                    }
+                withTimeout(30_000) {
+                    model.state.filterIsInstance<NovelDetailsState.Loaded>().first { it.chapters.size == 2 }
                 }
 
                 model.showExportDialog()
-                val missing = withContext(Dispatchers.Default) {
-                    withTimeout(10_000) {
-                        model.state.filterIsInstance<NovelDetailsState.Loaded>()
-                            .mapNotNull { it.dialog as? NovelDetailsDialog.ExportEpub }
-                            .first { it.onDevice != null }
-                            .missing
-                    }
+                val missing = withTimeout(10_000) {
+                    model.state.filterIsInstance<NovelDetailsState.Loaded>()
+                        .mapNotNull { it.dialog as? NovelDetailsDialog.ExportEpub }
+                        .first { it.onDevice != null }
+                        .missing
                 }
                 model.downloadMissingForExport(missing)
-                withContext(Dispatchers.Default) {
-                    withTimeout(10_000) { while (queued.isEmpty()) delay(20) }
-                    // Anything else a wrong rule would queue lands in the same pass.
-                    delay(200)
-                }
+                withTimeout(10_000) { while (queued.isEmpty()) delay(20) }
+                // Anything else a wrong rule would queue lands in the same pass.
+                delay(200)
 
                 queued shouldBe setOf(installedOpening.id)
             }

@@ -3,8 +3,8 @@ package reikai.presentation.novel.details
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
@@ -16,6 +16,8 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.presentation.details.EntrySourceState
 import reikai.presentation.reader.FakeNovelSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /** A library novel whose plugin is gone reads as a manga with a missing extension does. */
 class NovelDetailsMissingSourceTest {
@@ -24,18 +26,17 @@ class NovelDetailsMissingSourceTest {
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `a novel whose plugin is uninstalled is marked missing once looked up`() = runTest {
+        virtualTime()
         val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val novel = harness.novel(FakeNovelSource("gone", "unregistered"))
             harness.chapter(novel, 1.0)
             val model = harness.openDetails(novel)
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    model.state.first { it is NovelDetailsState.Loaded && it.sourceState == EntrySourceState.Missing }
-                }
+            withTimeout(30_000) {
+                model.state.first { it is NovelDetailsState.Loaded && it.sourceState == EntrySourceState.Missing }
             }
         }
 
@@ -44,23 +45,25 @@ class NovelDetailsMissingSourceTest {
 
     @Test
     fun `a novel whose plugin is uninstalled is named as it was last seen`() = runTest {
+        virtualTime()
         val name = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             harness.novelPreferences.seenNovelSources().set(mapOf("gone" to LnSourceIdentity(name = "Old Site")))
             val novel = harness.novel(FakeNovelSource("gone", "unregistered"))
             harness.chapter(novel, 1.0)
             val model = harness.openDetails(novel)
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    model.state.first { it is NovelDetailsState.Loaded && it.sourceState == EntrySourceState.Missing }
-                        .let { (it as NovelDetailsState.Loaded).sourceName }
-                }
+            withTimeout(30_000) {
+                model.state.first { it is NovelDetailsState.Loaded && it.sourceState == EntrySourceState.Missing }
+                    .let { (it as NovelDetailsState.Loaded).sourceName }
             }
         }
 
         name shouldBe "Old Site"
     }
 
-    /** On a device the page loads from the database before the plugin host answers, the reverse of above. */
+    /**
+     * On a device the page loads from the database before the plugin host answers, the reverse of above.
+     * On real threads, since the disk probe gate holds a list build by blocking its thread.
+     */
     @Test
     fun `a page already shown is marked missing when the plugin lookup lands`() = runTest {
         val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
@@ -89,14 +92,13 @@ class NovelDetailsMissingSourceTest {
 
     @Test
     fun `a page held before the lookup does not show the plugin as missing`() = runTest {
+        virtualTime()
         val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             harness.holdPluginLoads()
             val novel = harness.novel(FakeNovelSource("gone", "unregistered"))
             harness.chapter(novel, 1.0)
             val model = harness.openDetails(novel)
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) { model.state.first { it is NovelDetailsState.Loaded } }
-            }
+            withTimeout(30_000) { model.state.first { it is NovelDetailsState.Loaded } }
         }
 
         (state as NovelDetailsState.Loaded).sourceState shouldBe EntrySourceState.Installed
@@ -104,17 +106,20 @@ class NovelDetailsMissingSourceTest {
 
     @Test
     fun `a novel whose plugin is installed is not marked missing`() = runTest {
+        virtualTime()
         val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val novel = harness.novel(harness.source("alpha"))
             harness.chapter(novel, 1.0)
             val model = harness.openDetails(novel)
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    model.state.first { it is NovelDetailsState.Loaded && it.sourceName == "alpha" }
-                }
+            withTimeout(30_000) {
+                model.state.first { it is NovelDetailsState.Loaded && it.sourceName == "alpha" }
             }
         }
 
         (state as NovelDetailsState.Loaded).sourceState shouldBe EntrySourceState.Installed
+    }
+
+    private fun TestScope.virtualTime() {
+        virtualDispatchers(UnconfinedTestDispatcher(testScheduler))
     }
 }

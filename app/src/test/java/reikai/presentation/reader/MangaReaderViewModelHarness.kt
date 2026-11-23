@@ -31,12 +31,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
@@ -49,7 +53,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.source.SourceKey
 import reikai.domain.track.ownChapterNumbers
-import reikai.util.testAppScope
+import reikai.util.restubDefaultDispatcher
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.data.Database
@@ -174,19 +178,14 @@ class MangaReaderViewModelHarness private constructor(
     /** The writes the open model has running on its app scope now. */
     fun appWrites(): Set<Job> = checkNotNull(appScope).coroutineContext.job.children.toSet()
 
-    /**
-     * Runs [step] and waits out what it launched on [model]'s own scope, then the writes those handed the app
-     * scope. Both run on real IO threads, which virtual time does not reach.
-     */
+    /** Runs [step] and waits out what it launched on [model]'s scope, then the writes those handed the app scope. */
     suspend fun settle(model: ReaderViewModel, step: suspend () -> Unit) {
         val modelJob = model.viewModelScope.coroutineContext.job
         val running = modelJob.children.toSet() + appWrites()
         step()
-        withContext(Dispatchers.Default) {
-            withTimeout(10_000) {
-                (modelJob.children.toSet() - running).joinAll()
-                (appWrites() - running).joinAll()
-            }
+        withTimeout(10_000) {
+            (modelJob.children.toSet() - running).joinAll()
+            (appWrites() - running).joinAll()
         }
     }
 
@@ -236,8 +235,10 @@ class MangaReaderViewModelHarness private constructor(
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
     ): T {
         val resolved = group ?: single(manga)
-        // The model starts loading from its init block, which a main dispatcher nothing advances never runs.
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        // The model loads on IO and Default, which only virtual time may drive here.
+        check(Dispatchers.IO is TestDispatcher) { "Call virtualDispatchers() before opening a reader" }
+        // Unconfined, so the init block's first launch runs as the model is built.
+        Dispatchers.setMain(UnconfinedTestDispatcher(currentCoroutineContext()[TestCoroutineScheduler]))
         mockkConstructor(ChapterLoader::class)
         mockkStatic(NETWORK_STATE)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, isWifi = wifi)
@@ -289,7 +290,8 @@ class MangaReaderViewModelHarness private constructor(
             )
             val downloadPreferences = DownloadPreferences(prefs)
             val model = ReaderViewModel(
-                appScope = testAppScope().also { appScope = it },
+                // On the test's scheduler, so its writes land in virtual time and are joined below.
+                appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also { appScope = it },
                 savedState = SavedStateHandle(
                     mapOf("manga" to manga.id, "chapter" to chapterId, "source_scoped" to sourceScoped) +
                         listOfNotNull(launchPage?.let { "launch_page" to it }) +
@@ -364,6 +366,8 @@ class MangaReaderViewModelHarness private constructor(
             ).also {
                 store.put("reader", it)
                 modelJob = it.viewModelScope.coroutineContext.job
+                // Undoes what the coEverys above did to Default, as restubDefaultDispatcher says
+                restubDefaultDispatcher()
             }
             val state = settled(model) { it.viewerChapters != null || it.initError != null }
                 .also { if (!allowInitError) it.initError?.let { error -> throw error } }
@@ -371,7 +375,10 @@ class MangaReaderViewModelHarness private constructor(
         } finally {
             store.clear()
             // A cancelled load still resumes on Main to finish, so wait for it before a test resets Main.
-            withContext(NonCancellable) { modelJob?.join() }
+            withContext(NonCancellable) {
+                modelJob?.join()
+                appScope?.coroutineContext?.job?.children?.toList()?.joinAll()
+            }
             unmockkConstructor(ChapterLoader::class)
             unmockkStatic(NETWORK_STATE)
         }
@@ -387,13 +394,11 @@ private const val SLOW_WRITE_MS = 300L
 
 private const val NETWORK_STATE = "eu.kanade.tachiyomi.util.system.NetworkStateTrackerKt"
 
-/** The model loads on the IO dispatcher, which virtual time does not reach, so this waits in real time. */
+/** Waits in virtual time for [model]'s state to reach [until]. */
 suspend fun settled(
     model: ReaderViewModel,
     until: (ReaderViewModel.State) -> Boolean,
-): ReaderViewModel.State = withContext(Dispatchers.Default) {
-    withTimeout(10_000) { model.state.first(until) }
-}
+): ReaderViewModel.State = withTimeout(10_000) { model.state.first(until) }
 
 /** The chapter sheet's rows as [model]'s production provider builds them, with nothing queued. */
 suspend fun sheetRows(model: ReaderViewModel): List<ReaderChapterRow> {
@@ -405,7 +410,7 @@ suspend fun sheetRows(model: ReaderViewModel): List<ReaderChapterRow> {
         },
         titleWords = EnglishChapterTitleWords,
     )
-    return withContext(Dispatchers.Default) { provider.chapterList.rows.first() }
+    return provider.chapterList.rows.first()
 }
 
 /** [chapter] as loaded with [count] pages, which the stubbed page loader never does itself. */

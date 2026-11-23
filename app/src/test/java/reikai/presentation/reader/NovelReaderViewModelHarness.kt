@@ -25,7 +25,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,6 +102,7 @@ import reikai.novel.source.testChapterCache
 import reikai.novel.source.testChapterTextCache
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.restubDefaultDispatcher
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -133,7 +133,8 @@ class NovelReaderViewModelHarness private constructor(
         suspend fun create(scheduler: TestCoroutineScheduler): NovelReaderViewModelHarness {
             val driver = SerialSqliteDriver()
             Database.Schema.create(driver).await()
-            return NovelReaderViewModelHarness(scheduler, driver)
+            // After the harness's own coEverys, as restubDefaultDispatcher says
+            return NovelReaderViewModelHarness(scheduler, driver).also { restubDefaultDispatcher() }
         }
     }
 
@@ -399,13 +400,11 @@ class NovelReaderViewModelHarness private constructor(
     @Volatile
     var slowFlagWrite: (novelId: Long, flag: Long) -> Boolean = { _, _ -> false }
 
-    /** Runs [step] and waits for the app-scope writes it started, which outlive the model and run on IO. */
+    /** Runs [step] and waits for the app-scope writes it started, which outlive the model. */
     suspend fun settleAppWrites(step: suspend () -> Unit) {
         val running = appScope.coroutineContext.job.children.toSet()
         step()
-        withContext(Dispatchers.Default) {
-            withTimeout(10_000) { (appScope.coroutineContext.job.children.toSet() - running).joinAll() }
-        }
+        withTimeout(10_000) { (appScope.coroutineContext.job.children.toSet() - running).joinAll() }
     }
 
     /** Clears the open models, as leaving the reader does, with the database still open. */
@@ -524,7 +523,10 @@ class NovelReaderViewModelHarness private constructor(
             ),
             pictureCache = pictureCache,
             io = dispatcher,
-        ).also(::track)
+        ).also {
+            track(it)
+            restubDefaultDispatcher()
+        }
     }
 
     /** The details screen of [url] on [sourceId] opened from Browse, which stores its listing row first. */
@@ -533,8 +535,8 @@ class NovelReaderViewModelHarness private constructor(
 
     /**
      * The novel details screen of [novelId], over the same database and merge machinery. It launches on
-     * the real IO dispatcher rather than [dispatcher], so a test waits on its state in real time. While
-     * [shown], its state is collected for as long as the model lives, as a screen showing it collects it.
+     * Dispatchers.IO, which a test points at its scheduler with `virtualDispatchers()`. While [shown],
+     * its state is collected for as long as the model lives, as a screen showing it collects it.
      */
     fun openDetails(novelId: Long, shown: Boolean = true): NovelDetailsViewModel {
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
@@ -607,6 +609,7 @@ class NovelReaderViewModelHarness private constructor(
             sourceContacts = sourceContacts,
         ).also { model ->
             track(model)
+            restubDefaultDispatcher()
             if (shown) model.viewModelScope.launch { model.state.collect {} }
         }
     }
@@ -631,8 +634,8 @@ class NovelReaderViewModelHarness private constructor(
 
     /**
      * Clears every model it opened, as [leaveModels] does, and waits for their work to stop before
-     * releasing the database and clock. A details model works on the real IO dispatcher, and a query
-     * of its still running against a closed database throws into whichever test is running by then.
+     * releasing the database and clock. A details model's query still running against a closed
+     * database would throw into whichever test is running by then.
      */
     suspend fun close() {
         cacheScope.cancel() // Its save loop waits for writes for as long as it lives
@@ -694,7 +697,7 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     /** What asking for a novel's details does; by default it throws, as for a source no test meant to ask. */
     @Volatile
-    var details: () -> SourceNovel = { unused() }
+    var details: suspend () -> SourceNovel = { unused() }
 
     val detailsAsked = AtomicInteger()
 

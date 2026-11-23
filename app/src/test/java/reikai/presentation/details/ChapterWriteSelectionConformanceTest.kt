@@ -15,16 +15,12 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -33,6 +29,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -62,7 +60,7 @@ class ChapterWriteSelectionConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -75,7 +73,7 @@ class ChapterWriteSelectionConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0} {1}")
@@ -111,7 +109,7 @@ class ChapterWriteSelectionConformanceTest {
                 MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
                     .settledSelection(FIRST, SECOND, write)
             } finally {
-                // The model reads on the real IO dispatcher, so it stops before the database closes.
+                // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
                 store.clear()
                 job.join()
@@ -155,20 +153,18 @@ class ChapterWriteSelectionConformanceTest {
 
         /** Selects [selected], runs [write] on [written], and reads the selection once it settles. */
         suspend fun EntryDetailsBehavior.settledSelection(selected: Long, written: Long, write: Write): Set<Long> =
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    val loaded = state.filterIsInstance<EntryDetailsScreenState.Loaded>()
-                    val shown = loaded.first { page ->
-                        page.chapters.items.count { it is EntryChapterListItem.Chapter } ==
-                            2
-                    }
-                        .chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
-                    toggleSelection(selected, fromLongPress = false, shown = shown)
-                    loaded.first { it.selection == setOf(selected) }
-                    write.run(this@settledSelection, written)
-                    withTimeoutOrNull(5_000) { loaded.first { it.selection.isEmpty() } }?.selection
-                        ?: loaded.first().selection
+            withTimeout(30_000) {
+                val loaded = state.filterIsInstance<EntryDetailsScreenState.Loaded>()
+                val shown = loaded.first { page ->
+                    page.chapters.items.count { it is EntryChapterListItem.Chapter } ==
+                        2
                 }
+                    .chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
+                toggleSelection(selected, fromLongPress = false, shown = shown)
+                loaded.first { it.selection == setOf(selected) }
+                write.run(this@settledSelection, written)
+                withTimeoutOrNull(5_000) { loaded.first { it.selection.isEmpty() } }?.selection
+                    ?: loaded.first().selection
             }
     }
 }

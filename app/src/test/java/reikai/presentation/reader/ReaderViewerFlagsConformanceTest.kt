@@ -4,15 +4,10 @@ import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -22,6 +17,8 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.renderStoredStitch
 import reikai.domain.novel.NovelPageLayout
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -48,10 +45,12 @@ class ReaderViewerFlagsConformanceTest {
     }
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -86,11 +85,10 @@ class ReaderViewerFlagsConformanceTest {
         val CHANGED = ReaderOrientation.REVERSE_PORTRAIT.flagValue.toLong()
         private val MASK = ReaderOrientation.MASK.toLong()
 
-        /** The readers write on the IO dispatcher, which virtual time does not reach, so this polls; a busy CI
-         *  runner has taken over 3 s, and a settled write ends the wait at once. */
-        suspend fun settlesAt(expected: Long, read: suspend () -> Long): Long = withContext(Dispatchers.Default) {
+        /** [read] once it answers [expected], or once the readers' writes have had all the virtual time they need. */
+        suspend fun settlesAt(expected: Long, read: suspend () -> Long): Long {
             withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
-            read()
+            return read()
         }
     }
 

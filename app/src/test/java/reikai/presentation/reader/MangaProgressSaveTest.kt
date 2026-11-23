@@ -2,24 +2,24 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.source.model.Page
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import java.io.IOException
 
 /** What the manga reader stores for a page turn it held back, once the hold is written. */
 class MangaProgressSaveTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `a page that failed to load does not displace the good page held before it`() = runTest {

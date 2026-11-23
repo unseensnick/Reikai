@@ -15,22 +15,20 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -51,7 +49,7 @@ class DetailsBlockSelectionConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
@@ -63,7 +61,7 @@ class DetailsBlockSelectionConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -83,17 +81,15 @@ class DetailsBlockSelectionConformanceTest {
 
         /** Block-selects the first of the three rows shown, long-presses the last, and reads the selection. */
         suspend fun EntryDetailsBehavior.blockThenLongPress(): Pair<List<Long>, Set<Long>> =
-            withContext(Dispatchers.Default) {
-                withTimeout(30_000) {
-                    val loaded = state.filterIsInstance<EntryDetailsScreenState.Loaded>()
-                    val shown = loaded.first { page ->
-                        page.chapters.items.count { it is EntryChapterListItem.Chapter } == 3
-                    }.chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
-                    toggleChapterBlock(listOf(shown.first()))
-                    loaded.first { it.selection == setOf(shown.first()) }
-                    toggleSelection(shown.last(), fromLongPress = true, shown = shown)
-                    shown to loaded.first { shown.last() in it.selection }.selection
-                }
+            withTimeout(30_000) {
+                val loaded = state.filterIsInstance<EntryDetailsScreenState.Loaded>()
+                val shown = loaded.first { page ->
+                    page.chapters.items.count { it is EntryChapterListItem.Chapter } == 3
+                }.chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
+                toggleChapterBlock(listOf(shown.first()))
+                loaded.first { it.selection == setOf(shown.first()) }
+                toggleSelection(shown.last(), fromLongPress = true, shown = shown)
+                shown to loaded.first { shown.last() in it.selection }.selection
             }
     }
 

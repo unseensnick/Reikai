@@ -7,16 +7,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -26,15 +24,23 @@ import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
+import kotlin.coroutines.ContinuationInterceptor
 
 /** The novel session's half of the viewport lifecycle, over a real model on [NovelReaderViewModelHarness]. */
 class NovelReaderProviderTest {
 
+    /** Where IO and Default run, apart from Main, so a test can tell which one a step ran on. */
+    private lateinit var background: TestDispatcher
+
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        background = virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     private fun readerTest(block: suspend TestScope.(NovelReaderViewModelHarness) -> Unit) = runTest {
         NovelReaderViewModelHarness.create(testScheduler).use { block(it) }
@@ -76,9 +82,9 @@ class NovelReaderProviderTest {
     @Test
     fun `the open chapter's web address is built off the main thread`() = readerTest { harness ->
         val source = harness.source("src")
-        var builtOn: Thread? = null
+        var builtOn: ContinuationInterceptor? = null
         source.resolve = {
-            builtOn = Thread.currentThread()
+            builtOn = currentCoroutineContext()[ContinuationInterceptor]
             "https://src.example/1"
         }
         val novel = harness.novel(source)
@@ -88,15 +94,15 @@ class NovelReaderProviderTest {
 
         provider.webUrl.first { it != null }
 
-        (builtOn === Thread.currentThread()) shouldBe false
+        builtOn shouldBe background
     }
 
     @Test
     fun `a failed chapter's web address is built off the main thread`() = readerTest { harness ->
         val source = harness.source("src")
-        var builtOn: Thread? = null
+        var builtOn: ContinuationInterceptor? = null
         source.resolve = {
-            builtOn = Thread.currentThread()
+            builtOn = currentCoroutineContext()[ContinuationInterceptor]
             "https://src.example/1"
         }
         val novel = harness.novel(source)
@@ -107,7 +113,7 @@ class NovelReaderProviderTest {
 
         provider.chapterWebUrl(chapter.id)
 
-        (builtOn === Thread.currentThread()) shouldBe false
+        builtOn shouldBe background
     }
 
     /** The viewport is built once this opens; built from the default, it was rebuilt with the chapter. */

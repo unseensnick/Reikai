@@ -1,15 +1,11 @@
 package reikai.presentation.novel.details
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -19,6 +15,8 @@ import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import reikai.presentation.reader.SeededChapter
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * Mark previous as read walks the chapters the list shows, as manga's does, across every page of a
@@ -27,10 +25,12 @@ import reikai.presentation.reader.SeededChapter
 class NovelMarkPreviousReadTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `on a paged novel it marks only the earlier chapters the filters show`() = runTest {
@@ -63,19 +63,17 @@ class NovelMarkPreviousReadTest {
         val earlier = seed(harness, novelId)
         val pointer = harness.chapter(novelId, 3.0, bookmark = true, page = "2")
         val model = harness.openDetails(novelId)
-        withContext(Dispatchers.Default) {
-            withTimeout(10_000) {
-                model.state.first { it is NovelDetailsState.Loaded && it.pages.size == 2 }
-                model.selectPage(1)
-                model.state.first {
-                    (it as? NovelDetailsState.Loaded)?.chapters?.map { c -> c.id } == listOf(pointer.id)
-                }
-                model.toggleSelection(pointer.id, fromLongPress = false, shown = listOf(pointer.id))
-                model.markPreviousRead()
+        withTimeout(10_000) {
+            model.state.first { it is NovelDetailsState.Loaded && it.pages.size == 2 }
+            model.selectPage(1)
+            model.state.first {
+                (it as? NovelDetailsState.Loaded)?.chapters?.map { c -> c.id } == listOf(pointer.id)
             }
-            withTimeoutOrNull(5_000) { while (earlier.none { harness.isRead(it) == true }) delay(20) }
-            delay(200)
+            model.toggleSelection(pointer.id, fromLongPress = false, shown = listOf(pointer.id))
+            model.markPreviousRead()
         }
+        withTimeoutOrNull(5_000) { while (earlier.none { harness.isRead(it) == true }) delay(20) }
+        delay(200)
         earlier.map { harness.isRead(it) == true }
     }
 

@@ -10,21 +10,19 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -43,7 +41,7 @@ class DetailsNotFoundConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
         every { DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled } returns DebugToggles.ENABLE_EXH_ROOT_REDIRECT.default
     }
@@ -51,7 +49,7 @@ class DetailsNotFoundConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -66,8 +64,11 @@ class DetailsNotFoundConformanceTest {
         @JvmStatic
         fun probes() = listOf(MangaProbe(), NovelProbe())
 
-        suspend fun EntryDetailsBehavior.settled(): EntryDetailsScreenState? = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(10_000) { state.first { it != EntryDetailsScreenState.Loading } }
+        suspend fun EntryDetailsBehavior.settled(): EntryDetailsScreenState? = withTimeoutOrNull(10_000) {
+            state.first {
+                it !=
+                    EntryDetailsScreenState.Loading
+            }
         }
     }
 
@@ -88,7 +89,7 @@ class DetailsNotFoundConformanceTest {
             return try {
                 MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking()).settled()
             } finally {
-                // The model reads on the real IO dispatcher, so it stops before the database closes.
+                // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
                 store.clear()
                 job.join()

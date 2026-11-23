@@ -4,17 +4,15 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -34,7 +32,7 @@ class ReaderStepHistoryConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(StandardTestDispatcher())
+        virtualDispatchers()
         now = Instant.fromEpochMilliseconds(1_000_000_000_000L)
         mockkObject(Clock.System)
         every { Clock.System.now() } answers { now }
@@ -43,7 +41,7 @@ class ReaderStepHistoryConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkObject(Clock.System)
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")

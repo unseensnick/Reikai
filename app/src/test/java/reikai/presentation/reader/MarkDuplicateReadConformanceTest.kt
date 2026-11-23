@@ -2,13 +2,9 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -16,6 +12,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.renderStoredStitch
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * Finishing a chapter marks its other copies read as the database holds them when it finishes, not as
@@ -45,10 +43,12 @@ class MarkDuplicateReadConformanceTest {
     }
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")

@@ -12,16 +12,15 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -39,12 +38,12 @@ import reikai.novel.install.LnPluginLoadFailure
 import reikai.presentation.details.EntrySourceState
 import reikai.presentation.reader.FakeNovelSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -55,7 +54,7 @@ class NovelDetailsFetchTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // The harness context is a relaxed mock, so the one message a test names is given a text of its own.
         mockkStatic(LOCALIZE)
         every { any<Context>().stringResource(MR.strings.no_chapters_error) } returns NO_CHAPTERS
@@ -65,7 +64,7 @@ class NovelDetailsFetchTest {
     fun tearDown() {
         unmockkStatic(LOCALIZE)
         CoverColors.clear()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @Test
@@ -82,17 +81,16 @@ class NovelDetailsFetchTest {
     @Test
     fun `a novel opened from browsing shows it is refreshing while its first fetch runs`() = runTest {
         val refreshing = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
-            // The source's answer is a plain call on the IO dispatcher, so it is held there by a latch.
-            val answer = CountDownLatch(1)
+            val answer = CompletableDeferred<Unit>()
             harness.source("alpha").details = {
-                answer.await(10, TimeUnit.SECONDS)
+                answer.await()
                 SourceNovel(path = NEW_URL, chapters = listOf(ChapterItem("One", "/1")))
             }
             val model = harness.openListing("alpha", NEW_URL)
             try {
                 model.awaitLoaded { it.isRefreshing }.isRefreshing
             } finally {
-                answer.countDown()
+                answer.complete(Unit)
             }
         }
 
@@ -102,21 +100,19 @@ class NovelDetailsFetchTest {
     @Test
     fun `a pull to refresh during the first fetch asks the source nothing more`() = runTest {
         val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
-            val answer = CountDownLatch(1)
+            val answer = CompletableDeferred<Unit>()
             val calls = AtomicInteger()
             harness.source("alpha").details = {
                 calls.incrementAndGet()
-                answer.await(10, TimeUnit.SECONDS)
+                answer.await()
                 SourceNovel(path = NEW_URL, chapters = listOf(ChapterItem("One", "/1")))
             }
             val model = harness.openListing("alpha", NEW_URL)
             model.awaitLoaded { it.isRefreshing }
             model.refresh()
-            answer.countDown()
+            answer.complete(Unit)
             model.awaitLoaded { it.chapters.size == 1 && !it.isRefreshing }
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (calls.get() < 2) delay(20) }
-            }
+            passRefetchWindow()
             calls.get()
         }
 
@@ -239,15 +235,11 @@ class NovelDetailsFetchTest {
             val source = harness.source("alpha")
             val (novel, model) = harness.openPaged(source)
             model.selectPage(1)
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
-            }
+            withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
             // Any input rebuilds the list; a rename is one the rebuilt page shows.
             harness.updateNovel(novel) { title = "Renamed" }
             model.awaitLoaded { it.novel.title == "Renamed" }
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.size < 2) delay(20) }
-            }
+            passRefetchWindow()
             source.pagesAsked.toList()
         }
 
@@ -276,9 +268,7 @@ class NovelDetailsFetchTest {
             model.selectPage(0)
             model.awaitLoaded { it.pageIndex == 0 }
             model.selectPage(1)
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) { while (source.pagesAsked.size < 2) delay(20) }
-            }
+            withTimeout(10_000) { while (source.pagesAsked.size < 2) delay(20) }
             source.pagesAsked.toList()
         }
 
@@ -293,9 +283,7 @@ class NovelDetailsFetchTest {
             model.selectPage(1)
             model.snackbarWithin(10_000)
             model.selectPage(1)
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) { while (source.pagesAsked.size < 2) delay(20) }
-            }
+            withTimeout(10_000) { while (source.pagesAsked.size < 2) delay(20) }
             source.pagesAsked.toList()
         }
 
@@ -314,10 +302,8 @@ class NovelDetailsFetchTest {
             source.details = { SourceNovel(path = NEW_URL, name = "New", totalPages = 4) }
             val model = harness.openListing("alpha", NEW_URL)
             try {
-                withContext(Dispatchers.Default) {
-                    withTimeoutOrNull(10_000) {
-                        model.state.filterIsInstance<NovelDetailsState.Loaded>().first { it.pages.size == 4 }
-                    }
+                withTimeoutOrNull(10_000) {
+                    model.state.filterIsInstance<NovelDetailsState.Loaded>().first { it.pages.size == 4 }
                 }
             } finally {
                 busy.complete(Unit)
@@ -333,10 +319,8 @@ class NovelDetailsFetchTest {
             val source = harness.source("alpha")
             source.details = { SourceNovel(path = NEW_URL, name = "New", totalPages = 4) }
             harness.openListing("alpha", NEW_URL).awaitLoaded { it.pages.size == 4 }
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) { while ("1" !in source.pagesAsked) delay(20) }
-                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.size < 2) delay(20) }
-            }
+            withTimeout(10_000) { while ("1" !in source.pagesAsked) delay(20) }
+            passRefetchWindow()
             source.pagesAsked.toList()
         }
 
@@ -356,10 +340,8 @@ class NovelDetailsFetchTest {
             model.awaitLoaded { it.pageIndex == 1 }
             gate.complete(Unit)
             model.awaitLoaded { it.sourceName == "alpha" }
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
-                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.size < 2) delay(20) }
-            }
+            withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
+            passRefetchWindow()
             source.pagesAsked.toList()
         }
 
@@ -374,9 +356,7 @@ class NovelDetailsFetchTest {
             val (_, model) = harness.openPaged(source)
             model.selectPage(1)
             model.awaitLoaded { it.pageIndex == 1 }
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.isEmpty()) delay(20) }
-            }
+            passRefetchWindow()
             source.pagesAsked.toList()
         }
 
@@ -442,9 +422,7 @@ class NovelDetailsFetchTest {
             val model = harness.openDetails(novel)
             model.awaitLoaded { it.pages.size == 3 && it.sourceName == "alpha" }
             model.selectPage(1)
-            withContext(Dispatchers.Default) {
-                withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
-            }
+            withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
             coVerify(timeout = 10_000) { filter.await(any(), match { new -> new.map { it.url } == listOf("/2") }) }
         }
     }
@@ -513,7 +491,7 @@ class NovelDetailsFetchTest {
             val novel = harness.novel(FakeNovelSource("gone", "unregistered"))
             harness.chapter(novel, 1.0)
             val model = harness.openDetails(novel)
-            val watcher = backgroundScope.launch(Dispatchers.Default) { model.state.collect { seen += it } }
+            val watcher = backgroundScope.launch { model.state.collect { seen += it } }
             model.awaitLoaded { true }
             gate.complete(Unit)
             model.awaitLoaded { it.sourceState == EntrySourceState.Missing }.also { watcher.cancel() }
@@ -535,26 +513,29 @@ class NovelDetailsFetchTest {
 
     private suspend fun NovelDetailsViewModel.awaitLoaded(
         predicate: (NovelDetailsState.Loaded) -> Boolean,
-    ): NovelDetailsState.Loaded = withContext(Dispatchers.Default) {
-        withTimeout(10_000) { state.filterIsInstance<NovelDetailsState.Loaded>().first(predicate) }
+    ): NovelDetailsState.Loaded = withTimeout(10_000) {
+        state.filterIsInstance<NovelDetailsState.Loaded>().first(predicate)
     }
 
-    // The first fetch runs on the real IO dispatcher, so the wait is in real time.
     private suspend fun NovelDetailsViewModel.snackbarWithin(millis: Long): SnackbarData? =
-        withContext(Dispatchers.Default) {
-            withTimeoutOrNull(millis) {
-                var data = snackbarHostState.currentSnackbarData
-                while (data == null) {
-                    delay(20)
-                    data = snackbarHostState.currentSnackbarData
-                }
-                data
+        withTimeoutOrNull(millis) {
+            var data = snackbarHostState.currentSnackbarData
+            while (data == null) {
+                delay(20)
+                data = snackbarHostState.currentSnackbarData
             }
+            data
         }
+
+    /** Lets virtual time run past the window a second ask of the source would land in, had one been made. */
+    private fun TestScope.passRefetchWindow() {
+        advanceTimeBy(REFETCH_WINDOW_MS)
+        runCurrent()
+    }
 
     private suspend fun NovelDetailsViewModel.awaitState(
         predicate: (NovelDetailsState) -> Boolean,
-    ): NovelDetailsState = withContext(Dispatchers.Default) { withTimeout(10_000) { state.first(predicate) } }
+    ): NovelDetailsState = withTimeout(10_000) { state.first(predicate) }
 
     private companion object {
         const val NEW_URL = "/novel/new"
@@ -564,7 +545,7 @@ class NovelDetailsFetchTest {
         const val TINT = 0xFF336699.toInt()
         const val OTHER_TINT = 0xFF993366.toInt()
 
-        // Far beyond the milliseconds a second ask takes to land when one is made.
+        // Far beyond the virtual milliseconds a second ask takes to land when one is made.
         const val REFETCH_WINDOW_MS = 1_500L
     }
 }

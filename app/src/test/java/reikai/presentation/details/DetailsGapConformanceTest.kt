@@ -13,16 +13,12 @@ import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -37,6 +33,8 @@ import reikai.presentation.novel.details.NovelDetailsState
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -67,7 +65,7 @@ class DetailsGapConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
@@ -78,7 +76,7 @@ class DetailsGapConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -132,8 +130,8 @@ class DetailsGapConformanceTest {
     private suspend fun loadedWhere(
         model: NovelDetailsViewModel,
         ready: (NovelDetailsState.Loaded) -> Boolean,
-    ): NovelDetailsState.Loaded = withContext(Dispatchers.Default) {
-        withTimeout(10_000) { model.state.first { it is NovelDetailsState.Loaded && ready(it) } }
+    ): NovelDetailsState.Loaded = withTimeout(10_000) {
+        model.state.first { it is NovelDetailsState.Loaded && ready(it) }
     } as NovelDetailsState.Loaded
 
     companion object {
@@ -218,7 +216,7 @@ class DetailsGapConformanceTest {
             return try {
                 block(model)
             } finally {
-                // The model reads on the real IO dispatcher, so it stops before the database closes.
+                // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
                 store.clear()
                 job.join()
@@ -230,8 +228,8 @@ class DetailsGapConformanceTest {
 
         private suspend fun MangaViewModel.success(
             ready: (MangaViewModel.State.Success) -> Boolean,
-        ): MangaViewModel.State.Success = withContext(Dispatchers.Default) {
-            withTimeout(30_000) { state.filterIsInstance<MangaViewModel.State.Success>().first(ready) }
+        ): MangaViewModel.State.Success = withTimeout(30_000) {
+            state.filterIsInstance<MangaViewModel.State.Success>().first(ready)
         }
 
         private companion object {
@@ -278,8 +276,11 @@ class DetailsGapConformanceTest {
         private suspend fun loaded(
             model: NovelDetailsViewModel,
             ready: (NovelDetailsState.Loaded) -> Boolean,
-        ): NovelDetailsState.Loaded = withContext(Dispatchers.Default) {
-            withTimeout(10_000) { model.state.first { it is NovelDetailsState.Loaded && ready(it) } }
+        ): NovelDetailsState.Loaded = withTimeout(10_000) {
+            model.state.first {
+                it is NovelDetailsState.Loaded &&
+                    ready(it)
+            }
         } as NovelDetailsState.Loaded
     }
 }

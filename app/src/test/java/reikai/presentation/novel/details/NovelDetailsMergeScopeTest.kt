@@ -3,14 +3,10 @@ package reikai.presentation.novel.details
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import io.kotest.matchers.shouldBe
 import io.mockk.every
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
@@ -18,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * The novel details list passes its merge scope through: a source chip shows and deletes only that
@@ -26,10 +24,12 @@ import reikai.presentation.reader.NovelReaderViewModelHarness
 class NovelDetailsMergeScopeTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+    fun setUp() {
+        virtualDispatchers(UnconfinedTestDispatcher())
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `under a source chip a chapter whose only copy on disk is another source's is not downloaded`() =
@@ -67,16 +67,14 @@ class NovelDetailsMergeScopeTest {
         harness.download(otherCopy, "<p>on disk</p>")
         harness.merge(leading, other)
         val model = harness.openDetails(leading)
-        val loaded = withContext(Dispatchers.Default) {
-            withTimeout(10_000) {
-                // A chip outside the group is refused, so pick it once the group has resolved.
-                model.state.first { it is NovelDetailsState.Loaded && it.mergeSources.size == 2 }
-                if (chip) model.selectSource(leading)
-                model.state.first {
-                    it is NovelDetailsState.Loaded && it.mergeSources.size == 2 && it.chapters.size == 1 &&
-                        it.selectedSourceNovelId == leading.takeIf { chip }
-                } as NovelDetailsState.Loaded
-            }
+        val loaded = withTimeout(10_000) {
+            // A chip outside the group is refused, so pick it once the group has resolved.
+            model.state.first { it is NovelDetailsState.Loaded && it.mergeSources.size == 2 }
+            if (chip) model.selectSource(leading)
+            model.state.first {
+                it is NovelDetailsState.Loaded && it.mergeSources.size == 2 && it.chapters.size == 1 &&
+                    it.selectedSourceNovelId == leading.takeIf { chip }
+            } as NovelDetailsState.Loaded
         }
         probe(Scenario(harness, model, mapOf(leadingCopy.id to LEADING_COPY, otherCopy.id to OTHER_COPY)), loaded)
     }
@@ -94,10 +92,8 @@ class NovelDetailsMergeScopeTest {
                 deleted += firstArg<List<NovelChapter>>().map { it.id }
             }
             model.onChapterDownloadAction(chapter, ChapterDownloadAction.DELETE)
-            withContext(Dispatchers.Default) {
-                withTimeoutOrNull(5_000) { while (deleted.isEmpty()) delay(20) }
-                delay(200)
-            }
+            withTimeoutOrNull(5_000) { while (deleted.isEmpty()) delay(20) }
+            delay(200)
             return deleted.mapNotNullTo(HashSet()) { names[it] }
         }
     }

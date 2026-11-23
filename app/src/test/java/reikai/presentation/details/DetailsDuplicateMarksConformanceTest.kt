@@ -19,10 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +29,8 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.presentation.reader.NovelReaderViewModelHarness
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
@@ -53,7 +52,7 @@ class DetailsDuplicateMarksConformanceTest {
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        virtualDispatchers(UnconfinedTestDispatcher())
         mockkStatic(DOWNLOADED_FILTER_FILE)
         every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
@@ -63,7 +62,7 @@ class DetailsDuplicateMarksConformanceTest {
     @AfterEach
     fun tearDown() {
         unmockkAll()
-        Dispatchers.resetMain()
+        resetVirtualDispatchers()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -94,8 +93,8 @@ class DetailsDuplicateMarksConformanceTest {
 
         suspend fun EntryDetailsBehavior.loadedWhere(
             ready: (EntryDetailsScreenState.Loaded) -> Boolean,
-        ): EntryDetailsScreenState.Loaded = withContext(Dispatchers.Default) {
-            withTimeout(30_000) { state.filterIsInstance<EntryDetailsScreenState.Loaded>().first(ready) }
+        ): EntryDetailsScreenState.Loaded = withTimeout(30_000) {
+            state.filterIsInstance<EntryDetailsScreenState.Loaded>().first(ready)
         }
     }
 

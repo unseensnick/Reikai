@@ -6,19 +6,16 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
 
 /**
  * The page a manga chapter reopens at when its viewer is built again, which the three image viewers
@@ -29,10 +26,12 @@ import org.junit.jupiter.api.Test
 class MangaRequestedPageTest {
 
     @BeforeEach
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        virtualDispatchers()
+    }
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() = resetVirtualDispatchers()
 
     @Test
     fun `paging back into a finished chapter keeps the page it landed on`() = runTest {
@@ -67,12 +66,10 @@ class MangaRequestedPageTest {
         } shouldBe 0
     }
 
-    // A page turn's save is held back for a moment, so the stored page still lags it here. The tests run on a
-    // scheduler of their own, so the model's held save is never skipped forward while they wait.
+    // A page turn's save is held back for a moment, so the stored page still lags it here. The reload lands
+    // before virtual time moves, so the held save is never skipped forward while they wait.
     @Test
-    fun `a reading mode change right after a page turn reopens on that page`() = runTest(
-        StandardTestDispatcher(TestCoroutineScheduler()),
-    ) {
+    fun `a reading mode change right after a page turn reopens on that page`() = runTest {
         onFinishedChapter { model, _ ->
             val current = model.state.value.viewerChapters!!.currChapter
             model.onPageSelected(loadedPages(current, 10)[5])
@@ -83,9 +80,7 @@ class MangaRequestedPageTest {
     }
 
     @Test
-    fun `an orientation change right after a page turn reopens on that page`() = runTest(
-        StandardTestDispatcher(TestCoroutineScheduler()),
-    ) {
+    fun `an orientation change right after a page turn reopens on that page`() = runTest {
         onFinishedChapter { model, _ ->
             val current = model.state.value.viewerChapters!!.currChapter
             model.onPageSelected(loadedPages(current, 10)[5])
@@ -95,9 +90,8 @@ class MangaRequestedPageTest {
         } shouldBe 5
     }
 
-    private suspend fun reloaded(model: ReaderViewModel) = withContext(Dispatchers.Default) {
+    private suspend fun reloaded(model: ReaderViewModel) =
         withTimeout(10_000) { model.eventFlow.first { it is ReaderViewModel.Event.ReloadViewerChapters } }
-    }
 
     /** Chapter 1 read, opened on chapter 2 with Resume reading position off; [probe] gets chapter 1. */
     private suspend fun <T> onFinishedChapter(probe: suspend (ReaderViewModel, ReaderChapter) -> T): T =
@@ -113,6 +107,6 @@ class MangaRequestedPageTest {
     /** Waits for [chapter] to be the current one, then for the model's own collector of that change. */
     private suspend fun becameCurrent(model: ReaderViewModel, chapter: ReaderChapter) {
         settled(model) { it.viewerChapters?.currChapter?.chapter?.id == chapter.chapter.id }
-        withContext(Dispatchers.Default) { delay(300) }
+        currentCoroutineContext()[TestCoroutineScheduler]!!.runCurrent()
     }
 }
