@@ -86,7 +86,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - [.claude/rules/workflow.md](.claude/rules/workflow.md): CHANGELOG rule, the commit message standard (hook-enforced), public-facing naming, release-cut, versioning, Mihon-upstream + Reikai-feature porting (the sync method and ledger in full: [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md)).
 - [.claude/rules/roadmap-plans.md](.claude/rules/roadmap-plans.md): ROADMAP.md, docs/dev/plans/, docs/dev/subsystems/ and parked.md structure and naming (path-scoped; loads when editing those files).
 - [.claude/rules/code-quality.md](.claude/rules/code-quality.md): DRY/YAGNI/KISS, naming, code markers, file organization.
-- [.claude/rules/testing.md](.claude/rules/testing.md): behavior over implementation, mock at boundaries, coroutine test patterns.
+- [.claude/rules/testing.md](.claude/rules/testing.md): what earns a test, one behavior per test (a decision table is one parameterized test), a rule tested once where it lives, no real time in JVM tests, mock at boundaries.
 - [.claude/rules/database.md](.claude/rules/database.md): SQLDelight migrations.
 - [.claude/rules/security.md](.claude/rules/security.md): secrets, input validation.
 - [.claude/rules/plan-output.md](.claude/rules/plan-output.md): how a findings report or plan is written (headline, graded findings, stale docs, named steps, open questions), and the density rules that keep it readable. Applies to `/scout`, `/code-research`, and any plan given in conversation.

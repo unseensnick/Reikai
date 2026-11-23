@@ -91,9 +91,12 @@ sites, with some of them wrong. Neither class shows up in the other's review.
 - **A rule that must hold for both types exists once**, in this order of preference: a shared kernel
   both sides call (`resolveDefaultCategoryIds` is the model), a typed capability the compiler forces
   both types to answer, or, where neither reaches, one conformance test parameterized over both
-  adapters. Hand-maintained twin tests are the last resort and they drift: the 2026-08-05 audit
-  found 8 tests on `MigrateMangaUseCase` against 24 on `MigrateNovelUseCase`. A type that genuinely
-  cannot do the thing declares it unsupported in the case rather than being quietly omitted.
+  adapters. Hand-maintained twin tests are not a rung: they drift (the 2026-08-05 audit found 8
+  tests on `MigrateMangaUseCase` against 24 on `MigrateNovelUseCase`). A type that genuinely cannot
+  do the thing declares it unsupported in the case rather than being quietly omitted. **The pin is
+  the kernel's own test**: once a kernel pins the rule, the types that call it are not tested for it
+  again, and a conformance test goes only where the two halves run different code. Both types running
+  the same class get one unparameterized test, not a case per type ([testing.md](testing.md)).
 - **A `twin of` marker is a claim that owes a pin** (owner, 2026-08-10). Writing that a function is
   another's twin asserts the two must behave alike, so it names which rung pins them: the kernel they
   both call, the capability they both answer, or the conformance test that runs both. A marker with
