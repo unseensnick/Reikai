@@ -53,6 +53,7 @@ import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.migrate.flow.MigrationAdapters
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.details.NovelCoverViewModel
+import reikai.presentation.reader.ReadAloudSession
 import reikai.presentation.recents.MangaRecentsAdapter
 import reikai.presentation.recents.NovelRecentsAdapter
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
@@ -89,6 +90,9 @@ interface ReikaiGraph {
 
     // Advanced settings' clear rows forget the site storage plugins keep.
     val lnPluginHost: LnPluginHost
+
+    /** Read aloud, which the reader host asks whether a following launch is its own. */
+    val readAloudSession: ReadAloudSession
 
     // Read through Context.appGraph by companions, objects and composable bodies, none of which can
     // be member-injected. migrationAdapters is read from the migrate screens, which pick one by

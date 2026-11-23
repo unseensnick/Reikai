@@ -70,7 +70,6 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import mihon.icons.materialsymbols.roundedfilled.VisibilityOff // RK
 import reikai.data.local.LocalMoveResult // RK
-import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -102,6 +101,7 @@ import reikai.presentation.library.updateerror.UpdateErrorsRoute
 import reikai.presentation.library.visualLabel
 import reikai.presentation.local.LocalImportRoute
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
+import reikai.presentation.reader.novelResumeIntent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -395,11 +395,7 @@ fun LibraryTab() {
             val resume = novelModel.getResume(item.manga.id)
             if (resume != null) {
                 withUIContext {
-                    // Read aloud playing is where the reader is, so Continue opens on what it speaks.
-                    val follow = NovelTtsSession.isActive()
-                    context.startActivity(
-                        ReaderActivity.newNovelIntent(context, resume.novelId, resume.id, followSession = follow),
-                    )
+                    context.startActivity(novelResumeIntent(context, resume.novelId, resume.id))
                 }
             } else {
                 snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))

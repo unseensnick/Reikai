@@ -1,6 +1,9 @@
 package reikai.presentation.reader
 
+import android.content.Context
 import android.content.Intent
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import reikai.data.novel.tts.NovelTtsSession
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 
@@ -62,3 +65,19 @@ internal fun isSameLaunch(
 ): Boolean = requestedEntry == openEntry &&
     requestedSourceScoped == openSourceScoped &&
     (requestedChapter == NO_ID || requestedChapter == openChapter || requestedFollows)
+
+/**
+ * Whether a launch [following] read aloud into [entry], in [sourceScoped], follows what [session] reads: a
+ * Continue on one novel while another is spoken asks for its own resume chapter.
+ */
+internal fun followsReadAloud(
+    following: Boolean,
+    entry: EntryId,
+    sourceScoped: Boolean,
+    session: ReadAloudSessionState,
+): Boolean = following && entry is EntryId.Novel && session.isOf(entry.rawId, sourceScoped)
+
+/** The reader on [chapterId] as a resume opens it (Continue, Stats, the details Resume), following read aloud
+ *  while it is going; the reader keeps to [chapterId] when read aloud reads another series. */
+fun novelResumeIntent(context: Context, novelId: Long, chapterId: Long, sourceScoped: Boolean = false): Intent =
+    ReaderActivity.newNovelIntent(context, novelId, chapterId, sourceScoped, followSession = NovelTtsSession.isActive())

@@ -57,6 +57,7 @@ import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
 import reikai.presentation.novel.search.NovelChapterSearchRoute
+import reikai.presentation.reader.novelResumeIntent
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`, pinned by [EntryDetailsContent]. Builds a
@@ -138,14 +139,14 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
                     live?.let {
                         chapterToOpen(chapterId, it.chapters, it.resumeChapter, NovelChapter::id)
                     }?.let { ch ->
-                        context.startActivity(
-                            ReaderActivity.newNovelIntent(
-                                context = context,
-                                novelId = ch.novelId,
-                                chapterId = ch.id,
-                                sourceScoped = live.selectedSourceNovelId != null,
-                            ),
-                        )
+                        val sourceScoped = live.selectedSourceNovelId != null
+                        // The resume chapter is the Resume button's, which follows read aloud as Continue does.
+                        val intent = if (ch.id == live.resumeChapter?.id) {
+                            novelResumeIntent(context, ch.novelId, ch.id, sourceScoped)
+                        } else {
+                            ReaderActivity.newNovelIntent(context, ch.novelId, ch.id, sourceScoped)
+                        }
+                        context.startActivity(intent)
                     }
                 },
                 // Not browsable for an uninstalled plugin, whose catalogue would open on nothing;

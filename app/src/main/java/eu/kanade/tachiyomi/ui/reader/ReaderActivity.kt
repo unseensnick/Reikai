@@ -141,6 +141,7 @@ import reikai.presentation.reader.TextViewport
 import reikai.presentation.reader.barIcon
 import reikai.presentation.reader.brightness
 import reikai.presentation.reader.chapterTitleWords
+import reikai.presentation.reader.followsReadAloud
 import reikai.presentation.reader.isSameLaunch
 import reikai.presentation.reader.navigation.actionAt
 import reikai.presentation.reader.pageColorAdjust
@@ -856,7 +857,12 @@ class ReaderActivity : BaseActivity() {
             this.intent.entryId(),
             engine.currentChapterId.value,
             this.intent.getBooleanExtra("source_scoped", false),
-            intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false),
+            followsReadAloud(
+                intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false),
+                requested,
+                intent.getBooleanExtra("source_scoped", false),
+                graph.readAloudSession.state.value,
+            ),
         )
         if (sameLaunch) return
         setIntent(intent)

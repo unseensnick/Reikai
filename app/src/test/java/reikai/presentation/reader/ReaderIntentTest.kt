@@ -2,6 +2,9 @@ package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 
@@ -111,5 +114,24 @@ class ReaderIntentTest {
             openChapter = 6L,
             follows = true,
         ) shouldBe true
+    }
+
+    /** Continue on one novel while another is read aloud asks for that novel's resume chapter. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("follows")
+    fun `a launch follows read aloud only into the series it reads`(entry: EntryId, follows: Boolean) {
+        followsReadAloud(true, entry, false, speaking) shouldBe follows
+    }
+
+    companion object {
+        private val speaking =
+            ReadAloudSessionState(ReadAloudSeries(novelId = 1L, memberIds = listOf(1L, 2L), sourceScoped = false))
+
+        @JvmStatic
+        fun follows() = listOf(
+            Arguments.of(EntryId.Novel(2L), true),
+            Arguments.of(EntryId.Novel(3L), false),
+            Arguments.of(EntryId.Manga(1L), false),
+        )
     }
 }

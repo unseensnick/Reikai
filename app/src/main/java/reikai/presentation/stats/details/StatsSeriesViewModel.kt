@@ -40,6 +40,7 @@ import reikai.presentation.library.gridDisplayMode
 import reikai.presentation.library.meansOf
 import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
+import reikai.presentation.reader.novelResumeIntent
 import reikai.presentation.stats.ReadState
 import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsLibrary
@@ -153,7 +154,7 @@ class StatsSeriesViewModel(
         is EntryId.Manga -> mangaLibraryRows.nextUnreadChapter(item.libraryManga.manga)
             ?.let { ReaderActivity.newIntent(context, it.mangaId, it.id) }
         is EntryId.Novel -> novelLibraryRows.resumeChapter(item.id)
-            ?.let { ReaderActivity.newNovelIntent(context, it.novelId, it.id) }
+            ?.let { novelResumeIntent(context, it.novelId, it.id) }
     }
 
     private class Loaded(
