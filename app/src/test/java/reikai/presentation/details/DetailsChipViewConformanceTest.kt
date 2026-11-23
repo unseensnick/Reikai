@@ -8,8 +8,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.merge.TestMergeManagers
 
@@ -17,7 +16,8 @@ import reikai.domain.merge.TestMergeManagers
  * What a details page's source chip shows, through the group host both details models compose: the
  * entries Clear downloads and the scanlator filter reach, and when a chip flip reaches the model. The
  * models used to state both themselves, and switching a chip kept the selection on manga but dropped
- * it on novels.
+ * it on novels. Both types' merge managers are the shared EntryMergeManager with no override, so the
+ * cases run once, on manga.
  */
 class DetailsChipViewConformanceTest {
 
@@ -25,17 +25,16 @@ class DetailsChipViewConformanceTest {
     private var selectedDuringFlip: Long? = UNSET
 
     private suspend fun host(
-        type: ContentType,
         merged: Boolean = true,
         seed: Boolean = true,
         observed: Boolean = false,
     ): EntryMergeGroupHost {
         val group = if (merged) mapOf(OPENED to GROUP, SIBLING to GROUP) else emptyMap()
-        val managers = TestMergeManagers(mapOf(type to group), mergingOn = true)
+        val managers = TestMergeManagers(mapOf(ContentType.MANGA to group), mergingOn = true)
         val manager = if (observed) {
-            spyk(managers.of(type)) { every { relatedIdsChanges() } returns flowOf(Unit) }
+            spyk(managers.manga) { every { relatedIdsChanges() } returns flowOf(Unit) }
         } else {
-            managers.of(type)
+            managers.manga
         }
         lateinit var host: EntryMergeGroupHost
         host = EntryMergeGroupHost(
@@ -51,78 +50,68 @@ class DetailsChipViewConformanceTest {
         return host
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a source chip views that source alone`(type: ContentType) = runTest {
-        val host = host(type)
+    @Test
+    fun `a source chip views that source alone`() = runTest {
+        val host = host()
         host.selectSource(SIBLING)
         host.state.value.viewedIds(OPENED) shouldContainExactly listOf(SIBLING)
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `All views every grouped source`(type: ContentType) = runTest {
-        host(type).state.value.viewedIds(OPENED) shouldContainExactly listOf(OPENED, SIBLING)
+    @Test
+    fun `All views every grouped source`() = runTest {
+        host().state.value.viewedIds(OPENED) shouldContainExactly listOf(OPENED, SIBLING)
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a standalone entry views itself`(type: ContentType) = runTest {
-        host(type, merged = false).state.value.viewedIds(OPENED) shouldContainExactly listOf(OPENED)
+    @Test
+    fun `a standalone entry views itself`() = runTest {
+        host(merged = false).state.value.viewedIds(OPENED) shouldContainExactly listOf(OPENED)
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a group not yet resolved views the opened entry`(type: ContentType) = runTest {
-        host(type, seed = false).state.value.viewedIds(OPENED) shouldContainExactly listOf(OPENED)
+    @Test
+    fun `a group not yet resolved views the opened entry`() = runTest {
+        host(seed = false).state.value.viewedIds(OPENED) shouldContainExactly listOf(OPENED)
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `switching the chip tells the model the flip once`(type: ContentType) = runTest {
-        val host = host(type)
+    @Test
+    fun `switching the chip tells the model the flip once`() = runTest {
+        val host = host()
         host.selectSource(SIBLING)
         flips shouldContainExactly listOf(null to SIBLING)
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `the model hears of the flip before the list does`(type: ContentType) = runTest {
-        val host = host(type)
+    @Test
+    fun `the model hears of the flip before the list does`() = runTest {
+        val host = host()
         host.selectSource(SIBLING)
         selectedDuringFlip shouldBe null
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `picking the chip already shown tells the model nothing`(type: ContentType) = runTest {
-        val host = host(type)
+    @Test
+    fun `picking the chip already shown tells the model nothing`() = runTest {
+        val host = host()
         host.selectSource(null)
         flips shouldBe emptyList()
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a refused chip tells the model nothing`(type: ContentType) = runTest {
-        val host = host(type)
+    @Test
+    fun `a refused chip tells the model nothing`() = runTest {
+        val host = host()
         host.selectSource(OUTSIDER)
         flips shouldBe emptyList()
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `Clear downloads names the chip it deletes`(type: ContentType) = runTest {
-        val host = host(type, observed = true)
+    @Test
+    fun `Clear downloads names the chip it deletes`() = runTest {
+        val host = host(observed = true)
         host.observe(backgroundScope)
         host.chips.first { it.size == 2 }
         host.selectSource(SIBLING)
         host.clearDownloadsTarget(OPENED) shouldBe ClearDownloadsTarget("src$SIBLING", listOf(SIBLING))
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `Clear downloads under All names no source and deletes the group`(type: ContentType) = runTest {
-        host(type).clearDownloadsTarget(OPENED) shouldBe ClearDownloadsTarget(null, listOf(OPENED, SIBLING))
+    @Test
+    fun `Clear downloads under All names no source and deletes the group`() = runTest {
+        host().clearDownloadsTarget(OPENED) shouldBe ClearDownloadsTarget(null, listOf(OPENED, SIBLING))
     }
 
     private companion object {
