@@ -6,7 +6,7 @@ description: Understanding Storage Permissions.
 
 # Storage location
 
-Reikai manages several things within a selected storage location, including automatic backups, chapter downloads, and the Local source.
+Reikai manages several things within a selected storage location, including automatic backups, chapter downloads, the Local source, novel chapter downloads (`novel_downloads`), the reader fonts you add (`fonts`) and your local novels (`localnovels`).
 
 ::: tip Selecting a storage location
 Keep the following in mind when setting up your Storage location:
@@ -101,6 +101,18 @@ The following illustrates the folder structure:
           </ul>
         </li>
       </ul>
+    </li>
+    <li>
+      <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+      <span class="folder main">novel_downloads</span>
+    </li>
+    <li>
+      <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+      <span class="folder main">fonts</span>
+    </li>
+    <li>
+      <img src="/docs/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
+      <span class="folder main">localnovels</span>
     </li>
   </ul>
 </div>

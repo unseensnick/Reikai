@@ -37,6 +37,15 @@ Try these solutions:
   * Do not use your device's system folders (such as "**Documents**" or "**Downloads**"), they are restricted by Android and will cause issues when Reikai tries to access them.
   * Refer to the [Storage FAQ](/docs/faq/storage) for more details.
 
+### "Storage location unavailable"
+Before Reikai saves a storage location you pick, it tries writing a chapter download there. This message means that try failed, and your previous storage location is kept. Possible reasons include:
+* Reikai cannot write to the folder, for example on a read-only SD card or in a folder Android restricts.
+* A file, rather than a folder, has the name of one of the folders Reikai keeps there: `autobackup`, `downloads`, `local`, `novel_downloads`, `fonts` or `localnovels`.
+
+Try these solutions:
+* Create a new "Reikai" folder at the top level of your storage and pick that one.
+* If a file has one of those names, rename or move it with a file manager, then pick the folder again.
+
 ### Storage issues with Android 11+
 See the [Scoped Storage](/docs/faq/storage#scoped-storage) portion of the FAQ to learn how it affects **Reikai** in **Android 11+** and how to fix it.
 

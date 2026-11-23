@@ -74,6 +74,7 @@ If none of these work, wait for the source to lower its protection, or switch to
 ### Changing your user agent
 A user agent string shares requester information with websites, potentially affecting **Cloudflare**'s bot detection.
 While some sources have specific user agent strings, most rely on the app's default.
+MangaDex is the exception: Reikai always sends it the app's own user agent, because MangaDex blocks browser ones, so changing this setting does not affect MangaDex.
 
 ::: info Changing your user agent
 1. Navigate to <nav to="advanced">.
