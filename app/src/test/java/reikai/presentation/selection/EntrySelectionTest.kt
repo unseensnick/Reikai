@@ -2,67 +2,61 @@ package reikai.presentation.selection
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+
+private typealias Verb = (SelectionState<Long>) -> SelectionState<Long>
 
 /**
  * The selection rules every multi-select surface shares. Pinned here once, because the seven surfaces
- * that used to hand-roll them disagreed with each other in ways nothing caught.
+ * that used to hand-roll them disagreed with each other in ways nothing caught. Each table row checks
+ * the whole state a verb leaves, the selection and the anchor the next range measures from.
  */
 class EntrySelectionTest {
 
-    private val rows = (0L..12L).toList()
-
-    private fun state(vararg selected: Long, anchor: Long? = null) =
-        SelectionState(selected.toSet(), anchor)
-
-    @Test
-    fun `toggling an unselected row adds it and anchors there`() {
-        EntrySelection.toggle(state(), 3L) shouldBe state(3L, anchor = 3L)
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("tapsAndRanges")
+    fun `a tap toggles and a range fills from the anchor`(
+        name: String,
+        before: SelectionState<Long>,
+        verb: Verb,
+        expected: SelectionState<Long>,
+    ) {
+        verb(before) shouldBe expected
     }
 
-    @Test
-    fun `toggling a selected row removes it`() {
-        EntrySelection.toggle(state(3L, anchor = 3L), 3L).selection shouldBe emptySet()
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("longPresses")
+    fun `a long press extends to a row or group, or drops one already selected`(
+        name: String,
+        before: SelectionState<Long>,
+        verb: Verb,
+        expected: SelectionState<Long>,
+    ) {
+        verb(before) shouldBe expected
     }
 
-    @Test
-    fun `emptying the selection drops the anchor, so the next range has nothing stale to measure from`() {
-        EntrySelection.toggle(state(3L, anchor = 3L), 3L).anchor shouldBe null
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("bulkVerbs")
+    fun `a bulk verb acts on the visible rows and drops the anchor`(
+        name: String,
+        before: SelectionState<Long>,
+        verb: Verb,
+        expected: SelectionState<Long>,
+    ) {
+        verb(before) shouldBe expected
     }
 
-    @Test
-    fun `a range with no anchor selects only the pressed row`() {
-        EntrySelection.range(state(), 4L, rows) shouldBe state(4L, anchor = 4L)
-    }
-
-    @Test
-    fun `a range runs forward from the anchor, inclusive at both ends`() {
-        EntrySelection.range(state(2L, anchor = 2L), 5L, rows).selection shouldBe setOf(2L, 3L, 4L, 5L)
-    }
-
-    @Test
-    fun `a range runs backward from the anchor just as far`() {
-        EntrySelection.range(state(5L, anchor = 5L), 2L, rows).selection shouldBe setOf(2L, 3L, 4L, 5L)
-    }
-
-    @Test
-    fun `a range moves the anchor to the row just pressed`() {
-        EntrySelection.range(state(2L, anchor = 2L), 5L, rows).anchor shouldBe 5L
-    }
-
-    @Test
-    fun `a range only ever adds, so rows outside it survive`() {
-        EntrySelection.range(state(9L, 2L, anchor = 2L), 4L, rows).selection shouldBe setOf(2L, 3L, 4L, 9L)
-    }
-
-    @Test
-    fun `an anchor filtered out of the list degrades to selecting the pressed row alone`() {
-        EntrySelection.range(state(7L, anchor = 7L), 4L, listOf(1L, 2L, 3L, 4L)).selection shouldBe setOf(7L, 4L)
-    }
-
-    @Test
-    fun `pressing a row that is not in the list changes nothing`() {
-        val before = state(1L, anchor = 1L)
-        EntrySelection.range(before, 99L, rows) shouldBe before
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("listChanges")
+    fun `a list change keeps only what is still there`(
+        name: String,
+        before: SelectionState<Long>,
+        verb: Verb,
+        expected: SelectionState<Long>,
+    ) {
+        verb(before) shouldBe expected
     }
 
     /**
@@ -78,11 +72,6 @@ class EntrySelectionTest {
         s = EntrySelection.toggle(s, 5L)
         s = EntrySelection.range(s, 7L, rows)
         s.selection shouldBe setOf(2L, 3L, 4L, 5L, 6L, 7L)
-    }
-
-    @Test
-    fun `dropping a row leaves it as the anchor, since it is still the last row touched`() {
-        EntrySelection.toggle(state(2L, 5L, anchor = 2L), 5L).anchor shouldBe 5L
     }
 
     /** Range 2 to 10, then tap 5 to drop it. The deselection sticks: 5 is the only gap. */
@@ -108,36 +97,6 @@ class EntrySelectionTest {
         s.selection shouldBe setOf(2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L)
     }
 
-    @Test
-    fun `select all drops the anchor, since no row on screen is the one you pressed`() {
-        EntrySelection.selectAll(state(1L, anchor = 1L), rows).anchor shouldBe null
-    }
-
-    @Test
-    fun `inverting nothing selects every visible row`() {
-        EntrySelection.invert(state(), listOf(1L, 2L)).selection shouldBe setOf(1L, 2L)
-    }
-
-    @Test
-    fun `invert leaves selected rows outside the visible slice alone`() {
-        EntrySelection.invert(state(1L, 9L), listOf(1L, 2L)).selection shouldBe setOf(2L, 9L)
-    }
-
-    @Test
-    fun `select all adds every visible row`() {
-        EntrySelection.selectAll(state(), listOf(1L, 2L)).selection shouldBe setOf(1L, 2L)
-    }
-
-    @Test
-    fun `invert keeps exactly the visible rows that were not selected`() {
-        EntrySelection.invert(state(1L, 3L), listOf(1L, 2L, 3L, 4L)).selection shouldBe setOf(2L, 4L)
-    }
-
-    @Test
-    fun `invert drops the anchor, which may no longer be selected`() {
-        EntrySelection.invert(state(1L, anchor = 1L), rows).anchor shouldBe null
-    }
-
     /** Device-verified on both content types: a tap re-anchors, so the range runs from it, not from
      *  where the first long press started. */
     @Test
@@ -146,16 +105,6 @@ class EntrySelectionTest {
         s = EntrySelection.toggle(s, 10L)
         s = EntrySelection.range(s, 8L, rows)
         s.selection shouldBe setOf(2L, 8L, 9L, 10L)
-    }
-
-    @Test
-    fun `a long press on an unselected row extends the range to it`() {
-        EntrySelection.rangeOrToggle(state(2L, anchor = 2L), 5L, rows).selection shouldBe setOf(2L, 3L, 4L, 5L)
-    }
-
-    @Test
-    fun `a long press on a selected row drops it instead of extending`() {
-        EntrySelection.rangeOrToggle(state(2L, 3L, 4L, anchor = 2L), 3L, rows).selection shouldBe setOf(2L, 4L)
     }
 
     @Test
@@ -168,95 +117,220 @@ class EntrySelectionTest {
     }
 
     @Test
-    fun `a long press on a group below the anchor sweeps up to the group's far edge`() {
-        EntrySelection.rangeOrToggleBlock(state(1L, anchor = 1L), listOf(5L, 6L, 7L), rows)
-            .selection shouldBe setOf(1L, 2L, 3L, 4L, 5L, 6L, 7L)
-    }
-
-    @Test
-    fun `a long press on a group above the anchor sweeps down to its far edge`() {
-        EntrySelection.rangeOrToggleBlock(state(9L, anchor = 9L), listOf(5L, 6L, 7L), rows)
-            .selection shouldBe setOf(5L, 6L, 7L, 8L, 9L)
-    }
-
-    @Test
-    fun `a long press on a group with no anchor selects just that group`() {
-        EntrySelection.rangeOrToggleBlock(state(), listOf(5L, 6L, 7L), rows).selection shouldBe setOf(5L, 6L, 7L)
-    }
-
-    @Test
-    fun `a long press on a fully selected group drops it`() {
-        EntrySelection.rangeOrToggleBlock(state(5L, 6L, 7L, anchor = 5L), listOf(5L, 6L, 7L), rows)
-            .selection shouldBe emptySet()
-    }
-
-    @Test
-    fun `a partly selected group is completed rather than dropped`() {
-        EntrySelection.rangeOrToggleBlock(state(6L, anchor = 6L), listOf(5L, 6L, 7L), rows)
-            .selection shouldBe setOf(5L, 6L, 7L)
-    }
-
-    @Test
-    fun `a group press anchors on the group, so the next range measures from it`() {
-        EntrySelection.rangeOrToggleBlock(state(1L, anchor = 1L), listOf(5L, 6L, 7L), rows).anchor shouldBe 7L
-    }
-
-    @Test
-    fun `a block toggle on a partly selected block selects the rest`() {
-        EntrySelection.toggleBlock(state(6L, 9L, anchor = 6L), listOf(5L, 6L, 7L)).selection shouldBe
-            setOf(5L, 6L, 7L, 9L)
-    }
-
-    @Test
-    fun `a block toggle on a fully selected block drops only that block`() {
-        EntrySelection.toggleBlock(state(5L, 6L, 7L, 9L, anchor = 9L), listOf(5L, 6L, 7L)).selection shouldBe
-            setOf(9L)
-    }
-
-    /** Library categories and Recents groups used to leave three different anchors behind here. */
-    @Test
-    fun `dropping a block by toggle drops the anchor, as every bulk verb does`() {
-        EntrySelection.toggleBlock(state(5L, 6L, 7L, 9L, anchor = 9L), listOf(5L, 6L, 7L)).anchor shouldBe null
-    }
-
-    @Test
-    fun `a block toggle on an empty block selects nothing`() {
-        EntrySelection.toggleBlock(state(1L, anchor = 1L), emptyList()).selection shouldBe setOf(1L)
-    }
-
-    @Test
-    fun `retain drops selected rows the list no longer contains`() {
-        EntrySelection.retain(state(1L, 5L, 9L), listOf(1L, 2L, 5L)).selection shouldBe setOf(1L, 5L)
-    }
-
-    @Test
-    fun `retain drops an anchor that is gone, so a later range is not measured from nothing`() {
-        EntrySelection.retain(state(1L, anchor = 9L), listOf(1L, 2L)).anchor shouldBe null
-    }
-
-    @Test
-    fun `retain keeps an anchor that survived`() {
-        EntrySelection.retain(state(1L, anchor = 1L), listOf(1L, 2L)).anchor shouldBe 1L
-    }
-
-    @Test
     fun `the selection a details screen counts and acts on is only its visible rows`() {
         EntrySelection.selectedAmong(setOf(1L, 5L, 9L), listOf(1L, 2L, 5L)) shouldBe setOf(1L, 5L)
     }
 
-    @Test
-    fun `select all leaves a row selected that is no longer visible`() {
-        EntrySelection.selectAll(state(9L, anchor = 9L), listOf(1L, 2L)).selection shouldBe setOf(1L, 2L, 9L)
-    }
+    companion object {
+        private val rows = (0L..12L).toList()
+        private val group = listOf(5L, 6L, 7L)
 
-    @Test
-    fun `flipping a chip drops the selection`() {
-        EntrySelection.afterChipFlip(state(1L, anchor = 1L), from = "Manga", to = "Novels") shouldBe state()
-    }
+        private fun state(vararg selected: Long, anchor: Long? = null) = SelectionState(selected.toSet(), anchor)
 
-    @Test
-    fun `re-selecting the chip shown keeps the selection`() {
-        EntrySelection.afterChipFlip(state(1L, anchor = 1L), from = "Manga", to = "Manga") shouldBe
-            state(1L, anchor = 1L)
+        private fun case(name: String, before: SelectionState<Long>, verb: Verb, expected: SelectionState<Long>) =
+            Arguments.of(name, before, verb, expected)
+
+        @JvmStatic
+        fun tapsAndRanges() = listOf(
+            case(
+                "toggling an unselected row adds it and anchors there",
+                state(),
+                { EntrySelection.toggle(it, 3L) },
+                state(3L, anchor = 3L),
+            ),
+            case(
+                "emptying the selection drops the anchor, so the next range has nothing stale to measure from",
+                state(3L, anchor = 3L),
+                { EntrySelection.toggle(it, 3L) },
+                state(),
+            ),
+            case(
+                "dropping a row leaves it as the anchor, since it is still the last row touched",
+                state(2L, 5L, anchor = 2L),
+                { EntrySelection.toggle(it, 5L) },
+                state(2L, anchor = 5L),
+            ),
+            case(
+                "a range with no anchor selects only the pressed row",
+                state(),
+                { EntrySelection.range(it, 4L, rows) },
+                state(4L, anchor = 4L),
+            ),
+            case(
+                "a range runs forward from the anchor, inclusive at both ends, and anchors on the pressed row",
+                state(2L, anchor = 2L),
+                { EntrySelection.range(it, 5L, rows) },
+                state(2L, 3L, 4L, 5L, anchor = 5L),
+            ),
+            case(
+                "a range runs backward from the anchor just as far",
+                state(5L, anchor = 5L),
+                { EntrySelection.range(it, 2L, rows) },
+                state(2L, 3L, 4L, 5L, anchor = 2L),
+            ),
+            case(
+                "a range only ever adds, so rows outside it survive",
+                state(9L, 2L, anchor = 2L),
+                { EntrySelection.range(it, 4L, rows) },
+                state(2L, 3L, 4L, 9L, anchor = 4L),
+            ),
+            case(
+                "an anchor filtered out of the list degrades to selecting the pressed row alone",
+                state(7L, anchor = 7L),
+                { EntrySelection.range(it, 4L, listOf(1L, 2L, 3L, 4L)) },
+                state(7L, 4L, anchor = 4L),
+            ),
+            case(
+                "pressing a row that is not in the list changes nothing",
+                state(1L, anchor = 1L),
+                { EntrySelection.range(it, 99L, rows) },
+                state(1L, anchor = 1L),
+            ),
+        )
+
+        @JvmStatic
+        fun longPresses() = listOf(
+            case(
+                "a long press on an unselected row extends the range to it",
+                state(2L, anchor = 2L),
+                { EntrySelection.rangeOrToggle(it, 5L, rows) },
+                state(2L, 3L, 4L, 5L, anchor = 5L),
+            ),
+            case(
+                "a long press on a selected row drops it instead of extending",
+                state(2L, 3L, 4L, anchor = 2L),
+                { EntrySelection.rangeOrToggle(it, 3L, rows) },
+                state(2L, 4L, anchor = 3L),
+            ),
+            case(
+                "a long press on a group below the anchor sweeps to the group's far edge and anchors there",
+                state(1L, anchor = 1L),
+                { EntrySelection.rangeOrToggleBlock(it, group, rows) },
+                state(1L, 2L, 3L, 4L, 5L, 6L, 7L, anchor = 7L),
+            ),
+            case(
+                "a long press on a group above the anchor sweeps down to its far edge",
+                state(9L, anchor = 9L),
+                { EntrySelection.rangeOrToggleBlock(it, group, rows) },
+                state(5L, 6L, 7L, 8L, 9L, anchor = 5L),
+            ),
+            case(
+                "a long press on a group with no anchor selects just that group",
+                state(),
+                { EntrySelection.rangeOrToggleBlock(it, group, rows) },
+                state(5L, 6L, 7L, anchor = 7L),
+            ),
+            case(
+                "a long press on a fully selected group drops it",
+                state(5L, 6L, 7L, anchor = 5L),
+                { EntrySelection.rangeOrToggleBlock(it, group, rows) },
+                state(anchor = 7L),
+            ),
+            case(
+                "a partly selected group is completed rather than dropped",
+                state(6L, anchor = 6L),
+                { EntrySelection.rangeOrToggleBlock(it, group, rows) },
+                state(5L, 6L, 7L, anchor = 5L),
+            ),
+        )
+
+        @JvmStatic
+        fun bulkVerbs() = listOf(
+            case(
+                "select all drops the anchor, since no row on screen is the one you pressed",
+                state(1L, anchor = 1L),
+                { EntrySelection.selectAll(it, rows) },
+                state(*rows.toLongArray()),
+            ),
+            case(
+                "select all adds every visible row",
+                state(),
+                { EntrySelection.selectAll(it, listOf(1L, 2L)) },
+                state(1L, 2L),
+            ),
+            case(
+                "select all leaves a row selected that is no longer visible",
+                state(9L, anchor = 9L),
+                { EntrySelection.selectAll(it, listOf(1L, 2L)) },
+                state(1L, 2L, 9L),
+            ),
+            case(
+                "inverting nothing selects every visible row",
+                state(),
+                { EntrySelection.invert(it, listOf(1L, 2L)) },
+                state(1L, 2L),
+            ),
+            case(
+                "invert leaves selected rows outside the visible slice alone",
+                state(1L, 9L),
+                { EntrySelection.invert(it, listOf(1L, 2L)) },
+                state(2L, 9L),
+            ),
+            case(
+                "invert keeps exactly the visible rows that were not selected",
+                state(1L, 3L),
+                { EntrySelection.invert(it, listOf(1L, 2L, 3L, 4L)) },
+                state(2L, 4L),
+            ),
+            case(
+                "invert drops the anchor, which may no longer be selected",
+                state(1L, anchor = 1L),
+                { EntrySelection.invert(it, rows) },
+                state(*(rows - 1L).toLongArray()),
+            ),
+            case(
+                "a block toggle on a partly selected block selects the rest",
+                state(6L, 9L, anchor = 6L),
+                { EntrySelection.toggleBlock(it, group) },
+                state(5L, 6L, 7L, 9L),
+            ),
+            // Library categories and Recents groups used to leave three different anchors behind here.
+            case(
+                "a block toggle on a fully selected block drops only that block, and the anchor",
+                state(5L, 6L, 7L, 9L, anchor = 9L),
+                { EntrySelection.toggleBlock(it, group) },
+                state(9L),
+            ),
+            case(
+                "a block toggle on an empty block selects nothing",
+                state(1L, anchor = 1L),
+                { EntrySelection.toggleBlock(it, emptyList()) },
+                state(1L),
+            ),
+        )
+
+        @JvmStatic
+        fun listChanges() = listOf(
+            case(
+                "retain drops selected rows the list no longer contains",
+                state(1L, 5L, 9L),
+                { EntrySelection.retain(it, listOf(1L, 2L, 5L)) },
+                state(1L, 5L),
+            ),
+            case(
+                "retain drops an anchor that is gone, so a later range is not measured from nothing",
+                state(1L, anchor = 9L),
+                { EntrySelection.retain(it, listOf(1L, 2L)) },
+                state(1L),
+            ),
+            case(
+                "retain keeps an anchor that survived",
+                state(1L, anchor = 1L),
+                { EntrySelection.retain(it, listOf(1L, 2L)) },
+                state(1L, anchor = 1L),
+            ),
+            case(
+                "flipping a chip drops the selection",
+                state(1L, anchor = 1L),
+                { EntrySelection.afterChipFlip(it, from = "Manga", to = "Novels") },
+                state(),
+            ),
+            case(
+                "re-selecting the chip shown keeps the selection",
+                state(1L, anchor = 1L),
+                { EntrySelection.afterChipFlip(it, from = "Manga", to = "Manga") },
+                state(1L, anchor = 1L),
+            ),
+        )
     }
 }

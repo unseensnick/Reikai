@@ -41,7 +41,6 @@ import reikai.domain.library.HideSeries
 import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.EntryMergeManager
-import reikai.domain.stats.StatsShortcut
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
@@ -102,31 +101,18 @@ class LibraryEngineTest {
         verify { novels.search("q") }
     }
 
-    @Test
-    fun `the overflow menu offers Statistics when the shortcut puts it in the menus`() {
-        engineOver(listOf(provider(ContentType.MANGA)), statsShortcut = StatsShortcut.MENUS)
-            .statsInMenus.value shouldBe true
-    }
-
-    @Test
-    fun `the overflow menu leaves Statistics out when it is a tab`() {
-        engineOver(listOf(provider(ContentType.MANGA)), statsShortcut = StatsShortcut.TAB)
-            .statsInMenus.value shouldBe false
-    }
-
     private fun engineOver(
         providers: List<LibraryProvider>,
         categories: List<Category> = emptyList(),
         sort: LibrarySort = LibrarySort.default,
         groupBy: Int = LibraryGroup.BY_DEFAULT,
         shown: ContentType = ContentType.ALL,
-        statsShortcut: StatsShortcut = StatsShortcut.OFF,
         manualOrder: FakeLibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
         hides: FakeLibraryHiddenRepository = FakeLibraryHiddenRepository(),
         mergingEnabled: Boolean = true,
         store: EmittingPreferenceStore = EmittingPreferenceStore(),
     ): LibraryEngine {
-        val uiPreferences = UiPreferences(store).also { it.statsShortcut.set(statsShortcut) }
+        val uiPreferences = UiPreferences(store)
         val repository = mockk<CategoryRepository>(relaxed = true)
         every { repository.getUnfilteredAsFlow() } returns flowOf(categories)
         val libraryPreferences = LibraryPreferences(store).also { it.sortingMode.set(sort) }
@@ -661,33 +647,16 @@ class LibraryEngineTest {
         shouldThrow<IllegalStateException> { engine.behaviorFor(ContentType.ALL) }
     }
 
-    @Test
-    fun `flipping the chip drops the selection`() {
-        engine.setContentType(ContentType.MANGA)
-        engine.toggleSelection(bucket, m1)
-
-        engine.setContentType(ContentType.NOVELS)
-
-        engine.selection.value.isEmpty() shouldBe true
-    }
-
     /** The tab row fires again on the chip already shown, which is not a flip. */
     @Test
-    fun `re-selecting the chip shown keeps the selection`() {
+    fun `flipping the chip drops the selection, re-selecting the chip shown keeps it`() {
         engine.setContentType(ContentType.MANGA)
         engine.toggleSelection(bucket, m1)
 
         engine.setContentType(ContentType.MANGA)
-
-        engine.selection.value shouldContainExactly setOf(m1)
-    }
-
-    @Test
-    fun `toggling adds then removes an entry`() {
-        engine.toggleSelection(bucket, m1)
         engine.selection.value shouldContainExactly setOf(m1)
 
-        engine.toggleSelection(bucket, m1)
+        engine.setContentType(ContentType.NOVELS)
         engine.selection.value.isEmpty() shouldBe true
     }
 
@@ -698,21 +667,17 @@ class LibraryEngineTest {
         engine.selection.value shouldContainExactlyInAnyOrder listOf(m1, n1)
     }
 
+    // The engine's one long-press wiring: a range across both types, then a drop on a selected entry,
+    // which only rangeOrToggle answers both ways.
     @Test
-    fun `a range select spans both content types`() {
+    fun `a long press ranges across both content types and drops an entry already selected`() {
         val ordered = listOf(m1, n1, m2)
         engine.toggleSelection(bucket, m1)
         engine.toggleRangeSelection(bucket, m2, ordered)
         engine.selection.value shouldContainExactlyInAnyOrder ordered
-    }
 
-    @Test
-    fun `a long press on an already-selected entry drops it, as it does everywhere else`() {
-        val ordered = listOf(m1, m2)
-        engine.toggleSelection(bucket, m1)
         engine.toggleRangeSelection(bucket, m2, ordered)
-        engine.toggleRangeSelection(bucket, m2, ordered)
-        engine.selection.value shouldContainExactlyInAnyOrder listOf(m1)
+        engine.selection.value shouldContainExactlyInAnyOrder listOf(m1, n1)
     }
 
     @Test

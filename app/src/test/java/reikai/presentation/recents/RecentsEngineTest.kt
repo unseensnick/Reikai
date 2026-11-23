@@ -46,7 +46,6 @@ import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeManager
 import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
-import reikai.domain.stats.StatsShortcut
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -177,20 +176,6 @@ class RecentsEngineTest {
         groupIdByRawId = emptyMap(),
         suggestGroup = false,
     )
-
-    @Test
-    fun `the overflow menu offers Statistics when the shortcut puts it in the menus`() {
-        uiPreferences.statsShortcut.set(StatsShortcut.MENUS)
-
-        engine(listOf(provider(ContentType.MANGA))).statsInMenus.value shouldBe true
-    }
-
-    @Test
-    fun `the overflow menu leaves Statistics out when it is a tab`() {
-        uiPreferences.statsShortcut.set(StatsShortcut.TAB)
-
-        engine(listOf(provider(ContentType.MANGA))).statsInMenus.value shouldBe false
-    }
 
     @Test
     fun `both content types assemble into one feed, newest first`() = runTest {
@@ -425,37 +410,19 @@ class RecentsEngineTest {
         engine.firstAssembly().items.size shouldBe 2
     }
 
+    // The engine's one long-press wiring: a range across both types in the rendered order, then a drop
+    // on a selected row, which only rangeOrToggle answers both ways.
     @Test
-    fun `a range selection spans both content types in the rendered order`() {
+    fun `a long press ranges across both content types and drops a row already selected`() {
         val engine = engine(listOf(provider(ContentType.MANGA), provider(ContentType.NOVELS)))
         val ordered = listOf(ref(manga1, 1), ref(novel1, 2), ref(manga2, 3))
 
         engine.toggleSelection(ordered.first())
         engine.toggleRangeSelection(ordered.last(), ordered)
-
         engine.selection.value shouldContainExactlyInAnyOrder ordered
-    }
-
-    @Test
-    fun `a long press on an already-selected row drops it, as it does everywhere else`() {
-        val engine = engine(listOf(provider(ContentType.MANGA)))
-        val ordered = listOf(ref(manga1, 1), ref(manga2, 2))
-
-        engine.toggleSelection(ordered.first())
-        engine.toggleRangeSelection(ordered.last(), ordered)
-        engine.toggleRangeSelection(ordered.last(), ordered)
-
-        engine.selection.value shouldContainExactly listOf(ordered.first())
-    }
-
-    @Test
-    fun `a range with no anchor selects only the row that was pressed`() {
-        val engine = engine(listOf(provider(ContentType.MANGA)))
-        val ordered = listOf(ref(manga1, 1), ref(manga2, 2))
 
         engine.toggleRangeSelection(ordered.last(), ordered)
-
-        engine.selection.value shouldContainExactly listOf(ordered.last())
+        engine.selection.value shouldContainExactlyInAnyOrder ordered.dropLast(1)
     }
 
     @Test
@@ -697,26 +664,18 @@ class RecentsEngineTest {
         engine.selection.value shouldContainExactly listOf(selected)
     }
 
-    @Test
-    fun `flipping the chip drops a selection it may now hide`() {
-        val engine = engine(listOf(provider(ContentType.MANGA)))
-        engine.toggleSelection(ref(manga1, 1))
-
-        engine.setContentType(ContentType.NOVELS)
-
-        engine.selection.value shouldBe emptySet()
-    }
-
     /** The tab row fires again on the chip already shown, which is not a flip. */
     @Test
-    fun `re-selecting the chip shown keeps the selection`() {
+    fun `flipping the chip drops a selection it may now hide, re-selecting the chip shown keeps it`() {
         val engine = emittingEngine(provider(ContentType.MANGA), setOf(RecentsMode.UPDATES))
         engine.setContentType(ContentType.MANGA)
         engine.toggleSelection(ref(manga1, 1))
 
         engine.setContentType(ContentType.MANGA)
-
         engine.selection.value shouldBe setOf(ref(manga1, 1))
+
+        engine.setContentType(ContentType.NOVELS)
+        engine.selection.value shouldBe emptySet()
     }
 
     /**

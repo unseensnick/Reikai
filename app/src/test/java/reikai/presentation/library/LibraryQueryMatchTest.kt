@@ -4,6 +4,8 @@ import io.kotest.matchers.shouldBe
 import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import tachiyomi.domain.category.model.Category
 import kotlin.time.Instant
@@ -15,7 +17,7 @@ import kotlin.time.Instant
  */
 class LibraryQueryMatchTest {
 
-    private data class Row(
+    data class Row(
         val id: Long = 1L,
         val title: String = "Lord of the Mysteries",
         val author: String? = "Cuttlefish",
@@ -59,14 +61,6 @@ class LibraryQueryMatchTest {
         meanScore = { it.score },
     )
 
-    /** A merged series led by the default source, with a local Japanese member. */
-    private val merged = Row(
-        sources = listOf(source(), source(key = "member", name = "member site", language = "ja", isLocal = true)),
-    )
-
-    private fun matches(query: String, row: Row = Row()) =
-        libraryQueryMatches(QueryNode.from(query), row, fields)
-
     /** The same fields with an override on row 1, standing in for a renamed entry. */
     private val overlaidFields = LibraryQueryFields<Row>(
         id = fields.id,
@@ -92,47 +86,29 @@ class LibraryQueryMatchTest {
         meanScore = fields.meanScore,
     )
 
-    private fun matchesOverlaid(query: String) =
-        libraryQueryMatches(QueryNode.from(query), Row(), overlaidFields)
-
-    @Test
-    fun `status matches its word`() {
-        matches("status:ongoing") shouldBe true
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("fieldQueries")
+    fun `a query matches the fields it names`(name: String, query: String, row: Row, expected: Boolean) {
+        libraryQueryMatches(QueryNode.from(query), row, fields) shouldBe expected
     }
 
-    @Test
-    fun `status matches its code`() {
-        matches("status:1") shouldBe true
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("absentAndMergedQueries")
+    fun `an absent value or a merged member is matched across every source`(
+        name: String,
+        query: String,
+        row: Row,
+        expected: Boolean,
+    ) {
+        libraryQueryMatches(QueryNode.from(query), row, fields) shouldBe expected
     }
 
-    @Test
-    fun `an empty status asks for an unknown one`() {
-        matches("status:\"\"", Row(status = 0L)) shouldBe true
-    }
-
-    @Test
-    fun `tracker matches a whole tracker name`() {
-        matches("tracker:anilist") shouldBe true
-    }
-
-    @Test
-    fun `tracker does not match part of a name`() {
-        matches("tracker:ani") shouldBe false
-    }
-
-    @Test
-    fun `an empty tracker asks for an untracked entry`() {
-        matches("tracker:\"\"", Row(trackers = emptyList())) shouldBe true
-    }
-
-    @Test
-    fun `category matches through the resolved ids`() {
-        matches("category:read") shouldBe true
-    }
-
-    @Test
-    fun `an empty category asks for an entry filed nowhere`() {
-        matches("category:\"\"", Row(categories = listOf(0L))) shouldBe true
+    // The name on the card wins over the source's, and searching the source title of a renamed entry
+    // no longer finds it, which is the tradeoff.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("overlaidQueries")
+    fun `a custom override is what search matches`(name: String, query: String, expected: Boolean) {
+        libraryQueryMatches(QueryNode.from(query), Row(), overlaidFields) shouldBe expected
     }
 
     /** Some galleries file their site category under a `category` tag namespace, which is not the user's. */
@@ -167,21 +143,6 @@ class LibraryQueryMatchTest {
     }
 
     @Test
-    fun `score compares the mean`() {
-        matches("score>=7 score<7.5") shouldBe true
-    }
-
-    @Test
-    fun `an unscored entry fails a score comparison`() {
-        matches("score>0", Row(score = null)) shouldBe false
-    }
-
-    @Test
-    fun `a negated score comparison finds an unscored entry`() {
-        matches("-score>0", Row(score = null)) shouldBe true
-    }
-
-    @Test
     fun `a category term resolves to the category with that whole name only`() {
         val categories = listOf(category(5L, "Read"), category(6L, "Reading"))
 
@@ -197,120 +158,6 @@ class LibraryQueryMatchTest {
     private fun category(id: Long, name: String) = Category(id = id, name = name, order = 0L, flags = 0L)
 
     @Test
-    fun `a bare word sweeps the text fields`() {
-        matches("mysteries") shouldBe true
-    }
-
-    @Test
-    fun `an absent field follows the absent-then-negate convention`() {
-        // artist is null here, so `-artist:x` keeps the row, matching upstream's semantics.
-        matches("-artist:hoshino") shouldBe true
-    }
-
-    @Test
-    fun `a source's own query finds entries on that source, whatever its key holds`() {
-        matches(sourceKeyQuery("ireader:42"), Row(sources = listOf(source(key = "ireader:42")))) shouldBe true
-    }
-
-    @Test
-    fun `a source's own query leaves a source whose key only begins the same way`() {
-        matches(sourceKeyQuery("ireader:4"), Row(sources = listOf(source(key = "ireader:42")))) shouldBe false
-    }
-
-    @Test
-    fun `a merged series is found from a source other than its lead`() {
-        matches(sourceKeyQuery("member"), merged) shouldBe true
-    }
-
-    @Test
-    fun `excluding a merged series' member source excludes the series`() {
-        matches("-srcid:member", merged) shouldBe false
-    }
-
-    @Test
-    fun `a merged series matches a member's source name`() {
-        matches("source:\"member site\"", merged) shouldBe true
-    }
-
-    @Test
-    fun `a merged series matches a plain word naming a member's source`() {
-        matches("\"member site\"", merged) shouldBe true
-    }
-
-    @Test
-    fun `a merged series with a local member matches source local`() {
-        matches("source:local", merged) shouldBe true
-    }
-
-    @Test
-    fun `a merged series matches a member's language`() {
-        matches("lang:ja", merged) shouldBe true
-    }
-
-    @Test
-    fun `an absent language needs every source of a merged series to lack one`() {
-        matches("lang:\"\"", Row(sources = listOf(source(language = ""), source(key = "b")))) shouldBe false
-    }
-
-    @Test
-    fun `a merged series whose sources all lack a language matches an absent one`() {
-        matches("lang:\"\"", Row(sources = listOf(source(language = ""), source(key = "b", language = null)))) shouldBe
-            true
-    }
-
-    @Test
-    fun `an absent source name needs every source of a merged series to lack one`() {
-        matches("source:\"\"", Row(sources = listOf(source(name = ""), source(key = "b")))) shouldBe false
-    }
-
-    @Test
-    fun `srcid matches the source key exactly on either content type`() {
-        matches("srcid:novelarrow") shouldBe true
-        matches("srcid:novel") shouldBe false
-    }
-
-    @Test
-    fun `source matches the display name, not the key`() {
-        matches("source:arrow") shouldBe true
-    }
-
-    @Test
-    fun `id compares numerically`() {
-        matches("id=1") shouldBe true
-        matches("id=2") shouldBe false
-    }
-
-    @Test
-    fun `comparisons the row can answer work`() {
-        matches("unread>2") shouldBe true
-        matches("unread>5") shouldBe false
-    }
-
-    @Test
-    fun `an unknown field degrades to a plain text term`() {
-        // Upstream's parser behaviour, worth pinning because it is what a typo does.
-        matches("nonsense:mysteries") shouldBe false
-    }
-
-    @Test
-    fun `chapter matches through the resolved id set`() {
-        matches("chapter:clown") shouldBe true
-        matches("chapter:seer") shouldBe false
-        matches("chapter:clown", Row(id = 2L)) shouldBe false
-    }
-
-    @Test
-    fun `a term with no resolved lookup does not match`() {
-        matches("chapter:nothingresolvedthis") shouldBe false
-    }
-
-    @Test
-    fun `a bare word never sweeps chapter names`() {
-        // CHAPTER is fieldOnly, so a plain search must never pay a chapter lookup.
-        matches("clown") shouldBe false
-    }
-
-    @Test
     fun `chapter terms are extracted from the parsed tree, quoting and negation included`() {
         QueryNode.from("chapter:clown").chapterSearchTerms() shouldBe setOf("clown")
         QueryNode.from("-chapter:\"the clown\"").chapterSearchTerms() shouldBe setOf("the clown")
@@ -318,67 +165,123 @@ class LibraryQueryMatchTest {
         QueryNode.from("fantasy").chapterSearchTerms() shouldBe emptySet()
     }
 
-    @Test
-    fun `a custom override is what search matches`() {
-        // The name on the card wins over the source's.
-        matchesOverlaid("renamed") shouldBe true
-        matchesOverlaid("title:renamed") shouldBe true
-        matchesOverlaid("author:\"new author\"") shouldBe true
-        matchesOverlaid("genre:renamed") shouldBe true
-    }
+    companion object {
+        private val EPOCH = Instant.fromEpochMilliseconds(0)
 
-    @Test
-    fun `a custom override replaces the source value rather than adding to it`() {
-        // Searching the source title of a renamed entry no longer finds it, which is the tradeoff.
-        matchesOverlaid("mysteries") shouldBe false
-        matchesOverlaid("author:cuttlefish") shouldBe false
-    }
-
-    @Test
-    fun `an unoverridden field still reads the source value`() {
-        matchesOverlaid("srcid:novelarrow") shouldBe true
-    }
-
-    @Test
-    fun `boolean operators and negation compose`() {
-        matches("fantasy || horror") shouldBe true
-        matches("fantasy -mysteries") shouldBe false
-        matches("\"lord of the\"") shouldBe true
-    }
-
-    @Test
-    fun `a negated applicable comparison inverts normally`() {
-        matches("-unread>5") shouldBe true
-        matches("-unread>2") shouldBe false
-    }
-
-    @Test
-    fun `a negated chapter term excludes through the id set`() {
-        matches("-chapter:clown") shouldBe false
-        matches("-chapter:clown", Row(id = 2L)) shouldBe true
-    }
-
-    @Test
-    fun `date comparisons parse and compare`() {
-        matches("added<2030-01-01") shouldBe true
-        matches("added>2030-01-01") shouldBe false
-    }
-
-    private companion object {
-        val EPOCH = Instant.fromEpochMilliseconds(0)
-
-        fun source(
+        private fun source(
             key: String = "novelarrow",
             name: String = "novel arrow",
             language: String? = "en",
             isLocal: Boolean = false,
         ) = LibraryQuerySource(key, name, language, isLocal)
-    }
 
-    @Test
-    fun `an empty quoted field value matches an absent field`() {
-        // genre:"" is the reachable spelling for "no value" (a bare trailing colon lexes as text).
-        matches("artist:\"\"") shouldBe true
-        matches("genre:\"\"") shouldBe false
+        /** A merged series led by the default source, with a local Japanese member. */
+        private val merged = Row(
+            sources = listOf(source(), source(key = "member", name = "member site", language = "ja", isLocal = true)),
+        )
+
+        private fun case(name: String, query: String, expected: Boolean, row: Row = Row()) =
+            Arguments.of(name, query, row, expected)
+
+        @JvmStatic
+        fun fieldQueries() = listOf(
+            case("status matches its word", "status:ongoing", true),
+            case("status matches its code", "status:1", true),
+            case("tracker matches a whole tracker name", "tracker:anilist", true),
+            case("tracker does not match part of a name", "tracker:ani", false),
+            case("category matches through the resolved ids", "category:read", true),
+            case("score compares the mean", "score>=7 score<7.5", true),
+            case("an unscored entry fails a score comparison", "score>0", false, Row(score = null)),
+            case("a negated score comparison finds an unscored entry", "-score>0", true, Row(score = null)),
+            case("a bare word sweeps the text fields", "mysteries", true),
+            // artist is null here, so `-artist:x` keeps the row, matching upstream's semantics.
+            case("an absent field follows the absent-then-negate convention", "-artist:hoshino", true),
+            case("srcid matches the source key exactly", "srcid:novelarrow", true),
+            case("srcid does not match part of the source key", "srcid:novel", false),
+            case("source matches the display name, not the key", "source:arrow", true),
+            case("id compares numerically, matching", "id=1", true),
+            case("id compares numerically, not matching", "id=2", false),
+            case("a comparison the row satisfies matches", "unread>2", true),
+            case("a comparison the row fails does not match", "unread>5", false),
+            case("a negated comparison the row fails matches", "-unread>5", true),
+            case("a negated comparison the row satisfies does not match", "-unread>2", false),
+            // Upstream's parser behaviour, worth pinning because it is what a typo does.
+            case("an unknown field degrades to a plain text term", "nonsense:mysteries", false),
+            case("chapter matches through the resolved id set", "chapter:clown", true),
+            case("chapter misses a term resolved to other rows", "chapter:seer", false),
+            case("chapter misses a row outside the resolved id set", "chapter:clown", false, Row(id = 2L)),
+            case("a term with no resolved lookup does not match", "chapter:nothingresolvedthis", false),
+            // CHAPTER is fieldOnly, so a plain search must never pay a chapter lookup.
+            case("a bare word never sweeps chapter names", "clown", false),
+            case("a negated chapter term excludes through the id set", "-chapter:clown", false),
+            case("a negated chapter term keeps a row outside the id set", "-chapter:clown", true, Row(id = 2L)),
+            case("or matches either side", "fantasy || horror", true),
+            case("negation excludes a matching word", "fantasy -mysteries", false),
+            case("a quoted phrase matches as one term", "\"lord of the\"", true),
+            case("a date before the cutoff matches", "added<2030-01-01", true),
+            case("a date after the cutoff does not match", "added>2030-01-01", false),
+            // genre:"" is the reachable spelling for "no value" (a bare trailing colon lexes as text).
+            case("an empty quoted field value matches an absent field", "artist:\"\"", true),
+            case("an empty quoted field value misses a present field", "genre:\"\"", false),
+        )
+
+        @JvmStatic
+        fun absentAndMergedQueries() = listOf(
+            case("an empty status asks for an unknown one", "status:\"\"", true, Row(status = 0L)),
+            case("an empty tracker asks for an untracked entry", "tracker:\"\"", true, Row(trackers = emptyList())),
+            case(
+                "an empty category asks for an entry filed nowhere",
+                "category:\"\"",
+                true,
+                Row(categories = listOf(0L)),
+            ),
+            case(
+                "a source's own query finds entries on that source, whatever its key holds",
+                sourceKeyQuery("ireader:42"),
+                true,
+                Row(sources = listOf(source(key = "ireader:42"))),
+            ),
+            case(
+                "a source's own query leaves a source whose key only begins the same way",
+                sourceKeyQuery("ireader:4"),
+                false,
+                Row(sources = listOf(source(key = "ireader:42"))),
+            ),
+            case("a merged series is found from a source other than its lead", sourceKeyQuery("member"), true, merged),
+            case("excluding a merged series' member source excludes the series", "-srcid:member", false, merged),
+            case("a merged series matches a member's source name", "source:\"member site\"", true, merged),
+            case("a merged series matches a plain word naming a member's source", "\"member site\"", true, merged),
+            case("a merged series with a local member matches source local", "source:local", true, merged),
+            case("a merged series matches a member's language", "lang:ja", true, merged),
+            case(
+                "an absent language needs every source of a merged series to lack one",
+                "lang:\"\"",
+                false,
+                Row(sources = listOf(source(language = ""), source(key = "b"))),
+            ),
+            case(
+                "a merged series whose sources all lack a language matches an absent one",
+                "lang:\"\"",
+                true,
+                Row(sources = listOf(source(language = ""), source(key = "b", language = null))),
+            ),
+            case(
+                "an absent source name needs every source of a merged series to lack one",
+                "source:\"\"",
+                false,
+                Row(sources = listOf(source(name = ""), source(key = "b"))),
+            ),
+        )
+
+        @JvmStatic
+        fun overlaidQueries() = listOf(
+            Arguments.of("a bare word finds the overridden title", "renamed", true),
+            Arguments.of("title finds the overridden title", "title:renamed", true),
+            Arguments.of("author finds the overridden author", "author:\"new author\"", true),
+            Arguments.of("genre finds the overridden genre", "genre:renamed", true),
+            Arguments.of("the source title no longer finds a renamed entry", "mysteries", false),
+            Arguments.of("the source author no longer finds a re-authored entry", "author:cuttlefish", false),
+            Arguments.of("an unoverridden field still reads the source value", "srcid:novelarrow", true),
+        )
     }
 }
