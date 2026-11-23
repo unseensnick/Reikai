@@ -114,6 +114,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A new or removed custom cover is kept even if you leave the details screen at once.**
 - **A novel opened from Browse now shows it is loading while its chapters are fetched, and a pull to refresh then waits for that fetch.**
 - **A page preview on a merged gallery's details page now opens the gallery's own chapter, as More previews does.**
+- **A pull to refresh made just as a novel's first load stops spinning is no longer ignored.**
 
 ### Merged series
 

@@ -516,7 +516,11 @@ class NovelDetailsViewModel(
             anchorSource.value = lookup
             if (fetches && lookup is SourceLookup.Resolved) firstFetch(lookup.source)
         } finally {
-            if (fetches) isRefreshing.value = false
+            if (fetches) {
+                // Let go before the spinner stops, so a pull made once it has stopped is never refused as this one
+                refreshJob = null
+                isRefreshing.value = false
+            }
         }
     }
 

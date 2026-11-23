@@ -162,7 +162,8 @@ class NovelDetailsFetchTest {
                     { SourceNovel(path = NEW_URL, chapters = listOf(ChapterItem("One", "/1"))) }
             }
             val model = harness.openListing("gone", NEW_URL)
-            model.awaitLoaded { it.sourceState == EntrySourceState.Missing }
+            // The first fetch refuses a pull while its spinner shows
+            model.awaitLoaded { it.sourceState == EntrySourceState.Missing && !it.isRefreshing }
             model.refresh()
             model.awaitLoaded { it.chapters.size == 1 }
         }
