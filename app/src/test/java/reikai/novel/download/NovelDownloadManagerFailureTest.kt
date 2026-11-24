@@ -82,6 +82,8 @@ class NovelDownloadManagerFailureTest {
     private val unloaded = novel.copy(id = 3L, source = "broken")
     private val unloadedChapter = chapter.copy(id = 30L, novelId = 3L, url = "u30")
     private val alsoUnloaded = unloadedChapter.copy(id = 31L, url = "u31")
+    private val orphaned = chapter.copy(id = 40L, novelId = 4L, url = "u40")
+    private val empty = chapter.copy(id = 13L, url = "u13")
     private val chapterRepo = mockk<NovelChapterRepository> {
         coEvery { getById(10L) } returns chapter
         coEvery { getById(11L) } returns sameName
@@ -89,6 +91,8 @@ class NovelDownloadManagerFailureTest {
         coEvery { getById(30L) } returns unloadedChapter
         coEvery { getById(31L) } returns alsoUnloaded
         coEvery { getById(12L) } returns queuedLater
+        coEvery { getById(40L) } returns orphaned
+        coEvery { getById(13L) } returns empty
     }
     private val loadFailures = MutableStateFlow(
         mapOf(
@@ -104,10 +108,15 @@ class NovelDownloadManagerFailureTest {
             ),
         ),
     )
+    private var emptyFetches = 0
     private val source = mockk<NovelSource> {
         every { minimumRequestDelayMs } returns 0L
         coEvery { parseChapter("u10") } throws IOException("source down")
         coEvery { parseChapter("u11") } returns "text"
+        coEvery { parseChapter("u13") } answers {
+            emptyFetches++
+            ""
+        }
     }
 
     // Stubbed outside a mockk block, where a bare get binds to MockK's own.
@@ -138,6 +147,7 @@ class NovelDownloadManagerFailureTest {
             coEvery { getById(1L) } returns novel
             coEvery { getById(2L) } returns uninstalled
             coEvery { getById(3L) } returns unloaded
+            coEvery { getById(4L) } returns null
         },
         sourceManager = sourceManager,
         installer = installer,
@@ -173,6 +183,8 @@ class NovelDownloadManagerFailureTest {
         every { any<Context>().stringResource(MR.strings.source_not_installed, *anyVararg()) } returns
             "Source not installed"
         every { any<Context>().stringResource(MR.strings.ext_malformed_message) } returns "Malformed"
+        every { any<Context>().stringResource(MR.strings.details_not_found) } returns "Entry gone"
+        every { any<Context>().stringResource(MR.strings.novel_chapter_empty) } returns "Empty"
     }
 
     @AfterEach
@@ -221,6 +233,31 @@ class NovelDownloadManagerFailureTest {
         manager.runQueue(onProgress = {}, onError = { _, _, error, _ -> reason = error })
 
         reason shouldBe "Source not installed"
+    }
+
+    /** The source answers the same again, so it is asked once. */
+    @Test
+    fun `an empty chapter fails with its reason without a retry`() = runTest(scheduler) {
+        var reason: String? = null
+        manager.downloadChapters(listOf(empty))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, error, _ -> reason = error })
+
+        reason shouldBe "Empty"
+        emptyFetches shouldBe 1
+    }
+
+    /** Nothing can fetch it, so it spends no retries and leaves the saved queue. */
+    @Test
+    fun `a chapter whose novel is gone fails at once and leaves the saved queue`() = runTest(scheduler) {
+        var reason: String? = null
+        manager.downloadChapters(listOf(orphaned))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, error, _ -> reason = error })
+
+        reason shouldBe "Entry gone"
+        testScheduler.currentTime shouldBe 0L
+        NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe emptyList()
     }
 
     /** No Resume can fetch it, as a manga row of a removed source is dropped on restore. */

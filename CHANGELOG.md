@@ -155,6 +155,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel chapter downloaded again keeps its old file until the new one is written whole.** A failed download or rename keeps the old file, and a smaller chapter leaves nothing of it behind.
 - **Novel download folders now carry each source's name, where extension sources showed only a long number.** Existing folders are renamed on update.
 - **A queued novel chapter whose source was uninstalled now fails at once with the reason, and is gone after a restart.**
+- **A queued novel chapter removed from its series now fails at once with a reason, instead of after three retries with none.**
 - **Pausing novel downloads now stops fetching the current chapter's pictures straight away.**
 - **Deleting a downloaded novel chapter whose file name differs only in capitals now removes the file.**
 - **A downloaded novel chapter with pictures keeps the styling its source sent.**

@@ -60,9 +60,13 @@ class NovelDownloadManagerStorageTest {
         every { getSharedPreferences(any(), any()) } returns FakeSharedPreferences()
         every { getSystemService(NotificationManager::class.java) } returns mockk<NotificationManager>(relaxed = true)
     }
+    private var fetches = 0
     private val source = mockk<NovelSource> {
         every { minimumRequestDelayMs } returns 0L
-        coEvery { parseChapter(any()) } returns "text"
+        coEvery { parseChapter(any()) } answers {
+            fetches++
+            "text"
+        }
     }
     private val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source }
 
@@ -109,11 +113,12 @@ class NovelDownloadManagerStorageTest {
     }
 
     @Test
-    fun `a chapter is refused when the device is nearly full`() = runTest(scheduler) {
+    fun `a chapter is refused unfetched when the device is nearly full`() = runTest(scheduler) {
         manager.downloadChapters(listOf(chapter))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
 
         manager.queueState.value.map { it.state } shouldBe listOf(NovelDownload.State.ERROR)
+        fetches shouldBe 0
     }
 }

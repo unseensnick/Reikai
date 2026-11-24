@@ -538,23 +538,33 @@ class NovelDownloadManager(
             Novel::id,
             adultChecker::adultNovelIdsAmong,
         )
+        // A row whose novel or chapter is gone can never download, so it fails at once rather than after the retries.
+        if (novel == null || chapter == null) {
+            val reason = context.stringResource(
+                if (novel == null) MR.strings.details_not_found else MR.strings.chapter_not_found,
+            )
+            setState(next.chapterId, NovelDownload.State.ERROR, reason)
+            removeSaved(listOf(next.chapterId))
+            onError(shown, chapter?.name, reason, isAdult)
+            return
+        }
         // No retry or Resume can fetch from a source that is gone, so the row fails at once and leaves the
         // saved queue, as Mihon's DownloadStore.restore drops a manga row whose source is missing. An
         // installed plugin that failed to load again keeps its row, since the next run retries it.
-        if (novel != null && source == null) {
+        if (source == null) {
             val loadFailure = installer.failures.value.describing(novel.source, context)
             val reason = loadFailure
                 ?: context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(novel.source))
             setState(next.chapterId, NovelDownload.State.ERROR, reason)
             if (loadFailure == null) removeSaved(listOf(next.chapterId))
-            onError(shown, chapter?.name, reason, isAdult)
+            onError(shown, chapter.name, reason, isAdult)
             return
         }
         // Checked before the fetch, so a full disk costs no source request and no retries.
         if (!hasRoomToDownload(provider.availableSpace())) {
             val reason = context.stringResource(MR.strings.download_insufficient_space)
             setState(next.chapterId, NovelDownload.State.ERROR, reason)
-            onError(shown, chapter?.name, reason, isAdult)
+            onError(shown, chapter.name, reason, isAdult)
             return
         }
         onProgress(NovelDownloadProgress.Downloading(done.get(), total, shown?.title.orEmpty(), isAdult, shown))
@@ -571,7 +581,6 @@ class NovelDownloadManager(
             while (true) {
                 // A pause cancels the worker mid-attempt, and the last attempt has no delay to rethrow it.
                 ok = runCatchingCancellable {
-                    if (novel == null || source == null || chapter == null) return@runCatchingCancellable false
                     val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
                     val selfContained = saver.prepare(source, html, next.url)
                     saveLock.withLock {
@@ -630,7 +639,7 @@ class NovelDownloadManager(
                 lastError?.message
             }
             setState(next.chapterId, NovelDownload.State.ERROR, reason)
-            onError(shown, chapter?.name, reason, isAdult)
+            onError(shown, chapter.name, reason, isAdult)
         }
         // Per-source pacing, by the user's delay and DownloadPacing's back-off, so a
         // rate-limited or blocked site slows down on its own without dragging healthy sources.
