@@ -55,7 +55,9 @@ class DownloaderQueueRestoreTest {
     private val context = mockk<Context>(relaxed = true) {
         every { getSharedPreferences(any(), any()) } returns FakeSharedPreferences()
     }
-    private val store = DownloadStore(
+    private val store = storeOn(context)
+
+    private fun storeOn(context: Context) = DownloadStore(
         context,
         mockk<SourceManager> { coEvery { get(manga.source) } returns source },
         Json,
@@ -84,6 +86,27 @@ class DownloaderQueueRestoreTest {
         testScheduler.advanceUntilIdle()
 
         downloader.queueState.value.map { it.chapter.id } shouldBe listOf(3L)
+    }
+
+    // Each process numbers the queue from 0, so a chapter queued again during the restore can save the very bytes
+    // it was saved with last time, which read as a row nothing touched.
+    @Test
+    fun `a chapter saved again with the same bytes during the restore keeps its saved row`() = runTest {
+        val shared = mockk<Context>(relaxed = true) {
+            every { getSharedPreferences(any(), any()) } returns
+                FakeSharedPreferences()
+        }
+        storeOn(shared).addAll(listOf(Download(source, manga, chapter(3L))))
+        val thisProcess = storeOn(shared)
+        gateChapterLoad = true
+        val restore = async { thisProcess.restore() }
+        testScheduler.runCurrent()
+
+        thisProcess.addAll(listOf(Download(source, manga, chapter(3L))))
+        chapterGate.complete(Unit)
+        restore.await()
+
+        thisProcess.persisted().map { it.chapterId } shouldBe listOf(3L)
     }
 
     @Test

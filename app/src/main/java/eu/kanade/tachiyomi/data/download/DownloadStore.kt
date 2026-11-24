@@ -15,6 +15,7 @@ import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * This class is used to persist active downloads across application restarts.
@@ -39,6 +40,11 @@ class DownloadStore(
      */
     private var counter = 0
 
+    // RK --> the rows written or removed since a restore began reading. Each process numbers from 0, so a chapter
+    // queued again can save the bytes it was saved with, which a comparison of values reads as untouched.
+    private val touched = ConcurrentHashMap.newKeySet<String>()
+    // RK <--
+
     /**
      * Adds a list of downloads to the store.
      *
@@ -48,6 +54,7 @@ class DownloadStore(
         preferences.edit {
             downloads.forEach { putString(getKey(it), serialize(it)) }
         }
+        downloads.forEach { touched += getKey(it) } // RK
     }
 
     /**
@@ -59,6 +66,7 @@ class DownloadStore(
         preferences.edit {
             remove(getKey(download))
         }
+        touched += getKey(download) // RK
     }
 
     /**
@@ -70,12 +78,14 @@ class DownloadStore(
         preferences.edit {
             downloads.forEach { remove(getKey(it)) }
         }
+        downloads.forEach { touched += getKey(it) } // RK
     }
 
     /**
      * Removes all the downloads from the store.
      */
     fun clear() {
+        touched += preferences.all.keys // RK
         preferences.edit {
             clear()
         }
@@ -95,6 +105,7 @@ class DownloadStore(
      */
     suspend fun restore(): List<Download> {
         Migrator.await() // RK: MergedDuplicateDownloads re-points this queue in a migration, which runs beside this
+        touched.clear() // RK
         val read = preferences.all.filterValues { it is String } // RK: see the end
         val objs = read // RK
             .mapNotNull { it.value as? String }
@@ -118,7 +129,7 @@ class DownloadStore(
         // read, and restore only those. A chapter queued while this ran keeps the row it saved, and one
         // cancelled meanwhile stays out, as the novel queue does. The kept ones are added again at once.
         val saved = preferences.all
-        val unchanged = read.filter { (key, value) -> saved[key] == value }.keys
+        val unchanged = read.filter { (key, value) -> key !in touched && saved[key] == value }.keys
         preferences.edit { unchanged.forEach { remove(it) } }
         return downloads.filter { getKey(it) in unchanged }
         // RK <--
