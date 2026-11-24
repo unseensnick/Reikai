@@ -14,7 +14,6 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelCodeSnippetsRoute
 import eu.kanade.presentation.more.settings.screen.novel.NovelFontsRoute
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesRoute
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import kotlinx.serialization.Serializable
 import mihon.app.di.appGraph
@@ -49,6 +48,7 @@ import reikai.presentation.reader.rememberTtsOptions
 import reikai.presentation.reader.settings.dualPageRowsShown
 import reikai.presentation.reader.settings.dualPageViewRow
 import reikai.presentation.reader.settings.readerProgressPreferenceItems
+import reikai.presentation.reader.settings.singlePageRowsShown
 import reikai.presentation.reader.settings.spreadGapRow
 import reikai.presentation.reader.tenthsLabel
 import reikai.presentation.reader.volumeKeyScrollPreference
@@ -446,8 +446,8 @@ data object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_novel_text_selectable),
                     subtitle = stringResource(MR.strings.pref_novel_text_selectable_summary)
                         .takeIf { renderingMode == NovelRenderingMode.NATIVE },
-                    // A spread selects no text, and with no screen to ask only Always is known to show one.
-                    visible = !(pageLayout.isPaged && dualPageView == DualPageView.ALWAYS),
+                    // A spread selects no text.
+                    visible = singlePageRowsShown(pageLayout.isPaged, dualPageView),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSeamlessChapters(),

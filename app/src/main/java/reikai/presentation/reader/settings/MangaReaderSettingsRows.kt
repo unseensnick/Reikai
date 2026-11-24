@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.showsTwoPages
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSliderItem
@@ -39,7 +40,7 @@ internal class MangaReaderSettingsRows(
     val doubleTapAnimSpeed = !highQualityRenderer
 
     /** A spread skips crop borders, zoom start and landscape zoom, and splits or turns no page. */
-    val singlePageRows = !(highQualityRenderer && dualPageView == ReaderPreferences.DualPageView.ALWAYS)
+    val singlePageRows = singlePageRowsShown(highQualityRenderer, dualPageView)
 
     /** The dual-page variants of transition animation and cutout mode, and the space between pages. */
     val dualPageRows = dualPageRowsShown(highQualityRenderer, dualPageView)
@@ -60,6 +61,10 @@ internal val dualPageTransitionAnimations = ReaderPreferences.TransitionAnimatio
 internal fun dualPageRowsShown(canSpread: Boolean, dualPageView: ReaderPreferences.DualPageView): Boolean =
     canSpread && dualPageView != ReaderPreferences.DualPageView.NEVER
 
+/** Whether Settings offers the rows a spread cannot read: with no screen to ask, only Always is known to spread. */
+internal fun singlePageRowsShown(canSpread: Boolean, dualPageView: ReaderPreferences.DualPageView): Boolean =
+    !(canSpread && dualPageView == ReaderPreferences.DualPageView.ALWAYS)
+
 /** The reader sheets' version: a [paged] reader whose Dual page view shows two pages on this screen. */
 internal fun sheetDualPageRowsShown(
     paged: Boolean,
@@ -68,9 +73,6 @@ internal fun sheetDualPageRowsShown(
     screenHeightDp: Int,
 ): Boolean = paged && dualPageView.showsTwoPages(screenWidthDp, screenHeightDp)
 
-/** The space between a spread's two pages, in percent of a page's width, for manga and novels alike. */
-internal val spreadGapRange = 0..20
-
 /** Space between pages in Settings > Manga reader and Settings > Novel reader, over each type's own setting. */
 @Composable
 internal fun spreadGapRow(preference: PreferenceData<Int>, visible: Boolean) =
@@ -78,7 +80,7 @@ internal fun spreadGapRow(preference: PreferenceData<Int>, visible: Boolean) =
         preference = preference,
         title = stringResource(MR.strings.pref_spread_gap),
         valueText = { remember { NumberFormat.getPercentInstance() }.format(it / 100f) },
-        valueRange = spreadGapRange,
+        valueRange = ReaderRanges.spreadGapPercent,
         visible = visible,
     )
 
@@ -91,7 +93,7 @@ internal fun SpreadGapSlider(preference: PreferenceData<Int>) {
     val value = dragged ?: stored
     BaseSliderItem(
         value = value,
-        valueRange = spreadGapRange,
+        valueRange = ReaderRanges.spreadGapPercent,
         title = stringResource(MR.strings.pref_spread_gap),
         valueString = numberFormat.format(value / 100f),
         onChange = { dragged = it },

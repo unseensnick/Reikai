@@ -1,5 +1,7 @@
 package reikai.presentation.reader
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+
 /** The bounds both readers' controls offer, so manga and novels cannot disagree. */
 object ReaderRanges {
     /** The steps a float setting is counted in on a slider or stepper; see `scaled`. */
@@ -31,4 +33,10 @@ object ReaderRanges {
 
     /** How many pages past the one on screen a chapter loads; the loader clamps a stored value to it. */
     val preloadPages = 1..20
+
+    /** The long strip's Min width, as a share of the screen, on the high quality renderer. */
+    val continuousMinWidthPercent = ReaderPreferences.CONTINUOUS_MIN_WIDTH_MIN..100
+
+    /** The space between a spread's two pages, in percent of a page's width, for manga and novels alike. */
+    val spreadGapPercent = 0..20
 }

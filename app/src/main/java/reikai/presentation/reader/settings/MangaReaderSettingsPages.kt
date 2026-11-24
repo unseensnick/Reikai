@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import kotlinx.coroutines.flow.StateFlow
 import reikai.presentation.reader.ReaderFlash
+import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.navigation.MangaTapLayouts
 import reikai.presentation.reader.navigation.setTapLayout
 import tachiyomi.core.common.preference.Preference
@@ -140,7 +141,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                 val continuousMinWidth by preferences.continuousMinWidth.collectAsState()
                 SliderItem(
                     value = continuousMinWidth,
-                    valueRange = ReaderPreferences.CONTINUOUS_MIN_WIDTH_MIN..100,
+                    valueRange = ReaderRanges.continuousMinWidthPercent,
                     label = stringResource(MR.strings.pref_continuous_minwidth),
                     valueString = numberFormat.format(continuousMinWidth / 100f),
                     onChange = { preferences.continuousMinWidth.set(it) },
