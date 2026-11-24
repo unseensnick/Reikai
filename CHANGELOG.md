@@ -96,7 +96,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
-- **Searching a novel's downloaded chapters again, or changing a search option, now answers at once instead of reading every chapter again.**
+- **Searching a novel's downloaded chapters again, or changing a search option, no longer reads every chapter from storage again.**
 - **Adding titles to your library from a Related "See all" list now finishes even if you leave the list first.**
 - **A notification or widget for a manga you have since deleted now opens a not-found page.**
 - **A novel opened from a notification or widget now opens over the Library tab, as a manga does.**
@@ -366,7 +366,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **On a device without a working WebView, site checks now go to your FlareSolverr server when one is set up.**
-- **Novel plugin sources that ask their servers for compressed replies load again.**
+- **Novel plugin sources that ask their servers for compressed replies now load.**
 - **Covers and chapter images from novel plugin sources whose addresses leave out https: now load.**
 - **Passing a site check in a novel plugin source's web view now unblocks that source for plugins that set their own picture user agent.**
 - **A long-press add to library that hits an error now says it failed instead of closing the app.**
