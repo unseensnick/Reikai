@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import coil3.asDrawable
@@ -129,8 +130,8 @@ class NovelEpubExportWorker(
         val target = inputData.getString(KEY_TARGET)?.let(Uri::parse) ?: return Result.failure()
         val toFolder = inputData.getBoolean(KEY_TO_FOLDER, false)
         val writer = EpubWriter(includePictures = inputData.getBoolean(KEY_PICTURES, true))
-        val from = inputData.getInt(KEY_FROM, 0)
-        val to = inputData.getInt(KEY_TO, 0)
+        val run = inputData.getLong(KEY_FIRST_ID, NO_RUN).takeIf { it != NO_RUN }
+            ?.let { EpubRun(inputData.getInt(KEY_FROM, 1), it, inputData.getLong(KEY_LAST_ID, it)) }
 
         // As the library shows them, so the book carries what the user put in Edit info.
         val novels = ids.mapNotNull { novelRepository.getById(it) }
@@ -152,7 +153,7 @@ class NovelEpubExportWorker(
                 context.stringResource(MR.strings.export_epub_progress, novel.title)
             }
             val fileName = names.next(novel.title).takeIf { toFolder }
-            val outcome = runCatchingCancellable { export(novel, target, fileName, writer, from, to, shownTitle) }
+            val outcome = runCatchingCancellable { export(novel, target, fileName, writer, run, shownTitle) }
                 .onFailure { logcat(LogPriority.ERROR, it) { "Could not export novel ${novel.id}" } }
             if (outcome.getOrDefault(false)) written++ else failed += novel
         }
@@ -180,13 +181,11 @@ class NovelEpubExportWorker(
         target: Uri,
         fileName: String?,
         writer: EpubWriter,
-        from: Int,
-        to: Int,
+        run: EpubRun?,
         shownTitle: String,
     ): Boolean {
         val onDevice = downloadedTexts.chaptersOf(novel.id, sourceScoped = false).onDisk
-        val isRun = from > 0 && to >= from
-        val chosen = if (isRun) onDevice.drop(from - 1).take(to - from + 1) else onDevice
+        val chosen = run?.let { chaptersInRun(onDevice, it) { chapter -> chapter.id } } ?: onDevice
         if (chosen.isEmpty()) return false
         val owners = novelRepository.ownersOf(chosen)
         val book = EpubExportBook(
@@ -207,7 +206,7 @@ class NovelEpubExportWorker(
             artist = novel.artist,
             status = NovelStatusCode.toSourceString(novel.status.toInt()),
             // A run is one volume of the novel, placed by its first chapter so several runs import in order.
-            seriesPosition = from.takeIf { isRun },
+            seriesPosition = run?.position,
             chapters = chosen.map { chapter ->
                 val sourceId = owners[chapter.novelId]?.source
                 ExportChapter(chapter.name, chapter.url, { imageRequests.localPicture(it, sourceId) }) {
@@ -252,11 +251,13 @@ class NovelEpubExportWorker(
         private const val KEY_TO_FOLDER = "to_folder"
         private const val KEY_PICTURES = "pictures"
         private const val KEY_FROM = "from"
-        private const val KEY_TO = "to"
+        private const val KEY_FIRST_ID = "first_id"
+        private const val KEY_LAST_ID = "last_id"
+        private const val NO_RUN = -1L
 
         /**
-         * Exports [novelIds] to [target]: a file for one novel, a folder ([toFolder]) for several. [from] and
-         * [to] pick a run of the chapters on the device by position, 1 first; 0 exports them all.
+         * Exports [novelIds] to [target]: a file for one novel, a folder ([toFolder]) for several. [run] picks a run of
+         * the chapters on the device, null exporting them all.
          */
         fun start(
             context: Context,
@@ -264,23 +265,40 @@ class NovelEpubExportWorker(
             target: Uri,
             toFolder: Boolean,
             includePictures: Boolean,
-            from: Int = 0,
-            to: Int = 0,
+            run: EpubRun? = null,
         ) {
             val request = OneTimeWorkRequestBuilder<NovelEpubExportWorker>()
                 .addTag(WORK_NAME)
+                // An export queued behind another goes foreground only when its turn comes, often from the
+                // background, which Android refuses a plain worker.
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .setInputData(
                     workDataOf(
                         KEY_NOVEL_IDS to novelIds.toLongArray(),
                         KEY_TARGET to target.toString(),
                         KEY_TO_FOLDER to toFolder,
                         KEY_PICTURES to includePictures,
-                        KEY_FROM to from,
-                        KEY_TO to to,
+                        KEY_FROM to (run?.position ?: 0),
+                        KEY_FIRST_ID to (run?.firstId ?: NO_RUN),
+                        KEY_LAST_ID to (run?.lastId ?: NO_RUN),
                     ),
                 )
                 .build()
             context.workManager.enqueue(request)
         }
     }
+}
+
+/**
+ * A run of a novel's chapters on the device for one book. [position] is where the pick started, the book's place
+ * in its series; [firstId] and [lastId] name its ends, so a chapter downloaded or deleted before the export runs
+ * cannot shift which ones it holds, as positions did.
+ */
+data class EpubRun(val position: Int, val firstId: Long, val lastId: Long)
+
+/** [chapters] from [run]'s first to its last, or none once either is off the device. */
+internal fun <T> chaptersInRun(chapters: List<T>, run: EpubRun, id: (T) -> Long): List<T> {
+    val first = chapters.indexOfFirst { id(it) == run.firstId }
+    val last = chapters.indexOfFirst { id(it) == run.lastId }
+    return if (first < 0 || last < first) emptyList() else chapters.subList(first, last + 1)
 }

@@ -149,6 +149,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.download.toDownloadState
+import reikai.novel.export.EpubRun
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.RunSources
@@ -1680,6 +1681,7 @@ class NovelDetailsViewModel(
         showDialog(NovelDetailsDialog.ExportEpub(onDevice = null, total = 0, missing = emptyList()))
         viewModelScope.launchIO {
             val scope = downloadedTexts.chaptersOf(loaded.novel.id, sourceScoped = false)
+            exportCounted = scope.onDisk.map { it.id }
             dialog.update {
                 (it as? NovelDetailsDialog.ExportEpub)?.copy(
                     onDevice = scope.onDisk.size,
@@ -1697,19 +1699,18 @@ class NovelDetailsViewModel(
         appScope.launchIO { downloadManager.downloadChapters(missing) }
     }
 
+    // The chapters on the device as the Export dialog counted them, which its positions index.
+    private var exportCounted: List<Long> = emptyList()
+
     /** Writes the novel to [target]; [from] and [to] pick chapters on the device by position, 0 for all. */
     fun exportEpub(target: Uri, includePictures: Boolean, from: Int, to: Int) {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         dismissDialog()
-        NovelEpubExportWorker.start(
-            context,
-            listOf(loaded.novel.id),
-            target,
-            toFolder = false,
-            includePictures,
-            from,
-            to,
-        )
+        // By id: the export can run much later, after a download or delete has moved what a position names.
+        val run = exportCounted.getOrNull(from - 1)?.let { first ->
+            EpubRun(from, first, exportCounted.getOrNull(to - 1) ?: exportCounted.last())
+        }
+        NovelEpubExportWorker.start(context, listOf(loaded.novel.id), target, toFolder = false, includePictures, run)
     }
 
     /**
