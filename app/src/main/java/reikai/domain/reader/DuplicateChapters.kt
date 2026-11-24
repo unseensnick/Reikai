@@ -52,10 +52,9 @@ fun <T> List<T>.duplicatesOfRead(
 ): List<T> {
     val readId = idOf(read)
     val readOwner = ownerOf(read)
-    // The whole entry, since a hand-made group joins chapters of other numbers. Narrowed to Float: a
-    // source-reported number is a float, a parsed one a double, and both must match.
+    // The whole entry, since a hand-made group joins chapters of other numbers.
     val copies = (filter { ownerOf(it) == readOwner } + read).distinctBy(idOf)
-        .chapterCopySets({ numberOf(it).toFloat().toDouble() }, nameOf, originOf, ownerOf, markOf)
+        .chapterCopySets(numberOf, nameOf, originOf, ownerOf, markOf)
         .first { set -> set.any { idOf(it) == readId } }
         .mapTo(HashSet(), idOf)
     return filter { idOf(it) != readId && (idOf(it) in stitchCopies || idOf(it) in copies) }

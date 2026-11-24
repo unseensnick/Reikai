@@ -49,6 +49,14 @@ class ChapterCopiesTest {
         chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 2
     }
 
+    /** A source reports a float, which arrives widened, where a number parsed from the name is a double. */
+    @Test
+    fun `a source-reported number and the same number parsed from the name are one chapter`() {
+        val chapters = listOf(Ch(1, "Chapter 10.1", "A", 10.1f.toDouble()), Ch(2, "Chapter 10.1", "B", 10.1))
+
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 1
+    }
+
     @Test
     fun `one bare-numbered chapter of one volume from two scanlators is a copy`() {
         val chapters = listOf(Ch(1, "01 - 001", "A", 1.0), Ch(2, "01 - 001", "B", 1.0))
