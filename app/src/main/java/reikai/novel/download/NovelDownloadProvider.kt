@@ -175,8 +175,7 @@ class NovelDownloadProvider(
     /** [name] here, made when missing; one a killed rename left in flight is taken back rather than twinned. */
     private fun UniFile.madeFolder(name: String): UniFile? = findFolderRecovering(name) ?: createDirectory(name)
 
-    /** The novel's download directory, or null when nothing has been downloaded yet. Public for the
-     *  details overflow's Open folder, through [NovelDownloadManager.findNovelDir]. */
+    /** The novel's download directory, or null when nothing has been downloaded yet. */
     fun findNovelDir(novel: Novel): UniFile? =
         downloadsDir?.findFolderRecovering(sourceDirName(novel))?.findFolderRecovering(novelDirName(novel))
 
@@ -245,8 +244,7 @@ class NovelDownloadProvider(
      * actually renamed.
      */
     fun renameChapter(novel: Novel, oldChapter: NovelChapter, newChapter: NovelChapter): Boolean {
-        val dir = findNovelDir(novel) ?: return false
-        val oldFile = validChapterFileNames(oldChapter).firstNotNullOfOrNull { dir.findFile(it) } ?: return false
+        val oldFile = findChapterFile(novel, oldChapter) ?: return false
         val newName = chapterFileName(newChapter)
         if (oldFile.name == newName) return false
         return oldFile.rename(newName)
