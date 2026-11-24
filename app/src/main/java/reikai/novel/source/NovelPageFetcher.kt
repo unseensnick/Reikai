@@ -18,6 +18,7 @@ import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.novel.download.NovelChapterSaver
 import reikai.novel.download.NovelChapterSaver.SaveResult
 import reikai.novel.download.NovelDownloadManager
@@ -41,6 +42,7 @@ class NovelPageFetcher(
     private val coverCache: CoverCache,
     private val saver: NovelChapterSaver,
     private val novelDownloadManager: () -> NovelDownloadManager,
+    private val filterChaptersForDownload: FilterNovelChaptersForDownload,
 ) {
 
     /** The chapters whose text a page just replaced, so a reader showing one reloads it, whenever the save lands. */
@@ -86,6 +88,9 @@ class NovelPageFetcher(
             chapterRepo,
             novelRepo,
         )
+        // As a refresh does, so the download-new-chapters setting covers chapters a page brought in too.
+        val toDownload = filterChaptersForDownload.await(novel, synced.newChapters)
+        if (toDownload.isNotEmpty()) novelDownloadManager().downloadChapters(toDownload)
         chapters.size
     }
 

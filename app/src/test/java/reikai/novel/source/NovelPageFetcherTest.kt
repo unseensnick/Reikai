@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -9,8 +10,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
+import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -18,8 +22,12 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelChapterSaver.SaveResult
+import reikai.novel.download.NovelDownloadManager
+import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.data.Database
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.time.Instant
 
@@ -51,6 +59,7 @@ class NovelPageFetcherTest {
             coverCache = mockk(relaxed = true),
             saver = mockk(),
             novelDownloadManager = { mockk(relaxed = true) },
+            filterChaptersForDownload = mockk(),
         ).useForDetails(1L, "https://src.example/1", "<html/>")
     }
 
@@ -68,6 +77,44 @@ class NovelPageFetcherTest {
         useDetailsPage(emptyList())
 
         written.single().totalPages shouldBe 4L
+    }
+
+    /** A refresh queues these too, so a chapter list loaded from a page must not leave them out. */
+    @Test
+    fun `a chapter list page queues the new chapters the download setting takes`() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        Database.Schema.create(driver).await()
+        val database = DatabaseBindings.providesDatabase(driver)
+        val novels = NovelRepositoryImpl(database)
+        val stored = novels.getById(novels.insert(novel.copy(id = -1L))!!)!!
+        val fetch = mockk<NovelPageFetch> {
+            coEvery { chapters(any(), any(), any()) } returns listOf(ChapterItem(name = "Chapter 1", path = "/1/1"))
+        }
+        val queued = mutableListOf<String>()
+        val downloads = mockk<NovelDownloadManager>(relaxed = true) {
+            coEvery { downloadChapters(any()) } answers { queued += firstArg<List<NovelChapter>>().map { it.url } }
+        }
+
+        NovelPageFetcher(
+            novelRepo = novels,
+            chapterRepo = NovelChapterRepositoryImpl(database),
+            sourceManager = mockk<NovelSourceManager>().also {
+                coEvery { it.get("src") } returns mockk { every { pageFetch } returns fetch }
+            },
+            libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
+            syncRules = NovelChapterSyncRules(
+                NoChapterNumberOverrides,
+                InMemoryChapterCopyMarks(),
+                NoChapterTombstones,
+            ),
+            coverCache = mockk(relaxed = true),
+            saver = mockk(),
+            novelDownloadManager = { downloads },
+            filterChaptersForDownload = mockk { coEvery { await(any(), any()) } answers { secondArg() } },
+        ).useForChapters(stored.id, "https://src.example/1", "<html/>")
+        driver.close()
+
+        queued shouldBe listOf("/1/1")
     }
 
     private val chapter = NovelChapter(
@@ -91,6 +138,7 @@ class NovelPageFetcherTest {
             coverCache = mockk(relaxed = true),
             saver = mockk { coEvery { save(any(), any(), any(), any()) } returns saved },
             novelDownloadManager = { mockk(relaxed = true) },
+            filterChaptersForDownload = mockk(),
         )
     }
 

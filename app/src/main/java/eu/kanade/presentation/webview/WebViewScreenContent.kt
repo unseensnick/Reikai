@@ -306,9 +306,12 @@ fun WebViewScreenContent(
                                             AppBar.OverflowAction(
                                                 title = action.title,
                                                 onClick = {
+                                                    // The url from the window the markup comes from:
+                                                    // currentUrl still names a popup closed since.
                                                     coroutineScope.launch {
-                                                        currentWindow.webView?.pageHtml()
-                                                            ?.let { action.onPage(currentUrl, it) }
+                                                        val webView = currentWindow.webView ?: return@launch
+                                                        val html = webView.pageHtml() ?: return@launch
+                                                        action.onPage(webView.url ?: currentUrl, html)
                                                     }
                                                 },
                                             ),

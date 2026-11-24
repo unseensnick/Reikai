@@ -16,7 +16,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun rememberNovelPageActions(
     novelId: Long?,
-    chapterId: Long? = null,
+    chapterId: Long?,
 ): List<WebPageAction> {
     if (novelId == null) return emptyList()
     val model = assistedMetroViewModel<NovelPageActionsViewModel, NovelPageActionsViewModel.Factory> {
