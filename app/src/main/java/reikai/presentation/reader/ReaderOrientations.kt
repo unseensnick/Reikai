@@ -12,5 +12,8 @@ val readerOrientationChoices: List<ReaderOrientation> = ReaderOrientation.entrie
  * The rotation the reader applies for an entry stored as [entryFlag]: its own, or [defaultFlag] when it
  * follows the default. An unknown flag follows the default too, as Mihon's `getMangaOrientation` does.
  */
-fun resolveOrientation(entryFlag: Int, defaultFlag: Int): Int =
-    ReaderOrientation.fromPreference(entryFlag).takeIf { it != ReaderOrientation.DEFAULT }?.flagValue ?: defaultFlag
+fun resolveOrientation(entryFlag: Int, defaultFlag: Int): Int = ownOrientation(entryFlag)?.flagValue ?: defaultFlag
+
+/** The rotation an entry stored as [entryFlag] picked for itself, or null when it follows the default. */
+fun ownOrientation(entryFlag: Int): ReaderOrientation? =
+    ReaderOrientation.fromPreference(entryFlag).takeIf { it != ReaderOrientation.DEFAULT }

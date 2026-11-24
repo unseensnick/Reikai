@@ -19,7 +19,7 @@ fun ReaderOrientationDialog(
     ReaderModeDialog(
         title = MR.strings.rotation_type,
         choices = readerOrientationChoices,
-        stored = ReaderOrientation.fromPreference(currentOrientation).takeIf { it != ReaderOrientation.DEFAULT },
+        stored = ownOrientation(currentOrientation),
         resolved = ReaderOrientation.fromPreference(resolvedOrientation),
         icon = { it.icon },
         label = { it.stringRes },
