@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.network.interceptor
 
 import com.sun.net.httpserver.HttpServer
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.mockk
@@ -12,6 +13,7 @@ import okhttp3.Request
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -41,12 +43,11 @@ class FlareSolverrSolveTest {
         start()
     }
 
-    private val client = FlareSolverrClient(
-        mockk(relaxed = true),
-        NetworkPreferences(InMemoryPreferenceStore(), false).apply {
-            flareSolverrUrl.set("http://127.0.0.1:${server.address.port}")
-        },
-    )
+    private val preferences = NetworkPreferences(InMemoryPreferenceStore(), false).apply {
+        flareSolverrUrl.set("http://127.0.0.1:${server.address.port}")
+    }
+
+    private val client = FlareSolverrClient(mockk(relaxed = true), preferences)
 
     private val page = Request.Builder().url("https://site.example/").build()
 
@@ -88,6 +89,37 @@ class FlareSolverrSolveTest {
         solution = """{"url": "https://site.example/wp-admin/admin-ajax.php", "status": 400, "response": "0"}"""
 
         resolve().use { it.code } shouldBe 400
+    }
+
+    // The clearance a solve earns is bound to the solver's browser, so later requests to the host must pass as it.
+    @Test
+    fun `a solve pins the solver's User-Agent for the host`() {
+        solution = """{"url": "https://site.example/", "status": 200, "response": "page", "userAgent": "SolverUA"}"""
+        // A pin is only read while the server is in use.
+        preferences.enableFlareSolverr.set(true)
+
+        resolve().close()
+
+        client.pinnedUserAgentFor(page) shouldBe "SolverUA"
+    }
+
+    @Test
+    fun `a refusal pins nothing`() {
+        solution = """{"url": "https://site.example/", "status": 400, "response": "0", "userAgent": "SolverUA"}"""
+        preferences.enableFlareSolverr.set(true)
+
+        resolve().close()
+
+        client.pinnedUserAgentFor(page) shouldBe null
+    }
+
+    // Serving Cloudflare's interstitial as the page would hand a source a challenge as its content.
+    @Test
+    fun `an answer still challenged is the server's failure`() {
+        solution = """{"url": "https://site.example/", "status": 403, "response": "challenge",""" +
+            """ "headers": {"cf-mitigated": "challenge", "server": "cloudflare"}}"""
+
+        shouldThrow<IOException> { resolve() }
     }
 
     @Test
