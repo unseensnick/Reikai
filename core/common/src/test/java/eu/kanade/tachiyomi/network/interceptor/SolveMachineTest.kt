@@ -64,6 +64,20 @@ class SolveMachineTest {
     private fun tick(m: SolveMachine, challenged: Boolean = true, hasToken: Boolean = false) =
         m.onProbe(emptyList(), challenged = challenged, hasToken = hasToken)
 
+    // The page reads clear for a moment while the next round is issued, so a challenged reading between two clear
+    // ones starts the count again rather than verifying a solve.
+    @Test
+    fun `a challenged reading between two clear ones verifies nothing`() {
+        val fake = Fake()
+        val m = machine(fake)
+
+        tick(m, challenged = false)
+        tick(m, challenged = true)
+        tick(m, challenged = false)
+
+        fake.clearanceAsked shouldBe 0
+    }
+
     @Test
     fun `a solve that never presses gives up one budget after arming`() {
         val fake = Fake()

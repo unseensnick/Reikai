@@ -22,6 +22,8 @@ import okhttp3.Headers
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import reikai.data.coil.NovelImage
 import reikai.data.coil.fetchNovelImage
 import reikai.domain.novel.LnSourceIdentity
@@ -40,6 +42,18 @@ private const val ON_SITE = "https://apk.example/x"
 
 /** Every novel picture is fetched with its own source's client and headers, whatever format it comes in. */
 class NovelImageRequestsTest {
+
+    // A lookalike host that merely ends in the site's name must not get the site's login headers.
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(
+        "https://site.example/a.png, true",
+        "https://cdn.site.example/a.png, true",
+        "https://evilsite.example/a.png, false",
+        "https://site.example.evil/a.png, false",
+    )
+    fun `a picture is on the site only on its host or a subdomain of it`(url: String, same: Boolean) {
+        isSameSite(url, "https://site.example/") shouldBe same
+    }
 
     @Test
     fun `an LNReader source's site is its images' Referer`() {

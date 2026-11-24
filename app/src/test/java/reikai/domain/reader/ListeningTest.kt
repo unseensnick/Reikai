@@ -52,6 +52,18 @@ class ListeningTest {
         nextChapter.msPerWord shouldBe 250.0
     }
 
+    /** The time up to the step is the chapter just finished, never the one just reached. */
+    @Test
+    fun `the time before a chapter change is credited to the chapter left`() {
+        val playing = Listening()
+            .next(playing = true, at(100, paragraph = 1), nowMs = 0)
+            .next(playing = true, at(220, paragraph = 2), nowMs = 30_000)
+
+        val nextChapter = playing.next(playing = true, at(0, paragraph = 0, chapterId = 2), nowMs = 31_000)
+
+        nextChapter.listened shouldBe (1L to 1_000L)
+    }
+
     @Test
     fun `stepping back restarts the timing`() {
         val playing = Listening()

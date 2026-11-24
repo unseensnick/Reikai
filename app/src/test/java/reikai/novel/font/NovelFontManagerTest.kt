@@ -101,6 +101,25 @@ class NovelFontManagerTest {
         working.exists() shouldBe true
     }
 
+    /** A font removed with a file manager leaves its copy behind, and nothing but this listing ever goes looking. */
+    @Test
+    fun `listing fonts drops the copy of a font no longer in the folder and keeps the rest`() = runTest {
+        val fonts = File(appFiles, "fonts").apply { mkdirs() }
+        val kept = File(fonts, "Lora.ttf").apply { writeText("font") }
+        val removed = File(fonts, "Gone.ttf").apply { writeText("font") }
+        val font = mockk<UniFile> {
+            every { name } returns "Lora.ttf"
+            every { isFile } returns true
+        }
+        val folder = mockk<UniFile> { every { listFiles() } returns arrayOf(font) }
+        val context = mockk<Context> { every { filesDir } returns appFiles }
+        val storage = mockk<StorageManager> { every { getFontsDirectory() } returns folder }
+
+        NovelFontManager(context, storage, mockk(), mockk()).installed()
+
+        (kept.exists() to removed.exists()) shouldBe (true to false)
+    }
+
     /** Both renderers read a replaced font by this; the size is in it, since a SAF provider need not report a time. */
     @Test
     fun `a copy's version is its size and its time`() {
