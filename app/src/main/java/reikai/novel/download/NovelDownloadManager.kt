@@ -623,8 +623,11 @@ class NovelDownloadManager(
         // A dropped row is already out of the queue and the store, and neither finished nor failed.
         if (ok && !dropped) {
             completions.record(next.novelId)
-            _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }
-            removeSaved(listOf(next.chapterId))
+            // Together, or the launch restore could land between them and bring the finished row back.
+            synchronized(storeLock) {
+                _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }
+                store.removeAll(listOf(next.chapterId))
+            }
             retainQueuedCompletions()
             done.incrementAndGet()
         } else if (!ok) {
