@@ -1,12 +1,17 @@
 package eu.kanade.tachiyomi.data.backup
 
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
+import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.legacyEdits
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
@@ -41,6 +46,51 @@ class NovelLegacyEditsRestoreTest {
         )
 
         restored.single().let { it.author to it.artist } shouldBe ("Mine" to null)
+    }
+
+    // An entry's own custom info is newer than its legacy bits, so it wins.
+    @Test
+    fun `an older backup's custom info wins over its legacy edits`() = runTest {
+        val restored = mutableListOf<CustomNovelInfo>()
+        val setCustomInfo = mockk<SetCustomNovelInfo> {
+            coEvery { restore(any()) } answers { restored += firstArg<CustomNovelInfo>() }
+        }
+
+        restorer(setCustomInfo).restore(
+            BackupNovel(
+                source = "s",
+                url = "u",
+                author = "Mine",
+                legacyEditedFlags = 1,
+            ).apply { customInfo = BackupCustomInfo(author = "Custom") },
+            emptyList(),
+        )
+
+        restored.single().author shouldBe "Custom"
+    }
+
+    @ParameterizedTest
+    @EnumSource(EditedField::class)
+    fun `each legacy edit bit marks its own field`(field: EditedField) {
+        BackupNovel(
+            source = "s",
+            url = "u",
+            author = "A",
+            artist = "B",
+            description = "D",
+            genre = listOf("G"),
+            status = 2,
+            legacyEditedFlags = 1L shl field.ordinal,
+        ).legacyEdits() shouldBe field.edit
+    }
+
+    // In bit order.
+    enum class EditedField(val edit: BackupCustomInfo) {
+        AUTHOR(BackupCustomInfo(author = "A")),
+        ARTIST(BackupCustomInfo(artist = "B")),
+        DESCRIPTION(BackupCustomInfo(description = "D")),
+        GENRE(BackupCustomInfo(genre = listOf("G"))),
+        STATUS(BackupCustomInfo(status = 2)),
     }
 
     private fun restorer(customInfo: SetCustomNovelInfo) = NovelRestorer(

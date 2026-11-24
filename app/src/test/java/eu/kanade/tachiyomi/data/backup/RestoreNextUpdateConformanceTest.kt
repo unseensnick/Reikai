@@ -72,23 +72,31 @@ class RestoreNextUpdateConformanceTest {
         type.restore(backup = now + 5.days, device = device) shouldBe device
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a next update still ahead in the backup is kept over a device copy without one`(type: Type) = runTest {
+        val ahead = now + 3.days
+
+        type.restore(backup = ahead, device = null, deviceRow = true) shouldBe ahead
+    }
+
     enum class Type {
         MANGA {
-            override suspend fun restore(backup: Instant?, device: Instant?): Instant? =
+            override suspend fun restore(backup: Instant?, device: Instant?, deviceRow: Boolean): Instant? =
                 MangaRestoreHarness.create().use { harness ->
-                    device?.let { harness.insert(Manga.create().copy(url = URL, source = 1L, nextUpdate = it)) }
+                    if (deviceRow) harness.insert(Manga.create().copy(url = URL, source = 1L, nextUpdate = device))
                     val wire = BackupManga(source = 1L, url = URL, nextUpdate = backup.millis())
                     harness.restorer().restore(listOf(wire.overTheWire(BackupManga.serializer())), emptyList())
                     harness.mangas.getMangaByUrlAndSourceId(URL, 1L)!!.nextUpdate
                 }
         },
         NOVEL {
-            override suspend fun restore(backup: Instant?, device: Instant?): Instant? =
+            override suspend fun restore(backup: Instant?, device: Instant?, deviceRow: Boolean): Instant? =
                 MangaRestoreHarness.create().use { harness ->
                     val novels = NovelRepositoryImpl(harness.database)
-                    device?.let {
+                    if (deviceRow) {
                         val id = novels.insert(Novel.create().copy(url = URL, source = "s"))!!
-                        novels.update(NovelUpdate(id) { nextUpdate = it })
+                        device?.let { novels.update(NovelUpdate(id) { nextUpdate = it }) }
                     }
                     val wire = BackupNovel(source = "s", url = URL, nextUpdate = backup.millis())
                     NovelRestorer(
@@ -114,8 +122,8 @@ class RestoreNextUpdateConformanceTest {
         },
         ;
 
-        /** Restores an entry whose backup carries [backup] over a device copy carrying [device], if any. */
-        abstract suspend fun restore(backup: Instant?, device: Instant?): Instant?
+        /** Restores an entry whose backup carries [backup] over a device copy carrying [device], if [deviceRow]. */
+        abstract suspend fun restore(backup: Instant?, device: Instant?, deviceRow: Boolean = device != null): Instant?
     }
 
     private companion object {

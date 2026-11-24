@@ -67,6 +67,19 @@ class NovelLegacyLastReadRestoreTest {
             .getValue(novelId).map { it.chapterUrl } shouldBe listOf("c1")
     }
 
+    // The chapter in progress is the lowest-numbered and unread, so landing on it shows progress came first.
+    @Test
+    fun `an old backup's Last read stamp prefers a chapter in progress`() = runTest {
+        val inProgress = BackupNovelChapter(url = "c0", name = "0", lastTextProgress = 4_000, chapterNumber = 0.5)
+        val backup = backup(history = emptyList()).apply { chapters = chapters + inProgress }
+
+        restorer().restore(backup, emptyList())
+
+        val novelId = NovelRepositoryImpl(database).getByUrlAndSource("novel", "src")!!.id
+        NovelHistoryRepositoryImpl(database).getUrlKeyedHistoryByNovelIds(listOf(novelId))
+            .getValue(novelId).map { it.chapterUrl } shouldBe listOf("c0")
+    }
+
     @Test
     fun `a backup with history keeps its history's Last read`() = runTest {
         restorer().restore(backup(history = listOf(BackupNovelHistory(url = "c1", lastRead = 300L))), emptyList())
