@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.network.interceptor
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
@@ -11,6 +12,7 @@ import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONObject
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
@@ -102,7 +104,7 @@ object TurnstileBench {
         val urls = runCatching { File(context.getExternalFilesDir(null), "bench-urls.txt").readLines() }
             .getOrDefault(emptyList())
             .map(String::trim)
-            .filter { it.startsWith("https://") }
+            .filter { it.startsWith("https://") && it.toHttpUrlOrNull() != null }
         if (urls.isEmpty()) return null
         val url = urls[nextSite++ % urls.size]
         val httpUrl = url.toHttpUrl()
@@ -133,9 +135,17 @@ object TurnstileBench {
             log("this WebView has no isolated world, so nothing can be read without disturbing the page")
             return
         }
+        var finish: () -> Unit = {}
         val webView = WebView(context).apply {
             setDefaultSettings()
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                // Unhandled, a renderer death takes the app down with the page.
+                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                    log("renderer gone, crashed=${detail.didCrash()}")
+                    finish()
+                    return true
+                }
+            }
         }
         val solve = TurnstileSolver.attach(
             webView,
@@ -178,15 +188,17 @@ object TurnstileBench {
 
         load(webView)
 
-        Handler(Looper.getMainLooper()).postDelayed(
-            {
+        var finished = false
+        finish = {
+            if (!finished) {
+                finished = true
                 solve.cancel()
                 TurnstileSolver.detach(webView)
                 webView.destroy()
                 log("done, final phase ${solve.phase}")
-            },
-            RUN_MS,
-        )
+            }
+        }
+        Handler(Looper.getMainLooper()).postDelayed({ finish() }, RUN_MS)
     }
 
     private fun log(line: String) = logcat(LogPriority.INFO) { line }
