@@ -56,6 +56,11 @@ class DownloaderQueueRestoreTest {
         every { getSharedPreferences(any(), any()) } returns FakeSharedPreferences()
     }
     private val store = storeOn(context)
+    private val provider = DownloadProvider(
+        context,
+        mockk<StorageManager> { every { getDownloadsDirectory() } returns folder },
+        LibraryPreferences(InMemoryPreferenceStore()),
+    )
 
     private fun storeOn(context: Context) = DownloadStore(
         context,
@@ -153,6 +158,36 @@ class DownloaderQueueRestoreTest {
         downloader.queueState.value.map { it.chapter.id } shouldBe listOf(4L)
     }
 
+    @Test
+    fun `deleting a manga while its saved queue is restored keeps its chapters out`() = runTest {
+        store.addAll(listOf(Download(source, manga, chapter(3L))))
+        gateChapterLoad = true
+        val downloader = downloader()
+        testScheduler.advanceUntilIdle()
+
+        val delete = async { manager(downloader).deleteManga(manga, source) }
+        testScheduler.advanceUntilIdle()
+        chapterGate.complete(Unit)
+        delete.await()
+        testScheduler.advanceUntilIdle()
+
+        downloader.queueState.value shouldBe emptyList()
+    }
+
+    private fun manager(downloader: Downloader) = DownloadManager(
+        context = context,
+        provider = provider,
+        cache = mockk(relaxed = true),
+        getCategories = mockk(),
+        getManga = mockk(),
+        getChapter = mockk(),
+        sourceManager = mockk(),
+        downloadPreferences = DownloadPreferences(EmittingPreferenceStore()),
+        downloader = downloader,
+        pendingDeleter = mockk(),
+        sourceTitles = mockk(),
+    )
+
     private fun TestScope.downloader(): Downloader {
         // The restore is launched on Main and reads on IO, both on the test's clock, so it waits to be run.
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
@@ -160,11 +195,7 @@ class DownloaderQueueRestoreTest {
         return Downloader(
             scope = testAppScope(),
             context = context,
-            provider = DownloadProvider(
-                context,
-                mockk<StorageManager> { every { getDownloadsDirectory() } returns folder },
-                LibraryPreferences(InMemoryPreferenceStore()),
-            ),
+            provider = provider,
             cache = mockk(relaxed = true),
             sourceManager = mockk<SourceManager>().also { coEvery { it.get(manga.source) } returns source },
             chapterCache = mockk(relaxed = true),
