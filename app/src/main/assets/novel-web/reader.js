@@ -1864,7 +1864,9 @@
       if (marker) container.appendChild(marker);
       container.appendChild(chapter);
     }
-    runScripts(chapter);
+    // Only on the site the document was loaded under: in a merged series a neighbour can come from another
+    // source, whose scripts would otherwise run with this one's cookies and storage.
+    if (sameSiteAsDocument(baseUrl)) runScripts(chapter);
     window.rkReader.refresh();
     // Room below a line that landed short, measured now the chapter is in.
     if (!atStart) topLine.reland();
@@ -1877,6 +1879,15 @@
    * A created script is otherwise async, so an inline one ran ahead of the library it needs. The
    * pipeline strips scripts unless "Run scripts a chapter embeds" is on.
    */
+  function sameSiteAsDocument(baseUrl) {
+    if (!baseUrl) return false;
+    try {
+      return new URL(baseUrl).origin === new URL(document.baseURI).origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function runScripts(root) {
     var pending = Array.prototype.slice.call(root.querySelectorAll('script'));
     (function next() {
