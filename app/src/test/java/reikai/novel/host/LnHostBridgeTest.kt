@@ -14,8 +14,10 @@ import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
+import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Test
@@ -214,6 +216,49 @@ class LnHostBridgeTest {
         }
 
         LnPluginHost.JSON.parseToJsonElement(response).jsonObject["body"]?.jsonPrimitive?.content shouldBe "{\"ok\":1}"
+    }
+
+    // Madara-family plugins POST with no body, which OkHttp refuses outright for POST, PUT and PATCH.
+    @Test
+    fun `a bodyless POST goes out with an empty body`() {
+        sent("""{"method":"POST"}""").body?.contentLength() shouldBe 0L
+    }
+
+    @Test
+    fun `a form post goes out as multipart with each field`() {
+        val body = sent("""{"method":"POST","multipart":[["q","dragon"],["page","2"]]}""").body as MultipartBody
+
+        body.parts.map { it.headers?.get("Content-Disposition") } shouldBe
+            listOf("form-data; name=\"q\"", "form-data; name=\"page\"")
+    }
+
+    // Laravel and Inertia sites refuse a write without the token their cookie carries, echoed as a header.
+    @Test
+    fun `the site's XSRF cookie is echoed as its header`() {
+        sent("{}", jarXsrf = "a%3Db").header("X-XSRF-TOKEN") shouldBe "a=b"
+    }
+
+    @Test
+    fun `an XSRF header the plugin set is kept`() {
+        sent("""{"headers":{"X-XSRF-TOKEN":"mine"}}""", jarXsrf = "a%3Db").header("X-XSRF-TOKEN") shouldBe "mine"
+    }
+
+    // The request one fetch sends, with the jar holding [jarXsrf] as the site's XSRF-TOKEN cookie.
+    private fun sent(optsJson: String, jarXsrf: String? = null): Request {
+        val seen = AtomicReference<Request>()
+        val jar = object : CookieJar {
+            override fun loadForRequest(url: HttpUrl) =
+                listOfNotNull(jarXsrf?.let { Cookie.Builder().name("XSRF-TOKEN").value(it).domain(url.host).build() })
+
+            override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = Unit
+        }
+        val client = OkHttpClient.Builder().cookieJar(jar).addInterceptor { chain ->
+            seen.set(chain.request())
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("")
+                .body("".toResponseBody()).build()
+        }.build()
+        LnHostBridge(mockk(relaxed = true), client) { "agent" }.runFetch("https://example.org/api", optsJson) {}
+        return seen.get()
     }
 
     // The [header] a local server receives for one fetch, with the jar holding `session=stored`.
