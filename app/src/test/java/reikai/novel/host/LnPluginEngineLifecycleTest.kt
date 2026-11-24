@@ -12,6 +12,8 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.Closeable
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -56,6 +58,22 @@ class LnPluginEngineLifecycleTest {
         runCurrent()
 
         shouldThrow<LnPluginException> { slot.withLockAndTimeout(30_000L, "queued") { "queued" } }
+    }
+
+    // Left locked, every later call to the plugin would wait out its timeout until the app restarts.
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `a call that runs out of time or fails leaves its plugin free`(timesOut: Boolean) = runTest {
+        val slot = Mutex()
+
+        runCatching {
+            slot.withLockAndTimeout(30_000L, "ended") {
+                if (timesOut) delay(60_000L) else error("failed")
+                "ended"
+            }
+        }
+
+        slot.isLocked shouldBe false
     }
 
     @Test

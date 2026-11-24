@@ -500,7 +500,10 @@ class LnPluginHost(
         args: List<JsonElement>,
     ): JsonElement {
         val slot = pluginSlots[pluginId] ?: throw LnPluginException("plugin not loaded: $pluginId")
-        return slot.mutex.withLockAndTimeout(CALL_TIMEOUT_MS, method) {
+        // A call that runs out of time carries its last failed fetch as a rejected one does, so the error can
+        // name the site's answer or the lost connection rather than only the timeout.
+        return slot.mutex.withLockAndTimeout(CALL_TIMEOUT_MS, method, { slot.fetchFailure.get() }) {
+            slot.fetchFailure.set(null)
             var started = false
             try {
                 callLocked(slot, method, args) { started = true }
@@ -526,7 +529,6 @@ class LnPluginHost(
         return slot.onThread {
             val q = slot.engine()
             val failure = slot.fetchFailure
-            failure.set(null)
             onStarted()
             val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
             // __lnCallMethod is async, and evaluate returns the Promise rather than its value, so the
@@ -674,8 +676,10 @@ internal fun derivesLatestSupport(pluginSource: String): Boolean =
 internal suspend fun <T : Any> withPluginTimeout(
     timeoutMs: Long,
     what: String,
+    cause: () -> Throwable? = { null },
     block: suspend CoroutineScope.() -> T,
-): T = withTimeoutOrNull(timeoutMs, block) ?: throw LnPluginException("$what timed out after ${timeoutMs / 1000}s")
+): T = withTimeoutOrNull(timeoutMs, block)
+    ?: throw LnPluginException("$what timed out after ${timeoutMs / 1000}s", cause())
 
 /**
  * [block] under one of these permits, timed from when it holds one: a bulk load queues every plugin at
@@ -685,7 +689,7 @@ internal suspend fun <T : Any> Semaphore.withPermitAndTimeout(
     timeoutMs: Long,
     what: String,
     block: suspend CoroutineScope.() -> T,
-): T = withPermit { withPluginTimeout(timeoutMs, what, block) }
+): T = withPermit { withPluginTimeout(timeoutMs, what, block = block) }
 
 /**
  * [block] under this lock, timed from when it holds it, as [withPermitAndTimeout] times a queued read. The
@@ -695,9 +699,10 @@ internal suspend fun <T : Any> Semaphore.withPermitAndTimeout(
 internal suspend fun <T : Any> Mutex.withLockAndTimeout(
     timeoutMs: Long,
     what: String,
+    cause: () -> Throwable? = { null },
     block: suspend CoroutineScope.() -> T,
 ): T = withLockWithin(timeoutMs, { LnPluginException("$what waited over ${timeoutMs / 1000}s for its plugin") }) {
-    withPluginTimeout(timeoutMs, what, block)
+    withPluginTimeout(timeoutMs, what, cause, block)
 }
 
 /**
