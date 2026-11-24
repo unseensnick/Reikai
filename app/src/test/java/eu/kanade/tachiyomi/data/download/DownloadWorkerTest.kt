@@ -28,19 +28,17 @@ class DownloadWorkerTest {
         tick()
 
         f.downloader.isRunning shouldBe false
+        f.downloader.isPaused shouldBe true
     }
 
-    /** A reorder pauses and restarts the downloader itself; the worker restarts only what it stopped. */
     @Test
-    fun `the worker leaves a downloader paused by someone else to them`() = workerTest { f ->
-        f.queue()
-        f.startWorker()
-        tick()
+    fun `a connection lost once the queue has emptied leaves nothing paused`() = workerTest { f ->
+        f.restored.complete(emptyList())
+        f.downloader.awaitQueueRestored()
 
-        f.downloader.pause()
-        tick()
+        f.downloader.stop("No network")
 
-        f.downloader.isRunning shouldBe false
+        f.downloader.isPaused shouldBe false
     }
 
     @Test

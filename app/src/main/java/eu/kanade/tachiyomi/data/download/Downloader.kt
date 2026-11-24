@@ -231,7 +231,7 @@ class Downloader(
         // in-flight chapter and strand the progress notification. Re-queue it and show the
         // resumable Paused notification instead of a dead-end warning. DownloadWorker keeps its
         // network monitor alive and resumes when connectivity returns.
-        if (reason != null) {
+        if (reason != null && queueState.value.isNotEmpty()) { // an emptied queue has nothing to resume, so it stops
             queueState.value
                 .filter { it.status == Download.State.DOWNLOADING }
                 .forEach { it.status = Download.State.QUEUE }

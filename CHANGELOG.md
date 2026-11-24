@@ -160,6 +160,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A downloaded novel chapter with pictures keeps the styling its source sent.**
 - **The first chapter downloaded after a library update now waits out its site's download delay.** So does one queued just after other downloads from the same site finish.
 - **Manga cards in the download queue now read Queued while the queue waits for a network, as novel cards do.**
+- **Manga downloads that lose the network just as the last chapter finishes no longer leave a Paused notice up.**
 - **A downloaded novel chapter stays readable offline when an update is cancelled just as its source renames it.**
 - **A novel source slowed down by failed downloads returns to your set delay once its queued chapters finish.** It used to stay slow until the app restarted.
 - **The per-source delay count under Settings -> Downloads no longer counts sources you have uninstalled.** Their delay comes back if you reinstall them.
