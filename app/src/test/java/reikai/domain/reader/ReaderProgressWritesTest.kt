@@ -69,6 +69,20 @@ class ReaderProgressWritesTest {
         landed shouldBe listOf(1, 2)
     }
 
+    /** A Main that posts stands in for a caller off the main thread; one that runs at once, for a caller on it. */
+    @Test
+    fun `a write launched off the main thread still lands before one launched after it on main`() = runTest {
+        val landed = mutableListOf<Int>()
+        val writes = ReaderProgressWrites(this)
+
+        writes.launch { landed += 1 }
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        writes.launch { landed += 2 }
+        advanceUntilIdle()
+
+        landed shouldBe listOf(1, 2)
+    }
+
     @Test
     fun `awaiting the writes returns only once the one in flight has landed`() = runTest {
         var landed = false

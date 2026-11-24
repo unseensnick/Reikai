@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.merge.ChapterUnit
@@ -65,7 +66,11 @@ class NovelProgressSlot(
         /** Read aloud's place is the last one saved, with no report of the reader's own since. */
         @Volatile var spokenHeld = false
 
-        val save = ReaderProgressSave<Long, Held>(scope) { key, held -> persist(key, held.at, held.context) }
+        // The delayed write on Main, as the reader's own reports are: persist fills unwritten and then
+        // queues the write, two steps a second thread could interleave with an older position.
+        val save = ReaderProgressSave<Long, Held>(scope + Dispatchers.Main.immediate) { key, held ->
+            persist(key, held.at, held.context)
+        }
     }
 
     private val chapters = ConcurrentHashMap<Long, Chapter>()

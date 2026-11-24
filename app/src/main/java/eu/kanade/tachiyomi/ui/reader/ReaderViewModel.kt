@@ -1499,11 +1499,13 @@ class ReaderViewModel(
 
     /** Jump to an arbitrary chapter chosen in the chapter dialog. */
     fun loadNewChapterFromDialog(chapter: Chapter) {
-        viewModelScope.launchIO {
+        // RK: on Main, as a step is: loadAdjacent flushes the held page and resets requestedPage, both
+        // main-thread state, and moves its own load to IO
+        viewModelScope.launch {
             // RK: resolve against the sheet's list, so tapping an already-read chapter actually opens it
             // instead of silently doing nothing when skip-read has removed it from the navigation list.
             val newChapter = fullChapterList.firstOrNull { it.chapter.id == chapter.id }
-                ?: return@launchIO mutableState.update {
+                ?: return@launch mutableState.update {
                     val failure = AdjacentLoadFailure(chapter.id, null, false)
                     it.copy(adjacentLoadFailure = failure)
                 }
