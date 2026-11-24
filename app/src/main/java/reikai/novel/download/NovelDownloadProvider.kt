@@ -63,6 +63,10 @@ class NovelDownloadProvider(
     @Volatile
     private var folderLabels = novelPreferences.seenNovelSources().get().let(::sourceFolderLabels)
 
+    // Held by a rename with its label swap and by a chapter write, so a write between the two never makes a
+    // folder under the old label the cache no longer reads.
+    private val folderLock = Any()
+
     /**
      * Each source's folder label, emitted only once a source whose label changed has had its folder renamed,
      * so the download cache can rescan on it and find every download where it now is.
@@ -70,9 +74,11 @@ class NovelDownloadProvider(
     val sourceFolders: StateFlow<Map<String, String>> = novelPreferences.seenNovelSources().changes()
         .map(::sourceFolderLabels)
         .onEach { labels ->
-            val renamed = labels.keys.filter { folderLabels[it] != labels[it] }
-            renameSourceFolders(renamed, from = { folderLabels[it] ?: it }, to = { labels.getValue(it) })
-            folderLabels = labels
+            synchronized(folderLock) {
+                val renamed = labels.keys.filter { folderLabels[it] != labels[it] }
+                renameSourceFolders(renamed, from = { folderLabels[it] ?: it }, to = { labels.getValue(it) })
+                folderLabels = labels
+            }
         }
         .stateIn(scope, SharingStarted.Eagerly, folderLabels)
 
@@ -193,9 +199,9 @@ class NovelDownloadProvider(
         chapter: NovelChapter,
         html: String,
         finalName: String = chapterFileName(chapter),
-    ): Boolean {
+    ): Boolean = synchronized(folderLock) {
         val dir = novelDir(novel) ?: return false
-        return runCatchingCancellable {
+        runCatchingCancellable {
             dir.replace(context, finalName) { it.bufferedWriter().use { writer -> writer.write(html) } }
         }
             .onFailure { logcat(LogPriority.WARN, it) { "Could not write ${novel.title} / $finalName" } }
