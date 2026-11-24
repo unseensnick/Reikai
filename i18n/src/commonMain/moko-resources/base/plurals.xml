@@ -85,6 +85,10 @@
         <item quantity="one">Up to %d chapter a minute per source</item>
         <item quantity="other">Up to %d chapters a minute per source</item>
     </plurals>
+    <plurals name="download_card_chapters">
+        <item quantity="one">%1$d/%2$d chapter</item>
+        <item quantity="other">%1$d/%2$d chapters</item>
+    </plurals>
 
     <plurals name="restore_completed_message">
         <item quantity="one">Done in %1$s with %2$s error</item>

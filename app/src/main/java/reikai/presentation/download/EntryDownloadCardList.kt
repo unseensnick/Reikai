@@ -42,6 +42,7 @@ import reikai.util.inOrderOf
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
 
@@ -50,10 +51,9 @@ enum class EntryDownloadCardStatus { QUEUED, DOWNLOADING, ERROR }
 
 /**
  * Neutral model for one download-queue card. Manga and novels each aggregate their queue by series
- * into this, so a single composable renders either (the unified-content-UI seam), including the All
- * view where both types share one list. A card is a whole series (novel / manga), not a single
- * chapter: [downloadedChapters] / [totalChapters] is the aggregate progress, and reorder / cancel act
- * on the series ([seriesId]). [contentType] routes those actions to the right queue and disambiguates
+ * into this, so a single composable renders either in the one queue list both types share. A card
+ * is a whole series (novel / manga), not a single chapter: [downloadedChapters] / [totalChapters]
+ * is the aggregate progress, and reorder / cancel act on the series ([seriesId]). [contentType] routes those actions to the right queue and disambiguates
  * the key, since a manga and a novel can share a numeric id.
  */
 data class EntryDownloadCardUi(
@@ -182,8 +182,9 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = stringResource(
-                            MR.strings.download_card_chapters,
+                        text = pluralStringResource(
+                            MR.plurals.download_card_chapters,
+                            item.totalChapters,
                             item.downloadedChapters,
                             item.totalChapters,
                         ),

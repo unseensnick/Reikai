@@ -86,7 +86,7 @@ class NovelDownloadNotifier(
                 )
             }
             .setContentTitle(
-                "${context.stringResource(MR.strings.label_download_queue)} (${progress.current}/${progress.total})",
+                context.stringResource(MR.strings.download_queue_progress, progress.current, progress.total),
             )
             .setContentText(
                 progress.shownText(
