@@ -17,7 +17,7 @@ import reikai.novel.host.LnPluginInfo
 import reikai.novel.install.LnPluginHarness
 import reikai.presentation.recents.EmittingPreferenceStore
 
-/** A plugin's page clears its site's cookies, as an extension's page does; plugin requests share the jar. */
+/** A plugin's page clears its site's cookies, as an extension's page does, and the site storage holding the same sign-in. */
 class NovelPluginClearCookiesTest {
 
     private val harness = LnPluginHarness(setOf(URL)).also {
@@ -29,7 +29,7 @@ class NovelPluginClearCookiesTest {
     private val jar = mockk<AndroidCookieJar>(relaxed = true)
 
     @Test
-    fun `clearing cookies drops the plugin site's cookies`() = runTest {
+    fun `clearing cookies drops the plugin site's cookies and the sign-in it captured`() = runTest {
         harness.installer.ensureLoaded()
         val model = NovelPluginDetailsViewModel(
             ID,
@@ -42,6 +42,7 @@ class NovelPluginClearCookiesTest {
             mockk(relaxed = true),
             SourcePreferences(EmittingPreferenceStore()),
             mockk(relaxed = true),
+            { harness.host },
         )
         backgroundScope.launch { model.state.collect {} }
         model.state.first { it is NovelPluginDetailsViewModel.State.Success }
@@ -49,6 +50,7 @@ class NovelPluginClearCookiesTest {
         model.clearCookies()
 
         verify { jar.remove(SITE.toHttpUrl(), any(), any()) }
+        verify { harness.host.forgetWebStorage(ID) }
     }
 
     private companion object {

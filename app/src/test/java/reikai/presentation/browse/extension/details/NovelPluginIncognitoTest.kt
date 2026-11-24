@@ -73,6 +73,7 @@ class NovelPluginIncognitoTest {
                 getIncognitoState,
                 sourcePreferences,
                 ToggleIncognito(sourcePreferences),
+                { mockk(relaxed = true) },
             ),
         )
         backgroundScope.launch { model.state.collect {} }

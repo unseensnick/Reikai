@@ -20,8 +20,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import reikai.novel.host.LnPluginHost
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.network.webViewHeadersFor
+import reikai.novel.source.isNovelAppSourceId
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
@@ -33,6 +35,7 @@ class WebViewViewModel(
     @Assisted private val url: String,
     @Assisted private val novelSourceId: String?,
     private val novelImageRequests: NovelImageRequests,
+    private val pluginHost: () -> LnPluginHost,
     // RK <--
     private val sourceManager: SourceManager,
     private val network: NetworkHelper,
@@ -86,6 +89,8 @@ class WebViewViewModel(
     fun clearCookies(url: String) {
         url.toHttpUrlOrNull()?.let {
             val cleared = network.cookieJar.remove(it)
+            // RK: a plugin's captured site storage carries the same sign-in, so it goes with the cookies
+            novelSourceId?.takeUnless(::isNovelAppSourceId)?.let { id -> pluginHost().forgetWebStorage(id) }
             logcat { "Cleared $cleared cookies for: $url" }
         }
     }

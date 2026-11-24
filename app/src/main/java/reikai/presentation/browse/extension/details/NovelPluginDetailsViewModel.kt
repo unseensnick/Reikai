@@ -30,6 +30,7 @@ import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.SourceKey
+import reikai.novel.host.LnPluginHost
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRepoRegistries
@@ -55,6 +56,7 @@ class NovelPluginDetailsViewModel(
     private val getIncognitoState: GetIncognitoState,
     sourcePreferences: SourcePreferences,
     private val toggleIncognito: ToggleIncognito,
+    private val pluginHost: () -> LnPluginHost,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -80,10 +82,14 @@ class NovelPluginDetailsViewModel(
         source?.let { novelPluginDetails(it, metadata, repos, isIncognito) } ?: State.Uninstalled
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State.Loading)
 
-    /** Drops the plugin site's cookies, as an extension's page does for its sources' sites; plugin requests share the jar. */
+    /**
+     * Drops the plugin site's cookies, as an extension's page does for its sources' sites; plugin requests share the
+     * jar. And the site storage the plugin captured, which carries the same sign-in.
+     */
     fun clearCookies() {
         val site = (state.value as? State.Success)?.plugin?.site?.toHttpUrlOrNull() ?: return
         val cleared = network.cookieJar.remove(site)
+        pluginHost().forgetWebStorage(pluginId)
         logcat { "Cleared $cleared cookies for: $site" }
     }
 

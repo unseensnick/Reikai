@@ -68,6 +68,7 @@ class NovelPluginDetailsUninstallTest {
                 mockk(relaxed = true),
                 SourcePreferences(EmittingPreferenceStore()),
                 mockk(relaxed = true),
+                { mockk(relaxed = true) },
             )
         store.put("details", model)
         model.uninstall()
