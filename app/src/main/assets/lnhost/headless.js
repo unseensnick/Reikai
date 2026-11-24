@@ -7,6 +7,7 @@
 //   __lnLog(level, message)            -- sync
 //   __lnGetStorage(key)                -- sync, returns string|null (runtime only, see below)
 //   __lnSetStorage(key, val)           -- sync, val null deletes (runtime only, see below)
+//   __lnDelay(ms, id)                  -- async, resolves after ms; the setTimeout shim's clock
 //   __lnFetch(url, optsJson)           -- async, returns a JSON FetchResponse string
 //   __lnFetchViaWebview(url, optsJson) -- async, returns LNReader's {ok, url, html, title} as JSON;
 //                                         Kotlin refuses an address off the plugin's own site
@@ -776,7 +777,7 @@
 
   // gRPC-web client. protobufjs (vendored) parses the plugin's .proto string and encodes/decodes
   // messages; we add the 5-byte gRPC-web frame, which request() carries over the Kotlin bridge as
-  // bytes (QuickJS has no Blob/FileReader, so we can't use lnreader's transport).
+  // bytes (QuickJS has no FileReader, so we can't use lnreader's transport).
   async function fetchProto(protoInit, url, init) {
     var pb = globalThis.protobuf;
     if (!pb) throw new Error("protobufjs not loaded");
@@ -914,7 +915,7 @@
     return url.indexOf("://") < url.indexOf(".");
   }
   function utf8ToBytes(s) {
-    return Array.from(new TextEncoder().encode(s));
+    return new TextEncoder().encode(s);
   }
   function bytesToUtf8(b) {
     return new TextDecoder().decode(new Uint8Array(b));
