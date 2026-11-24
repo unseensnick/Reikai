@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.mockk.mockk
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoChapterNumberOverrides
@@ -49,6 +50,7 @@ fun mangaRestorer(
     readingLog: ReadingLogRepository = NoReadingLog,
     localVolumes: LocalVolumeRepository = NoLocalVolumes,
     volumePicks: VolumePickRepository = NoVolumePicks,
+    copyMarks: ChapterCopyMarkRepository = InMemoryChapterCopyMarks(),
 ): MangaRestorer {
     val mangas = MangaRepositoryImpl(database)
     val chapters = ChapterRepositoryImpl(database)
@@ -63,7 +65,7 @@ fun mangaRestorer(
             mangaMetadataRepository = MangaMetadataRepositoryImpl(database),
             setCustomMangaInfo = SetCustomMangaInfo(customInfo),
             chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
-            copyMarks = InMemoryChapterCopyMarks(),
+            copyMarks = copyMarks,
             readingLog = readingLog,
         ),
         getCategories = GetCategories(CategoryRepositoryImpl(database)),

@@ -1,9 +1,11 @@
 package eu.kanade.tachiyomi.data.backup
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.tachiyomi.data.backup.create.creators.MangaBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
+import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -12,6 +14,10 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelHistoryRepositoryImpl
+import reikai.data.novel.NovelRepositoryImpl
+import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.ChapterCopyMarkRepository
@@ -21,16 +27,19 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
-import reikai.domain.chapter.backedUpCopyMarks
+import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
+import tachiyomi.data.Database
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.History
 import tachiyomi.domain.manga.model.Manga
@@ -153,8 +162,13 @@ class BackupDatesConformanceTest {
                 )
             }
 
-            override fun restoredMarks(wire: ByteArray) = ProtoBuf.decodeFromByteArray(BackupManga.serializer(), wire)
-                .let { backedUpCopyMarks(it.chapters, { chapter -> chapter.url }, { chapter -> chapter.copyMark }) }
+            override suspend fun restoredMarks(wire: ByteArray): Map<String, CopyMark> =
+                MangaRestoreHarness.create().use { harness ->
+                    val marks = InMemoryChapterCopyMarks()
+                    mangaRestorer(harness.database, copyMarks = marks)
+                        .restore(listOf(ProtoBuf.decodeFromByteArray(BackupManga.serializer(), wire)), emptyList())
+                    marks.loadedMarks(ContentType.MANGA).values.flatMap { it.entries }.associate { it.key to it.value }
+                }
         },
         NOVEL(ContentType.NOVELS) {
             override suspend fun backUp(dates: Dates, marks: ChapterCopyMarkRepository): ByteArray {
@@ -226,8 +240,22 @@ class BackupDatesConformanceTest {
                 )
             }
 
-            override fun restoredMarks(wire: ByteArray) = ProtoBuf.decodeFromByteArray(BackupNovel.serializer(), wire)
-                .let { backedUpCopyMarks(it.chapters, { chapter -> chapter.url }, { chapter -> chapter.copyMark }) }
+            override suspend fun restoredMarks(wire: ByteArray): Map<String, CopyMark> {
+                val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+                Database.Schema.create(driver).await()
+                val database = DatabaseBindings.providesDatabase(driver)
+                val marks = InMemoryChapterCopyMarks()
+                try {
+                    novelRestorer(database, marks)
+                        .restore(ProtoBuf.decodeFromByteArray(BackupNovel.serializer(), wire), emptyList())
+                } finally {
+                    driver.close()
+                }
+                return marks.loadedMarks(ContentType.NOVELS).values.flatMap { it.entries }.associate {
+                    it.key to
+                        it.value
+                }
+            }
         },
         ;
 
@@ -238,8 +266,8 @@ class BackupDatesConformanceTest {
 
         abstract fun restore(wire: ByteArray): Dates
 
-        /** The duplicate marks the restorer reads off the wire, through the kernel both restorers call. */
-        abstract fun restoredMarks(wire: ByteArray): Map<String, CopyMark>
+        /** The duplicate marks the type's real restorer stores from the wire. */
+        abstract suspend fun restoredMarks(wire: ByteArray): Map<String, CopyMark>
     }
 
     private companion object {
@@ -270,3 +298,23 @@ class BackupDatesConformanceTest {
         )
     }
 }
+
+/** The novel restore over [database]'s novels, chapters and history, with [copyMarks] to read back. */
+private fun novelRestorer(database: Database, copyMarks: ChapterCopyMarkRepository) = NovelRestorer(
+    tombstones = NoChapterTombstoneRepository,
+    manualOrder = FakeLibraryManualOrderRepository(),
+    novelRepository = NovelRepositoryImpl(database),
+    novelChapterRepository = NovelChapterRepositoryImpl(database),
+    categoryRepository = mockk(relaxed = true),
+    novelTrackRepository = NovelTrackRepositoryImpl(database),
+    restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
+    setCustomNovelInfo = mockk(relaxed = true),
+    novelHistoryRepository = NovelHistoryRepositoryImpl(database),
+    chapterNumberOverrides = NoChapterNumberOverrides,
+    copyMarks = copyMarks,
+    localVolumes = NoLocalVolumes,
+    volumePicks = NoVolumePicks,
+    readingLog = NoReadingLog,
+    readingPace = NoReadingPace,
+    localNovelLanguages = NoLocalNovelLanguages,
+)
