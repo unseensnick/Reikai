@@ -705,8 +705,10 @@ class NovelReaderViewModel(
     @Volatile
     private var downloadTargets: DownloadTargets = DownloadTargets.OWN
 
-    // Above init, which starts the load on IO: one declared below can still be unassigned when it is read.
-    /** Reads [orderedIds] and the rest of the session's order again, from the chapter being read. */
+    /**
+     * Reads [orderedIds] and the rest of the session's order again, from the chapter being read. Declared
+     * above init, which starts the load on IO: one declared below can still be unassigned when it is read.
+     */
     private val orderResolver = NovelReadingOrderResolver(
         getNextNovelChapter,
         novelRepo,
