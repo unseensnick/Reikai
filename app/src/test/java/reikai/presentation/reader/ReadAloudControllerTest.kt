@@ -854,6 +854,16 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `a pause while the next chapter loads marks its first paragraph without following it`() = runTest {
+        val controller = endingOnAChapterToLoad()
+        meanwhile { controller.pause() }
+
+        act { navigation.complete(2L, listOf("x", "y")) }
+
+        surface.follows.last() shouldBe false
+    }
+
+    @Test
     fun `resuming after a paused handoff starts the new chapter at its first sentence`() = runTest {
         sentenceChapter()
         preferences.readerTtsAutoPageAdvance().set(true)
@@ -1154,15 +1164,6 @@ class ReadAloudControllerTest {
         act { controller.onRendererLanded() }
 
         engine.spoken shouldBe listOf("b")
-    }
-
-    @Test
-    fun `the reader opening a chapter stops read aloud`() = runTest {
-        val controller = playing()
-
-        act { controller.onUserNavigated() }
-
-        controller.state.value.playback shouldBe TtsPlayback.Stopped
     }
 
     @Test

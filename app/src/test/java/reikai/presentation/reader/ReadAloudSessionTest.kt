@@ -275,6 +275,16 @@ class ReadAloudSessionTest {
     }
 
     @Test
+    fun `the reader opening a chapter itself stops read aloud`() = sessionTest { harness ->
+        val reading = reading(harness)
+
+        reading.model.open(reading.chapters[2].id)
+        advanceUntilIdle()
+
+        harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Stopped
+    }
+
+    @Test
     fun `starting read aloud on another novel replaces the one being read`() = sessionTest { harness ->
         val first = reading(harness)
         val other = harness.novel(harness.source("other"), title = "Other")

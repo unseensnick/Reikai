@@ -213,8 +213,8 @@ class ReadAloudSession(
 
     fun readFromHere() = running?.controller?.readFromHere()
 
-    fun pause(reason: TtsPauseReason = TtsPauseReason.User) {
-        running?.pauseFor(reason)
+    fun pause() {
+        running?.pauseFor(TtsPauseReason.User)
     }
 
     fun stop() {
@@ -555,11 +555,8 @@ class ReadAloudSession(
                 onSeek: (paragraph: Int) -> Unit,
             ) = notification.connect(
                 onPlay = onPlay,
-                onPause = { reason ->
-                    pauseReason = reason
-                    onPause()
-                    holdPausedStop()
-                },
+                // pauseFor runs the controller's own pause, which is what onPause is.
+                onPause = ::pauseFor,
                 onStop = onStop,
                 onNext = onNext,
                 onPrevious = onPrevious,

@@ -254,11 +254,6 @@ class ReadAloudController(
         transport.release()
     }
 
-    /** The reader opened a chapter itself, which read-aloud does not follow. */
-    fun onUserNavigated() {
-        if (playback != TtsPlayback.Stopped) stop()
-    }
-
     /**
      * The renderer started over: the same text laid out again (a
      * rotation, a mode switch, a setting reload) or a reader that has just joined, where the paragraphs
@@ -406,7 +401,8 @@ class ReadAloudController(
         speakableInChapter = false
         spokeInChapter = false
         moveTo(id, 0)
-        surface?.highlight(position)
+        // Paused, so the reader may have scrolled away to reread: mark the paragraph, never pull them to it.
+        surface?.highlight(position, follows = false)
         publish()
     }
 
@@ -578,8 +574,7 @@ class ReadAloudController(
     private fun savePosition() {
         val at = position?.takeIf { it != saved } ?: return
         saved = at
-        val words = wordsBefore.last()
-        navigation.savePosition(at.chapterId, if (words > 0) wordsBefore[at.paragraph].toDouble() / words else 0.0)
+        navigation.savePosition(at.chapterId, shareOf(wordsBefore, at.paragraph))
     }
 
     private fun publish(stopReason: ReadAloudStop? = null) {
