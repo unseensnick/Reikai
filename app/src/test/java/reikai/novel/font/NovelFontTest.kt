@@ -2,6 +2,8 @@ package reikai.novel.font
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 /**
  * The rules that decide whether a font is usable at all. They run before anything is written, so a
@@ -54,25 +56,11 @@ class NovelFontTest {
         firstSupportedFontUrl(css) shouldBe "https://fonts.gstatic.com/s/lora/v35/b.ttf"
     }
 
-    @Test
-    fun `a truetype file is recognised by its header`() {
-        isSfntHeader(byteArrayOf(0x00, 0x01, 0x00, 0x00)) shouldBe true
-    }
-
-    @Test
-    fun `an opentype file is recognised by its header`() {
-        isSfntHeader("OTTO".toByteArray()) shouldBe true
-    }
-
-    /** A woff2 file renamed to .ttf, which is what the name check alone would let through. */
-    @Test
-    fun `a woff2 file is refused by its header whatever it is called`() {
-        isSfntHeader("wOF2".toByteArray()) shouldBe false
-    }
-
-    @Test
-    fun `a file too short to have a header is refused`() {
-        isSfntHeader(byteArrayOf(0x00, 0x01)) shouldBe false
+    /** wOF2 is a woff2 file renamed to .ttf, which is what the name check alone would let through. */
+    @ParameterizedTest
+    @CsvSource("00010000,true", "74727565,true", "4F54544F,true", "74746366,true", "774F4632,false", "0001,false")
+    fun `a font is recognised by its header`(hex: String, usable: Boolean) {
+        isSfntHeader(hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()) shouldBe usable
     }
 
     @Test

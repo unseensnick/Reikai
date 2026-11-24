@@ -2,6 +2,8 @@ package reikai.presentation.reader.text
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 /** The chapter-swipe rule the native renderer runs and the WebView page restates (reader.js). */
 class ChapterSwipeTest {
@@ -29,9 +31,11 @@ class ChapterSwipeTest {
         chapterSwipeStep(dx = -300f, dy = 150f, startX = 900f, width = width, minimum = minimum) shouldBe null
     }
 
-    @Test
-    fun `a swipe started on the half it moves towards does not step`() {
-        chapterSwipeStep(dx = 300f, dy = 0f, startX = 600f, width = width, minimum = minimum) shouldBe null
+    /** A swipe started on the half it moves towards does not step; the middle counts as either half. */
+    @ParameterizedTest
+    @CsvSource("300,600,", "-300,400,", "-300,500,true", "300,500,false")
+    fun `a swipe steps only from the half it moves away from`(dx: Float, startX: Float, step: Boolean?) {
+        chapterSwipeStep(dx = dx, dy = 0f, startX = startX, width = width, minimum = minimum) shouldBe step
     }
 
     @Test

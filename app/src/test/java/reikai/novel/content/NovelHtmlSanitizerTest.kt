@@ -216,6 +216,7 @@ class NovelHtmlSanitizerTest {
         }
 
         sanitized shouldNotContain "<img"
+        sanitized shouldContain "&lt;img"
     }
 
     /** A lazy pattern ran from the first script to the next literal end tag and took the prose between. */

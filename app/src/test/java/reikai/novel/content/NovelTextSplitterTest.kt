@@ -98,7 +98,29 @@ class NovelTextSplitterTest {
     /** An opening tag restarts the count, so a chapter already in paragraphs is left alone. */
     @Test
     fun `an existing paragraph shorter than the target gets no break`() {
-        val html = (1..4).joinToString("") { "<p>${sentences(count = 1, wordsEach = 10)}</p>" }
+        val html = (1..4).joinToString("") { "<p>${sentences(count = 1, wordsEach = 10)} </p>" }
+
+        NovelTextSplitter.splitText(html, wordCount = 25, isHtml = true) shouldBe html
+    }
+
+    /** By tag name, so an opening block carrying attributes restarts the count as a bare one does. */
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "p", "div", "body", "h1", "h2", "h3", "h4", "h5", "h6", "li", "ul", "ol", "blockquote", "tr", "table",
+            "section", "article", "header", "footer",
+        ],
+    )
+    fun `an attributed block shorter than the target gets no break`(tag: String) {
+        val html = (1..4).joinToString("") { "<$tag class=\"x\">${sentences(count = 1, wordsEach = 10)} " }
+
+        NovelTextSplitter.splitText(html, wordCount = 25, isHtml = true) shouldBe html
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["br", "hr"])
+    fun `a line or rule between short runs gets no break`(tag: String) {
+        val html = (1..4).joinToString("<$tag>") { "${sentences(count = 1, wordsEach = 10)} " }
 
         NovelTextSplitter.splitText(html, wordCount = 25, isHtml = true) shouldBe html
     }

@@ -878,6 +878,20 @@ class NovelReaderViewModelTest {
         harness.isRead(first) shouldBe true
     }
 
+    @Test
+    fun `with Show raw HTML on the chapter reaches the reader as its markup`() = readerTest { harness ->
+        harness.novelPreferences.readerShowRawHtml().set(true)
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val chapter = harness.chapter(novel, 1.0)
+        source.texts[chapter.url] = "<p>Text</p>"
+        val model = harness.open(novel, chapter.id)
+        advanceUntilIdle()
+        model.awaitIdleOn(chapter)
+
+        model.window.value.chapters.single().html shouldContain "&lt;p&gt;Text"
+    }
+
     /** The viewport draws only chapters stamped with its own renderer, so the stamp must name what processed them. */
     @Test
     fun `a renderer switch republishes the chapter processed for the new renderer`() = readerTest { harness ->

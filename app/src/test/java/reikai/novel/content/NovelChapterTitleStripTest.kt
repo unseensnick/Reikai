@@ -16,6 +16,22 @@ class NovelChapterTitleStripTest {
         stripped shouldBe "<p>Text.</p>"
     }
 
+    @Test
+    @DisplayName("the first heading is removed whatever its text")
+    fun removesAnyHeading() {
+        val stripped = NovelHtmlUtils.stripChapterTitle("<h1>Prologue</h1><p>Text.</p>", "Chapter 5")
+
+        stripped shouldBe "<p>Text.</p>"
+    }
+
+    @Test
+    @DisplayName("a bare chapter-number line is the title of a longer chapter name")
+    fun chapterNumberLine() {
+        val stripped = NovelHtmlUtils.stripChapterTitle("Chapter 5\nIt was raining.", "Volume 1 Chapter 5: The Storm")
+
+        stripped shouldBe "It was raining."
+    }
+
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = ["script", "style", "textarea", "noscript"])
     @DisplayName("a heading inside a verbatim block is left alone and the chapter's heading is removed")

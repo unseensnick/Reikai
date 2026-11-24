@@ -19,6 +19,12 @@ class NovelWordDensityTest {
         NovelWordDensity.densityTier(NovelWordDensity.tierMinWords(tier)) shouldBe tier
     }
 
+    @ParameterizedTest
+    @CsvSource("1", "2", "5", "9")
+    fun `a tier's highest average lands in it`(tier: Int) {
+        NovelWordDensity.densityTier(NovelWordDensity.tierMaxWords(tier)!!) shouldBe tier
+    }
+
     @Test
     fun `the top tier has no ceiling`() {
         NovelWordDensity.tierMaxWords(NovelWordDensity.MAX_TIER) shouldBe null
