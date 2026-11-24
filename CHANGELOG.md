@@ -98,6 +98,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Searching a novel's downloaded chapters again, or changing a search option, no longer reads every chapter from storage again.**
+- **TalkBack now says which page a paged novel's page picker is showing.**
 - **Chapters a novel's page brings in from the in-app browser are now downloaded when Download new chapters is on.**
 - **Using a novel's page from the in-app browser after closing a pop-up tab now reads the page you are on.**
 - **Adding titles to your library from a Related "See all" list now finishes even if you leave the list first.**
