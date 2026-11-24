@@ -121,7 +121,15 @@ class CloudflareInterceptor(
                         response.close()
                         return@underHostLock false
                     }
-                    if (!prepareWebView()) return response
+                    if (!prepareWebView()) {
+                        // The server needs no WebView, so it is what a device without one is left with
+                        if (!flareSolverr.handles(request)) return response
+                        flareSolverr.markWebViewUnsolvable(request.url.host)
+                        return bypassing(request, response) {
+                            response.close()
+                            flareSolverr.resolve(request, chain.cookieJar)
+                        } ?: response
+                    }
                     solve(chain, request, response)?.let { return it } // a route that answers the request itself
                     false
                 }
