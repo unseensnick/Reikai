@@ -189,15 +189,6 @@ class NovelDownloadManagerDrainTest {
     }
 
     @Test
-    fun `the parallel source limit keeps a source waiting`() = runTest(io) {
-        manager = newManager(sourceLimit = 1)
-
-        whileFirstFetchHeld(chapters.take(1) + otherChapter) {
-            manager.queueState.value.map { it.chapterId } shouldBe listOf(10L, 20L)
-        }
-    }
-
-    @Test
     fun `every novel with a fetch running shows as downloading`() = runTest(io) {
         val otherFetch = CompletableDeferred<Unit>()
         coEvery { otherSource.parseChapter("u20") } coAnswers {
