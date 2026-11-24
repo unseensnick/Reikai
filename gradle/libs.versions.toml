@@ -83,7 +83,7 @@ tapmoc = "0.5.0"
 unifile = "08f224c8f9"
 valkyrie = "0.5.2"
 vico = "3.3.1" # RK
-webgpuviewer = "58.1.5" # RK: Reikai's fork (settings.gradle.kts), upstream 58 plus the spread gap and viewer hooks
+webgpuviewer = "58.1.6" # RK: Reikai's fork (settings.gradle.kts), upstream 58 plus the spread gap and viewer hooks
 xmlutil = "1.0.2"
 
 [libraries]
