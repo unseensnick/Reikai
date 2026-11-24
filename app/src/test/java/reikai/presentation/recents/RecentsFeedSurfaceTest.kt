@@ -35,6 +35,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.history.NovelHistoryViewModel
 import reikai.presentation.updates.NovelUpdatesViewModel
+import reikai.util.testAppScope
 import reikai.util.virtualDispatchers
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.RemoveHistory
@@ -179,6 +180,7 @@ class RecentsFeedSurfaceTest {
                     getHistory = getHistory,
                     removeHistory = mockk<RemoveHistory>(),
                     reikaiSourcePreferences = preferences,
+                    appScope = testAppScope(),
                 ),
             ).state
         }
@@ -200,6 +202,7 @@ class RecentsFeedSurfaceTest {
                     },
                     removeNovelHistory = mockk<RemoveNovelHistory>(),
                     sourcePreferences = preferences,
+                    appScope = testAppScope(),
                 ),
             ).state
         }

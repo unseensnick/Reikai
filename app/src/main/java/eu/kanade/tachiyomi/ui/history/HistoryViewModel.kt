@@ -10,6 +10,7 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -22,8 +23,10 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import logcat.LogPriority
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.overlayCustomInfo
@@ -31,7 +34,6 @@ import reikai.domain.entry.withCustomInfo
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.history.emptyOnFailure
 import tachiyomi.core.common.util.lang.SubscriberGate
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.history.interactor.GetHistory
@@ -51,6 +53,8 @@ class HistoryViewModel(
     private val removeHistory: RemoveHistory,
     // RK: the building surface's category filter, one selection covering both content types.
     private val reikaiSourcePreferences: ReikaiSourcePreferences,
+    // RK: the history removals run here, so a closed tab cannot cut one off
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val subscriberGate = SubscriberGate()
@@ -106,17 +110,19 @@ class HistoryViewModel(
     //     the rendered feed, so a category filter cannot change what resume opens.
     suspend fun getLast(): HistoryWithRelations? = withIOContext { getHistory.getLast() }
 
+    // RK --> on the app scope, so leaving the tab cannot cut a confirmed removal off
     fun removeFromHistory(history: HistoryWithRelations) {
-        viewModelScope.launchIO {
+        appScope.launch {
             removeHistory.await(history)
         }
     }
 
     fun removeAllFromHistory(mangaId: Long) {
-        viewModelScope.launchIO {
+        appScope.launch {
             removeHistory.await(mangaId)
         }
     }
+    // RK <--
 
     // RK: suspends and answers, where upstream launched and announced itself through an event. The
     //     shared surface clears both content types behind one confirmation, so the message belongs to

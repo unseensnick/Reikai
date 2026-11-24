@@ -10,6 +10,7 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -22,8 +23,10 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import logcat.LogPriority
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.overlayCustomInfo
@@ -34,7 +37,6 @@ import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.SubscriberGate
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import kotlin.time.Duration.Companion.seconds
@@ -55,6 +57,8 @@ class NovelHistoryViewModel(
     private val getCustomNovelInfo: GetCustomNovelInfo,
     private val removeNovelHistory: RemoveNovelHistory,
     private val sourcePreferences: ReikaiSourcePreferences,
+    // A removal a closed tab must not cut off runs here.
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val subscriberGate = SubscriberGate()
@@ -106,11 +110,11 @@ class NovelHistoryViewModel(
     suspend fun getLast(): NovelHistoryWithRelations? = getNovelHistory.getLast()
 
     fun removeFromHistory(history: NovelHistoryWithRelations) {
-        viewModelScope.launchIO { removeNovelHistory.await(history) }
+        appScope.launch { removeNovelHistory.await(history) }
     }
 
     fun removeAllFromHistory(novelId: Long) {
-        viewModelScope.launchIO { removeNovelHistory.await(novelId) }
+        appScope.launch { removeNovelHistory.await(novelId) }
     }
 
     /** Suspends and answers, so the shell announces the wipe. */

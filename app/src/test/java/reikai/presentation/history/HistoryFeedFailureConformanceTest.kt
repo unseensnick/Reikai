@@ -24,6 +24,7 @@ import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.testAppScope
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.repository.HistoryRepository
@@ -56,6 +57,7 @@ class HistoryFeedFailureConformanceTest {
                     GetHistory(history),
                     RemoveHistory(history),
                     preferences,
+                    testAppScope(),
                 ),
             ).state.map { it.list }
         }
@@ -71,6 +73,7 @@ class HistoryFeedFailureConformanceTest {
                     GetCustomNovelInfo(customInfo),
                     RemoveNovelHistory(history),
                     preferences,
+                    testAppScope(),
                 ),
             ).state.map { it.list }
         }
