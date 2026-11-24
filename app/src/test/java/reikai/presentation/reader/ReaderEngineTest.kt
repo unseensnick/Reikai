@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryCustomInfo
@@ -284,15 +285,22 @@ class ReaderEngineTest {
         engine.dialog.value shouldBe ReaderDialog.LoadFailed("no connection", canKeepReading = true)
     }
 
-    @Test
-    fun `a failure offers the page of the chapter that failed`() {
+    /** A site challenge is solved on the page it blocked, which can be another address than the chapter's. */
+    @ParameterizedTest(name = "blocked {0}")
+    @CsvSource("none, https://site.example/7", "https://site.example/cdn-cgi, https://site.example/cdn-cgi")
+    fun `a failure offers the page a challenge blocked, else the chapter's own`(blocked: String, page: String) {
         val provider = FakeReaderProvider()
         provider.chapterPages[7L] = "https://site.example/7"
         val engine = engine(provider)
 
-        provider.loadState.value = ReaderLoadState.Failed("no connection", canKeepReading = true, chapterId = 7L)
+        provider.loadState.value = ReaderLoadState.Failed(
+            "blocked",
+            canKeepReading = true,
+            chapterId = 7L,
+            blockedUrl = blocked.takeUnless { it == "none" },
+        )
 
-        (engine.dialog.value as ReaderDialog.LoadFailed).webUrl shouldBe "https://site.example/7"
+        (engine.dialog.value as ReaderDialog.LoadFailed).webUrl shouldBe page
     }
 
     @Test
