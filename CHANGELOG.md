@@ -206,6 +206,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **With TalkBack, a keyboard or a D-pad, activating a novel paragraph now opens the reader menu instead of turning the page.**
 - **In incognito, changing the manga reader's reading mode or rotation no longer sends you back to the page you opened at.**
 - **Selecting text in a novel now offers your installed apps' text actions too, such as a dictionary or a translator, and Web search.** This needs Settings -> Novel reader -> Select text by long press.
 - **On a busy phone, the manga reader no longer sometimes picks the wrong automatic reading mode as it opens.** It also no longer sends a merged chapter's web actions to the wrong source.

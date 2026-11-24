@@ -273,6 +273,9 @@ class NovelTextViewport(
     private var touchDownX = 0f
     private var touchDownY = 0f
 
+    // Whether a finger went down since the last click, so a click with none (TalkBack, a D-pad, Enter) is told apart.
+    private var touchUnclicked = false
+
     /** Whether the touch on screen has left where it went down ([hasTravelled]). */
     private var dragging = false
 
@@ -356,6 +359,7 @@ class NovelTextViewport(
                 MotionEvent.ACTION_DOWN -> {
                     touchDownX = e.x
                     touchDownY = e.y
+                    touchUnclicked = true
                     dragging = false
                     multiTouch = false
                     pagedLayoutManager?.fingerDown = true
@@ -1323,6 +1327,14 @@ class NovelTextViewport(
         return true
     }
 
+    /** A finger's click reads the zone it went down in. One without a touch has no point to read a zone at, and the
+     *  last finger's or the corner turned a page, so it opens the menu, the one action every reader can reach. */
+    private fun onClick(tap: (Float, Float) -> Unit) {
+        val touched = touchUnclicked && !dragging
+        touchUnclicked = false
+        if (touched) tap(touchDownX, touchDownY) else callbacks.onToggleMenu()
+    }
+
     /**
      * A tap read through the session's tap zones, which the WebView renderer asks too, with a
      * three-quarter-screen step. Read from the live settings, so a layout change takes effect at once.
@@ -2069,7 +2081,7 @@ class NovelTextViewport(
             // every tap: the Editor swallows a click on the text but not one past its last line.
             // Without selection the click is the owner instead, because LinkOnlyMovementMethod
             // cancels the click a tap on a link queued and lets every other tap through to here.
-            if (!textSelectable) setOnClickListener { onTap(touchDownX, touchDownY) }
+            if (!textSelectable) setOnClickListener { onClick(::onTap) }
             setOnTouchListener(dragEndsPress)
             accessibilityDelegate = FailedPictureAccessibility
             // Off on both branches: the click is dispatched by the movement method below, so leaving
@@ -2251,7 +2263,7 @@ class NovelTextViewport(
             bindEnd(holder, position)
             bindBoundaries(holder, position)
             if (!textSelectable) {
-                holder.root.setOnClickListener { onReaderTap(touchDownX, touchDownY) }
+                holder.root.setOnClickListener { onClick(::onReaderTap) }
                 holder.root.setOnTouchListener(dragEndsPress)
             }
         }
