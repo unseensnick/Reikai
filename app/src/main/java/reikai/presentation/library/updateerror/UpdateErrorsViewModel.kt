@@ -13,11 +13,14 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.util.system.workManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import mihon.core.metro.AppCoroutineScope
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
@@ -54,6 +57,8 @@ class UpdateErrorsViewModel(
     private val novelSourceManager: NovelSourceManager,
     private val getEntryCustomInfo: GetEntryCustomInfo,
     reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    // A dismiss is a delete, which leaving the screen straight after must not cut off.
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     // The chip as picked; the list reads it through the Show setting live, so hiding the chip's type
@@ -139,7 +144,7 @@ class UpdateErrorsViewModel(
         if (selectedEntries.isEmpty()) return
         val mangaIds = selectedEntries.filterIsInstance<UpdateErrorEntry.Manga>().map { it.error.errorId }
         val novelIds = selectedEntries.filterIsInstance<UpdateErrorEntry.Novel>().map { it.error.errorId }
-        viewModelScope.launchIO {
+        appScope.launch {
             if (mangaIds.isNotEmpty()) deleteLibraryUpdateErrors.byErrorIds(mangaIds)
             if (novelIds.isNotEmpty()) deleteNovelUpdateErrors.byErrorIds(novelIds)
         }
@@ -147,7 +152,7 @@ class UpdateErrorsViewModel(
 
     fun dismissAll() {
         val type = (state.value as? UpdateErrorsScreenState.Success)?.contentType ?: return
-        viewModelScope.launchIO {
+        appScope.launch {
             if (type.includes(ContentType.MANGA)) deleteLibraryUpdateErrors.all()
             if (type.includes(ContentType.NOVELS)) deleteNovelUpdateErrors.all()
         }

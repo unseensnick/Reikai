@@ -532,7 +532,7 @@ class LibraryViewModel(
     // RK: manually merge the selected manga into one group (covers both library views)
     fun mergeSelection(ids: List<Long>) {
         if (ids.size < 2) return
-        viewModelScope.launchIO {
+        appScope.launch {
             // RK: each selected card's whole group is absorbed by the merge, so one call coalesces every source
             mergeManager.merge(ids)
         }
@@ -542,7 +542,7 @@ class LibraryViewModel(
     // The manager hands each member its own tracker copy on the way out.
     fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
-        viewModelScope.launchIO { mergeManager.unmerge(ids) }
+        appScope.launch { mergeManager.unmerge(ids) }
     }
 
     fun search(query: String?) {

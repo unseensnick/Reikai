@@ -1,6 +1,7 @@
 package reikai.presentation.library.updateerror
 
 import android.content.Context
+import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.util.system.workManager
@@ -12,10 +13,13 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
@@ -27,6 +31,7 @@ import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateError
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.updateerror.NovelUpdateError
@@ -34,6 +39,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.resetVirtualDispatchers
 import reikai.util.restubDefaultDispatcher
+import reikai.util.testAppScope
 import reikai.util.virtualDispatchers
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import kotlin.time.Duration.Companion.seconds
@@ -189,6 +195,20 @@ class UpdateErrorsViewModelTest {
         withTimeout(5.seconds) { viewModel.titles() } shouldBe listOf("n1")
     }
 
+    @Test
+    fun `dismiss all outlives the screen it was tapped on`() = runTest {
+        var dismissed = false
+        val deleteMangaErrors = mockk<DeleteLibraryUpdateErrors> { coEvery { all() } answers { dismissed = true } }
+        val viewModel = viewModel(ContentType.MANGA, deleteMangaErrors = deleteMangaErrors, appScope = this)
+        viewModel.state.first { it is UpdateErrorsScreenState.Success }
+
+        viewModel.viewModelScope.cancel()
+        viewModel.dismissAll()
+        advanceUntilIdle()
+
+        dismissed shouldBe true
+    }
+
     private suspend fun UpdateErrorsViewModel.titles() =
         (state.first { it is UpdateErrorsScreenState.Success } as UpdateErrorsScreenState.Success)
             .entries.map { it.title }
@@ -208,19 +228,22 @@ class UpdateErrorsViewModelTest {
         custom: Map<EntryId, EntryCustomInfo> = emptyMap(),
         novelSources: NovelSourceManager = mockk(relaxed = true),
         shown: ContentType = ContentType.ALL,
+        deleteMangaErrors: DeleteLibraryUpdateErrors = mockk(relaxed = true),
+        appScope: CoroutineScope = testAppScope(),
     ) = run {
         // The tests stub with coEvery, which leaves Default answering a bare mock.
         restubDefaultDispatcher()
         UpdateErrorsViewModel(
             initialContentType = chip,
             getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(manga) },
-            deleteLibraryUpdateErrors = mockk(relaxed = true),
+            deleteLibraryUpdateErrors = deleteMangaErrors,
             getNovelUpdateErrors = mockk { every { subscribeAll() } returns flowOf(novels) },
             deleteNovelUpdateErrors = mockk(relaxed = true),
             sourceManager = mockk(relaxed = true),
             novelSourceManager = novelSources,
             getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(custom) },
             reikaiLibraryPreferences = library.also { it.shownContent.set(shown) },
+            appScope = appScope,
         )
     }
 
