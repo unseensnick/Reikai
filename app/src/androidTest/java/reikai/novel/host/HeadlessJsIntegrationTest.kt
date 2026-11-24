@@ -1031,11 +1031,13 @@ class HeadlessJsIntegrationTest {
             };
         """.trimIndent()
         host.load(plugin)
-        runCatching { host.parseChapter("first-construction-test", "/c") }
+        // Had the seeded setting missed the engine, both calls would answer and this would test nothing.
+        val first = runCatching { host.parseChapter("first-construction-test", "/c") }
 
         val second = runCatching { host.parseChapter("first-construction-test", "/c") }
 
         host.setSetting("first-construction-test", "failOnce", null)
+        assertTrue(first.isFailure)
         assertEquals("ok", second.getOrNull())
     }
 

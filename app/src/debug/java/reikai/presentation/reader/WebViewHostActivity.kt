@@ -30,4 +30,10 @@ class WebViewHostActivity : ComponentActivity() {
         root.addView(webView)
         setContentView(root)
     }
+
+    // A test that loads straight into [webView] closes only the scenario, so its page and timers end here.
+    override fun onDestroy() {
+        if (::webView.isInitialized) webView.destroy()
+        super.onDestroy()
+    }
 }
