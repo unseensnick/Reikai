@@ -475,7 +475,15 @@ class NovelTtsService : Service() {
 
         fun start(context: Context) {
             if (running) return
-            ContextCompat.startForegroundService(context, Intent(context, NovelTtsService::class.java))
+            // Refused at the call as well as in onStartCommand: from the background, or by the app op.
+            // Posted, as the service's own refusal is, so the pause lands after the play that asked.
+            try {
+                ContextCompat.startForegroundService(context, Intent(context, NovelTtsService::class.java))
+            } catch (e: RuntimeException) {
+                if (e !is IllegalStateException && e !is SecurityException) throw e
+                logcat(LogPriority.WARN, e) { "Read aloud could not start in the foreground" }
+                Handler(Looper.getMainLooper()).post { NovelTtsSession.onPause(TtsPauseReason.Refused) }
+            }
         }
     }
 }
