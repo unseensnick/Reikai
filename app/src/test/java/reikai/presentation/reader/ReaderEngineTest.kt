@@ -17,7 +17,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +31,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
@@ -51,6 +54,7 @@ import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.mockIoDispatcher
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import tachiyomi.domain.manga.model.CustomMangaInfo
@@ -68,6 +72,13 @@ class ReaderEngineTest {
     @JvmField
     @RegisterExtension
     val main = MainDispatcherExtension { UnconfinedTestDispatcher(scheduler) }
+
+    // The pace work runs on IO, which the test's scheduler drives, so a wait on it takes no real time.
+    @BeforeEach
+    fun setUp() = mockIoDispatcher(UnconfinedTestDispatcher(scheduler))
+
+    @AfterEach
+    fun tearDown() = unmockkStatic(Dispatchers::class)
 
     private fun engine(
         provider: FakeReaderProvider = FakeReaderProvider(),

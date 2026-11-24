@@ -8,7 +8,6 @@ import eu.kanade.tachiyomi.util.system.NetworkState
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -17,7 +16,10 @@ import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -34,6 +36,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.mockIoDispatcher
 import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.i18n.stringResource
@@ -116,9 +119,12 @@ class NovelDownloadManagerFailureTest {
         coEvery { it.nameOf("broken") } returns "Broken"
     }
 
+    // Counted here rather than with coVerify, which reads the mocked Dispatchers.Default once IO is virtual.
+    private val reloads = mutableListOf<String>()
+
     private val installer = mockk<LnPluginInstaller> {
         coEvery { ensureLoaded() } just runs
-        coEvery { retryLoad(any()) } just runs
+        coEvery { retryLoad(any()) } answers { reloads += firstArg<String>() }
         every { failures } returns loadFailures
     }
 
@@ -153,8 +159,12 @@ class NovelDownloadManagerFailureTest {
         sourceContacts = realTimeSourceContacts(),
     )
 
+    // The drain runs on IO and retries with a real backoff, so IO is put on the scheduler runTest drives.
+    private val scheduler = TestCoroutineScheduler()
+
     @BeforeEach
     fun setUp() {
+        mockIoDispatcher(StandardTestDispatcher(scheduler))
         mockkObject(NovelDownloadWorker.Companion)
         every { NovelDownloadWorker.start(any(), any()) } just runs
         mockkStatic(Context::activeNetworkState)
@@ -167,13 +177,14 @@ class NovelDownloadManagerFailureTest {
 
     @AfterEach
     fun tearDown() {
+        unmockkStatic(Dispatchers::class)
         unmockkObject(NovelDownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
         unmockkStatic(LOCALIZE)
     }
 
     @Test
-    fun `a chapter that failed to download is still in the saved queue after a restart`() = runTest {
+    fun `a chapter that failed to download is still in the saved queue after a restart`() = runTest(scheduler) {
         manager.downloadChapters(listOf(chapter))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
@@ -183,7 +194,7 @@ class NovelDownloadManagerFailureTest {
 
     /** The live queue keeps a retried chapter in place, so a restart must not move it last. */
     @Test
-    fun `a failed chapter queued again keeps its place in the saved queue`() = runTest {
+    fun `a failed chapter queued again keeps its place in the saved queue`() = runTest(scheduler) {
         manager.downloadChapters(listOf(chapter))
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
         manager.downloadChapters(listOf(queuedLater))
@@ -194,7 +205,7 @@ class NovelDownloadManagerFailureTest {
     }
 
     @Test
-    fun `a chapter whose name another chapter's download holds leaves the saved queue`() = runTest {
+    fun `a chapter whose name another chapter's download holds leaves the saved queue`() = runTest(scheduler) {
         manager.downloadChapters(listOf(sameName))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
@@ -203,7 +214,7 @@ class NovelDownloadManagerFailureTest {
     }
 
     @Test
-    fun `a chapter whose source is not installed fails with the reason`() = runTest {
+    fun `a chapter whose source is not installed fails with the reason`() = runTest(scheduler) {
         var reason: String? = null
         manager.downloadChapters(listOf(uninstalledChapter))
 
@@ -214,7 +225,7 @@ class NovelDownloadManagerFailureTest {
 
     /** No Resume can fetch it, as a manga row of a removed source is dropped on restore. */
     @Test
-    fun `a chapter whose source is not installed leaves the saved queue`() = runTest {
+    fun `a chapter whose source is not installed leaves the saved queue`() = runTest(scheduler) {
         manager.downloadChapters(listOf(uninstalledChapter))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
@@ -223,7 +234,7 @@ class NovelDownloadManagerFailureTest {
     }
 
     @Test
-    fun `a chapter whose installed plugin failed to load fails with the load's reason`() = runTest {
+    fun `a chapter whose installed plugin failed to load fails with the load's reason`() = runTest(scheduler) {
         var reason: String? = null
         manager.downloadChapters(listOf(unloadedChapter))
 
@@ -234,16 +245,16 @@ class NovelDownloadManagerFailureTest {
 
     /** A run is asked for, as a reader or details Retry is, so it does not wait out the automatic load's pause. */
     @Test
-    fun `a chapter whose installed plugin failed to load loads the plugin again first`() = runTest {
+    fun `a chapter whose installed plugin failed to load loads the plugin again first`() = runTest(scheduler) {
         manager.downloadChapters(listOf(unloadedChapter, alsoUnloaded))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
 
-        coVerify(exactly = 1) { installer.retryLoad("broken") }
+        reloads shouldBe listOf("broken")
     }
 
     @Test
-    fun `a chapter whose plugin loads on the second try downloads`() = runTest {
+    fun `a chapter whose plugin loads on the second try downloads`() = runTest(scheduler) {
         val reloaded = mockk<NovelSource> {
             every { minimumRequestDelayMs } returns 0L
             coEvery { parseChapter("u30") } returns "text"
@@ -258,28 +269,28 @@ class NovelDownloadManagerFailureTest {
 
     /** Only a plugin that failed to load is loaded again; a source that is not installed has nothing to load. */
     @Test
-    fun `a chapter whose source is not installed loads no plugin again`() = runTest {
+    fun `a chapter whose source is not installed loads no plugin again`() = runTest(scheduler) {
         manager.downloadChapters(listOf(uninstalledChapter))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
 
-        coVerify(exactly = 0) { installer.retryLoad(any()) }
+        reloads shouldBe emptyList()
     }
 
     /** Each run is asked for afresh, so the plugin a run reloaded is reloaded by the next one too. */
     @Test
-    fun `every run loads a failed plugin again`() = runTest {
+    fun `every run loads a failed plugin again`() = runTest(scheduler) {
         repeat(2) {
             manager.downloadChapters(listOf(unloadedChapter))
             manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
         }
 
-        coVerify(exactly = 2) { installer.retryLoad("broken") }
+        reloads shouldBe listOf("broken", "broken")
     }
 
     /** The next run's plugin load retries it, so a Resume can still fetch it. */
     @Test
-    fun `a chapter whose installed plugin failed to load stays in the saved queue`() = runTest {
+    fun `a chapter whose installed plugin failed to load stays in the saved queue`() = runTest(scheduler) {
         manager.downloadChapters(listOf(unloadedChapter))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })

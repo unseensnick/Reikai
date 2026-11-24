@@ -15,6 +15,9 @@ import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -27,6 +30,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.mockIoDispatcher
 import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -85,8 +89,12 @@ class NovelDownloadManagerStorageTest {
         sourceContacts = realTimeSourceContacts(),
     )
 
+    // The drain runs on IO and retries with a real backoff, so IO is put on the scheduler runTest drives.
+    private val scheduler = TestCoroutineScheduler()
+
     @BeforeEach
     fun setUp() {
+        mockIoDispatcher(StandardTestDispatcher(scheduler))
         mockkObject(NovelDownloadWorker.Companion)
         every { NovelDownloadWorker.start(any(), any()) } just runs
         mockkStatic(Context::activeNetworkState)
@@ -95,12 +103,13 @@ class NovelDownloadManagerStorageTest {
 
     @AfterEach
     fun tearDown() {
+        unmockkStatic(Dispatchers::class)
         unmockkObject(NovelDownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
     }
 
     @Test
-    fun `a chapter is refused when the device is nearly full`() = runTest {
+    fun `a chapter is refused when the device is nearly full`() = runTest(scheduler) {
         manager.downloadChapters(listOf(chapter))
 
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
