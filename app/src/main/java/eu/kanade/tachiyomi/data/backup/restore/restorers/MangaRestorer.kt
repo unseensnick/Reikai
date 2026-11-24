@@ -95,7 +95,7 @@ class MangaRestorer(
                 copyMarks = backedUpCopyMarks(backupManga.chapters, { it.url }, { it.copyMark }),
                 readingSessions = backupManga.readingSessions.map { it.toUrlReadingSession() },
                 manualOrder = backupManga.restoredManualOrder(categoryIdOf),
-                chapterTombstones = backupManga.chapterTombstones.map { it.toChapterTombstone() },
+                chapterTombstones = backupManga.chapterTombstones.map { it.toChapterTombstone(Int.MAX_VALUE.toLong()) },
                 // RK <--
             )
         }

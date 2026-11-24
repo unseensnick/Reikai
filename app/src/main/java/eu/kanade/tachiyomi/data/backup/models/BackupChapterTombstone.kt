@@ -27,11 +27,12 @@ class BackupChapterTombstone(
     @ProtoNumber(11) var sessions: List<BackupTombstoneSession> = emptyList(),
     @ProtoNumber(12) var removedAt: Long = 0,
 ) {
-    fun toChapterTombstone() = ChapterTombstone(
+    // From a file, so the progress is held to the type's own range, as a backed-up live chapter's is.
+    fun toChapterTombstone(maxProgress: Long) = ChapterTombstone(
         url = url,
         read = read,
         bookmark = bookmark,
-        progress = progress,
+        progress = progress.coerceIn(0L, maxProgress),
         length = length,
         listenedMs = listenedMs,
         dateFetch = Instant.fromEpochMilliseconds(dateFetch),

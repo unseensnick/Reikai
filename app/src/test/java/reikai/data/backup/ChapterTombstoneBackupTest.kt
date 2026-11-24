@@ -42,6 +42,7 @@ import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
+import reikai.domain.reader.ChapterProgress
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.data.Database
@@ -196,6 +197,21 @@ class ChapterTombstoneBackupTest {
         type.sessionCount(driver) shouldBe 1L
     }
 
+    /** A kept state's progress comes from a file, so it is held to the type's range, as a backed-up chapter's is. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a restored kept state's progress past its type's range is held to the end`(type: Type) = runTest {
+        type.seed(driver)
+
+        type.restore(
+            database,
+            tombstones = listOf(BackupChapterTombstone(url = "/c5", progress = Long.MAX_VALUE)),
+            chapters = emptyList(),
+        )
+
+        type.progress(driver) shouldBe type.maxProgress
+    }
+
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a restored chapter spends the kept state waiting at its url`(type: Type) = runTest {
@@ -256,6 +272,8 @@ class ChapterTombstoneBackupTest {
                     "VALUES (1, '/c5', 2000, 40)",
             )
             override val tombstoneUrlQuery = "SELECT url FROM manga_chapter_tombstone ORDER BY url"
+            override val progressQuery = "SELECT last_page_read FROM manga_chapter_tombstone"
+            override val maxProgress = Int.MAX_VALUE.toLong()
             override val sessionCountQuery = "SELECT count(*) FROM manga_chapter_tombstone_session"
             override val readUrlQuery = "SELECT remote_url FROM chapter WHERE user_read = 1 ORDER BY remote_url"
 
@@ -326,6 +344,8 @@ class ChapterTombstoneBackupTest {
                     "VALUES (1, '/c5', 2000, 40)",
             )
             override val tombstoneUrlQuery = "SELECT url FROM novel_chapter_tombstone ORDER BY url"
+            override val progressQuery = "SELECT last_text_progress FROM novel_chapter_tombstone"
+            override val maxProgress = ChapterProgress.Percent.FULL
             override val sessionCountQuery = "SELECT count(*) FROM novel_chapter_tombstone_session"
             override val readUrlQuery = "SELECT url FROM novel_chapters WHERE read = 1 ORDER BY url"
 
@@ -403,6 +423,8 @@ class ChapterTombstoneBackupTest {
         abstract val seedStatement: String
         abstract val tombstoneStatements: List<String>
         abstract val tombstoneUrlQuery: String
+        abstract val progressQuery: String
+        abstract val maxProgress: Long
         abstract val sessionCountQuery: String
         abstract val readUrlQuery: String
 
@@ -439,6 +461,8 @@ class ChapterTombstoneBackupTest {
         suspend fun sessionCount(driver: JdbcSqliteDriver) = driver.rows(sessionCountQuery) { it.getLong(0)!! }.single()
 
         suspend fun readUrls(driver: JdbcSqliteDriver) = driver.rows(readUrlQuery) { it.getString(0)!! }
+
+        suspend fun progress(driver: JdbcSqliteDriver) = driver.rows(progressQuery) { it.getLong(0)!! }.single()
     }
 
     companion object {

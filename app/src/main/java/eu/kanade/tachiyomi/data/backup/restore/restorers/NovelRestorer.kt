@@ -59,6 +59,7 @@ import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.reader.ChapterProgress
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.novel.local.LocalNovelSource
@@ -154,7 +155,7 @@ class NovelRestorer(
         tombstones.restore(
             ContentType.NOVELS,
             novelId,
-            backupNovel.chapterTombstones.map { it.toChapterTombstone() },
+            backupNovel.chapterTombstones.map { it.toChapterTombstone(ChapterProgress.Percent.FULL) },
             backupNovel.chapters.map { it.url },
         )
         // An old backup carries the Last read stamp without history; after the history above, so a
