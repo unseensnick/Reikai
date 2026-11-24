@@ -10,6 +10,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.lang.Hash
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -206,8 +207,26 @@ class LnPluginHost(
         // Backs the setTimeout shim in headless.js: plugins use it for rate-limit politeness sleeps and
         // retry backoffs, which QuickJS can't honor natively (no timers). Suspends the engine job pump
         // for the real delay, capped so a buggy/hostile plugin can't hold the slot indefinitely.
+        // A pending delay by its timer id, so clearTimeout ends it: the engine's evaluate waits on every live
+        // async job, so a cleared timer still held the call, and the plugin's slot, for its full length.
+        val pendingDelays = ConcurrentHashMap<Long, CompletableDeferred<Unit>>()
         q.asyncFunction("__lnDelay") { args ->
-            delay(((args.getOrNull(0) as? Number)?.toLong() ?: 0L).coerceIn(0L, MAX_TIMER_DELAY_MS))
+            val ms = ((args.getOrNull(0) as? Number)?.toLong() ?: 0L).coerceIn(0L, MAX_TIMER_DELAY_MS)
+            val id = (args.getOrNull(1) as? Number)?.toLong()
+            if (id == null) {
+                delay(ms)
+            } else {
+                val cleared = CompletableDeferred<Unit>().also { pendingDelays[id] = it }
+                try {
+                    withTimeoutOrNull(ms) { cleared.await() }
+                } finally {
+                    pendingDelays.remove(id)
+                }
+            }
+            null
+        }
+        q.function("__lnClearDelay") { args ->
+            (args.getOrNull(0) as? Number)?.toLong()?.let { pendingDelays.remove(it)?.complete(Unit) }
             null
         }
         // The plugin's declared site, read once its script has loaded; until then every page is refused.
@@ -672,13 +691,24 @@ internal suspend fun <T : Any> Mutex.withLockAndTimeout(
     timeoutMs: Long,
     what: String,
     block: suspend CoroutineScope.() -> T,
-): T {
-    withTimeoutOrNull(timeoutMs) { lock() }
-        ?: throw LnPluginException("$what waited over ${timeoutMs / 1000}s for its plugin")
+): T = withLockWithin(timeoutMs, { LnPluginException("$what waited over ${timeoutMs / 1000}s for its plugin") }) {
+    withPluginTimeout(timeoutMs, what, block)
+}
+
+/**
+ * [block] holding this lock once a wait of up to [timeoutMs] takes it, else [timedOut]. A wait can time out just as it
+ * takes the lock, which a bare `withTimeoutOrNull { lock() }` then never releases, so it locks with its own owner.
+ */
+internal suspend fun <T> Mutex.withLockWithin(timeoutMs: Long, timedOut: () -> Throwable, block: suspend () -> T): T {
+    val owner = Any()
+    if (withTimeoutOrNull(timeoutMs) { lock(owner) } == null) {
+        if (holdsLock(owner)) unlock(owner)
+        throw timedOut()
+    }
     return try {
-        withPluginTimeout(timeoutMs, what, block)
+        block()
     } finally {
-        unlock()
+        unlock(owner)
     }
 }
 

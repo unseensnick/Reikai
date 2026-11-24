@@ -39,8 +39,7 @@ internal class PluginPageRenderer(private val appContext: Context) {
     suspend fun render(url: HttpUrl, request: PageRequest): RenderedPage {
         val timeoutMs = request.timeoutMs.coerceIn(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS)
         // As upstream, a call still queued when its time runs out is refused; the page it loads gets its full time.
-        withTimeoutOrNull(timeoutMs) { mutex.lock() } ?: throw LnPluginException(TIMED_OUT)
-        try {
+        return mutex.withLockWithin(timeoutMs, { LnPluginException(TIMED_OUT) }) {
             val page = withUIContext { renderOnMain(url, request, timeoutMs) }
             // getHtml hands back the page as a JSON string literal, decoded here off the main thread.
             val html = page?.let {
@@ -48,14 +47,12 @@ internal class PluginPageRenderer(private val appContext: Context) {
                     scriptString(it.htmlJson)
                 }
             }
-            return RenderedPage(
+            RenderedPage(
                 ok = html != null,
                 url = page?.url ?: url.toString(),
                 html = html.orEmpty(),
                 title = page?.title.orEmpty(),
             )
-        } finally {
-            mutex.unlock()
         }
     }
 

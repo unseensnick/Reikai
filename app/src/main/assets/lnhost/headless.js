@@ -576,7 +576,7 @@
       var id = _tid++;
       _timers[id] = true;
       var delayMs = typeof ms === "number" && ms > 0 ? ms : 0;
-      globalThis.__lnDelay(delayMs).then(function () {
+      globalThis.__lnDelay(delayMs, id).then(function () {
         if (_timers[id]) {
           delete _timers[id];
           try {
@@ -589,7 +589,10 @@
       return id;
     };
     globalThis.clearTimeout = function (id) {
+      if (!_timers[id]) return;
       delete _timers[id];
+      // Ends the native wait too, or the cleared timer holds the call open for its whole delay.
+      globalThis.__lnClearDelay(id);
     };
     globalThis.setInterval = function () {
       return 0;
