@@ -359,6 +359,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Novel plugin sources that ask their servers for compressed replies load again.**
 - **Covers and chapter images from novel plugin sources whose addresses leave out https: now load.**
 - **Passing a site check in a novel plugin source's web view now unblocks that source for plugins that set their own picture user agent.**
 - **A long-press add to library that hits an error now says it failed instead of closing the app.**

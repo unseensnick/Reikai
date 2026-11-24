@@ -190,6 +190,32 @@ class LnHostBridgeTest {
         headerSeen("""{"headers":{"user-agent":"plugin"}}""", header = "User-Agent") shouldBe "plugin"
     }
 
+    // The Rulate plugins send accept-encoding gzip on every call, which turned off OkHttp's own unpacking.
+    @Test
+    fun `a gzip reply to a plugin that asked for gzip reaches it unpacked`() {
+        val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
+            createContext("/") { exchange ->
+                val packed = java.io.ByteArrayOutputStream().also { out ->
+                    java.util.zip.GZIPOutputStream(out).use { it.write("{\"ok\":1}".toByteArray()) }
+                }.toByteArray()
+                exchange.responseHeaders.add("Content-Encoding", "gzip")
+                exchange.responseHeaders.add("Content-Type", "application/json")
+                exchange.sendResponseHeaders(200, packed.size.toLong())
+                exchange.responseBody.use { it.write(packed) }
+            }
+            start()
+        }
+        val response = try {
+            LnHostBridge(mockk(relaxed = true), OkHttpClient()) { "agent" }
+                .runFetch("http://127.0.0.1:${server.address.port}/api", """{"headers":{"accept-encoding":"gzip"}}""") {
+                }
+        } finally {
+            server.stop(0)
+        }
+
+        LnPluginHost.JSON.parseToJsonElement(response).jsonObject["body"]?.jsonPrimitive?.content shouldBe "{\"ok\":1}"
+    }
+
     // The [header] a local server receives for one fetch, with the jar holding `session=stored`.
     private fun headerSeen(optsJson: String, header: String = "Cookie"): String? {
         val seen = AtomicReference<String?>()

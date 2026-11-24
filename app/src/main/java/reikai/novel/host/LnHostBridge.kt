@@ -63,7 +63,10 @@ class LnHostBridge(
             builder.method(method, body)
             // The device WebView UA first, so a plugin's own replaces it; the Referer is left to the plugin.
             userAgent().takeIf { it.isNotBlank() }?.let { builder.header("User-Agent", it) }
-            opts.headers?.forEach { (k, v) -> builder.header(k, v) }
+            // Not Accept-Encoding, which a browser's fetch never lets a page set: one of the plugin's turns off OkHttp's
+            // own gzip, and the compressed reply reached the plugin as bytes.
+            opts.headers?.filterKeys { !it.equals("Accept-Encoding", ignoreCase = true) }
+                ?.forEach { (k, v) -> builder.header(k, v) }
             // Laravel / Inertia sources expect the XSRF-TOKEN cookie echoed back as the X-XSRF-TOKEN
             // header. Derive it from the shared cookie jar unless the plugin set the header itself. The
             // token is a per-session CSRF value, applied but never logged.
