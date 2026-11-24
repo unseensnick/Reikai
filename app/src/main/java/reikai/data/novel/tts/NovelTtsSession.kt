@@ -1,7 +1,9 @@
 package reikai.data.novel.tts
 
 import android.os.SystemClock
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.novel.tts.ReadAloudStop
 import reikai.domain.novel.tts.TtsPauseReason
@@ -49,8 +51,16 @@ object NovelTtsSession {
     /** Whether read aloud is playing or paused, which a reopen of the reader then follows. */
     fun isActive(): Boolean = state.value.playback != TtsPlayback.Stopped
 
+    /**
+     * Each stop speech came to by itself, once. [state] cannot keep it: the teardown after a stop publishes Stopped
+     * again, and the service read whichever value it got to first.
+     */
+    val stops: SharedFlow<State>
+        field = MutableSharedFlow<State>(extraBufferCapacity = 1)
+
     fun publish(value: State) {
         state.value = value
+        if (value.stopReason != null) stops.tryEmit(value)
         sleepTimer.onPublished(value.playback)
     }
 

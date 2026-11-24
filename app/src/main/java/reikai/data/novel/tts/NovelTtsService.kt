@@ -113,6 +113,9 @@ class NovelTtsService : Service() {
         NovelTtsSession.state
             .onEach(::render)
             .launchIn(scope)
+        NovelTtsSession.stops
+            .onEach { stopped -> stopped.stopReason?.let { showStopped(stopped, it) } }
+            .launchIn(scope)
         scope.launch { runSleepTimer() }
     }
 
@@ -201,7 +204,6 @@ class NovelTtsService : Service() {
         if (state.playback == TtsPlayback.Stopped) {
             // Before the first start command there is nothing to stop yet; that command stops instead.
             if (foreground) stopForegroundAndSelf()
-            state.stopReason?.let { showStopped(state, it) }
             return
         }
         updateMediaSession(state)
