@@ -21,6 +21,8 @@ class LocalOwnersRestoreTest {
         val combine = mockk<CombineLocalVolumes>(relaxed = true)
         val backup = Backup(
             backupManga = listOf(
+                // A remote series, which no local grouping can claim.
+                BackupManga(source = 1L, url = "Remote"),
                 BackupManga(
                     source = 0L,
                     url = "Kept",
@@ -28,6 +30,7 @@ class LocalOwnersRestoreTest {
                 ),
             ),
             backupNovels = listOf(
+                BackupNovel(source = "s", url = "Remote"),
                 BackupNovel(
                     source = "local",
                     url = "Saga",
