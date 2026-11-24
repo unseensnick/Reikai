@@ -21,6 +21,12 @@ private const val EXTRA_ENTRY_ID = "entry_id"
 /** A novel launch that reopens read aloud where it is speaking. */
 internal const val EXTRA_FOLLOW_SESSION = "follow_session"
 
+/**
+ * Every novel launch's action. A PendingIntent is matched by its request code and its intent less the extras, so
+ * without it a novel's would equal the manga entry's whose id shares its code, and one tap would open the other.
+ */
+internal const val ACTION_OPEN_NOVEL = "reikai.reader.OPEN_NOVEL"
+
 fun Intent.putEntryId(entryId: EntryId): Intent = apply {
     putExtra(EXTRA_ENTRY_TYPE, entryId.contentType.name)
     putExtra(EXTRA_ENTRY_ID, entryId.rawId)
@@ -89,3 +95,18 @@ internal fun openView(
     novelView: Pair<Long, Boolean>?,
 ): Pair<EntryId?, Boolean> =
     novelView?.let { (id, scoped) -> EntryId.Novel(id) to scoped } ?: (intentEntry to intentSourceScoped)
+
+/** The entry and scope a launch of [entry] would open, by the rule a novel reader opens its own by
+ *  ([ReadAloudSessionState.viewFor]), so a follow read aloud redirected compares as the reader it produced. */
+internal fun requestedView(
+    entry: EntryId,
+    sourceScoped: Boolean,
+    follows: Boolean,
+    session: ReadAloudSessionState,
+): Pair<EntryId, Boolean> = when (entry) {
+    is EntryId.Novel -> session.viewFor(entry.rawId, sourceScoped, follows).let { (id, scoped) ->
+        EntryId.Novel(id) to
+            scoped
+    }
+    else -> entry to sourceScoped
+}

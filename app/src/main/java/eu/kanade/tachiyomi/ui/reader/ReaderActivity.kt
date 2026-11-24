@@ -117,6 +117,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.presentation.components.copyPictureToClipboard
+import reikai.presentation.reader.ACTION_OPEN_NOVEL
 import reikai.presentation.reader.EXTRA_FOLLOW_SESSION
 import reikai.presentation.reader.LocalPageColorAdjust
 import reikai.presentation.reader.MangaReaderProvider
@@ -148,6 +149,7 @@ import reikai.presentation.reader.openView
 import reikai.presentation.reader.pageColorAdjust
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
+import reikai.presentation.reader.requestedView
 import reikai.presentation.reader.setAsCoverMessage
 import reikai.presentation.reader.settings.ReaderSettingsPages
 import reikai.presentation.reader.settings.ReaderSettingsSheet
@@ -212,6 +214,7 @@ class ReaderActivity : BaseActivity() {
                 // chapter would otherwise stop it at.
                 if (followSession) putExtra(EXTRA_FOLLOW_SESSION, true)
                 putEntryId(EntryId.Novel(novelId))
+                action = ACTION_OPEN_NOVEL
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }
@@ -857,18 +860,18 @@ class ReaderActivity : BaseActivity() {
             this.intent.getBooleanExtra("source_scoped", false),
             novelSession?.let { novelViewModel.novelId to novelViewModel.sourceScoped },
         )
+        val readAloud = graph.readAloudSession.state.value
+        val follows = intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false)
+        val (requestedEntry, requestedSourceScoped) =
+            requestedView(requested, intent.getBooleanExtra("source_scoped", false), follows, readAloud)
         val sameLaunch = isSameLaunch(
-            requested,
+            requestedEntry,
             requestedChapter,
-            intent.getBooleanExtra("source_scoped", false),
+            requestedSourceScoped,
             openEntry,
             engine.currentChapterId.value,
             openSourceScoped,
-            followsReadAloud(
-                intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false),
-                requested,
-                graph.readAloudSession.state.value,
-            ),
+            followsReadAloud(follows, requested, readAloud),
         )
         if (sameLaunch) return
         setIntent(intent)

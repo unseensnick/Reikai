@@ -162,4 +162,23 @@ class ReaderIntentTest {
             Arguments.of(EntryId.Manga(1L), false, false),
         )
     }
+
+    /** A Continue on B of a merged group read aloud in group scope opens the group's view, which a repeat tap names too. */
+    @Test
+    fun `a follow launch read aloud redirected is the reader it opened`() {
+        val session =
+            ReadAloudSessionState(ReadAloudSeries(novelId = 1L, memberIds = listOf(1L, 2L), sourceScoped = false))
+        val (entry, scoped) = requestedView(EntryId.Novel(2L), sourceScoped = true, follows = true, session)
+
+        isSameLaunch(
+            entry,
+            7L,
+            scoped,
+            EntryId.Novel(2L),
+            9L,
+            openSourceScoped = false,
+            requestedFollows = true,
+        ) shouldBe
+            true
+    }
 }

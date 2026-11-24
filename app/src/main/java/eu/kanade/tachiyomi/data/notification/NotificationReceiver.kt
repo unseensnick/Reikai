@@ -582,8 +582,7 @@ class NotificationReceiver : BroadcastReceiver() {
             novel: Novel,
             chapter: NovelChapter,
         ): PendingIntent {
-            // The action only keeps this apart from a manga chapter's PendingIntent: the two id spaces
-            // overlap, and an equal request code would let one notification's tap open the other entry.
+            // Its own action, past the novel one newNovelIntent sets: read aloud's reopen uses a code a novel id can share.
             val intent = ReaderActivity.newNovelIntent(context, novel.id, chapter.id, sourceScoped = true)
                 .setAction(ACTION_OPEN_NOVEL_CHAPTER)
             return PendingIntent.getActivity(
