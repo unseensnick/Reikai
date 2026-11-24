@@ -92,6 +92,9 @@ class NovelWebDocumentTest {
         const val SEAM =
             "{ finished: { title: 'Above', downloaded: false }, next: { title: 'Below', downloaded: false } }"
 
+        /** The site a chapter's scripts run on: only one from the opened chapter's own site runs them. */
+        const val SITE = "https://rk.test/novel/"
+
         /** A failure as the viewport sends one, with the source's reason. */
         const val FAILURE = "{ heading: \"Couldn't load\", message: 'no luck', retry: 'Retry' }"
     }
@@ -996,18 +999,27 @@ class NovelWebDocumentTest {
     /** The chapter the page opened on runs its scripts as it loads; one arriving by scrolling has to too. */
     @Test
     fun aSeamlessChapterRunsItsOwnScripts() {
-        loadDocument()
-        eval("window.rkReader.appendChapter('99', '<p>next</p><script>window.rkRan = 1;</script>', null, $SEAM)")
+        loadDocument(baseUrl = SITE)
+        eval("window.rkReader.appendChapter('99', '<p>next</p><script>window.rkRan = 1;</script>', '$SITE', $SEAM)")
         assertEquals("the arriving chapter's script never ran", "1", eval("String(window.rkRan)"))
+    }
+
+    /** Its scripts would run with the opened site's cookies and storage. */
+    @Test
+    fun aSeamlessChapterFromAnotherSiteRunsNoScripts() {
+        loadDocument(baseUrl = SITE)
+        val html = "<p>next</p><script>window.rkRan = 1;</script>"
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, 'https://other.test/novel/', $SEAM)")
+        assertEquals("undefined", eval("String(window.rkRan)"))
     }
 
     /** As the parser runs them: a script with a source has loaded before the inline one after it. */
     @Test
     fun aSeamlessChaptersScriptsRunInOrder() {
-        loadDocument()
+        loadDocument(baseUrl = SITE)
         val html = "<script src=\"data:text/javascript,window.rkLib=1\"></script>" +
             "<script>window.rkSaw = typeof window.rkLib;</script>"
-        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, '$SITE', $SEAM)")
         assertEquals("number", awaitEval("String(window.rkSaw)", "number"))
     }
 
@@ -1015,20 +1027,20 @@ class NovelWebDocumentTest {
      *  every script after it. A language attribute names the type when there is none. */
     @Test
     fun aSeamlessChaptersScriptsRunPastOnesTheBrowserNeverFetches() {
-        loadDocument()
+        loadDocument(baseUrl = SITE)
         val html = "<script type=\"text/javascript1.6\" src=\"data:text/javascript,window.rkNever=1\"></script>" +
             "<script language=\"vbscript\" src=\"data:text/javascript,window.rkNever=1\"></script>" +
             "<script>window.rkAfter = 1;</script>"
-        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, '$SITE', $SEAM)")
         assertEquals("1", awaitEval("String(window.rkAfter)", "1"))
     }
 
     /** Written once parsing is over, document.write opened a new document and wiped the reader. */
     @Test
     fun aSeamlessChaptersDocumentWriteLandsWhereItsScriptIs() {
-        loadDocument()
+        loadDocument(baseUrl = SITE)
         val html = "<p>before</p><script>document.write('<p id=\"rk-written\">written</p>');</script>"
-        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, '$SITE', $SEAM)")
         assertEquals(
             "true",
             eval(
@@ -1320,7 +1332,7 @@ class NovelWebDocumentTest {
 
     // endregion
 
-    private fun loadDocument(html: String = document()) {
+    private fun loadDocument(html: String = document(), baseUrl: String? = null) {
         val finished = CountDownLatch(1)
         ready = CountDownLatch(1)
         instrumentation.runOnMainSync {
@@ -1336,7 +1348,7 @@ class NovelWebDocumentTest {
                     return WebResourceResponse("image/png", null, ByteArrayInputStream(png))
                 }
             }
-            webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+            webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null)
         }
         assertTrue("the document never finished loading", finished.await(TIMEOUT_S, TimeUnit.SECONDS))
         assertTrue(
