@@ -438,6 +438,10 @@ class ReaderViewModel(
     private fun ReaderChapter.lastSelectedPage(): Int =
         progressSave.heldFor(chapter.id)?.index ?: chapter.lastPageRead
 
+    // RK: the page on screen, which a reading mode or rotation change reloads at; the saved page lags it, and in
+    // incognito never moves at all
+    private fun ReaderChapter.pageOnScreen(): Int = chapterPageIndex.takeIf { it >= 0 } ?: lastSelectedPage()
+
     private var chapterToDownload: Download? = null
 
     // RK: which overlapping chapter switch may land. Main thread only.
@@ -1381,7 +1385,7 @@ class ReaderViewModel(
                 // because the collector that normally does it never runs.
                 // Save current page
                 val currChapter = currChapters.currChapter
-                currChapter.requestedPage = currChapter.lastSelectedPage() // RK
+                currChapter.requestedPage = currChapter.pageOnScreen() // RK
 
                 mutableState.update { it.copy(manga = updatedManga) }
                 eventChannel.send(Event.ReloadViewerChapters)
@@ -1420,7 +1424,7 @@ class ReaderViewModel(
                 // RK: same re-emit and hand-stamp as setMangaReadingMode, for the same reason.
                 // Save current page
                 val currChapter = currChapters.currChapter
-                currChapter.requestedPage = currChapter.lastSelectedPage() // RK
+                currChapter.requestedPage = currChapter.pageOnScreen() // RK
 
                 mutableState.update { it.copy(manga = updatedManga) }
                 eventChannel.send(Event.SetOrientation(getMangaOrientation()))

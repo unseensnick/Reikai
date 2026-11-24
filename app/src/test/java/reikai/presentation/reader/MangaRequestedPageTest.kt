@@ -90,6 +90,23 @@ class MangaRequestedPageTest {
         } shouldBe 5
     }
 
+    // In incognito the stored page never moves, so once the held save settles only the page on screen is left.
+    @Test
+    fun `a reading mode change in incognito after the save settles reopens on the page on screen`() = runTest {
+        MangaReaderViewModelHarness.create().use { harness ->
+            val manga = harness.manga(1L, source = 100L, title = "Series")
+            harness.chapter(20L, manga, 2.0)
+            harness.open(manga, chapterId = 20L, incognito = setOf(100L)) { model, state ->
+                val current = state.viewerChapters!!.currChapter
+                model.onPageSelected(loadedPages(current, 10)[5])
+                currentCoroutineContext()[TestCoroutineScheduler]!!.advanceUntilIdle()
+                model.setMangaReadingMode(ReadingMode.WEBTOON)
+                reloaded(model)
+                current.requestedPage
+            }
+        } shouldBe 5
+    }
+
     private suspend fun reloaded(model: ReaderViewModel) =
         withTimeout(10_000) { model.eventFlow.first { it is ReaderViewModel.Event.ReloadViewerChapters } }
 
