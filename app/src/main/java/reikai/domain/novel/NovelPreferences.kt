@@ -3,6 +3,7 @@ package reikai.domain.novel
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -676,9 +677,14 @@ class NovelPreferences(
 
     /** Categories to include / exclude from the background update (mirrors the manga update categories,
      *  pinned by the `isUpdateScope` kernel both update jobs call). */
-    fun novelUpdateCategories() = preferenceStore.getStringSet("novel_library_update_categories", emptySet())
-    fun novelUpdateCategoriesExclude() =
-        preferenceStore.getStringSet("novel_library_update_categories_exclude", emptySet())
+    fun novelUpdateCategories() = preferenceStore.getStringSet(
+        "novel_library_update_categories",
+        mangaUpdateDefaults.updateCategories.defaultValue(),
+    )
+    fun novelUpdateCategoriesExclude() = preferenceStore.getStringSet(
+        "novel_library_update_categories_exclude",
+        mangaUpdateDefaults.updateCategoriesExclude.defaultValue(),
+    )
 
     // Source migration.
 
@@ -687,20 +693,32 @@ class NovelPreferences(
 
     // The search and filter prefs below are twins of the manga migration prefs, pinned by
     // MigrationFlowAdapter.readTuning, which both adapters answer and the shared migrate engine applies.
+    // Their defaults are read off SourcePreferences, the same way as the update defaults above.
+    private val mangaMigrationDefaults by lazy { SourcePreferences(preferenceStore) }
 
     /** Search a migration with Mihon's deep search. */
-    fun novelMigrationDeepSearch() = preferenceStore.getBoolean("novel_migration_deep_search", false)
+    fun novelMigrationDeepSearch() = preferenceStore.getBoolean(
+        "novel_migration_deep_search",
+        mangaMigrationDefaults.migrationDeepSearchMode.defaultValue(),
+    )
 
     /** Rank a migration's matches by chapter count. */
-    fun novelMigrationPrioritizeByChapters() =
-        preferenceStore.getBoolean("novel_migration_prioritize_by_chapters", false)
+    fun novelMigrationPrioritizeByChapters() = preferenceStore.getBoolean(
+        "novel_migration_prioritize_by_chapters",
+        mangaMigrationDefaults.migrationPrioritizeByChapters.defaultValue(),
+    )
 
     /** Hide rows whose search found nothing. */
-    fun novelMigrationHideUnmatched() = preferenceStore.getBoolean("novel_migration_hide_unmatched", false)
+    fun novelMigrationHideUnmatched() = preferenceStore.getBoolean(
+        "novel_migration_hide_unmatched",
+        mangaMigrationDefaults.migrationHideUnmatched.defaultValue(),
+    )
 
     /** Hide rows whose match is no further ahead than the entry already is. */
-    fun novelMigrationHideWithoutUpdates() =
-        preferenceStore.getBoolean("novel_migration_hide_without_updates", false)
+    fun novelMigrationHideWithoutUpdates() = preferenceStore.getBoolean(
+        "novel_migration_hide_without_updates",
+        mangaMigrationDefaults.migrationHideWithoutUpdates.defaultValue(),
+    )
 
     companion object {
         private val metadataMapSerializer =
