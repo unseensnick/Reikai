@@ -25,6 +25,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
@@ -374,7 +377,8 @@ private fun ReadAloudActionButton(
                 onLongClick = onLongClick,
                 onLongClickLabel = stringResource(MR.strings.tts_stop),
                 role = Role.Button,
-            ),
+            )
+            .semantics { toggleableState = ToggleableState(controlsVisible) },
         contentAlignment = Alignment.Center,
     ) {
         Icon(

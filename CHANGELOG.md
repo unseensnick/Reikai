@@ -249,6 +249,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Paged novels now stay on your page through a rotation or a text size or margin change.** Each change used to move you back a page.
 - **Rotating with novel read-aloud paused no longer pulls you back to the paragraph it stopped on.**
 - **Pausing novel read-aloud as it moves to the next chapter no longer scrolls you to that chapter's start.**
+- **The read-aloud sleep timer sheet now counts down while it stays open.**
+- **TalkBack now says whether the read-aloud controls are open and whether a sleep timer is running.**
 - **Long strip with the high quality renderer no longer runs out of memory when many pages are loading or have failed at once.**
 - **Open in WebView on a failed page of a merged series now opens the chapter's own source in every manga reading mode.**
 - **Auto-scroll in the high quality renderer's long strip now saves your reading progress and waits for pages that are still loading.**

@@ -11,6 +11,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -66,7 +69,11 @@ fun ReadAloudControls(
             IconButton(onClick = onNextParagraph) {
                 Icon(ReikaiIcons.FastForward, stringResource(MR.strings.tts_next_paragraph))
             }
-            IconButton(onClick = onClickSleepTimer) {
+            IconButton(
+                onClick = onClickSleepTimer,
+                // Read out as on or off, since a running timer shows only as a tint.
+                modifier = Modifier.semantics { toggleableState = ToggleableState(sleepTimerActive) },
+            ) {
                 Icon(
                     imageVector = ReikaiIcons.Bedtime,
                     contentDescription = stringResource(MR.strings.tts_sleep_timer),

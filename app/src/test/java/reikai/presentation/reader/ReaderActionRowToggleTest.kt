@@ -39,7 +39,11 @@ class ReaderActionRowToggleTest {
                 fillColor = MaterialTheme.colorScheme.inverseSurface
                 barColor = readerChromeColor().compositeOver(MaterialTheme.colorScheme.background)
                 ReaderActionRow(
-                    enabledButtons = listOf(ReaderBottomButton.Grayscale, ReaderBottomButton.Settings),
+                    enabledButtons = listOf(
+                        ReaderBottomButton.Grayscale,
+                        ReaderBottomButton.Settings,
+                        ReaderBottomButton.ReadAloud,
+                    ),
                     filled = filled,
                     onClickChapterList = {},
                     onClickWebView = null,
@@ -63,8 +67,8 @@ class ReaderActionRowToggleTest {
                     onClickBionic = null,
                     onClickTheme = null,
                     onClickTextSize = null,
-                    readAloudControlsVisible = false,
-                    onClickReadAloud = null,
+                    readAloudControlsVisible = true,
+                    onClickReadAloud = {},
                     onLongClickReadAloud = {},
                     chapterStep = null,
                 )
@@ -83,6 +87,7 @@ class ReaderActionRowToggleTest {
         show(filled = false)
 
         compose.onNodeWithContentDescription("Grayscale").assertIsOn()
+        compose.onNodeWithContentDescription("Read aloud").assertIsOn()
     }
 
     // A black-and-white screen keeps only lightness, so the fill has to differ from the bar in that alone.
