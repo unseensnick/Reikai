@@ -21,6 +21,9 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.NullSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -87,11 +90,14 @@ class LnHostBridgeTest {
     }
 
     // WuxiaWorld reads its gRPC-web reply through arrayBuffer(), and UTF-8 text cannot carry 0x92.
-    @Test
-    fun `a binary response reaches the plugin as its bytes`() {
+    // A host that labels nothing may be sending a picture just the same.
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = ["application/grpc-web+proto"])
+    fun `a binary response reaches the plugin as its bytes`(contentType: String?) {
         val bytes = byteArrayOf(0, 0, 0, 0, 2, 0x92.toByte(), 0x01)
 
-        val response = answeringWith(bytes, "application/grpc-web+proto").runFetch("https://example.org/rpc", "{}") {}
+        val response = answeringWith(bytes, contentType).runFetch("https://example.org/rpc", "{}") {}
 
         val bodyBase64 = LnPluginHost.JSON.parseToJsonElement(
             response,
@@ -288,11 +294,11 @@ class LnHostBridgeTest {
     }
 
     // Answers every request with [bytes] as [contentType], so no request reaches the network.
-    private fun answeringWith(bytes: ByteArray, contentType: String) = LnHostBridge(
+    private fun answeringWith(bytes: ByteArray, contentType: String?) = LnHostBridge(
         preferenceStore = mockk(relaxed = true),
         client = OkHttpClient.Builder().addInterceptor { chain ->
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("")
-                .body(bytes.toResponseBody(contentType.toMediaType())).build()
+                .body(bytes.toResponseBody(contentType?.toMediaType())).build()
         }.build(),
     ) { "agent" }
 

@@ -97,11 +97,12 @@ class LnHostBridge(
             val charset = opts.encoding?.let { runCatching { Charset.forName(it) }.getOrNull() }
             val contentType = res.body.contentType()
             // The bytes go back too, base64 so they survive the string bridge, when the plugin can want
-            // them: it sent a binary body, or the reply is not a text type. A text type keeps the text
-            // path alone, so a mislabelled GBK page is never re-decoded by a guess.
+            // them: it sent a binary body, or the reply is not labelled a text type (an unlabelled one may
+            // be a picture). A text type keeps the text path alone, so a mislabelled GBK page is never
+            // re-decoded by a guess.
             val bodyText: String
             val bodyBase64: String?
-            if (opts.binary || contentType?.isText() == false) {
+            if (opts.binary || contentType?.isText() != true) {
                 val bytes = res.body.bytes()
                 bodyBase64 = Base64.getEncoder().encodeToString(bytes)
                 bodyText = bytes.toString(charset ?: contentType?.charset() ?: Charsets.UTF_8)
