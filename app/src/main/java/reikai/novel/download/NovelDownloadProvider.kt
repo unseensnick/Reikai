@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.util.storage.DiskUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -56,7 +55,9 @@ class NovelDownloadProvider(
     novelPreferences: NovelPreferences,
 ) {
 
-    private var downloadsDir = storageManager.getNovelDownloadsDirectory()
+    // Read fresh, as Mihon's DownloadProvider reads its root, so a storage change reaches every caller at once
+    private val downloadsDir: UniFile?
+        get() = storageManager.getNovelDownloadsDirectory()
 
     // The seen record names every source loaded, installed or since removed. Read once per change rather than
     // per lookup, since the download cache names a source for every library row.
@@ -81,12 +82,6 @@ class NovelDownloadProvider(
             }
         }
         .stateIn(scope, SharingStarted.Eagerly, folderLabels)
-
-    init {
-        storageManager.changes.onEach {
-            downloadsDir = storageManager.getNovelDownloadsDirectory()
-        }.launchIn(scope)
-    }
 
     // Name derivation. The string overloads are the real API (so callers with denormalized rows, e.g.
     // the Updates screen, don't need to rebuild a Novel); the typed overloads are thin shims. Source is
