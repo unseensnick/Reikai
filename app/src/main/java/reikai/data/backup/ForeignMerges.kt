@@ -65,6 +65,8 @@ class ForeignMerge internal constructor(private val row: BackupForeignMergeRow, 
             member.favoriteModifiedAt = entry.favoriteModifiedAt
         }
         member.categories = (member.categories + entry.categories).distinct()
+        // Every member's, since the group's reader settings are gathered from its members after the merge restores.
+        member.viewer_flags = entry.viewer_flags ?: entry.viewer
         if (!isPrimary) return
         val tracked = member.tracking.mapTo(HashSet()) { it.syncId }
         member.tracking += entry.tracking.filterNot { it.syncId in tracked }
@@ -72,7 +74,6 @@ class ForeignMerge internal constructor(private val row: BackupForeignMergeRow, 
         if (member.notes.isBlank()) member.notes = entry.notes
         // The fork showed the merged entry's own chapter and reader settings, never a member's.
         member.chapterFlags = entry.chapterFlags
-        member.viewer_flags = entry.viewer_flags ?: entry.viewer
         member.excludedScanlators = entry.excludedScanlators
     }
 }

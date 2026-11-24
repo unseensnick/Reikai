@@ -269,6 +269,17 @@ class ForeignMergeRestoreTest {
         member.categories shouldBe listOf(1L)
     }
 
+    /** The group's reader settings are gathered from its members, so one keeping its own would win over the fork's. */
+    @ParameterizedTest
+    @EnumSource(Layout::class)
+    fun `each member takes the merged entry's reader settings`(layout: Layout) = runTest {
+        val merges = merges(rows(layout))
+        val member = merges.applyTo(
+            proto.decodeFromByteArray(BackupManga.serializer(), memberRow(OTHER_URL, OTHER_SOURCE)),
+        )
+        member.viewer_flags shouldBe VIEWER_FLAGS
+    }
+
     @ParameterizedTest
     @EnumSource(Layout::class)
     fun `a merged entry listed twice gives one group`(layout: Layout) = runTest {
