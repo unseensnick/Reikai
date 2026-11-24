@@ -17,7 +17,6 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -83,33 +82,9 @@ abstract class MergeRoundTrip(private val contentType: ContentType) {
             100L
         }
     }
-}
 
-class MangaMergeRoundTrip : MergeRoundTrip(ContentType.MANGA) {
-
-    override fun toString() = "manga"
-
-    override suspend fun roundTrip(restored: Map<String, Long?>): List<Long>? {
-        val merges = backUp().backupMangaMerges
-        var grouped: List<Long>? = null
-        MangaRestorer(
-            restoreRepository = mockk(relaxed = true),
-            getCategories = mockk(relaxed = true),
-            fetchInterval = mockk(relaxed = true),
-            getMangaByUrlAndSourceId = mockk {
-                coEvery { await("a", 1L) } answers { restored["a"]?.let { Manga.create().copy(id = it) } }
-                coEvery { await("b", 2L) } answers { restored["b"]?.let { Manga.create().copy(id = it) } }
-            },
-            restoreMergeGroups = RestoreMergeGroups(recorder { grouped = it }, PassThroughTransactions),
-            setCustomMangaInfo = mockk(relaxed = true),
-            localVolumes = NoLocalVolumes,
-            volumePicks = NoVolumePicks,
-        ).restoreMerges(merges, prefEra = null)
-        return grouped
-    }
-
-    // Manga's groups are written by BackupCreator itself, so the whole backup runs with only the groups in it.
-    private suspend fun backUp(): Backup {
+    // The whole backup runs with only the groups in it, so the wire carries what BackupCreator itself writes.
+    protected suspend fun backUp(novels: NovelBackupCreator, includeNovels: Boolean): Backup {
         val out = ByteArrayOutputStream()
         mockkStatic(UniFile::class)
         try {
@@ -135,12 +110,12 @@ class MangaMergeRoundTrip : MergeRoundTrip(ContentType.MANGA) {
                 extensionStoresBackupCreator = mockk(relaxed = true),
                 sourcesBackupCreator = mockk { coEvery { forSourceIds(any()) } returns emptyList() },
                 backupFileValidator = mockk(relaxed = true),
-                novelBackupCreator = mockk(relaxed = true),
+                novelBackupCreator = novels,
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
                 novelPreferences = mockk(relaxed = true),
                 novelFonts = mockk { every { backedUp() } returns emptyFlow() },
-            ).backup(mockk(), OPTIONS)
+            ).backup(mockk(), OPTIONS.copy(includeNovels = includeNovels))
         } finally {
             unmockkStatic(UniFile::class)
         }
@@ -167,13 +142,38 @@ class MangaMergeRoundTrip : MergeRoundTrip(ContentType.MANGA) {
     }
 }
 
+class MangaMergeRoundTrip : MergeRoundTrip(ContentType.MANGA) {
+
+    override fun toString() = "manga"
+
+    override suspend fun roundTrip(restored: Map<String, Long?>): List<Long>? {
+        val merges = backUp(mockk(relaxed = true), includeNovels = false).backupMangaMerges
+        var grouped: List<Long>? = null
+        MangaRestorer(
+            restoreRepository = mockk(relaxed = true),
+            getCategories = mockk(relaxed = true),
+            fetchInterval = mockk(relaxed = true),
+            getMangaByUrlAndSourceId = mockk {
+                coEvery { await("a", 1L) } answers { restored["a"]?.let { Manga.create().copy(id = it) } }
+                coEvery { await("b", 2L) } answers { restored["b"]?.let { Manga.create().copy(id = it) } }
+            },
+            restoreMergeGroups = RestoreMergeGroups(recorder { grouped = it }, PassThroughTransactions),
+            setCustomMangaInfo = mockk(relaxed = true),
+            localVolumes = NoLocalVolumes,
+            volumePicks = NoVolumePicks,
+        ).restoreMerges(merges, prefEra = null)
+        return grouped
+    }
+}
+
 class NovelMergeRoundTrip : MergeRoundTrip(ContentType.NOVELS) {
 
     override fun toString() = "novel"
 
     override suspend fun roundTrip(restored: Map<String, Long?>): List<Long>? {
-        val serializer = ListSerializer(BackupNovelMergeGroup.serializer())
-        val wire = ProtoBuf.encodeToByteArray(serializer, creator().novelMerges())
+        val written = creator().novelMerges()
+        val merges = backUp(mockk(relaxed = true) { coEvery { novelMerges() } returns written }, includeNovels = true)
+            .backupNovelMerges
         var grouped: List<Long>? = null
         NovelRestorer(
             tombstones = NoChapterTombstoneRepository,
@@ -195,7 +195,7 @@ class NovelMergeRoundTrip : MergeRoundTrip(ContentType.NOVELS) {
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,
-        ).restoreMerges(ProtoBuf.decodeFromByteArray(serializer, wire), prefEra = null)
+        ).restoreMerges(merges, prefEra = null)
         return grouped
     }
 
