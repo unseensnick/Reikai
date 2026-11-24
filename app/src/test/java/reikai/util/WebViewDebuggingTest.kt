@@ -1,22 +1,19 @@
 package reikai.util
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class WebViewDebuggingTest {
 
-    @Test
-    fun `developer tools switched off close the inspector on a release build`() {
-        webContentsDebugging(devTools = false, debugBuild = false) shouldBe false
-    }
-
-    @Test
-    fun `developer tools switched on open the inspector`() {
-        webContentsDebugging(devTools = true, debugBuild = false) shouldBe true
-    }
-
-    @Test
-    fun `a debug build keeps its inspector with developer tools off`() {
-        webContentsDebugging(devTools = false, debugBuild = true) shouldBe true
+    // A debug build keeps its inspector with developer tools off; a release build opens it only when they are on.
+    @ParameterizedTest
+    @CsvSource("false, false, false", "true, false, true", "false, true, true")
+    fun `the inspector is open with developer tools on or on a debug build`(
+        devTools: Boolean,
+        debugBuild: Boolean,
+        open: Boolean,
+    ) {
+        webContentsDebugging(devTools = devTools, debugBuild = debugBuild) shouldBe open
     }
 }

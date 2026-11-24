@@ -23,6 +23,17 @@ class PluginResultDecodingTest {
         items.map { it.path } shouldBe listOf("/a")
     }
 
+    // A scraper whose selector missed leaves "", which would decode and collide with every other one.
+    @Test
+    fun `a chapter with a blank path drops alone`() {
+        val page = json.decodeFromString(
+            SourcePage.serializer(),
+            """{"chapters":[{"name":"One","path":""},{"name":"Two","path":"/2"}]}""",
+        )
+
+        page.chapters.orEmpty().map { it.path } shouldBe listOf("/2")
+    }
+
     @Test
     fun `a listing item without a name drops alone`() {
         val items = json.decodeFromString(NovelItemsSerializer, """[{"path":"/a"},{"name":"B","path":"/b"}]""")

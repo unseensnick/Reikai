@@ -1,7 +1,9 @@
 package reikai.novel.host
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 
 /**
  * Cleanup of plugin-returned text. Covers entity decoding for display / folder names and the removal
@@ -10,30 +12,31 @@ import org.junit.jupiter.api.Test
  */
 class NovelTextSanitizerTest {
 
-    @Test
-    fun `decodeEntities turns an escaped ampersand back into text`() {
-        NovelTextSanitizer.decodeEntities("Tom &amp; Jerry") shouldBe "Tom & Jerry"
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = '|',
+        quoteCharacter = '"',
+        value = [
+            "Tom &amp; Jerry|Tom & Jerry",
+            "It&#39;s here|It's here",
+            "Chapter 12: The Long Road|Chapter 12: The Long Road",
+        ],
+    )
+    fun `decodeEntities turns escaped text back into text`(input: String, decoded: String) {
+        NovelTextSanitizer.decodeEntities(input) shouldBe decoded
     }
 
-    @Test
-    fun `decodeEntities resolves a numeric entity`() {
-        NovelTextSanitizer.decodeEntities("It&#39;s here") shouldBe "It's here"
+    @ParameterizedTest
+    @ValueSource(ints = [0x00, 0x0B, 0x1F, 0xFFFE, 0xFFFF])
+    fun `stripInvalidChars drops control codes and the two non-characters`(code: Int) {
+        NovelTextSanitizer.stripInvalidChars("a" + Char(code) + "b") shouldBe "ab"
     }
 
-    @Test
-    fun `stripInvalidChars drops control codes`() {
-        val input = "a" + Char(0x00) + "b" + Char(0x0B) + "c"
-        NovelTextSanitizer.stripInvalidChars(input) shouldBe "abc"
-    }
-
-    @Test
-    fun `stripInvalidChars keeps tab and newline`() {
-        val input = "a" + Char(0x09) + "b" + Char(0x0A) + "c"
+    // A plain-text chapter with carriage-return-only line breaks keeps them.
+    @ParameterizedTest
+    @ValueSource(ints = [0x09, 0x0A, 0x0D])
+    fun `stripInvalidChars keeps the legal whitespace`(code: Int) {
+        val input = "a" + Char(code) + "b"
         NovelTextSanitizer.stripInvalidChars(input) shouldBe input
-    }
-
-    @Test
-    fun `ordinary text passes through unchanged`() {
-        NovelTextSanitizer.decodeEntities("Chapter 12: The Long Road") shouldBe "Chapter 12: The Long Road"
     }
 }
