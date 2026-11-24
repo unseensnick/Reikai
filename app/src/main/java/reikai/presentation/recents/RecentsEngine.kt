@@ -439,14 +439,16 @@ class RecentsEngine(
     // a suspend pass can resolve that; see [actingChapters], which is where the mapping happens.
 
     fun markReadSelection(chapters: Set<ChapterRef>, read: Boolean) =
-        dispatchAndClear { it.markRead(chapters, read) }
+        dispatch { it.markRead(chapters, read) }
 
     fun setBookmarkSelection(chapters: Set<ChapterRef>, bookmarked: Boolean) =
-        dispatchAndClear { it.setBookmark(chapters, bookmarked) }
+        dispatch { it.setBookmark(chapters, bookmarked) }
 
     /**
      * Resolves what the selected [items] act on ([actingChapters]), then runs [verb] over it. On the app
-     * scope, like the write itself, so leaving the screen during the resolve cannot drop the verb.
+     * scope, like the write itself, so leaving the screen during the resolve cannot drop the verb. The selection
+     * clears at the tap, as upstream's does: the resolve can read a chapter list per row, and a bar left up for it
+     * took a second tap, and a late clear wiped rows picked meanwhile.
      */
     fun actOnSelection(
         items: List<RecentsItem>,
@@ -454,14 +456,16 @@ class RecentsEngine(
         membership: Map<EntryId, Long>,
         verb: (Set<ChapterRef>) -> Unit,
     ) {
+        clearSelection()
         appScope.launch { verb(actingChapters(items, mode, membership)) }
     }
 
     /** Downloads the selected [items], each scope's chapters fetching the copies that scope reaches. */
     fun downloadSelection(items: List<RecentsItem>, mode: RecentsMode, membership: Map<EntryId, Long>) {
+        clearSelection()
         appScope.launch {
             val chaptersByScope = actingChaptersByScope(items, mode, membership)
-            dispatchAndClear { actions ->
+            dispatch { actions ->
                 chaptersByScope.forEach { (scope, chapters) ->
                     actions.download(chapters, ChapterDownloadAction.START, scope)
                 }
@@ -487,8 +491,11 @@ class RecentsEngine(
         dispatch { it.setBookmark(chapters, bookmarked) }
 
     /** Each scope's chapters reach the copies that scope shows as downloaded, see [actingChaptersByScope]. */
-    fun deleteDownloads(chaptersByScope: Map<MergeScope, Set<ChapterRef>>) = dispatchAndClear { actions ->
-        chaptersByScope.forEach { (scope, chapters) -> actions.deleteDownloads(chapters, scope) }
+    fun deleteDownloads(chaptersByScope: Map<MergeScope, Set<ChapterRef>>) {
+        clearSelection()
+        dispatch { actions ->
+            chaptersByScope.forEach { (scope, chapters) -> actions.deleteDownloads(chapters, scope) }
+        }
     }
 
     /**
@@ -772,16 +779,12 @@ class RecentsEngine(
             .stateIn(viewModelScope, OVER_PROVIDERS, RecentsRowGate.NONE)
     }
 
-    /** On the app scope: the selection clears at once, so the bar closes on the tap, and leaving the
-     *  screen during a merged row's stitch read must not drop a write the bar already reported as done. */
+    /** On the app scope, so leaving the screen during a merged row's stitch read must not drop a write the bar
+     *  already reported as done. Every provider gets it and narrows it to its own type's chapters, so the chip
+     *  when it runs, which can be after a resolve, does not decide where a chapter goes. */
     private fun dispatch(action: suspend (RecentsChapterActions) -> Unit) {
-        val targets = activeProviders().map { it.chapterActions }
+        val targets = providers.map { it.chapterActions }
         appScope.launch { targets.forEach { action(it) } }
-    }
-
-    private fun dispatchAndClear(action: suspend (RecentsChapterActions) -> Unit) {
-        dispatch(action)
-        clearSelection()
     }
 
     private fun activeProviders(): List<RecentsProvider> =

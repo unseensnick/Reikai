@@ -561,18 +561,16 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `a bulk action reaches every content type on screen and clears the selection`() {
+    fun `a bulk action reaches every content type on screen`() {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
         val engine = engine(listOf(manga, novel))
         val chapter = ref(manga1, 1)
 
-        engine.toggleSelection(chapter)
         engine.markReadSelection(setOf(chapter), read = true)
 
         manga.markedRead shouldBe setOf(chapter)
         novel.markedRead shouldBe setOf(chapter)
-        engine.selection.value shouldBe emptySet()
     }
 
     @Test
@@ -810,6 +808,21 @@ class RecentsEngineTest {
         engine.markRead(setOf(chapter), read = true)
 
         manga.markedRead shouldBe setOf(chapter)
+    }
+
+    /** The resolve can read a chapter list per row, and a bar left up meanwhile took a second tap. */
+    @Test
+    fun `a bulk verb clears the selection at the tap, before its rows resolve`() {
+        val manga = provider(ContentType.MANGA)
+        val engine = engine(listOf(manga))
+        val row = item(manga1, at = 1, lane = RecentsLane.Updated(ref(manga1, 4)))
+        engine.toggleSelection(ref(manga1, 4))
+
+        engine.actOnSelection(listOf(row), RecentsMode.UPDATES, membership = emptyMap()) {
+            check(engine.selection.value.isEmpty()) { "The selection was still up when the verb ran" }
+        }
+
+        engine.selection.value shouldBe emptySet()
     }
 
     @Test
