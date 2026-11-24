@@ -7,7 +7,6 @@ import eu.kanade.tachiyomi.util.storage.DiskUtil
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
@@ -232,14 +231,7 @@ class NovelReaderViewModelTest {
         harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        coVerify {
-            harness.downloadManager.downloadChapters(
-                match { chapters ->
-                    chapters.map { it.id } ==
-                        listOf(second.id)
-                },
-            )
-        }
+        harness.queued shouldBe listOf(second.id)
     }
 
     /** Incognito keeps history out, not downloads, as Mihon's reader downloads ahead in it too. */
@@ -253,14 +245,7 @@ class NovelReaderViewModelTest {
         harness.open(novel, opened.id)
         advanceUntilIdle()
 
-        coVerify {
-            harness.downloadManager.downloadChapters(
-                match { chapters ->
-                    chapters.map { it.id } ==
-                        listOf(second.id)
-                },
-            )
-        }
+        harness.queued shouldBe listOf(second.id)
     }
 
     /** The window holds the chapter above the open one, so its position arrives while the open

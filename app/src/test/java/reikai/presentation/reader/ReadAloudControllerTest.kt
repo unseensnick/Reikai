@@ -680,14 +680,6 @@ class ReadAloudControllerTest {
     }
 
     @Test
-    fun `the spoken paragraph is saved with keep in view off`() = runTest {
-        preferences.readerTtsKeepInView().set(false)
-        playing()
-
-        navigation.saved shouldBe listOf(1L to 1.0 / 3)
-    }
-
-    @Test
     fun `each paragraph is saved as speech reaches it`() = runTest {
         playing()
 

@@ -34,6 +34,12 @@ class ReaderColorTest {
         readerTextColorInt("#12345") shouldBe readerColorOrNull(readerDarkPreset.textColor)
     }
 
+    /** A restored backup writes the stored value straight into the reader document's style block. */
+    @Test
+    fun `a colour that closes the style block goes in as the default`() {
+        readerBackgroundOrDefault("#000; } </style><script>alert(1)</script>") shouldBe readerDarkPreset.background
+    }
+
     companion object {
         @JvmStatic
         fun cssForms() = listOf(

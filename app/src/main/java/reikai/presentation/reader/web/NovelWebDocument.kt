@@ -11,6 +11,8 @@ import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.FrameScroller
 import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.NovelTextScale
+import reikai.presentation.reader.readerBackgroundOrDefault
+import reikai.presentation.reader.readerTextColorOrDefault
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.CHAPTER_SWIPE_MIN_DP
 import reikai.presentation.reader.text.CHAPTER_SWIPE_SIDEWAYS
@@ -141,8 +143,8 @@ object NovelWebDocument {
      * place, so every value a setting can move is one of them rather than baked into the document.
      */
     fun variables(settings: NovelReaderSettings, statusBarHeightPx: Int): String = buildString {
-        append("--rk-background:").append(cssBackgroundColor(settings.backgroundColor)).append(';')
-        append("--rk-text:").append(cssTextColor(settings.textColor)).append(';')
+        append("--rk-background:").append(readerBackgroundOrDefault(settings.backgroundColor)).append(';')
+        append("--rk-text:").append(readerTextColorOrDefault(settings.textColor)).append(';')
         append("--rk-font-size:").append(settings.fontSize).append("px;")
         append("--rk-line-height:").append(settings.lineHeight).append(';')
         append("--rk-text-align:").append(settings.textAlign.value).append(';')

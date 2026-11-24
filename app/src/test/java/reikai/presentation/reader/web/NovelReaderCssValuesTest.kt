@@ -4,12 +4,6 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
-import reikai.presentation.components.toHexRgb
-import reikai.presentation.reader.readerBackgroundColorInt
-import reikai.presentation.reader.readerColorOrNull
-import reikai.presentation.reader.readerDarkPreset
-import reikai.presentation.reader.readerTextColorInt
-import reikai.presentation.reader.readerThemePresets
 
 /**
  * A restored backup writes these preference keys, and they land inside the reader document's
@@ -17,44 +11,6 @@ import reikai.presentation.reader.readerThemePresets
  * that holds the app's cookies.
  */
 class NovelReaderCssValuesTest {
-
-    @Test
-    fun `a preset colour is passed through`() {
-        cssBackgroundColor("#292832") shouldBe "#292832"
-    }
-
-    /** An old backup can still carry the eight-digit form Black's text colour once had. */
-    @Test
-    fun `a colour with an alpha channel is passed through`() {
-        cssTextColor("#FFFFFFB3") shouldBe "#FFFFFFB3"
-    }
-
-    @Test
-    fun `a colour from the picker is passed through`() {
-        cssBackgroundColor(0xFF1B2A3C.toInt().toHexRgb()) shouldBe "#1B2A3C"
-    }
-
-    @Test
-    fun `every preset colour is passed through`() {
-        readerThemePresets.flatMap { listOf(it.background, it.textColor) }
-            .map(::cssTextColor) shouldBe readerThemePresets.flatMap { listOf(it.background, it.textColor) }
-    }
-
-    @Test
-    fun `a colour that closes the style block falls back to the default`() {
-        cssBackgroundColor("#000; } </style><script>alert(1)</script>") shouldBe readerDarkPreset.background
-    }
-
-    @Test
-    fun `a colour that is not a colour falls back to the default`() {
-        cssTextColor("red") shouldBe readerDarkPreset.textColor
-    }
-
-    /** Five digits pass a digit count but no browser reads them, and the native renderer would draw them. */
-    @Test
-    fun `a colour with a length CSS does not read falls back`() {
-        cssBackgroundColor("#12345") shouldBe readerDarkPreset.background
-    }
 
     @Test
     fun `a family name is passed through`() {
@@ -107,13 +63,5 @@ class NovelReaderCssValuesTest {
     @Test
     fun `an empty family stays empty`() {
         cssFontFamily("") shouldBe ""
-    }
-
-    /** The page and the native renderer fall back from one rule, so a bad stored value draws alike in both. */
-    @ParameterizedTest
-    @ValueSource(strings = ["#12345", "red", ""])
-    fun `an unreadable colour falls back as the native renderer's does`(stored: String) {
-        listOf(cssBackgroundColor(stored), cssTextColor(stored)).map(::readerColorOrNull) shouldBe
-            listOf(readerBackgroundColorInt(stored), readerTextColorInt(stored))
     }
 }

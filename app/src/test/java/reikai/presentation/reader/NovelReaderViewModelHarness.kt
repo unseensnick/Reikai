@@ -220,12 +220,16 @@ class NovelReaderViewModelHarness private constructor(
         every { queueState } returns MutableStateFlow(emptyList())
         every { getChapterText(any(), any()) } answers { downloaded[secondArg<NovelChapter>().id] }
         every { deleteChapters(any()) } answers { deletedAfterRead += firstArg<List<NovelChapter>>().map { it.id } }
+        coEvery { downloadChapters(any()) } answers { queued += firstArg<List<NovelChapter>>().map { it.id } }
         // A renamed novel's row is written through its folder move, as the real manager does.
         coEvery { renameNovel(any(), any(), any()) } coAnswers { thirdArg<suspend () -> Boolean>()() }
     }
 
     /** The chapters a mark read removed the download of, with "Remove after marked as read" on. */
     val deletedAfterRead: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** The chapters handed to the download queue, in the order they were. */
+    val queued: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
 
     /** What a details page's remove from library runs. */
     var removeNovelsFromLibrary = mockk<RemoveNovelsFromLibrary>(relaxed = true)

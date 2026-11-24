@@ -3,8 +3,6 @@ package reikai.presentation.reader.web
 import reikai.novel.font.ReaderFontSource
 import reikai.novel.font.fontDisplayName
 import reikai.novel.font.readerFontSource
-import reikai.presentation.reader.readerBackgroundOrDefault
-import reikai.presentation.reader.readerTextColorOrDefault
 
 /*
  * Preference values on their way into the reader document's <style> block. Restoring a backup writes
@@ -13,11 +11,6 @@ import reikai.presentation.reader.readerTextColorOrDefault
  * the app's cookies. Each is checked against the shape it can legitimately have rather than escaped,
  * because CSS escaping is per-context while these shapes are small enough to state exactly.
  */
-
-/** Only a colour [reikai.presentation.reader.readerColorOrNull] reads, which is what the native renderer draws. */
-fun cssBackgroundColor(value: String): String = readerBackgroundOrDefault(value)
-
-fun cssTextColor(value: String): String = readerTextColorOrDefault(value)
 
 /**
  * A family name as CSS can read it, quoted or not: the characters that would end the declaration or

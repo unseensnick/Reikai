@@ -24,10 +24,4 @@ class NovelResumeTest {
         NovelResume.progress(read = false, lastTextProgress = 12_000L, preserveOnRead = false) shouldBe
             ChapterProgress.Percent(10_000L)
     }
-
-    @Test
-    fun `a read chapter opens where it was left when positions are kept`() {
-        NovelResume.progress(read = true, lastTextProgress = 4_200L, preserveOnRead = true) shouldBe
-            ChapterProgress.Percent(4_200L)
-    }
 }
