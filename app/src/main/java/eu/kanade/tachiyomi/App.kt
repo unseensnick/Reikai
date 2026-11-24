@@ -227,6 +227,11 @@ class App :
 
         setupNotificationChannels()
 
+        // RK --> read aloud's notification left up by a killed process, whose service ran in this one. A live
+        // service's is safe: an app cannot cancel the notification of its own foreground service.
+        scope.launchIO { cancelNotification(Notifications.ID_NOVEL_TTS) }
+        // RK <--
+
         // RK: restore persisted cover colors for cover-based theming
         graph.mangaCoverMetadata.load()
 
