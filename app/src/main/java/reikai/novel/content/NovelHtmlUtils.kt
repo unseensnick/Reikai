@@ -65,14 +65,6 @@ object NovelHtmlUtils {
         Regex("""part\s*\d+""", RegexOption.IGNORE_CASE),
     )
 
-    private val scriptTagRegex =
-        Regex("<script[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val scriptSelfClosingRegex = Regex("<script[^>]*/>", RegexOption.IGNORE_CASE)
-
-    private val styleTagRegex =
-        Regex("<style[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val styleSelfClosingRegex = Regex("<style[^>]*/>", RegexOption.IGNORE_CASE)
-
     /** Elements that fetch or run something of their own, none of which a chapter needs. `base`
      *  rewrites every relative URL in the document. `svg` and `math` are foreign content, which does
      *  not always survive a serialize-and-reparse unchanged, and that is what a mutation bypass is.
@@ -91,23 +83,10 @@ object NovelHtmlUtils {
     /** Attributes a browser resolves as a URL, and so will run as code given a `javascript:` one. */
     private val URL_ATTRIBUTES = listOf("href", "src", "srcset", "action", "formaction", "data", "poster")
 
-    private val noscriptTagRegex =
-        Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val htmlCommentRegex = Regex("<!--.*?-->", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val encodedCommentRegex = Regex("&lt;!--.*?--&gt;", RegexOption.DOT_MATCHES_ALL)
 
     /** `rel` is a list of words, and any list holding this one loads a stylesheet. */
     private val stylesheetRelRegex = Regex("(^|\\s)stylesheet(\\s|$)", RegexOption.IGNORE_CASE)
-
-    private val imgTagRegex = Regex("<img[^>]*>", RegexOption.IGNORE_CASE)
-    private val imageTagRegex = Regex("</?image[^>]*>", RegexOption.IGNORE_CASE)
-
-    private val videoTagRegex =
-        Regex("<video[^>]*>.*?</video>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-
-    private val audioTagRegex =
-        Regex("<audio[^>]*>.*?</audio>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val sourceTagRegex = Regex("<source[^>]*>", RegexOption.IGNORE_CASE)
 
     // The spacing and indent passes read the source's own markup, before a parser has rewritten `<br/>`,
     // `&#160;` or a tag broken over lines the one way a browser serialises them, so every spelling is matched.
@@ -352,10 +331,9 @@ object NovelHtmlUtils {
     }
 
     /**
-     * Drops markup a reader should not render. The two targets need different guarantees, so they
-     * take different paths: the WebView runs scripts with the app's cookie jar and a bridge bound, so
-     * its markup is parsed and pruned as a tree, while `Html.fromHtml` executes nothing and only
-     * needs the tags it would otherwise print stripped out of sight.
+     * Drops markup a reader should not render, by one tree prune for both targets, so the two lay out the same
+     * text. `Html.fromHtml` prints a style or script it cannot render, so the native one never keeps them, and
+     * keeps inline styles, which it reads for alignment and colour.
      */
     fun sanitizeForRender(
         content: String,
@@ -364,8 +342,9 @@ object NovelHtmlUtils {
         keepEmbeddedJs: Boolean,
         blockMedia: Boolean,
     ): String = when (target) {
-        RenderTarget.WEB_VIEW -> sanitizeForWebView(content, keepEmbeddedCss, keepEmbeddedJs, blockMedia)
-        RenderTarget.TEXT_VIEW -> sanitizeForTextView(content, blockMedia)
+        RenderTarget.WEB_VIEW -> prune(content, keepEmbeddedCss, keepEmbeddedCss, keepEmbeddedJs, blockMedia)
+        RenderTarget.TEXT_VIEW ->
+            prune(content, keepStyleElements = false, keepStyleAttributes = true, keepEmbeddedJs = false, blockMedia)
     }
 
     /**
@@ -375,9 +354,10 @@ object NovelHtmlUtils {
      * raw-text element can delete its start tag. Only when the parser itself throws does the chapter
      * go out as escaped text, which still beats a blank page.
      */
-    private fun sanitizeForWebView(
+    private fun prune(
         content: String,
-        keepEmbeddedCss: Boolean,
+        keepStyleElements: Boolean,
+        keepStyleAttributes: Boolean,
         keepEmbeddedJs: Boolean,
         blockMedia: Boolean,
     ): String {
@@ -397,12 +377,12 @@ object NovelHtmlUtils {
             doc.select("script").remove()
             doc.select("*").forEach(::stripScriptingAttributes)
         }
-        if (!keepEmbeddedCss) {
+        if (!keepStyleElements) {
             doc.select("style").remove()
             doc.select("link[rel]").filter { stylesheetRelRegex.containsMatchIn(it.attr("rel")) }
                 .forEach(Element::remove)
-            doc.select("[style]").removeAttr("style")
         }
+        if (!keepStyleAttributes) doc.select("[style]").removeAttr("style")
         if (blockMedia) doc.select(MEDIA_ELEMENTS).remove()
         dropComments(doc.body())
 
@@ -452,33 +432,5 @@ object NovelHtmlUtils {
         )
         comments.forEach(Comment::remove)
         texts.forEach { it.text(it.wholeText.replace(htmlCommentRegex, "")) }
-    }
-
-    /**
-     * A TextView prints what it cannot render, so scripts and styles always go whatever the user
-     * asked for. Pattern-based, and safe to be: `Html.fromHtml` has no script engine and no CSS, so
-     * what gets past this is text on the page rather than code in a browser.
-     */
-    private fun sanitizeForTextView(content: String, blockMedia: Boolean): String {
-        var result = content
-            .replace(scriptTagRegex, "")
-            .replace(scriptSelfClosingRegex, "")
-            .replace(styleTagRegex, "")
-            .replace(styleSelfClosingRegex, "")
-            .replace(noscriptTagRegex, "")
-            .replace(htmlCommentRegex, "")
-            .replace(encodedCommentRegex, "")
-
-        if (blockMedia) result = stripMediaTags(result)
-        return result
-    }
-
-    fun stripMediaTags(content: String): String {
-        return content
-            .replace(imgTagRegex, "")
-            .replace(imageTagRegex, "")
-            .replace(videoTagRegex, "")
-            .replace(audioTagRegex, "")
-            .replace(sourceTagRegex, "")
     }
 }

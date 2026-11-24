@@ -16,8 +16,8 @@ import org.junit.jupiter.params.provider.ValueSource
 /**
  * What a chapter's own markup may reach the WebView with. The WebView runs JavaScript with the app's
  * cookie jar and a bridge bound, so a source that gets a script past this executes in that context.
- * The TEXT_VIEW cases are a different question: `Html.fromHtml` executes nothing, so they only pin
- * that the visible-text cleanup still happens.
+ * The native target goes through the same prune, so the cases run over both targets where they differ
+ * only in what each keeps.
  */
 class NovelHtmlSanitizerTest {
 
@@ -205,8 +205,6 @@ class NovelHtmlSanitizerTest {
         web("<p>one<br><br>two</p>") shouldContain "<br><br>"
     }
 
-    /** The TextView's pattern cleanup leaves attributes alone, so it is no fallback for a page that
-     *  runs scripts. */
     @Test
     fun `a chapter the parser cannot read reaches the page as text`() {
         mockkStatic(Jsoup::class)
@@ -218,6 +216,19 @@ class NovelHtmlSanitizerTest {
         }
 
         sanitized shouldNotContain "<img"
+    }
+
+    /** A lazy pattern ran from the first script to the next literal end tag and took the prose between. */
+    @ParameterizedTest
+    @EnumSource(RenderTarget::class)
+    fun `prose after a script closed with a spaced end tag shows`(target: RenderTarget) {
+        NovelHtmlUtils.sanitizeForRender(
+            content = "<script>var x=1</script ><p>Real paragraph</p><script>y</script>",
+            target = target,
+            keepEmbeddedCss = true,
+            keepEmbeddedJs = false,
+            blockMedia = false,
+        ) shouldContain "Real paragraph"
     }
 
     @Test

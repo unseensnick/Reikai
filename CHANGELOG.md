@@ -206,6 +206,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **On a busy phone, the manga reader no longer sometimes picks the wrong automatic reading mode as it opens.** It also no longer sends a merged chapter's web actions to the wrong source.
 - **Marking the chapter you're reading as read from the reader's chapter list no longer deletes its download when Settings -> Downloads -> After manually marked as read is on.**
 - **In incognito, deleting chapters after reading no longer removes another source's unread copy in a merged series, for manga and novels.**
+- **The native novel reader no longer drops a paragraph that follows an embedded script, and both reading modes now hide the same parts of a chapter.**
 - **A novel chapter read aloud is now marked read and keeps your place, with Keep paragraph in view off too.** Reopening the chapter takes you to the paragraph being read.
 - **Leaving the reader while a page is still scrolling now keeps the place it stopped at, in manga and novels.**
 - **Open in WebView now opens the page a Cloudflare check blocked, such as a failed chapter or a later listing page, so solving it lets Retry work.**
