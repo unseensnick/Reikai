@@ -46,14 +46,6 @@ import tachiyomi.presentation.core.util.plus
 /** A local source's own actions, both types' alike: adding files, and the guide to laying them out. */
 class LocalSourceActions(val onImport: () -> Unit, val onGuide: () -> Unit)
 
-/**
- * The one catalogue body, for a manga source and a light-novel source alike: the loading, empty and
- * fetch-error states, then the results in whichever layout [rowStyle] asks for. Both catalogues used
- * to carry their own copy of all of it, which is how novels ended up ignoring the column preference.
- *
- * [localSource] replaces the whole empty-state action set when present, the way upstream points a
- * reader at the local-source guide instead of offering a retry there is nothing to retry.
- */
 private fun LazyPagingItems<*>.loadErrorState(): LoadState? =
     loadState.refresh.takeIf { it is LoadState.Error } ?: loadState.append.takeIf { it is LoadState.Error }
 
@@ -64,6 +56,14 @@ private fun LazyPagingItems<*>.loadErrorState(): LoadState? =
 fun LazyPagingItems<*>.challengeUrl(): String? =
     (loadErrorState() as? LoadState.Error)?.error?.cloudflareBlockedUrl()
 
+/**
+ * The one catalogue body, for a manga source and a light-novel source alike: the loading, empty and
+ * fetch-error states, then the results in whichever layout [rowStyle] asks for. Both catalogues used
+ * to carry their own copy of all of it, which is how novels ended up ignoring the column preference.
+ *
+ * [localSource] replaces the whole empty-state action set when present, the way upstream points a
+ * reader at the local-source guide instead of offering a retry there is nothing to retry.
+ */
 @Composable
 fun EntryBrowseCatalogue(
     rows: LazyPagingItems<EntryBrowseRow>,

@@ -439,6 +439,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **An extension whose language Android cannot name now shows the language as written in Extensions, instead of a blank.**
 - **Screen readers now announce the Discord button on a repo's details as Open Discord.**
 - **Applying filters after clearing the search box no longer brings the old search text back (from Mihon).** Upstream: mihonapp/mihon#4244.
+- **Global search results now show up to three lines of a title, as Mihon's do.**
 
 ### Updates & History
 

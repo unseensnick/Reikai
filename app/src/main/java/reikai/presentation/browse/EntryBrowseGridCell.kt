@@ -52,6 +52,8 @@ fun EntryBrowseGridCell(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     isSelected: Boolean = false,
+    // Comfortable grid only: global search's narrow cards give a title three lines, as upstream's did.
+    titleMaxLines: Int = 2,
 ) {
     val coverAlpha = if (ui.favorite) CommonMangaItemDefaults.BrowseFavoriteCoverAlpha else 1f
     when (displayMode) {
@@ -81,6 +83,7 @@ fun EntryBrowseGridCell(
             onClick = onClick,
             onLongClick = onLongClick,
             isSelected = isSelected,
+            titleMaxLines = titleMaxLines,
             usePanoramaCover = displayMode is LibraryDisplayMode.ComfortableGridPanorama,
         )
     }

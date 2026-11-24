@@ -59,6 +59,7 @@ fun <T> EntrySearchCardRow(
                         onClick = { gestures.onClick(entry) },
                         onLongClick = { gestures.onLongClick(entry) },
                         isSelected = isSelected(entry),
+                        titleMaxLines = 3,
                     )
                 }
             }
