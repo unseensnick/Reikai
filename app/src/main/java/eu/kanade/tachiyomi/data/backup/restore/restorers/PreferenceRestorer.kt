@@ -65,6 +65,9 @@ class PreferenceRestorer(
                 backupNovelCategories,
             )
         }
+        // An older backup carries plugin settings here rather than in Source settings, read when an engine is built
+        preferences.mapNotNullTo(HashSet()) { pluginStorageScope(it.key)?.let(::lnPluginIdOf) }
+            .forEach { lnPluginHost().storageChanged(it) }
         // RK <--
 
         LibraryUpdateWorker.setupTask(context)

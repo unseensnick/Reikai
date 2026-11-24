@@ -55,6 +55,7 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
+import reikai.novel.host.LnPluginHost
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
@@ -82,8 +83,10 @@ class PreferenceRestorerTest {
     )
     private val context = mockk<Context>()
 
+    private val pluginHost = mockk<LnPluginHost>(relaxed = true)
+
     private val restorer = PreferenceRestorer(
-        lnPluginHost = { mockk(relaxed = true) },
+        lnPluginHost = { pluginHost },
         context = context,
         getCategories = mockk<GetCategories>(),
         preferenceStore = store,
@@ -199,6 +202,14 @@ class PreferenceRestorerTest {
         restorer.restoreApp(listOf(BackupPreference(key, value)), backupCategories = null)
 
         store.getString(key, "").isSet() shouldBe false
+    }
+
+    // An older backup carries a plugin's settings in App settings, read when its engine is built.
+    @Test
+    fun `a plugin's settings restored with App settings start its next call in a fresh engine`() = runTest {
+        restoreString("ln_storage::boxnovel::storage:url", "u")
+
+        verify { pluginHost.storageChanged("boxnovel") }
     }
 
     // The category restore derives it from the restored categories' bits, which a raw value written after would contradict.
