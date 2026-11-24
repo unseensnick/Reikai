@@ -141,12 +141,12 @@ class NovelImageGetter(
         wrapper.bounds = placeholder.bounds
 
         when {
-            source.isNullOrBlank() -> showFailure(wrapper, retryable = false)
+            source.isNullOrBlank() -> showFailure(wrapper)
             NovelChapterAddress.isDataAddress(source) -> decodeInlineImage(source, wrapper)
             isNovelImageAddress(source) -> pendingLoads += PendingLoad(source, wrapper)
             else -> {
                 logcat(LogPriority.DEBUG) { "Skipping unsupported image source" }
-                showFailure(wrapper, retryable = false)
+                showFailure(wrapper)
             }
         }
         return wrapper
@@ -274,7 +274,7 @@ class NovelImageGetter(
         val box = picture?.let { pictureBox(it.sourceWidth, it.sourceHeight, contentWidth, density, maxPictureHeight) }
         val drawn = picture?.let { fitted(it.bitmap.toDrawable(context.resources), box) }
         if (picture == null || drawn == null) {
-            showFailure(wrapper, retryable = false)
+            showFailure(wrapper)
             return
         }
         // Read in slices like a fetched one, so a stored strip is as sharp offline as it is online.
@@ -438,7 +438,7 @@ class NovelImageGetter(
      * The picture, or null when it could not be had. A [retry] reads no cache, as the manga reader's page
      * retry forces a download. A viewport teardown cancels every outstanding image, which is not a failure.
      */
-    private suspend fun fetch(imageUrl: String, retry: Boolean = false): Drawable? = runCatchingCancellable {
+    private suspend fun fetch(imageUrl: String, retry: Boolean): Drawable? = runCatchingCancellable {
         val cache = if (retry) CachePolicy.WRITE_ONLY else CachePolicy.ENABLED
         val request = ImageRequest.Builder(context)
             .data(NovelImage(imageUrl, sourceId))
@@ -453,11 +453,11 @@ class NovelImageGetter(
     }.onFailure { logcat(LogPriority.DEBUG, it) { "Failed to load a chapter image" } }.getOrNull()
 
     /**
-     * In the picture's place, as the page draws one (reader.js). Its height differs from the stand-in's, so
-     * a picture already laid out owes its view a re-measure, which the caller arranges.
+     * In the picture's place, as the page draws one (reader.js), with no Retry: only called during the parse,
+     * before layout, since its height differs from the stand-in's and nothing would re-measure the view.
      */
-    private fun showFailure(wrapper: DrawableWrapper, retryable: Boolean) {
-        val box = failureBox(retryable)
+    private fun showFailure(wrapper: DrawableWrapper) {
+        val box = failureBox(retryable = false)
         wrapper.innerDrawable = box
         wrapper.bounds = box.bounds
     }

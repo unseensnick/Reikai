@@ -41,7 +41,7 @@ internal class TiledPicture(
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val destination = RectF()
 
-    /** What this test reads to say which slices are held; nothing else has a reason to. */
+    /** Which slices are held, for the instrumented tests to read; nothing else has a reason to. */
     internal val heldTiles: Set<Int> get() = tiles.keys
 
     init {

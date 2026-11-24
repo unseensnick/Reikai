@@ -1,7 +1,6 @@
 package reikai.data.novel
 
 import eu.kanade.tachiyomi.data.cache.CoverCache
-import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones

@@ -597,7 +597,8 @@
     'img, svg, video, canvas, iframe, hr, object, embed, audio, input, select, textarea, button, .rk-failure';
 
   var paged = (function () {
-    // { id, scrollY, height, fraction } of the page last shown, null before one has been.
+    // { id, scrollY, bottom, fraction, seam } of the page last shown, null before one has been; bottom is
+    // where the page ends, the second page's foot in a spread.
     var shown = null;
     // The line the reader's page started on. A reflow recuts the pages, and the page shown after one starts
     // above this line, so holding that start instead walks the reader back a page on every reflow.
@@ -814,7 +815,7 @@
         maskBetween.style.height = Math.max(0, second ? second.shift - height : 0) + 'px';
       }
       shown = {
-        id: String(id), scrollY: scrollTop(), height: height, bottom: bottom, fraction: fraction, seam: seam === true,
+        id: String(id), scrollY: scrollTop(), bottom: bottom, fraction: fraction, seam: seam === true,
       };
       // Holds the line landed on at once, as a seek does, so a change before the next frame keeps it.
       place.sync();

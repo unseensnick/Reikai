@@ -34,8 +34,7 @@ class NovelSpreadHost(
     private var firstHeight = 0f
 
     /** How far below the first page's top the second page starts in the column, null with no second page. */
-    var shift: Float? = null
-        private set
+    private var shift: Float? = null
     private var secondHeight = 0f
 
     /**

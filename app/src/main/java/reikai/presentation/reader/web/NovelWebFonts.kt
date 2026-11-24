@@ -50,7 +50,6 @@ class NovelWebFonts {
 
     /** The face behind an address from [url], read on the WebView's worker thread; null for any other address. */
     fun response(context: Context, url: String): WebResourceResponse? {
-        NovelWebImages.appAddressAt(url, PATH) ?: return null
         val face = served[url] ?: return null
         val bytes = runCatching {
             when (val source = face.source) {

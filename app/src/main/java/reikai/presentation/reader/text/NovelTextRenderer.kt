@@ -9,7 +9,6 @@ import android.text.style.RelativeSizeSpan
 import android.text.style.SubscriptSpan
 import android.text.style.SuperscriptSpan
 import android.util.TypedValue
-import android.view.View
 import android.widget.TextView
 import androidx.core.text.PrecomputedTextCompat
 import androidx.core.widget.TextViewCompat
@@ -189,8 +188,7 @@ class NovelTextRenderer(
         swapIn: () -> Unit,
     ) {
         if (block.discarded) return
-        val snapshots = views.mapNotNull { view -> view.text?.let { view to it } }
-        views.filter { it.text == null }.forEach(View::requestLayout)
+        val snapshots = views.map { view -> view to view.text }
         // Copied rather than re-set as itself, so the framework treats it as new text; the copy keeps the
         // chapter's emphasis, links, images and paragraph spans, as restyling does. Copied here on the main
         // thread, since read aloud edits the spans of the text on screen from it.

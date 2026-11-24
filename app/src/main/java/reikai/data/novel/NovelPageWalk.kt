@@ -1,6 +1,5 @@
 package reikai.data.novel
 
-import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel

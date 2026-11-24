@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
-import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.library.ContentType

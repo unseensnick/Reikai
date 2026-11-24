@@ -169,7 +169,7 @@ class NovelProgressSlot(
     }
 
     /** The shared completion rule, at the threshold the reader chose. */
-    fun completes(at: ChapterProgress.Percent): Boolean =
+    private fun completes(at: ChapterProgress.Percent): Boolean =
         at.isChapterComplete(novelPreferences.readerMarkReadPercent().get())
 
     /**

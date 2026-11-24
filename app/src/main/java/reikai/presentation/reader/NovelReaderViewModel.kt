@@ -1629,7 +1629,7 @@ class NovelReaderViewModel(
         }
     }
 
-    suspend fun loadChapterHtml(chapter: NovelChapter, fromSource: Boolean = false): NovelChapterText = try {
+    private suspend fun loadChapterHtml(chapter: NovelChapter, fromSource: Boolean = false): NovelChapterText = try {
         textLoader.load(chapter, renderingMode.value, fromSource)
     } catch (e: EmptyChapterException) {
         throw Exception(context.stringResource(MR.strings.novel_chapter_empty), e)
