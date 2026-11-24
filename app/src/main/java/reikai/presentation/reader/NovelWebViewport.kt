@@ -40,6 +40,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import reikai.data.coil.fetchNovelImage
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.novel.content.NovelChapterAddress
@@ -357,6 +358,8 @@ class NovelWebViewport(
     }
 
     override val view: View = spreadHost ?: frame
+
+    override val renderingMode: NovelRenderingMode get() = NovelRenderingMode.WEBVIEW
 
     // Below [view], which it slides: a property declared above another is built before it.
     private val slide = PageSlide(view)

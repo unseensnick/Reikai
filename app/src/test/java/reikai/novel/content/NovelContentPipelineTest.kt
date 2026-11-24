@@ -252,7 +252,7 @@ class NovelContentPipelineTest {
             readDownloaded = { _, _ -> null },
         )
 
-        val (html, _) = loader.load(chapter(url = "/book/ch1.txt"))
+        val (html, _) = loader.load(own = null, chapter = chapter(url = "/book/ch1.txt"))
 
         html shouldNotContain "<script>"
         html shouldContain "&lt;script&gt;"
@@ -275,7 +275,7 @@ class NovelContentPipelineTest {
             readDownloaded = { _, _ -> null },
         )
 
-        shouldThrow<EmptyChapterException> { loader.load(chapter(url = "/book/ch1.html")) }
+        shouldThrow<EmptyChapterException> { loader.load(own = null, chapter = chapter(url = "/book/ch1.html")) }
     }
 
     @Test
@@ -354,14 +354,18 @@ class NovelContentPipelineTest {
 
     @Test
     fun `a load reads the downloaded copy when there is one`() = runTest {
-        val (html, _) = sourceOrDownloadLoader().load(chapter(url = "/book/ch1.html"))
+        val (html, _) = sourceOrDownloadLoader().load(own = null, chapter = chapter(url = "/book/ch1.html"))
 
         html shouldContain "downloaded"
     }
 
     @Test
     fun `a load from the source skips the downloaded copy`() = runTest {
-        val (html, _) = sourceOrDownloadLoader().load(chapter(url = "/book/ch1.html"), fromSource = true)
+        val (html, _) = sourceOrDownloadLoader().load(
+            own = null,
+            chapter = chapter(url = "/book/ch1.html"),
+            fromSource = true,
+        )
 
         html shouldContain "from source"
     }

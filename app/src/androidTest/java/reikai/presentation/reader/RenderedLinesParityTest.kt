@@ -162,6 +162,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         chapterId = 1L,
         title = "Chapter 1",
         url = CHAPTER_URL,
+        renderingMode = NovelRenderingMode.NATIVE,
         html = html,
         baseUrl = null,
         progress = ChapterProgress.Percent(0),

@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import android.view.View
+import reikai.domain.novel.NovelRenderingMode
 
 /**
  * What a viewport answers when it renders text rather than images, so the host drives the WebView
@@ -14,6 +15,9 @@ interface TextViewport {
 
     /** The renderer, which the host measures to tell it what the chrome covers. */
     val view: View
+
+    /** The renderer this is, so the host draws only chapters processed for it. */
+    val renderingMode: NovelRenderingMode
 
     /**
      * Starts over on [chapter] alone, at its [NovelReaderViewModel.LoadedChapter.progress].

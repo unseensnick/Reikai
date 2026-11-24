@@ -29,6 +29,10 @@ enum class NovelRenderingMode(val titleRes: StringResource, val rendersMarkup: B
             else -> null
         }
 
+        /** The mode a novel renders in: its [own] choice, else the setting. Every reader of the mode asks this. */
+        fun resolve(own: NovelRenderingMode?, preferences: NovelPreferences): NovelRenderingMode =
+            own ?: preferences.readerRenderingMode().get()
+
         fun flagOf(mode: NovelRenderingMode?): Long = when (mode) {
             NATIVE -> 0x40L
             WEBVIEW -> 0x80L

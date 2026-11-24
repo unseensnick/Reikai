@@ -17,6 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -150,6 +151,7 @@ class SpreadPictureCaptureTest(private val renderer: PagedReadingTest.Renderer) 
             chapterId = 1L,
             title = "Chapter 1",
             url = "/chapter/1",
+            renderingMode = NovelRenderingMode.NATIVE,
             html = html,
             baseUrl = null,
             progress = reikai.domain.reader.ChapterProgress.Percent(0),

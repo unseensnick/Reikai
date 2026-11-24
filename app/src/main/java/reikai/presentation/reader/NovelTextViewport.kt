@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
@@ -527,6 +528,8 @@ class NovelTextViewport(
     }
 
     override val view: View get() = spreadHost ?: recycler
+
+    override val renderingMode: NovelRenderingMode get() = NovelRenderingMode.NATIVE
 
     private val slide = PageSlide(view)
 

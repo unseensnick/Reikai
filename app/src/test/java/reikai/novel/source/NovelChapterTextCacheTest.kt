@@ -49,31 +49,31 @@ class NovelChapterTextCacheTest {
     /** A new loader, as a new reading session builds, so only the disk cache can carry the text over. */
     @Test
     fun `a chapter opened again in a new session reads the text fetched before`() = runTest {
-        loader().load(chapter(novelId = 1L))
+        loader().load(own = null, chapter = chapter(novelId = 1L))
         answer = "<p>second answer</p>"
 
-        val (html, _) = loader().load(chapter(novelId = 1L))
+        val (html, _) = loader().load(own = null, chapter = chapter(novelId = 1L))
 
         html shouldContain "first answer"
     }
 
     @Test
     fun `a load from the source replaces the cached text`() = runTest {
-        loader().load(chapter(novelId = 1L))
+        loader().load(own = null, chapter = chapter(novelId = 1L))
         answer = "<p>second answer</p>"
-        loader().load(chapter(novelId = 1L), fromSource = true)
+        loader().load(own = null, chapter = chapter(novelId = 1L), fromSource = true)
 
-        val (html, _) = loader().load(chapter(novelId = 1L))
+        val (html, _) = loader().load(own = null, chapter = chapter(novelId = 1L))
 
         html shouldContain "second answer"
     }
 
     @Test
     fun `a cached chapter keeps the source site its links resolve against`() = runTest {
-        loader().load(chapter(novelId = 1L))
+        loader().load(own = null, chapter = chapter(novelId = 1L))
         site = "https://moved.test"
 
-        val (_, baseUrl) = loader().load(chapter(novelId = 1L))
+        val (_, baseUrl) = loader().load(own = null, chapter = chapter(novelId = 1L))
 
         baseUrl.orEmpty() shouldContain "example.test"
     }
@@ -81,10 +81,10 @@ class NovelChapterTextCacheTest {
     /** A local book can be replaced under the same path, and the old text must not outlive it. */
     @Test
     fun `a local chapter is read from its book every time`() = runTest {
-        loader(LocalNovelSource.ID).load(chapter(novelId = 1L))
+        loader(LocalNovelSource.ID).load(own = null, chapter = chapter(novelId = 1L))
         answer = "<p>second answer</p>"
 
-        val (html, _) = loader(LocalNovelSource.ID).load(chapter(novelId = 1L))
+        val (html, _) = loader(LocalNovelSource.ID).load(own = null, chapter = chapter(novelId = 1L))
 
         html shouldContain "second answer"
     }
@@ -92,10 +92,10 @@ class NovelChapterTextCacheTest {
     /** Two sources can use the same chapter path, so the cache keys on the novel as well. */
     @Test
     fun `another novel's chapter at the same path is not read from the cache`() = runTest {
-        loader().load(chapter(novelId = 1L))
+        loader().load(own = null, chapter = chapter(novelId = 1L))
         answer = "<p>second answer</p>"
 
-        val (html, _) = loader().load(chapter(novelId = 2L))
+        val (html, _) = loader().load(own = null, chapter = chapter(novelId = 2L))
 
         html shouldContain "second answer"
     }
@@ -103,12 +103,14 @@ class NovelChapterTextCacheTest {
     /** The text a source answered badly is dropped when asked for again, as manga drops its pages first. */
     @Test
     fun `a failed load from the source leaves no cached text behind`() = runTest {
-        loader().load(chapter(novelId = 1L))
+        loader().load(own = null, chapter = chapter(novelId = 1L))
         answer = ""
-        shouldThrow<EmptyChapterException> { loader().load(chapter(novelId = 1L), fromSource = true) }
+        shouldThrow<EmptyChapterException> {
+            loader().load(own = null, chapter = chapter(novelId = 1L), fromSource = true)
+        }
         answer = "<p>second answer</p>"
 
-        val (html, _) = loader().load(chapter(novelId = 1L))
+        val (html, _) = loader().load(own = null, chapter = chapter(novelId = 1L))
 
         html shouldContain "second answer"
     }
@@ -116,10 +118,10 @@ class NovelChapterTextCacheTest {
     /** Without a separator, novel 1's path "2/ch.html" and novel 12's "/ch.html" make the same key. */
     @Test
     fun `a novel whose id runs into another's chapter path is not read from its cache`() = runTest {
-        loader().load(chapter(novelId = 1L, url = "2/ch.html"))
+        loader().load(own = null, chapter = chapter(novelId = 1L, url = "2/ch.html"))
         answer = "<p>second answer</p>"
 
-        val (html, _) = loader().load(chapter(novelId = 12L, url = "/ch.html"))
+        val (html, _) = loader().load(own = null, chapter = chapter(novelId = 12L, url = "/ch.html"))
 
         html shouldContain "second answer"
     }

@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockkObject
@@ -856,6 +857,26 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         harness.isRead(first) shouldBe true
+    }
+
+    /** The viewport draws only chapters stamped with its own renderer, so the stamp must name what processed them. */
+    @Test
+    fun `a renderer switch republishes the chapter processed for the new renderer`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val chapter = harness.chapter(novel, 1.0)
+        source.texts[chapter.url] = """<p>Text</p><img src="a.png" onerror="run()">"""
+        val model = harness.open(novel, chapter.id)
+        advanceUntilIdle()
+        model.awaitIdleOn(chapter)
+
+        model.setRenderingMode(NovelRenderingMode.WEBVIEW)
+        advanceUntilIdle()
+        model.awaitIdleOn(chapter)
+
+        val shown = model.window.value.chapters.single()
+        shown.renderingMode shouldBe NovelRenderingMode.WEBVIEW
+        shown.html shouldNotContain "onerror"
     }
 
     /** Only the latest pick matters, as in manga: the older write landing last would restore its choice. */

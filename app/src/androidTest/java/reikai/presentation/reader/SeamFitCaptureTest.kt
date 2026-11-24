@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.io.File
@@ -124,6 +125,7 @@ class SeamFitCaptureTest(private val renderer: PagedReadingTest.Renderer) {
         chapterId = id,
         title = TITLE,
         url = "/chapter/$id",
+        renderingMode = NovelRenderingMode.NATIVE,
         html = (1..12).joinToString("") {
             "<p>Chapter $id, paragraph $it. " + "lorem ipsum dolor sit amet ".repeat(8) +
                 "</p>"

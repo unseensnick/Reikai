@@ -110,6 +110,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterStylesheet
+import reikai.novel.source.NovelChapterText
 import reikai.novel.source.NovelChapterTextCache
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelPageFetcher
@@ -412,7 +413,6 @@ class NovelReaderViewModel(
 
     fun setRenderingMode(mode: NovelRenderingMode?) {
         renderingMode.value = mode
-        textLoader.renderingMode = mode
         flagWrites.launch {
             withContext(io) { viewerFlags.await().write { setNovelViewerFlags.awaitSetRenderingMode(it, mode) } }
         }
@@ -459,6 +459,8 @@ class NovelReaderViewModel(
         /** The chapter path on its source, for the web actions. */
         val url: String,
         val html: String,
+        /** The renderer [html] was processed for, which a viewport of the other one never draws. */
+        val renderingMode: NovelRenderingMode,
         val baseUrl: String?,
         val progress: ChapterProgress.Percent,
         /** The line the reader had at the top, as characters into the chapter (`shownCharPrefix`), which a
@@ -734,9 +736,9 @@ class NovelReaderViewModel(
 
     /** Chapters warmed by the forward prefetch, newest first, so a forward step renders without a
      *  round trip. Bounded, because a long session would otherwise hold every chapter it has read. */
-    private val htmlCache: MutableMap<Long, Pair<String, String?>> = Collections.synchronizedMap(
-        object : LinkedHashMap<Long, Pair<String, String?>>(MAX_CACHED_CHAPTERS + 1, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Pair<String, String?>>) =
+    private val htmlCache: MutableMap<Long, NovelChapterText> = Collections.synchronizedMap(
+        object : LinkedHashMap<Long, NovelChapterText>(MAX_CACHED_CHAPTERS + 1, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, NovelChapterText>) =
                 size > MAX_CACHED_CHAPTERS
         },
     )
@@ -826,7 +828,6 @@ class NovelReaderViewModel(
                 val owner = if (ownerId == novelId) opened else novelRepo.getById(ownerId)
                 owner?.let {
                     NovelRenderingMode.ofFlags(it.viewerFlags)?.let { mode ->
-                        textLoader.renderingMode = mode
                         renderingMode.value = mode
                     }
                     pageLayout.value = NovelPageLayout.ofFlags(it.viewerFlags)
@@ -1054,13 +1055,13 @@ class NovelReaderViewModel(
                 // how read aloud reaching a chapter's end mid-warm opens the next chapter.
                 warmsInFlight.awaitIdle(row.id)
                 val fromSource = sourceReloadId == row.id
-                val (html, baseUrl) = htmlCache[row.id] ?: loadChapterHtml(row, fromSource).also { (text, base) ->
-                    cacheIfCurrent(row.id, text to base, generation)
+                val text = htmlCache[row.id] ?: loadChapterHtml(row, fromSource).also { loaded ->
+                    cacheIfCurrent(row.id, loaded, generation)
                     if (fromSource) {
                         sourceReloadId = null
                         // The source's own addresses, before the renderer asks for them: a download's copy
                         // has its pictures inlined, so the one on screen names none of what is cached.
-                        pictureCache.evict(text, base, novelRepo.getById(row.novelId)?.source)
+                        pictureCache.evict(loaded.html, loaded.baseUrl, novelRepo.getById(row.novelId)?.source)
                     }
                 }
                 val bookmarked = isBookmarkedInGroup(row.id)
@@ -1069,7 +1070,7 @@ class NovelReaderViewModel(
                     // the reader back on the chapter they had moved on from. A text change since has
                     // its own load running, for the text this one processed by the old settings.
                     if (requested != pendingChapterId || generation != textGeneration) return@launchIO
-                    commitOpen(row, html, baseUrl, bookmarked)
+                    commitOpen(row, text, bookmarked)
                     skipMark?.takeIf { (target, _) -> target == requested }?.let { (_, departed) ->
                         skipMark = null
                         markReadOnSkip(departed)
@@ -1100,8 +1101,8 @@ class NovelReaderViewModel(
      * first pointed the bookmark and the web actions at a chapter that never appeared, or raised a
      * generation no window was published under, which closed the renderer's reports for good.
      */
-    private suspend fun commitOpen(row: NovelChapter, html: String, baseUrl: String?, bookmarked: Boolean) {
-        val opened = row.toLoadedChapter(html, baseUrl)
+    private suspend fun commitOpen(row: NovelChapter, text: NovelChapterText, bookmarked: Boolean) {
+        val opened = row.toLoadedChapter(text)
         val around = neighboursOf(row.id)
         // A new generation tells the renderer to start over, and it closes reports until it has.
         val window = buildWindow(opened, around, openGeneration + 1)
@@ -1126,14 +1127,15 @@ class NovelReaderViewModel(
         this.window.value = window
     }
 
-    private suspend fun NovelChapter.toLoadedChapter(html: String, baseUrl: String?): LoadedChapter {
+    private suspend fun NovelChapter.toLoadedChapter(text: NovelChapterText): LoadedChapter {
         val novel = novelRepo.getById(novelId)
         return LoadedChapter(
             chapterId = id,
             title = name,
             url = url,
-            html = html,
-            baseUrl = baseUrl,
+            html = text.html,
+            renderingMode = text.renderingMode,
+            baseUrl = text.baseUrl,
             // Where read aloud is speaking first: it is ahead of every write, and in incognito or a chapter
             // already read none of them holds it.
             progress = spokenShare(id)?.let(ChapterProgress.Percent::of) ?: NovelResume.progress(
@@ -1522,7 +1524,7 @@ class NovelReaderViewModel(
     }
 
     /** Caches [text] for [chapterId] if no change has replaced the settings it was processed by, [generation]'s. */
-    private fun cacheIfCurrent(chapterId: Long, text: Pair<String, String?>, generation: Int): Boolean =
+    private fun cacheIfCurrent(chapterId: Long, text: NovelChapterText, generation: Int): Boolean =
         synchronized(htmlCache) {
             (generation == textGeneration).also { current -> if (current) htmlCache[chapterId] = text }
         }
@@ -1566,8 +1568,8 @@ class NovelReaderViewModel(
         val ids = NovelWindowReach.windowIds(previous, current.chapterId, forward) { it in htmlCache }
         val chapters = ids.mapNotNull { id ->
             if (id == current.chapterId) return@mapNotNull current
-            val (html, baseUrl) = htmlCache[id] ?: return@mapNotNull null
-            chapterRepo.getById(id)?.toLoadedChapter(html, baseUrl)
+            val text = htmlCache[id] ?: return@mapNotNull null
+            chapterRepo.getById(id)?.toLoadedChapter(text)
         }
         return Window(
             generation = generation,
@@ -1624,8 +1626,8 @@ class NovelReaderViewModel(
         }
     }
 
-    suspend fun loadChapterHtml(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> = try {
-        textLoader.load(chapter, fromSource)
+    suspend fun loadChapterHtml(chapter: NovelChapter, fromSource: Boolean = false): NovelChapterText = try {
+        textLoader.load(chapter, renderingMode.value, fromSource)
     } catch (e: EmptyChapterException) {
         throw Exception(context.stringResource(MR.strings.novel_chapter_empty), e)
     }

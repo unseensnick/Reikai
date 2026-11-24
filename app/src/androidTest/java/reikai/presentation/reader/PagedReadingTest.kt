@@ -29,6 +29,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
@@ -2180,6 +2181,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         chapterId = id,
         title = title,
         url = "/chapter/$id",
+        renderingMode = NovelRenderingMode.NATIVE,
         html = html,
         baseUrl = null,
         progress = share,

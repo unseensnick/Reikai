@@ -47,6 +47,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
@@ -3228,6 +3229,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         chapterId = id,
         title = "Chapter $number",
         url = "/chapter/$id",
+        renderingMode = NovelRenderingMode.NATIVE,
         html = html,
         baseUrl = baseUrl,
         progress = ChapterProgress.Percent.ofWhole(progressPercent),

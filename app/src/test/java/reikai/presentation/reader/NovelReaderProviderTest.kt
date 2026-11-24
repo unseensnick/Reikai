@@ -332,6 +332,8 @@ private class FakeTextViewport : ReaderViewport, TextViewport {
 
     override val view: View get() = error("no view in a unit test")
 
+    override val renderingMode = NovelRenderingMode.NATIVE
+
     @Composable
     override fun Content(modifier: Modifier) = Unit
 

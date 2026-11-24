@@ -500,7 +500,12 @@ class NovelReaderProvider(
         // where the reader is rather than where the chapter was opened (landingOf).
         var renderedGeneration = -1
         viewModel.window
-            .filter { it.chapters.isNotEmpty() }
+            // A mode switch rebuilds the viewport before the reload replaces the window, whose text was then
+            // processed for the other renderer: the native one keeps event handlers the WebView would run.
+            .filter { state ->
+                state.chapters.isNotEmpty() &&
+                    state.chapters.all { it.renderingMode == viewport.renderingMode }
+            }
             .onEach { state ->
                 val settings = resolvedSettings.first()
                 val opened = state.generation != renderedGeneration
@@ -562,7 +567,7 @@ internal data class NovelViewportSettings(
             own: NovelRenderingMode? = null,
             ownLayout: NovelPageLayout? = null,
         ) = NovelViewportSettings(
-            renderingMode = own ?: preferences.readerRenderingMode().get(),
+            renderingMode = NovelRenderingMode.resolve(own, preferences),
             pageLayout = ownLayout ?: preferences.readerPageLayout().get(),
             dualPageView = preferences.readerDualPageView().get(),
             textSelectable = preferences.readerTextSelectable().get(),

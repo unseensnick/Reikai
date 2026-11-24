@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
+import reikai.novel.source.NovelChapterText
 import reikai.novel.source.NovelChapterTextCache
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSourceManager
@@ -288,6 +290,9 @@ class ReadAloudSession(
             readDownloaded = { novel, chapter -> downloadManagerProvider().getChapterText(novel, chapter) },
         )
 
+        /** The renderer the novel keeps for itself, which its text is processed for, as the reader's is. */
+        private val ownMode = CompletableDeferred<NovelRenderingMode?>()
+
         val finishHold = chapterFinish.hold()
 
         @Volatile var order: NovelReadingOrder? = startOrder
@@ -315,7 +320,7 @@ class ReadAloudSession(
         private val navigation = Navigation()
 
         /** The next chapter's text, fetched while the end of this one is spoken, by the chapter it is for. */
-        private var prefetch: Pair<Long, Deferred<Pair<String, String?>>>? = null
+        private var prefetch: Pair<Long, Deferred<NovelChapterText>>? = null
 
         /** Stops a session left paused with no reader of it on screen, see [PAUSED_STOP]. */
         private var pausedStop: Job? = null
@@ -332,10 +337,16 @@ class ReadAloudSession(
         init {
             controller.state.onEach(::record).launchIn(scope)
             scope.launchIO {
-                val owner = getNextNovelChapter.viewerFlags(series.novelId).ownerId
-                val novel = novelRepo.getById(series.novelId)
-                val ownerRow = if (owner == series.novelId) novel else novelRepo.getById(owner)
-                ownerRow?.let { textLoader.renderingMode = NovelRenderingMode.ofFlags(it.viewerFlags) }
+                val novel = try {
+                    val owner = getNextNovelChapter.viewerFlags(series.novelId).ownerId
+                    val novel = novelRepo.getById(series.novelId)
+                    val ownerRow = if (owner == series.novelId) novel else novelRepo.getById(owner)
+                    ownMode.complete(ownerRow?.let { NovelRenderingMode.ofFlags(it.viewerFlags) })
+                    novel
+                } finally {
+                    // Also on a failed read, which follows the setting, so a load never waits on it for good.
+                    ownMode.complete(null)
+                }
                 novel?.let { isAdult = it.id in adultChecker.adultNovelIdsAmong(listOf(it)) }
             }
         }
@@ -436,7 +447,7 @@ class ReadAloudSession(
                 val next = navigation.chapterAfter(at.chapterId) ?: error("No chapter after ${at.chapterId}")
                 withIOContext {
                     val row = chapterRepo.getById(next) ?: error("Chapter not found: $next")
-                    textLoader.load(row)
+                    textLoader.load(row, ownMode.await())
                 }.also { prefetched = next }
             }
         }
@@ -445,13 +456,13 @@ class ReadAloudSession(
         @Volatile private var prefetched: Long? = null
 
         /** [chapterId]'s text, taken from the prefetch when that fetched it, else read now. */
-        suspend fun textOf(chapterId: Long, row: NovelChapter): Pair<String, String?> {
+        suspend fun textOf(chapterId: Long, row: NovelChapter): NovelChapterText {
             val fetched = prefetch?.second?.takeIf { prefetched == chapterId || !it.isCompleted }
             if (fetched != null) {
                 val text = runCatchingCancellable { fetched.await() }.getOrNull()
                 if (text != null && prefetched == chapterId) return text
             }
-            return textLoader.load(row)
+            return textLoader.load(row, ownMode.await())
         }
 
         /** History and the reading log for the time heard since the last write, kept through a process kill. */

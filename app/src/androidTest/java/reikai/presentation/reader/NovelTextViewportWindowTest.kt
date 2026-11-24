@@ -25,6 +25,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.NovelBoundaryFailureView
@@ -462,6 +463,7 @@ class NovelTextViewportWindowTest {
         chapterId = id,
         title = "Chapter $id",
         url = "/chapter/$id",
+        renderingMode = NovelRenderingMode.NATIVE,
         html = html,
         baseUrl = null,
         progress = ChapterProgress.Percent(0),

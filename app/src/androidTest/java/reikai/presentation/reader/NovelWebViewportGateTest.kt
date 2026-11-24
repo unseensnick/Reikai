@@ -22,6 +22,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.presentation.reader.web.NovelWebSnippets
@@ -328,6 +329,7 @@ class NovelWebViewportGateTest {
         chapterId = id,
         title = "Chapter $id",
         url = "",
+        renderingMode = NovelRenderingMode.WEBVIEW,
         html = "<p>lorem ipsum</p>".repeat(50),
         baseUrl = null,
         progress = ChapterProgress.Percent(0),

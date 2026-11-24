@@ -43,10 +43,6 @@ class NovelChapterTextLoader(
      */
     val settingsChanged: Flow<Unit> = NovelContentConfig.changes(preferences)
 
-    /** The mode this session's novel keeps for itself, which wins over the setting; null follows it. */
-    @Volatile
-    var renderingMode: NovelRenderingMode? = null
-
     private val sourcesByNovel: MutableMap<Long, NovelSource> =
         Collections.synchronizedMap(HashMap())
 
@@ -71,13 +67,13 @@ class NovelChapterTextLoader(
      * source parsed live, with its site as the base URL so relative image URLs resolve.
      *
      * What comes back is pipeline output, never raw source markup, so a renderer must not process it
-     * again. The target follows the rendering mode, which decides whether embedded CSS and JS survive.
+     * again. The target follows the rendering mode, [own] else the setting, which decides whether embedded CSS and
+     * JS survive; the result names the mode, so text processed for one renderer is never drawn by the other.
      */
-    suspend fun load(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> {
+    suspend fun load(chapter: NovelChapter, own: NovelRenderingMode?, fromSource: Boolean = false): NovelChapterText {
         val (raw, baseUrl) = fetch(chapter, fromSource)
-        val config = renderingMode
-            ?.let { NovelContentConfig.from(preferences, chapter.url, chapter.name, renderingMode = it) }
-            ?: NovelContentConfig.from(preferences, chapterUrl = chapter.url, chapterName = chapter.name)
+        val mode = NovelRenderingMode.resolve(own, preferences)
+        val config = NovelContentConfig.from(preferences, chapter.url, chapter.name, renderingMode = mode)
         val coroutine = currentCoroutineContext()
         val processed = NovelContentPipeline.process(raw, config) { coroutine.isActive }
         // A plain-text chapter leaves the pipeline unescaped and unsanitised, because a text renderer
@@ -89,7 +85,7 @@ class NovelChapterTextLoader(
             config.showRawHtml -> NovelHtmlUtils.htmlAsText(processed.text)
             else -> processed.text
         }
-        return html to baseUrl
+        return NovelChapterText(html, baseUrl, mode)
     }
 
     /** A copy on disk when there is one, unless [fromSource] asks the source regardless and drops the cached text. */
@@ -144,3 +140,6 @@ class NovelChapterTextLoader(
 
 /** The source answered a chapter with no text. */
 class EmptyChapterException : Exception()
+
+/** A chapter's text as [NovelChapterTextLoader.load] processed it, for the [renderingMode] it was processed for. */
+data class NovelChapterText(val html: String, val baseUrl: String?, val renderingMode: NovelRenderingMode)
