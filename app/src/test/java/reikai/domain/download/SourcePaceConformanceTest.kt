@@ -356,7 +356,7 @@ class SourcePaceConformanceTest {
 
     private fun TestScope.novelEngine(): Engine {
         mockkObject(NovelDownloadWorker.Companion)
-        every { NovelDownloadWorker.start(any()) } just runs
+        every { NovelDownloadWorker.start(any(), any()) } just runs
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, true)
         mockIoDispatcher(StandardTestDispatcher(testScheduler))

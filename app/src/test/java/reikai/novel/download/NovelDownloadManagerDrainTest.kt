@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.util.system.NetworkState
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import io.kotest.matchers.shouldBe
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
@@ -135,7 +136,7 @@ class NovelDownloadManagerDrainTest {
     @BeforeEach
     fun setUp() {
         mockkObject(NovelDownloadWorker.Companion)
-        every { NovelDownloadWorker.start(any()) } just runs
+        every { NovelDownloadWorker.start(any(), any()) } just runs
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, true)
         mockIoDispatcher(io)
@@ -232,6 +233,20 @@ class NovelDownloadManagerDrainTest {
         drain.cancel()
 
         (ended to manager.queueState.value) shouldBe (true to emptyList())
+    }
+
+    // The finished worker may still be winding down, and KEEP would hand the request to it, which exits without it.
+    @Test
+    fun `a chapter queued once the drain has ended starts a fresh worker`() = runTest(io) {
+        firstFetch.complete(Unit)
+        manager.downloadChapters(chapters.take(1))
+        launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
+        advanceUntilIdle()
+        clearMocks(NovelDownloadWorker.Companion, answers = false)
+
+        manager.downloadChapters(listOf(otherChapter))
+
+        verify { NovelDownloadWorker.start(any(), replace = true) }
     }
 
     @Test

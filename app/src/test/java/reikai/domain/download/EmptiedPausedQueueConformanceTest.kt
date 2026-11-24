@@ -260,7 +260,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
         mockkObject(NovelDownloadWorker.Companion)
         mockkStatic(Context::activeNetworkState)
         try {
-            every { NovelDownloadWorker.start(any()) } just runs
+            every { NovelDownloadWorker.start(any(), any()) } just runs
             every { NovelDownloadWorker.stop(any()) } just runs
             every { any<Context>().activeNetworkState() } returns NetworkState(online, online, onWifi)
             mockIoDispatcher(StandardTestDispatcher(test.testScheduler))

@@ -140,6 +140,10 @@ class NovelDownloadManager(
     /** Held while a lane picks its next chapter, so two lanes can never take one source. */
     private val claimLock = Mutex()
 
+    // Set under [claimLock] when a drain's last lane finds nothing left, so a chapter queued after it starts another
+    // worker rather than one KEEP drops while the finished worker is still winding down.
+    private var drainEnded = true
+
     /** Held through a wait for the network, so one lane reports it and the others queue behind that one. */
     private val networkWait = Mutex()
 
@@ -209,7 +213,7 @@ class NovelDownloadManager(
         // Adding downloads implies wanting them, so clear any user pause and (re)start the drain.
         sourcePreferences.novelDownloadsPaused.set(false)
         dismissPausedNotification()
-        NovelDownloadWorker.start(context)
+        NovelDownloadWorker.start(context, replace = claimLock.withLock { drainEnded })
     }
 
     /** Stop the running job and clear the entire pending queue. Downloaded chapters are kept; only
@@ -429,6 +433,7 @@ class NovelDownloadManager(
         // Off WorkManager's default dispatcher, since an image fetch and a file write block.
         withIOContext {
             try {
+                claimLock.withLock { drainEnded = false }
                 installer.ensureLoaded()
                 restoreJob.join()
                 // Everything still in the queue goes back to QUEUE, matching manga's Downloader.start. A
@@ -478,7 +483,10 @@ class NovelDownloadManager(
             val limit = downloadPreferences.parallelSourceLimit
             val seen = Triple(_queueState.value, lanes.value, limit.get())
             val claimed = claimLock.withLock {
-                if (lanes.value.isEmpty() && !hasQueued()) return null
+                if (lanes.value.isEmpty() && !hasQueued()) {
+                    drainEnded = true
+                    return null
+                }
                 if (lanes.value.size >= parallelSourcesFor(seen.third)) return@withLock null
 
                 val next = _queueState.value

@@ -87,13 +87,15 @@ class NovelDownloadWorker(context: Context, workerParams: WorkerParameters) :
         private const val TAG = "NovelDownloader"
 
         /** Start (or reuse) the downloader. KEEP so adding chapters to a running drain doesn't restart
-         *  it; the running loop picks up the newly-queued items. */
-        fun start(context: Context) {
+         *  it; the running loop picks up the newly-queued items. [replace] once the drain has ended, since a
+         *  worker still finishing would otherwise take the request and exit without it. */
+        fun start(context: Context, replace: Boolean = false) {
             val request = OneTimeWorkRequestBuilder<NovelDownloadWorker>()
                 .addTag(TAG)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
-            context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
+            val policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
+            context.workManager.enqueueUniqueWork(TAG, policy, request)
         }
 
         fun stop(context: Context) {

@@ -141,6 +141,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A novel chapter queued just as the previous downloads finished now downloads instead of waiting for Resume.**
 - **Changing the download queue's sort twice in quick succession now leaves the queue in the order the sort sheet shows.**
 - **Manga pages from sources that encrypt their images no longer download damaged when a slow or dropped connection cuts a page off.** Chapters already damaged need downloading again.
 - **A storage hiccup while deleting downloads no longer removes the series' or the source's other downloads.** For manga and novels alike.

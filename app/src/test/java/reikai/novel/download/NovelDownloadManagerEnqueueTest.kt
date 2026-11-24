@@ -78,7 +78,7 @@ class NovelDownloadManagerEnqueueTest {
     fun setUp() {
         // Starting the drain needs WorkManager, which is not under test.
         mockkObject(NovelDownloadWorker.Companion)
-        every { NovelDownloadWorker.start(any()) } just runs
+        every { NovelDownloadWorker.start(any(), any()) } just runs
         every { NovelDownloadWorker.stop(any()) } just runs
         mockIoDispatcher(io)
     }

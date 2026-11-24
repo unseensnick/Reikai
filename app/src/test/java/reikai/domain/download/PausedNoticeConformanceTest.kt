@@ -350,7 +350,7 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
         every { (app as GraphProvider<AppGraph>).graph } returns graph
         // WorkManager runs the worker a start enqueues, and cancels it on a stop.
         mockkObject(NovelDownloadWorker.Companion)
-        every { NovelDownloadWorker.start(any()) } answers {
+        every { NovelDownloadWorker.start(any(), any()) } answers {
             worker = test.backgroundScope.launch { NovelDownloadWorker(app, mockk(relaxed = true)).doWork() }
         }
         every { NovelDownloadWorker.stop(any()) } answers { worker?.cancel() }

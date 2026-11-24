@@ -453,7 +453,7 @@ class NovelDownloadActionsHalf : DownloadActionsHalf {
     }
 
     override suspend fun queue(ids: List<Long>) {
-        every { NovelDownloadWorker.start(any()) } answers { startAsked = true }
+        every { NovelDownloadWorker.start(any(), any()) } answers { startAsked = true }
         manager.downloadChapters(ids.map(::chapter))
     }
 

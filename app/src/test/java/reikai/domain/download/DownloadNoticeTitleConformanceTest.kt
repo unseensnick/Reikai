@@ -165,7 +165,7 @@ class NovelNoticeTitleHalf : NoticeTitleHalf {
         mockkObject(NovelDownloadWorker.Companion)
         mockkStatic(Context::activeNetworkState)
         try {
-            every { NovelDownloadWorker.start(any()) } just runs
+            every { NovelDownloadWorker.start(any(), any()) } just runs
             every { any<Context>().activeNetworkState() } returns NetworkState(true, true, true)
             val securityPreferences = SecurityPreferences(InMemoryPreferenceStore())
             val manager = NovelDownloadManager(

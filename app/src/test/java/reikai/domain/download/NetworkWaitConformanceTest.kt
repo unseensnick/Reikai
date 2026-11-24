@@ -219,7 +219,7 @@ class NovelNetworkWaitHalf : NetworkWaitHalf {
 
     override suspend fun start(test: TestScope, wifiOnly: Boolean) {
         mockkObject(NovelDownloadWorker.Companion)
-        every { NovelDownloadWorker.start(any()) } just runs
+        every { NovelDownloadWorker.start(any(), any()) } just runs
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } answers { network }
         // The launch restore runs on IO, which here is the test's own clock.
