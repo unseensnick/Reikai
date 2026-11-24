@@ -102,22 +102,10 @@ class ReaderProgressSaveTest {
         val save = ReaderProgressSave<Long, Int>(backgroundScope) { id, page -> written += id to page }
 
         save.report(1L, 7)
-        save.discardIf { it == 1L }
+        save.discard()
         advanceTimeBy(PROGRESS_SAVE_DELAY.inWholeMilliseconds + 1)
 
         written shouldBe emptyList()
-    }
-
-    @Test
-    fun `a discard for another chapter keeps the held position`() = runTest {
-        val written = mutableListOf<Pair<Long, Int>>()
-        val save = ReaderProgressSave<Long, Int>(backgroundScope) { id, page -> written += id to page }
-
-        save.report(1L, 7)
-        save.discardIf { it == 2L }
-        advanceTimeBy(PROGRESS_SAVE_DELAY.inWholeMilliseconds + 1)
-
-        written shouldBe listOf(1L to 7)
     }
 
     @Test

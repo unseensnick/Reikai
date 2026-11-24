@@ -75,7 +75,13 @@ class ChapterTimeLeftTest {
 
     @Test
     fun `listening counts the words read aloud has still to speak at the live pace`() {
-        val progress = ReadAloudProgress(chapterId = 1, paragraph = 0, wordsSpoken = 1_500, words = 2_000)
+        val progress = ReadAloudProgress(
+            chapterId = 1,
+            paragraph = 0,
+            wordsSpoken = 1_500,
+            words = 2_000,
+            paragraphs = 10,
+        )
 
         listeningTimeLeft(progress, live = 240.0, learned = ReadingPace.Known(500.0)) shouldBe
             ReaderTimeLeft.Remaining(120.seconds)
@@ -83,7 +89,13 @@ class ChapterTimeLeftTest {
 
     @Test
     fun `listening falls back to the learned listening pace before the live one is measured`() {
-        val progress = ReadAloudProgress(chapterId = 1, paragraph = 0, wordsSpoken = 1_500, words = 2_000)
+        val progress = ReadAloudProgress(
+            chapterId = 1,
+            paragraph = 0,
+            wordsSpoken = 1_500,
+            words = 2_000,
+            paragraphs = 10,
+        )
 
         listeningTimeLeft(progress, live = null, learned = ReadingPace.Known(500.0)) shouldBe
             ReaderTimeLeft.Remaining(250.seconds)
@@ -91,7 +103,13 @@ class ChapterTimeLeftTest {
 
     @Test
     fun `listening with neither pace is still learning to listen`() {
-        val progress = ReadAloudProgress(chapterId = 1, paragraph = 0, wordsSpoken = 0, words = 2_000)
+        val progress = ReadAloudProgress(
+            chapterId = 1,
+            paragraph = 0,
+            wordsSpoken = 0,
+            words = 2_000,
+            paragraphs = 10,
+        )
 
         listeningTimeLeft(progress, live = null, learned = ReadingPace.Learning) shouldBe
             ReaderTimeLeft.Learning(listening = true)

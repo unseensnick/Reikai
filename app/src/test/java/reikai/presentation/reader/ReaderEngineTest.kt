@@ -6,7 +6,6 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.ViewModelStore
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -18,9 +17,7 @@ import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkStatic
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -154,7 +151,13 @@ class ReaderEngineTest {
         val readAloud = FakeReadAloud()
         readAloud.state.value = ReaderReadAloudState(
             playback = TtsPlayback.Playing,
-            progress = ReadAloudProgress(chapterId = 9, paragraph = 0, wordsSpoken = 1_500, words = 2_000),
+            progress = ReadAloudProgress(
+                chapterId = 9,
+                paragraph = 0,
+                wordsSpoken = 1_500,
+                words = 2_000,
+                paragraphs = 10,
+            ),
         )
         provider.readAloudSlot = readAloud
         val engine = engine(provider)
@@ -172,7 +175,13 @@ class ReaderEngineTest {
         val readAloud = FakeReadAloud()
         readAloud.state.value = ReaderReadAloudState(
             playback = TtsPlayback.Playing,
-            progress = ReadAloudProgress(chapterId = 9, paragraph = 0, wordsSpoken = 1_500, words = 2_000),
+            progress = ReadAloudProgress(
+                chapterId = 9,
+                paragraph = 0,
+                wordsSpoken = 1_500,
+                words = 2_000,
+                paragraphs = 10,
+            ),
             msPerWord = 100.0,
         )
         provider.readAloudSlot = readAloud
@@ -1419,8 +1428,6 @@ private class FakePaceRepository : ReadingPaceRepository {
 
     val lengths = MutableStateFlow(emptyList<KeptLength>())
 
-    val listened = MutableStateFlow(emptyList<Pair<Long, Long>>())
-
     override suspend fun samples(contentType: ContentType, limit: Int): List<PaceSample> =
         samples[contentType].orEmpty()
 
@@ -1428,9 +1435,7 @@ private class FakePaceRepository : ReadingPaceRepository {
         lengths.value += KeptLength(contentType, chapterId, units)
     }
 
-    override suspend fun addListenedTime(chapterId: Long, ms: Long) {
-        listened.value += chapterId to ms
-    }
+    override suspend fun addListenedTime(chapterId: Long, ms: Long) = Unit
 
     override suspend fun keepLength(chapterId: Long, words: Long) = Unit
 

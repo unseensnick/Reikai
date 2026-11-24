@@ -58,10 +58,9 @@ class ReaderProgressSave<K : Any, V>(
         write(key, value)
     }
 
-    /** Drops the held position unwritten when its key matches, for one a later write supersedes. */
-    fun discardIf(predicate: (K) -> Boolean) {
-        val current = held.get() ?: return
-        if (predicate(current.first) && held.compareAndSet(current, null)) delayed?.cancel()
+    /** Drops the held position unwritten, for one a later write supersedes. */
+    fun discard() {
+        if (held.getAndSet(null) != null) delayed?.cancel()
     }
 }
 

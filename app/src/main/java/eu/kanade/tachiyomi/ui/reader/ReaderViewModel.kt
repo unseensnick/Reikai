@@ -1242,8 +1242,9 @@ class ReaderViewModel(
     // RK: the source of the chapter being read, not of the manga the reader was opened from. In a
     // merged group the current chapter often comes from a sibling site, and the web, browser and share
     // actions (plus the WebView's header source) have to resolve there. Falls back to the opened
-    // manga's source before the first chapter arrives and for an unmerged series.
-    fun getSource(): HttpSource? {
+    // manga's source before the first chapter arrives and for an unmerged series. Private, so a caller
+    // names the chapter by id: the one a web action is for may not be the one on screen.
+    private fun getSource(): HttpSource? {
         val chapter = getCurrentChapter()?.chapter ?: return state.value.source as? HttpSource
         return sourceOf(chapter)
     }
@@ -1595,7 +1596,6 @@ class ReaderViewModel(
 
     /** The chapter being read and the neighbours the viewer holds beside it, see ReaderChapterList.heldChapterIds. */
     fun heldChapterIds(state: State): Set<Long> = setOfNotNull(
-        state.currentChapter?.chapter?.id,
         state.viewerChapters?.currChapter?.chapter?.id,
         state.viewerChapters?.prevChapter?.chapter?.id,
         state.viewerChapters?.nextChapter?.chapter?.id,

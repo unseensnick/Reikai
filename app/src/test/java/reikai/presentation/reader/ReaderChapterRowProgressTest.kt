@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.model.NovelChapter
@@ -98,7 +99,13 @@ class MangaRowProgressProbe : ChapterRowProgressProbe {
             pageCount = 38,
         )
         return ReaderChapterItem(chapter)
-            .toReaderChapterRow(emptyMap(), flagsOf(chapter) { it.id }, numberOnly, EnglishChapterTitleWords)
+            .toReaderChapterRow(
+                emptyMap(),
+                flagsOf(chapter) { it.id },
+                numberOnly,
+                EnglishChapterTitleWords,
+                DownloadTargets.OWN,
+            )
     }
 }
 
@@ -129,6 +136,7 @@ class NovelRowProgressProbe : ChapterRowProgressProbe {
             flagsOf(chapter) { it.id },
             numberOnly,
             EnglishChapterTitleWords,
+            DownloadTargets.OWN,
         )
     }
 }

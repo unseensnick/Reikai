@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 class ListeningTest {
 
     private fun at(words: Long, paragraph: Int, chapterId: Long = 1) =
-        ReadAloudProgress(chapterId, paragraph, wordsSpoken = words, words = 2_000)
+        ReadAloudProgress(chapterId, paragraph, wordsSpoken = words, words = 2_000, paragraphs = 10)
 
     @Test
     fun `nothing is measured before enough words are spoken`() {

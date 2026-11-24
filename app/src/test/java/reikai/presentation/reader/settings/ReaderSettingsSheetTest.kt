@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import io.kotest.matchers.shouldBe
@@ -180,6 +181,7 @@ class MangaSheetProbe : SheetProbe {
             onChangeReadingMode = {},
             onChangeOrientation = {},
             preferences = preferences,
+            resolvedReadingMode = { ReadingMode.RIGHT_TO_LEFT.flagValue },
         )
         val filters = ReaderDisplayFilters(
             customBrightness = preferences.customBrightness,

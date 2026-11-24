@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.model.NovelChapter
@@ -52,6 +53,7 @@ class NovelReaderChapterRowSubtitleTest {
             flags(c),
             false,
             EnglishChapterTitleWords,
+            DownloadTargets.OWN,
         )
 
         row.subtitle shouldBe "NovelUpdates"
@@ -61,7 +63,14 @@ class NovelReaderChapterRowSubtitleTest {
     fun `a single-source novel chapter row reads its group`() {
         val c = chapter(id = 1, novelId = 10, scanlator = "Group")
 
-        val row = c.toReaderChapterRow(emptyMap(), emptyMap(), flags(c), false, EnglishChapterTitleWords)
+        val row = c.toReaderChapterRow(
+            emptyMap(),
+            emptyMap(),
+            flags(c),
+            false,
+            EnglishChapterTitleWords,
+            DownloadTargets.OWN,
+        )
 
         row.subtitle shouldBe "Group"
     }
@@ -70,7 +79,14 @@ class NovelReaderChapterRowSubtitleTest {
     fun `an unresolved source name leaves no subtitle rather than a bare separator`() {
         val c = chapter(id = 1, novelId = 10)
 
-        val row = c.toReaderChapterRow(mapOf(10L to ""), emptyMap(), flags(c), false, EnglishChapterTitleWords)
+        val row = c.toReaderChapterRow(
+            mapOf(10L to ""),
+            emptyMap(),
+            flags(c),
+            false,
+            EnglishChapterTitleWords,
+            DownloadTargets.OWN,
+        )
 
         row.subtitle shouldBe null
     }
@@ -79,7 +95,14 @@ class NovelReaderChapterRowSubtitleTest {
     fun `an unmerged novel's row has no subtitle`() {
         val c = chapter(id = 1, novelId = 10)
 
-        val row = c.toReaderChapterRow(emptyMap(), emptyMap(), flags(c), false, EnglishChapterTitleWords)
+        val row = c.toReaderChapterRow(
+            emptyMap(),
+            emptyMap(),
+            flags(c),
+            false,
+            EnglishChapterTitleWords,
+            DownloadTargets.OWN,
+        )
 
         row.subtitle shouldBe null
     }

@@ -67,7 +67,7 @@ internal fun isSameLaunch(
     openEntry: EntryId?,
     openChapter: Long,
     openSourceScoped: Boolean,
-    requestedFollows: Boolean = false,
+    requestedFollows: Boolean,
 ): Boolean = requestedEntry == openEntry &&
     requestedSourceScoped == openSourceScoped &&
     (requestedChapter == NO_ID || requestedChapter == openChapter || requestedFollows)

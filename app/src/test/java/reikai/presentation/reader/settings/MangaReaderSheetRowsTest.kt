@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
@@ -39,6 +40,7 @@ class MangaReaderSheetRowsTest {
             onChangeReadingMode = {},
             onChangeOrientation = {},
             preferences = preferences,
+            resolvedReadingMode = { ReadingMode.RIGHT_TO_LEFT.flagValue },
         )
         val filters = ReaderDisplayFilters(
             customBrightness = preferences.customBrightness,

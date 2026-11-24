@@ -52,6 +52,7 @@ class ViewerSettingsTapZonesTest {
         onChangeReadingMode = {},
         onChangeOrientation = {},
         preferences = preferences,
+        resolvedReadingMode = { ReadingMode.RIGHT_TO_LEFT.flagValue },
     )
 
     private fun TestScope.openViewer(): ReaderSettingsViewModel = viewModel().also {

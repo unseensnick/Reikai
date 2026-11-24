@@ -41,7 +41,7 @@ class ReaderSettingsViewModel(
     // rather than nothing. Supplied as a lambda over ReaderViewModel's own predicate, which already
     // folds in the global default and auto webtoon; deriving it from the viewer would not work,
     // since one viewer class serves both Webtoon and Continuous vertical.
-    val resolvedReadingMode: () -> Int = { ReadingMode.DEFAULT.flagValue },
+    val resolvedReadingMode: () -> Int,
 ) : ViewModel() {
 
     val mangaFlow = readerState

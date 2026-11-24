@@ -11,7 +11,7 @@ data class ReadAloudProgress(
     val paragraph: Int,
     val wordsSpoken: Long,
     val words: Long,
-    val paragraphs: Int = 0,
+    val paragraphs: Int,
 )
 
 /** One moment of read-aloud: the chapter, when, the paragraph being spoken and the words before it. */

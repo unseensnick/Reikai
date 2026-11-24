@@ -146,7 +146,7 @@ class ReaderIntentTest {
         val (novelId, sourceScoped) = series.openedAs(readerView = 2L to false)
         val (openEntry, openSourceScoped) = openView(EntryId.Novel(1L), false, novelView = 2L to false)
 
-        isSameLaunch(EntryId.Novel(novelId), 5L, sourceScoped, openEntry, 5L, openSourceScoped) shouldBe true
+        isSameLaunch(EntryId.Novel(novelId), 5L, sourceScoped, openEntry, 5L, openSourceScoped, false) shouldBe true
     }
 
     companion object {

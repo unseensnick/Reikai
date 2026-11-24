@@ -140,7 +140,7 @@ class NovelProgressSlot(
 
     /** Drops the held positions of the chapters [predicate] names, for ones a later write supersedes. */
     fun discardIf(predicate: (Long) -> Boolean) = chapters.forEach { (id, state) ->
-        if (predicate(id)) state.save.discardIf { true }
+        if (predicate(id)) state.save.discard()
     }
 
     /** [write] on the lane, behind every write launched before it. */

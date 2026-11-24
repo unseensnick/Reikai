@@ -1658,7 +1658,7 @@ internal fun NovelChapter.toReaderChapterRow(
     flags: GroupChapterFlags<NovelChapter>,
     numberOnly: Boolean,
     words: ChapterTitleWords,
-    targets: DownloadTargets = DownloadTargets.OWN,
+    targets: DownloadTargets,
 ): ReaderChapterRow {
     // A row whose download fetches another source's copy follows that copy through the queue.
     val downloadState = downloadStateOf(targets.queuedFor(id, queued::get)?.state?.toDownloadState()) {
