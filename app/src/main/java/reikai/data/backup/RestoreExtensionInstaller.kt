@@ -40,13 +40,13 @@ class RestoreExtensionInstaller(
         approved.apps.forEach { (url, key) ->
             val live = storeService.fetch(url).getOrNull()
             when {
-                live == null -> failed += "Repo not added (unreachable): $url"
-                live.signingKey != key -> failed += "Repo not added (signing key changed): $url"
+                live == null -> failed += "Repo not added (unreachable): ${loggableUrl(url)}"
+                live.signingKey != key -> failed += "Repo not added (signing key changed): ${loggableUrl(url)}"
                 else -> storeRepository.upsert(live)
             }
         }
         approved.plugins.forEach { url ->
-            pluginRepos.add(url).onFailure { failed += "Repo not added (unreachable): $url" }
+            pluginRepos.add(url).onFailure { failed += "Repo not added (unreachable): ${loggableUrl(url)}" }
         }
         return failed
     }

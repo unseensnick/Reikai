@@ -9,7 +9,9 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import mihon.data.extension.service.ExtensionStoreService
@@ -101,6 +103,16 @@ class RestoreExtensionInstallerTest {
             listOf("Repo not added (unreachable): $PLUGIN_REPO")
     }
 
+    // The restore log is shared in bug reports, and a private repo's query can carry a token.
+    @Test
+    fun `a reported repo is named without its query`() = runTest {
+        installer(
+            liveKey = KEY,
+            pluginRepoReachable = false,
+        ).addTrusted(ApprovedRepos(plugins = setOf("$PLUGIN_REPO?token=secret"))) shouldBe
+            listOf("Repo not added (unreachable): $PLUGIN_REPO")
+    }
+
     @Test
     fun `a missing app no repo lists is reported, not counted as installed`() = runTest {
         val app = RestoreItem.App("pkg.foo", "Foo")
@@ -123,6 +135,24 @@ class RestoreExtensionInstallerTest {
     fun `a missing app whose install prompt was dismissed is reported as cancelled`() = runTest {
         installListed(flowOf(InstallStep.Pending, InstallStep.Idle)) shouldBe
             listOf(RestoreExtensionInstaller.NotInstalled("Foo", RestoreExtensionInstaller.Reason.InstallCancelled))
+    }
+
+    @Test
+    fun `a missing app whose install fails is reported as failed`() = runTest {
+        installListed(flowOf(InstallStep.Pending, InstallStep.Error("failed"))) shouldBe
+            listOf(RestoreExtensionInstaller.NotInstalled("Foo", RestoreExtensionInstaller.Reason.InstallFailed))
+    }
+
+    // An unanswered install prompt never completes, and must not hold up the rest of the restore.
+    @Test
+    fun `a missing app whose install never completes is reported as timed out`() = runTest {
+        installListed(
+            flow {
+                emit(InstallStep.Pending)
+                awaitCancellation()
+            },
+        ) shouldBe
+            listOf(RestoreExtensionInstaller.NotInstalled("Foo", RestoreExtensionInstaller.Reason.TimedOut))
     }
 
     /** Restores the backup's one missing app, which a trusted repo lists, through an install that emits [steps]. */
@@ -155,8 +185,24 @@ class RestoreExtensionInstallerTest {
     // A plugin the backup never loaded is named by its script's file; the Restore screen named it by its listing.
     @Test
     fun `a listed plugin that fails to install is reported under its listing's name`() = runTest {
+        val pluginInstaller = mockk<LnPluginInstaller> {
+            coEvery { installFromUrl(any(), any()) } throws IllegalStateException()
+        }
+
+        installer(liveKey = KEY, listedPlugin(), pluginInstaller).install(emptyList(), emptyMap()) shouldBe
+            listOf(RestoreExtensionInstaller.NotInstalled("Royal Road", RestoreExtensionInstaller.Reason.InstallFailed))
+    }
+
+    @Test
+    fun `a listed plugin that installs is not reported`() = runTest {
+        val pluginInstaller = mockk<LnPluginInstaller> { coEvery { installFromUrl(any(), any()) } returns mockk() }
+
+        installer(liveKey = KEY, listedPlugin(), pluginInstaller).install(emptyList(), emptyMap()).shouldBeEmpty()
+    }
+
+    private fun listedPlugin(): RestoreInstallSources {
         val plugin = RestoreItem.Plugin(PLUGIN_URL, null, "plugin")
-        val sources = mockk<RestoreInstallSources> {
+        return mockk<RestoreInstallSources> {
             coEvery { missing(any(), any()) } returns listOf(plugin)
             coEvery { device() } returns RepoListings(
                 plugins = listOf(
@@ -171,12 +217,6 @@ class RestoreExtensionInstallerTest {
                 ),
             )
         }
-        val pluginInstaller = mockk<LnPluginInstaller> {
-            coEvery { installFromUrl(any(), any()) } throws IllegalStateException()
-        }
-
-        installer(liveKey = KEY, sources, pluginInstaller).install(emptyList(), emptyMap()) shouldBe
-            listOf(RestoreExtensionInstaller.NotInstalled("Royal Road", RestoreExtensionInstaller.Reason.InstallFailed))
     }
 
     private companion object {
