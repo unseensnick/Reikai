@@ -55,7 +55,7 @@ private const val BANNER_RETRY_MS = 30_000L
  * Kept apart so the patch on Mihon's interceptor stays a small island: this class owns all
  * FlareSolverr internals (DTOs, the FS HTTP client, the shared session, cookie install, and
  * User-Agent pinning), while [CloudflareInterceptor] keeps the challenge detection and decides when
- * to delegate here. One solve per host is [CloudflareInterceptor]'s per-host lock.
+ * to delegate here. A fresh solve per host runs under [CloudflareInterceptor]'s per-host lock.
  */
 class FlareSolverrClient(
     private val cookieManager: AndroidCookieJar,
@@ -71,12 +71,12 @@ class FlareSolverrClient(
             // NetworkHelper's client, whose own callTimeout is two minutes.
             .readTimeout(90, TimeUnit.SECONDS)
             .callTimeout(90, TimeUnit.SECONDS)
-            // Basic auth for a proxy in front of the server, applied here rather than at each call
-            // so no request can be left out. Missing it on the banner probe alone would 401 that
-            // probe, which latches [fsSessionsSupported] off for the rest of the run.
             // The API never redirects. One means the address is wrong, most often http behind a proxy
             // that forces https, and following it would drop the login and report a sign-in failure.
             .followRedirects(false)
+            // Basic auth for a proxy in front of the server, applied here rather than at each call
+            // so no request can be left out. Missing it on the banner probe alone would 401 that
+            // probe, which latches [fsSessionsSupported] off for the rest of the run.
             .addInterceptor { chain ->
                 val request = chain.request()
                 val header = flareSolverrLoginFor(
@@ -188,8 +188,8 @@ class FlareSolverrClient(
      * Mark a host as WebView-unsolvable so later requests skip the WebView pre-attempt and go
      * straight to FlareSolverr. Called when the WebView solve fails: without this the 30s WebView
      * timeout is re-paid on every request to a host the WebView can't clear (browsing, details,
-     * chapter and image loads), serialising 30s blocks on the main thread and hanging access to
-     * that host. [fsRequiredHosts] is otherwise only populated on an FS success, which never
+     * chapter and image loads), each one holding the host's write lock for 30s on an OkHttp thread
+     * and queueing every other request to that host behind it. [fsRequiredHosts] is otherwise only populated on an FS success, which never
      * happens for a host FS also can't clear.
      */
     fun markWebViewUnsolvable(host: String) {
@@ -198,8 +198,9 @@ class FlareSolverrClient(
 
     /**
      * Solve the challenge for [request] through the configured FlareSolverr server and
-     * return its fully-fetched response. One solve per host at a time is [CloudflareInterceptor]'s
-     * per-host lock, which every caller holds. [cookieJar] is the jar of the client sending [request],
+     * return its fully-fetched response. A fresh solve runs under [CloudflareInterceptor]'s per-host
+     * lock, but a host already known to need FlareSolverr is answered here with no lock held, so
+     * per-host state in here is shared between concurrent calls. [cookieJar] is the jar of the client sending [request],
      * whose cookies are the ones forwarded.
      */
     fun resolve(request: Request, cookieJar: CookieJar): Response {
