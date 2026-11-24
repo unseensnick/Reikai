@@ -117,7 +117,8 @@ class ChapterTombstoneBackupTest {
             emptyList()
     }
 
-    /** The creator reads chapters and kept states in two queries; a refresh can capture a chapter between them. */
+    /** The creator reads chapters and kept states in two queries; a refresh can capture a chapter between them. Without
+     *  History, which reads the kept states again and would find it whatever the order. */
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a chapter captured between the backup's two reads is still in the backup`(type: Type) = runTest {
@@ -136,7 +137,7 @@ class ChapterTombstoneBackupTest {
                 }
         }
 
-        val backed = type.backedUp(database, capturingAfterItsRead)
+        val backed = type.backedUp(database, capturingAfterItsRead, history = false)
 
         (backed.chapterUrls + backed.tombstones.map { it.url }).contains("/c5") shouldBe true
     }
