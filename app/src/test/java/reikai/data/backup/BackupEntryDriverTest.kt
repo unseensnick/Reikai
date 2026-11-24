@@ -39,6 +39,7 @@ class BackupEntryDriverTest {
         val chapterChunks = mutableListOf<Int>()
 
         open override suspend fun favorites() = favorites
+        override fun identity(entry: String): Any = entry
         override suspend fun readNotInLibrary() = readOnly
         open override suspend fun groupMembersOutsideLibrary() = groupMembers
         override suspend fun base(entries: List<String>) = entries.map { mutableSetOf("base:$it") }

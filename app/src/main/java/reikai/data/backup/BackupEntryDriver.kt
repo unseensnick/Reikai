@@ -25,7 +25,7 @@ interface BackupEntryParts<E, B> {
     suspend fun favorites(): List<E>
 
     /** What one series is across the lists, which read it at different moments: its row id. */
-    fun identity(entry: E): Any? = entry
+    fun identity(entry: E): Any
 
     /** Series outside the library that still carry read progress, which "All read entries" keeps. */
     suspend fun readNotInLibrary(): List<E>
