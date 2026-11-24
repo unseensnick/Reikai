@@ -60,7 +60,7 @@ class NovelDownloadQueueProvider(
                 // Latched across the pacing gap between chapters, so the card does not flicker to Queued.
                 activeSeries = downloadingIds,
                 completed = completed,
-                labels = queued.associateWith { labelOf(it) },
+                labels = labelsOf(queued),
                 restored = restored,
             )
         }
@@ -112,11 +112,18 @@ class NovelDownloadQueueProvider(
         )?.let { downloadManager.reorderQueue(it) }
     }
 
-    private suspend fun labelOf(novelId: Long): QueuedSeriesLabel = labels[novelId]
-        ?: run {
-            val novel = novelRepo.getById(novelId)
-            QueuedSeriesLabel(novel?.title.orEmpty(), sourceManager.nameOf(novel?.source.orEmpty()))
-        }.also { labels[novelId] = it }
+    // The novels not read yet in one query, so a restored queue of many costs one read rather than one each.
+    private suspend fun labelsOf(novelIds: Set<Long>): Map<Long, QueuedSeriesLabel> {
+        val missing = novelIds.filterNot(labels::containsKey)
+        if (missing.isNotEmpty()) {
+            val novels = novelRepo.getByIds(missing).associateBy { it.id }
+            missing.forEach { id ->
+                val novel = novels[id]
+                labels[id] = QueuedSeriesLabel(novel?.title.orEmpty(), sourceManager.nameOf(novel?.source.orEmpty()))
+            }
+        }
+        return novelIds.associateWith { labels.getValue(it) }
+    }
 
     private suspend fun chaptersOf(novelId: Long): List<NovelChapter> = chapterRepo.getByNovelId(novelId)
 }

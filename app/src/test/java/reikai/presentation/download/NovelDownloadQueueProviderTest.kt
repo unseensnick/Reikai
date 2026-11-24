@@ -31,7 +31,9 @@ class NovelDownloadQueueProviderTest {
                 every { completions } returns SeriesCompletions()
                 every { isQueueRestored } returns true
             },
-            novelRepo = mockk { coEvery { getById(1L) } returns Novel.create().copy(id = 1L, source = "gone") },
+            novelRepo = mockk {
+                coEvery { getByIds(listOf(1L)) } returns listOf(Novel.create().copy(id = 1L, source = "gone"))
+            },
             chapterRepo = mockk(),
             sourceManager = NovelSourceManager(
                 scope = testAppScope(),
