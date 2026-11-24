@@ -65,15 +65,15 @@ class UnreadableEntryRestoreTest(private val type: Type) {
     fun `an unreadable entry is named in the error log`() = runTest {
         restoreBadThenGood()
 
-        File(cache.root, "reikai_restore_error.txt").readText() shouldContain "Entry 1 could not be read"
+        File(cache.root, "reikai_restore_error.txt").readText() shouldContain "${type.label} entry 1 could not be read"
     }
 
-    enum class Type(val field: Int) {
-        MANGA(BackupFields.MANGA) {
+    enum class Type(val field: Int, val label: String) {
+        MANGA(BackupFields.MANGA, "Manga") {
             override fun entry(url: String) =
                 ProtoBuf.encodeToByteArray(BackupManga.serializer(), BackupManga(source = 1, url = url))
         },
-        NOVEL(BackupFields.NOVELS) {
+        NOVEL(BackupFields.NOVELS, "Novel") {
             override fun entry(url: String) =
                 ProtoBuf.encodeToByteArray(BackupNovel.serializer(), BackupNovel(source = "s", url = url))
         },

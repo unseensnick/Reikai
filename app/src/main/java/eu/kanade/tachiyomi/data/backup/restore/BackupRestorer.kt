@@ -465,6 +465,7 @@ class BackupRestorer(
             restoreEntryStream(
                 uri,
                 fieldNumber = BackupFields.NOVELS,
+                kind = "Novel",
                 decode = {
                     summary.legacyCustomInfo.decodeNovel(parser, it).rescaleKitsu(kitsuScale).apply {
                         if (!summary.novelDisplayBitStored) chapterFlags = withDisplayBitFromSort(chapterFlags)
@@ -579,6 +580,7 @@ class BackupRestorer(
         restoreEntryStream(
             uri,
             fieldNumber = BackupFields.MANGA,
+            kind = "Manga",
             decode = {
                 legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale)
                     .let(summary.foreignMerges::applyTo).also { manga ->
@@ -640,6 +642,7 @@ class BackupRestorer(
     private suspend fun <B> restoreEntryStream(
         uri: Uri,
         fieldNumber: Int,
+        kind: String,
         decode: (ByteArray) -> B,
         restore: suspend (B) -> Unit,
         title: (B) -> String,
@@ -676,7 +679,7 @@ class BackupRestorer(
                 decode(data)
                 // Any failure, not only the serializer's: decoding runs no suspension, so nothing here is a cancel.
             } catch (e: Exception) {
-                errors.add(Date() to "Entry $read could not be read: ${e.message}")
+                errors.add(Date() to "$kind entry $read could not be read: ${e.message}")
                 restoreProgress.addAndFetch(1)
                 return@read
             }
@@ -686,11 +689,19 @@ class BackupRestorer(
         flush()
     }
 
-    // RK: a font runs to megabytes, so each is read from the file and restored on its own, never all held at once
+    // RK: a font runs to megabytes, so each is read from the file and restored on its own, never all held at once.
+    // An unreadable one is skipped as an unreadable entry is, so the fonts after it still restore.
     private suspend fun restoreNovelFonts(uri: Uri) {
+        var read = 0
         BackupProtoReader(context).read(uri) { field, data ->
             if (field != BackupFields.NOVEL_FONTS) return@read
-            val font = parser.decodeFromByteArray(BackupNovelFont.serializer(), data)
+            read++
+            val font = try {
+                parser.decodeFromByteArray(BackupNovelFont.serializer(), data)
+            } catch (e: Exception) {
+                errors.add(Date() to "Font $read could not be read: ${e.message}")
+                return@read
+            }
             if (!novelFonts.restore(font.fileName, font.bytes)) {
                 errors.add(Date() to "Font not restored: ${font.fileName}")
             }
