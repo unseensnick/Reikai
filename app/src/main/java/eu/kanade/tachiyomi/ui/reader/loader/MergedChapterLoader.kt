@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import mihon.data.cache.ChapterCache
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Merge-aware loader. Holds one Mihon [ChapterLoader] per merged source, keyed by the chapter's
@@ -30,7 +31,9 @@ class MergedChapterLoader(
     private val sourceManager: SourceManager,
 ) {
 
-    private val loaders = HashMap<Long, ChapterLoader>()
+    // Concurrent: a chapter switch and a preload for two members load at once. getOrPut may then build
+    // a loader twice, which is harmless, since a ChapterLoader holds no state of its own.
+    private val loaders = ConcurrentHashMap<Long, ChapterLoader>()
 
     suspend fun loadChapter(chapter: ReaderChapter, fromSource: Boolean = false) {
         loaderFor(chapter.chapter.mangaId).loadChapter(chapter, fromSource)
