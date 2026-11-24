@@ -15,6 +15,7 @@ import mihon.domain.extension.repository.ExtensionStoreRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.extension.NO_SIGNING_KEY
 import reikai.domain.extension.StoreKeyChangedException
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.registry.LnRegistryEntry
@@ -129,6 +130,24 @@ class RestoreInstallsTest {
         sources(liveKey = KEY).plan(emptyList(), listOf(backupStore), emptyMap()).repos.single().signingKey shouldBe KEY
     }
 
+    // Mihon's store migration (11.sqm) found an old repo's index at repo.json under its base address.
+    @Test
+    fun `a backup repo named by its base address before stores is read at its index`() = runTest {
+        val old =
+            BackupExtensionStore("https://old.example/repo", "Old", null, KEY, "https://old.example", null, null, null)
+
+        sources(liveAt = "https://old.example/repo/repo.json").plan(emptyList(), listOf(old), emptyMap())
+            .repos.single().url shouldBe "https://old.example/repo/repo.json"
+    }
+
+    // A store carried over from a preference was saved before its key was known, and takes the one it is served.
+    @Test
+    fun `a backup store saved with no key is offered under the key read live`() = runTest {
+        val keyless = BackupExtensionStore(backupStore.indexUrl, "Backup", null, NO_SIGNING_KEY, "x", null, false, null)
+
+        sources(liveKey = KEY).plan(emptyList(), listOf(keyless), emptyMap()).repos.single().signingKey shouldBe KEY
+    }
+
     @Test
     fun `a backup plugin repo the device already has is not offered`() = runTest {
         val novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply { addedRepoUrls().set(setOf(REPO)) }
@@ -189,13 +208,14 @@ class RestoreInstallsTest {
 
     private fun sources(
         liveKey: String = KEY,
+        liveAt: String = backupStore.indexUrl,
         novelPreferences: NovelPreferences = NovelPreferences(EmittingPreferenceStore()),
         deviceStores: List<ExtensionStore> = emptyList(),
         registryFetcher: LnRegistryFetcher = LnRegistryFetcher { emptyList() },
         extensionManager: ExtensionManager = mockk<ExtensionManager>(),
         storeListings: Map<String, Result<List<Extension.Available>>> = emptyMap(),
     ): RestoreInstallSources {
-        val live = store(backupStore.indexUrl, liveKey)
+        val live = store(liveAt, liveKey)
         return RestoreInstallSources(
             extensionManager = extensionManager,
             novelPreferences = novelPreferences,
@@ -204,7 +224,7 @@ class RestoreInstallsTest {
                 coEvery { fetchExtensionsByStore() } returns storeListings
             },
             storeService = mockk<ExtensionStoreService> {
-                coEvery { fetch(backupStore.indexUrl) } returns Result.success(live)
+                coEvery { fetch(liveAt) } returns Result.success(live)
                 coEvery { getExtensions(live) } returns Result.success(emptyList())
             },
             registryFetcher = registryFetcher,

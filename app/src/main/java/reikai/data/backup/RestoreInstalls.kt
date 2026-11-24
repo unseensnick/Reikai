@@ -18,6 +18,7 @@ import kotlinx.serialization.Serializable
 import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import reikai.domain.extension.repoNameFromAddress
+import reikai.domain.extension.servesAnotherStore
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
@@ -180,7 +181,7 @@ class RestoreInstallSources(
             ?.value.orEmpty() - devicePluginRepos
         // Read side by side: Restore stays disabled until this returns, and each read can wait out a timeout.
         return coroutineScope {
-            val read = stores.filterNot { it.indexUrl in deviceStores }.distinctBy { it.indexUrl }
+            val read = stores.filterNot { it.address in deviceStores }.distinctBy { it.address }
                 .map { async { it.name to readStore(it) } } +
                 pluginRepos.map { url ->
                     async {
@@ -198,8 +199,8 @@ class RestoreInstallSources(
 
     // Null when the store can't be read or now signs with another key than the backup recorded.
     private suspend fun readStore(backup: BackupExtensionStore): Pair<BackupRepo, RepoListings>? {
-        val live = storeService.fetch(backup.indexUrl).getOrNull() ?: return null
-        if (live.signingKey != backup.signingKey) return null
+        val live = storeService.fetch(backup.address).getOrNull() ?: return null
+        if (servesAnotherStore(backup.signingKey, live.signingKey)) return null
         val apps = storeService.getExtensions(live).getOrNull() ?: return null
         return BackupRepo(live.indexUrl, live.name, isPluginRepo = false, signingKey = live.signingKey) to
             RepoListings(apps = apps)
@@ -236,3 +237,10 @@ fun NovelPreferences.backedUpAppPreferences(
     if (!options.appSettings) return written
     return written + BackupPreference(AppPreferenceCarry.CUSTOM_INFO_OPTION_MARKER_KEY, BooleanPreferenceValue(true))
 }
+
+/**
+ * Where [BackupExtensionStore] is read from. A backup older than Mihon's stores names a repo by its base
+ * address, with no legacy mark, and the store migration (11.sqm) found its index at `repo.json` under it.
+ */
+private val BackupExtensionStore.address: String
+    get() = if (isLegacy == null && !indexUrl.endsWith(".json")) indexUrl.trimEnd('/') + "/repo.json" else indexUrl

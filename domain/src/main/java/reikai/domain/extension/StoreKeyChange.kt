@@ -5,10 +5,13 @@ import kotlinx.serialization.json.Json
 import mihon.domain.extension.model.ExtensionStore
 
 /**
- * Whether an index signed by [servedKey] is another store now served at this one's address. A saved
- * store with no key yet (one carried over from a preference) takes whatever key it is served.
+ * Whether an index signed by [servedKey] is another store now served at the address of one saved with [savedKey].
+ * A store saved with no key yet (one carried over from a preference) takes whatever key it is served.
  */
-fun ExtensionStore.servesAnotherStore(servedKey: String): Boolean = hasSigningKey && servedKey != signingKey
+fun servesAnotherStore(savedKey: String, servedKey: String): Boolean =
+    shownSigningKey(savedKey) != null && servedKey != savedKey
+
+fun ExtensionStore.servesAnotherStore(servedKey: String): Boolean = servesAnotherStore(signingKey, servedKey)
 
 /**
  * A saved store, named [name], whose address a refresh found serving [servedName] signed by [servedKey].
