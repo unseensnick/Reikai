@@ -109,6 +109,7 @@ import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.SourceContacts
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.ResetEntryInfo
@@ -1522,13 +1523,17 @@ class MangaViewModel(
     }
 
     private fun cancelDownload(chapterId: Long) {
-        // RK: the row shows the queue state of the copy its download fetches
-        val activeDownload = (successState?.downloadTargets ?: DownloadTargets.OWN)
-            .queuedFor(chapterId, downloadManager::getQueuedDownloadOrNull) ?: return
+        // RK --> the row's own entry and the copy its download fetches, either of which may be queued, by
+        // the row rule novels cancel by too
+        val fetched = listOfNotNull((successState?.downloadTargets ?: DownloadTargets.OWN).idOf(chapterId))
+        val activeDownloads = rowDownloadChapters(ChapterDownloadAction.CANCEL, listOf(chapterId), fetched) { it }
+            .mapNotNull(downloadManager::getQueuedDownloadOrNull)
+        if (activeDownloads.isEmpty()) return
         viewModelScope.launch {
-            downloadManager.cancelQueuedDownloads(listOf(activeDownload))
-            updateDownloadState(activeDownload.apply { status = Download.State.NOT_DOWNLOADED })
+            downloadManager.cancelQueuedDownloads(activeDownloads)
+            activeDownloads.forEach { updateDownloadState(it.apply { status = Download.State.NOT_DOWNLOADED }) }
         }
+        // RK <--
     }
 
     fun markPreviousChapterRead(pointer: Chapter) {

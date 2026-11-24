@@ -123,6 +123,14 @@ class MergedDownloadCopyConformanceTest {
                 setOf(Copy.A_ONLY)
         }
 
+    /** Either copy may be the queued one, so a cancel on the row reaches both. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `cancelling a row shown from a missing source cancels both queued copies`(type: ContentType) = runTest {
+        group(type, cancellable = setOf(Copy.M_SHARED, Copy.A_SHARED)) { it.cancel(Copy.M_SHARED) } shouldBe
+            setOf(Copy.M_SHARED, Copy.A_SHARED)
+    }
+
     /** The copies the group holds, by role; each type maps them to its own ids. M holds the most, so it
      *  is the stitch's first-ranked source and its copy of the shared chapter is the one shown. */
     private enum class Copy { M_SHARED, M_ONLY, M_LAST, A_SHARED, A_ONLY }
@@ -133,6 +141,7 @@ class MergedDownloadCopyConformanceTest {
         private val loaded: EntryDetailsScreenState.Loaded,
         private val ids: Map<Copy, Long>,
         private val queued: Set<Long>,
+        private val cancelled: Set<Long> = emptySet(),
     ) {
         private val roleOf = ids.entries.associate { (role, id) -> id to role }
         private val rows = loaded.chapters.items.filterIsInstance<EntryChapterListItem.Chapter>()
@@ -147,6 +156,13 @@ class MergedDownloadCopyConformanceTest {
 
         suspend fun runAction(action: DownloadAction): Set<Copy> = queuedAfter { behavior.runDownloadAction(action) }
 
+        suspend fun cancel(copy: Copy): Set<Copy> {
+            behavior.onChapterDownloadAction(ids.getValue(copy), ChapterDownloadAction.CANCEL)
+            withTimeoutOrNull(10_000) { while (cancelled.isEmpty()) delay(20) }
+            delay(200)
+            return cancelled.mapTo(HashSet()) { roleOf.getValue(it) }
+        }
+
         private suspend fun queuedAfter(start: () -> Unit): Set<Copy> {
             start()
             withTimeoutOrNull(10_000) { while (queued.isEmpty()) delay(20) }
@@ -159,13 +175,14 @@ class MergedDownloadCopyConformanceTest {
     private suspend fun <T> TestScope.group(
         type: ContentType,
         alreadyQueued: Copy? = null,
+        cancellable: Set<Copy> = emptySet(),
         probe: suspend (Group) -> T,
     ): T = when (type) {
-        ContentType.MANGA -> mangaGroup(alreadyQueued, probe)
-        else -> novelGroup(alreadyQueued, probe)
+        ContentType.MANGA -> mangaGroup(alreadyQueued, cancellable, probe)
+        else -> novelGroup(alreadyQueued, cancellable, probe)
     }
 
-    private suspend fun <T> mangaGroup(alreadyQueued: Copy?, probe: suspend (Group) -> T): T {
+    private suspend fun <T> mangaGroup(alreadyQueued: Copy?, cancellable: Set<Copy>, probe: suspend (Group) -> T): T {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
@@ -189,7 +206,16 @@ class MergedDownloadCopyConformanceTest {
             ChapterUnit(chapterId = 104L, unit = 3, copyOrder = 0),
         )
         val queued = ConcurrentHashMap.newKeySet<Long>()
+        val cancelled = ConcurrentHashMap.newKeySet<Long>()
+        val cancellableIds = cancellable.mapTo(HashSet(), ids::getValue)
         val downloads = detailsDownloadManager().apply {
+            every { getQueuedDownloadOrNull(any()) } answers {
+                val id = firstArg<Long>()
+                if (id in cancellableIds) mockk<Download>(relaxed = true) { every { chapter.id } returns id } else null
+            }
+            coEvery { cancelQueuedDownloads(any()) } answers {
+                firstArg<List<Download>>().forEach { cancelled += it.chapter.id }
+            }
             coEvery { downloadChapters(any(), any(), any()) } answers
                 { secondArg<List<Chapter>>().forEach { queued += it.id } }
             coEvery { startDownloadNow(any()) } answers { queued += firstArg<Long>() }
@@ -216,7 +242,7 @@ class MergedDownloadCopyConformanceTest {
         ).also { store.put("manga", it) }
         try {
             val behavior = MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
-            return probe(Group(behavior, behavior.settled(rows = 4), ids, queued))
+            return probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled))
         } finally {
             // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
@@ -226,7 +252,11 @@ class MergedDownloadCopyConformanceTest {
         }
     }
 
-    private suspend fun <T> TestScope.novelGroup(alreadyQueued: Copy?, probe: suspend (Group) -> T): T =
+    private suspend fun <T> TestScope.novelGroup(
+        alreadyQueued: Copy?,
+        cancellable: Set<Copy>,
+        probe: suspend (Group) -> T,
+    ): T =
         NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val m = harness.novel(FakeNovelSource("gone", "unregistered"))
             val a = harness.novel(harness.source("alpha"))
@@ -239,6 +269,10 @@ class MergedDownloadCopyConformanceTest {
                 Copy.A_ONLY to harness.chapter(a, 3.0, name = "Only alpha has this").id,
             )
             harness.merge(m, a)
+            val cancelled = ConcurrentHashMap.newKeySet<Long>()
+            every { harness.downloadManager.cancelDownloads(any()) } answers {
+                firstArg<List<Long>>().forEach { cancelled += it }
+            }
             val queued = ConcurrentHashMap.newKeySet<Long>()
             coEvery { harness.downloadManager.downloadChapters(any()) } answers {
                 firstArg<List<NovelChapter>>().forEach { queued += it.id }
@@ -255,7 +289,7 @@ class MergedDownloadCopyConformanceTest {
                     noDuplicateMarking(),
                     noVolumePicking(),
                 )
-            probe(Group(behavior, behavior.settled(rows = 4), ids, queued))
+            probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled))
         }
 
     /** The merged page once the installed member serves it and every row of the stitch is listed. */

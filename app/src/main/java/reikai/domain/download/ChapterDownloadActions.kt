@@ -12,8 +12,8 @@ import tachiyomi.domain.source.service.SourceManager
 
 /**
  * What a manga chapter row's download control does, for every Reikai row: the reader's sheet and
- * Recents. [deleteTargets] are the copies the caller's view counts as downloaded. MangaViewModel keeps
- * upstream's own copy, runChapterDownloadActions, which this matches.
+ * Recents. [deleteTargets] are the copies the caller's view counts as downloaded. Manga details keeps upstream's
+ * MangaViewModel.runChapterDownloadActions, twin of run, pinned by MergedDownloadCopyConformanceTest.
  */
 @Inject
 class MangaChapterDownloadActions(

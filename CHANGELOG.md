@@ -124,6 +124,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Cancelling a merged manga chapter's download from its details page now cancels every queued copy of it, as it does for novels.**
 - **A merged series' details page now shows every source's tags under All, as the library does.** A source chip still shows that source's own tags.
 - **A merged series now keeps its reading mode, chapter display and rotation whichever source you open it through, and on upgrade takes the settings of the source you read most recently.** Opening it from History, Updates or another source used to drop what you had set.
 - **Manage sources now opens on the real primary source when you hide a scan group.**
