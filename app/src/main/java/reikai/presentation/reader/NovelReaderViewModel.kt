@@ -779,10 +779,8 @@ class NovelReaderViewModel(
     fun reportChapterEndSeen(chapterId: Long) {
         // From the page an open replaced, or of a chapter the landing holds, it is not the reader's.
         if (!reportsCount() || !landing.mayRead(chapterId)) return
-        // Outside the order, chapterAfter has no index to step from and would call anything the last.
-        if (chapterId !in orderedIds) return
+        val hasNext = !(isLastInOrder(chapterId) ?: return)
         val chapter = window.value.chapters.firstOrNull { it.chapterId == chapterId } ?: return
-        val hasNext = chapterAfter(chapterId) != null
         // A position it reported on opening, still waiting to be written, would land after the mark
         // and put a chapter just read back at 0.
         if (!hasNext) progressSlot.discardIf { it == chapterId }
@@ -1155,8 +1153,7 @@ class NovelReaderViewModel(
             // This copy's own, as manga's transition reads the chapter it will load rather than the group's;
             // a local novel's chapters count, as a local manga's do there.
             downloaded = novel?.let { novelDownloadCache.isOnDevice(it, this) } == true,
-            // Outside the order, chapterAfter has no index to step from and would call anything the last.
-            isLast = id in orderedIds && chapterAfter(id) == null,
+            isLast = isLastInOrder(id) == true,
             gapPresent = gapPresent,
         )
     }
@@ -1595,6 +1592,10 @@ class NovelReaderViewModel(
 
     /** The chapter a forward step from [id] lands on, null when there is none to step to. */
     private fun chapterAfter(id: Long): Long? = readingOrder?.chapterAfter(id)
+
+    /** Whether [id] ends the order, null outside it, where chapterAfter has no index to step from and would
+     *  call anything the last. */
+    private fun isLastInOrder(id: Long): Boolean? = if (id in orderedIds) chapterAfter(id) == null else null
 
     /** Warms whatever the reach needs that is not cached yet; a warm republishes the window itself. */
     private fun extendWindowForward() {

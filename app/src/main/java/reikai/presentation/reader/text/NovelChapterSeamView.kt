@@ -50,8 +50,9 @@ class NovelChapterSeamView(
         isVisible = seam != null
     }
 
-    /** Whether this view already fits a page [page] tall, which a hidden one does any page. */
-    fun fits(page: Int?): Boolean = seam == null || page == pageHeightPx
+    /** Whether this view already draws [seam] in [color] on a page [page] tall; a hidden one fits any page. */
+    fun matches(seam: NovelSeam?, @ColorInt color: Int, page: Int?): Boolean =
+        seam == this.seam && color == textColor && (seam == null || page == pageHeightPx)
 
     @Composable
     override fun Content() {

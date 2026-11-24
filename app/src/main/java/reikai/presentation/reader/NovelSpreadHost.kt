@@ -138,7 +138,7 @@ class NovelSpreadHost(
             current?.visibility = GONE
             return
         }
-        if (current == null || current.seam != seam || current.textColor != color || !current.fits(page)) {
+        if (current?.matches(seam, color, page) != true) {
             current?.let(::removeView)
             card = NovelChapterSeamView(context, seam, color, page).also(::addView)
         }

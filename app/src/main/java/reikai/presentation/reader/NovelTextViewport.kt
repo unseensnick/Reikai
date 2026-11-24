@@ -2288,7 +2288,7 @@ class NovelTextViewport(
             val seam = seamAt(position)
             val color = readerTextColor()
             val page = seamPageHeight()
-            if (seam == holder.seam.seam && color == holder.seam.textColor && holder.seam.fits(page)) return
+            if (holder.seam.matches(seam, color, page)) return
             holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam, color, page))
         }
 
@@ -2306,7 +2306,7 @@ class NovelTextViewport(
             val end = NovelSeam.end(shown[position].chapter)?.drawn(settings?.alwaysShowChapterTransition)
             val color = readerTextColor()
             val page = seamPageHeight()
-            if (end == holder.end.seam && color == holder.end.textColor && holder.end.fits(page)) return
+            if (holder.end.matches(end, color, page)) return
             holder.end = holder.root.replace(holder.end, NovelChapterSeamView(holder.root.context, end, color, page))
         }
 
