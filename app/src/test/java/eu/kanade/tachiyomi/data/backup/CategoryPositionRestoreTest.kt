@@ -28,7 +28,10 @@ class CategoryPositionRestoreTest {
     fun `a novel category restored beside manga categories takes a position of its own`() = runTest {
         MangaRestoreHarness.create().use { harness ->
             listOf("A", "B", "C").forEach { name -> harness.categories.insert(NewCategory(name = name, flags = 0)) }
-            harness.novelCategoryRestorer().restoreCategories(listOf(BackupNovelCategory(name = "Novels", order = 0)))
+            harness.novelCategoryRestorer().restoreCategories(
+                listOf(BackupNovelCategory(name = "Novels", order = 0)),
+                sortOverridesStored = true,
+            )
 
             harness.categories.getUnfiltered()
                 .filterNot(Category::isSystemCategory)

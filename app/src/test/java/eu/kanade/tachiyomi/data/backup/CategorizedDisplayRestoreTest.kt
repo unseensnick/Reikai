@@ -87,6 +87,22 @@ class CategorizedDisplayRestoreTest {
         ) shouldBe true
     }
 
+    // The legacy novel layout's Downloaded, which is TrackerMean in the shared one.
+    private val oldNovelDownloaded = 0b100000L
+
+    /** Before the fold into the shared table, novel categories kept Downloaded on TrackerMean's bits. */
+    @Test
+    fun `a novel category from a backup older than the shared table keeps its Downloaded sort`() = runTest {
+        val restored = restore(
+            Backup(
+                backupManga = emptyList(),
+                backupNovelCategories = listOf(BackupNovelCategory("Fantasy", 1, 5, oldNovelDownloaded)),
+            ),
+        ).single()
+
+        LibrarySort.Type.valueOf(restored.flags) shouldBe LibrarySort.Type.Downloaded
+    }
+
     @Test
     fun `a hidden category alone leaves per-category sort off`() = runTest {
         restoredSwitch(backup(BackupCategory("Hidden", 1, 3, CATEGORY_HIDDEN_MASK), marked = true)) shouldBe false

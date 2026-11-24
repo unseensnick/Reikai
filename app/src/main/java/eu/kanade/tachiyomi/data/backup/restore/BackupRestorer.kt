@@ -546,7 +546,7 @@ class BackupRestorer(
         val existingCategories = restoreCategoryOrder.existing() // RK
         categoriesRestorer(backupCategories, sortOverridesStored, restoredPreferences, fromReikai) // RK
         // RK -->
-        novelRestorer.restoreCategories(backupNovelCategories)
+        novelRestorer.restoreCategories(backupNovelCategories, sortOverridesStored)
         restoreCategoryOrder.restore(existingCategories, backupCategories, backupNovelCategories)
         if (backupCategories.isNotEmpty() || backupNovelCategories.isNotEmpty()) {
             categoriesRestorer.restoreCategorizedDisplay()

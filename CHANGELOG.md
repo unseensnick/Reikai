@@ -456,6 +456,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Restoring a backup made before 0.4.0 no longer swaps a novel category's Downloaded and Tracker score sorts.**
+- **Restoring a backup with App settings no longer turns off Per-category sort while your categories keep their own sorts.**
 - **Merged series in a TachiyomiSY or Komikku backup now restore as merged series in your library.** Before, each came back broken with its sources hidden, and their saved gallery details were lost.
 - **Restoring someone else's backup can no longer weaken your privacy or security settings.** Header redaction, verbose logging, crash reports, analytics, the app lock and hidden notifications only ever restore to the safer choice.
 - **Restoring someone else's backup can no longer change where an extension repo you already have installs from.** The repos on your device keep their own address, name and signing key.

@@ -111,6 +111,7 @@ class ManualBaseBackupConformanceTest {
             ) {
                 device.novelCategoryRestorer(manualOrder).restoreCategories(
                     ProtoBuf.decodeFromByteArray(ListSerializer(BackupNovelCategory.serializer()), backedUp),
+                    sortOverridesStored = true,
                 )
             }
         },

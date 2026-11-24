@@ -48,6 +48,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReleaseInterval
+import reikai.domain.library.novelCategoryFlagsToMangaLayout
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelChapterRepository
@@ -89,14 +90,21 @@ class NovelRestorer(
     private val now = Clock.System.now().toLocalDateTime(timeZone)
     private val currentFetchWindow = ReleaseInterval.window(now.date, timeZone)
 
-    /** Create any novel categories the backup has that the device doesn't, matched by name. */
-    suspend fun restoreCategories(backupCategories: List<BackupNovelCategory>) {
+    /**
+     * Create any novel categories the backup has that the device doesn't, matched by name. A backup without
+     * [sortOverridesStored] predates the fold into the shared table, whose novel flags swap Downloaded and Tracker
+     * score, so they are read in that layout ([novelCategoryFlagsToMangaLayout]).
+     */
+    suspend fun restoreCategories(backupCategories: List<BackupNovelCategory>, sortOverridesStored: Boolean) {
         if (backupCategories.isEmpty()) return
         val dbCategoryNames = categoryRepository.getAll(CategoryContentType.NOVEL).mapTo(HashSet()) { it.name }
         val created = backupCategories.filter { it.name !in dbCategoryNames }.sortedBy { it.order }
         // The database places each after every row of either library, and all of them or none land.
         categoryRepository.insertAll(
-            created.map { NewCategory(name = it.name, flags = it.flags, contentType = CategoryContentType.NOVEL) },
+            created.map {
+                val flags = if (sortOverridesStored) it.flags else novelCategoryFlagsToMangaLayout(it.flags)
+                NewCategory(name = it.name, flags = flags, contentType = CategoryContentType.NOVEL)
+            },
         )
         manualOrder.restoreBases(
             created.mapNotNull { backup ->
