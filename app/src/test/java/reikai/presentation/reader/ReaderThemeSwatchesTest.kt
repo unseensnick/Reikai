@@ -26,16 +26,10 @@ class ReaderThemeSwatchesTest {
     }
 
     @Test
-    fun theSwatchInUseIsNamedAndSelected() {
+    fun onlyTheSwatchInUseIsSelected() {
         show()
 
         compose.onNodeWithContentDescription("Sepia").assertIsSelected()
-    }
-
-    @Test
-    fun aSwatchNotInUseIsNotSelected() {
-        show()
-
         compose.onNodeWithContentDescription("Mint").assertIsNotSelected()
     }
 

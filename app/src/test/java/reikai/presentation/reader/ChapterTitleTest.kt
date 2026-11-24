@@ -39,6 +39,7 @@ class ChapterTitleTest {
             "a title after a dash that opens with the chapter's number keeps it | NUMBER_AND_NAME | Chapter 1 - 1 Year Later | 1.0 | Ch. 1: 1 Year Later",
             // With no label word, a separator is what says the number is the chapter's.
             "a bare number closed by a separator comes off | NUMBER_AND_NAME | 3. The Duel | 3.0 | Ch. 3: The Duel",
+            "a zero-padded number comes off | NUMBER_AND_NAME | Chapter 003: The Duel | 3.0 | Ch. 3: The Duel",
         ],
     )
     fun `a chapter title shows its number at most once`(

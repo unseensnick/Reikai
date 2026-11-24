@@ -8,25 +8,25 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import tachiyomi.domain.chapter.model.Chapter
 
 class WebGpuRetryRulesTest {
 
     private val failed = ReaderChapter.State.Error(RuntimeException("offline"))
 
-    @Test
-    fun `a page the loader fetched after failing no longer waits for its Retry`() {
-        holdsForRetry(failedDecoding = false, Page.State.Ready) shouldBe false
-    }
-
-    @Test
-    fun `a page that failed to load waits while it is still failed`() {
-        holdsForRetry(failedDecoding = false, Page.State.Error(Exception("503"))) shouldBe true
-    }
-
-    @Test
-    fun `a page that failed decoding waits though its file is there`() {
-        holdsForRetry(failedDecoding = true, Page.State.Ready) shouldBe true
+    /** A failed page decodes only once the loader's own refetch has its file, never while it is in flight. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("retryHolds")
+    fun `a failed page waits for its Retry until there is something new to decode`(
+        @Suppress("UNUSED_PARAMETER") name: String,
+        failedDecoding: Boolean,
+        status: Page.State,
+        holds: Boolean,
+    ) {
+        holdsForRetry(failedDecoding, status) shouldBe holds
     }
 
     @Test
@@ -120,5 +120,17 @@ class WebGpuRetryRulesTest {
 
     private fun chapter(id: Long, state: ReaderChapter.State): ReaderChapter {
         return ReaderChapter(Chapter.create().copy(id = id)).also { it.state = state }
+    }
+
+    companion object {
+        @JvmStatic
+        fun retryHolds() = listOf(
+            Arguments.of("a page the loader fetched after failing decodes", false, Page.State.Ready, false),
+            Arguments.of("a page still failed waits", false, Page.State.Error(Exception("503")), true),
+            Arguments.of("a page queued for its refetch waits", false, Page.State.Queue, true),
+            Arguments.of("a page whose refetch is loading waits", false, Page.State.LoadPage, true),
+            Arguments.of("a page whose image is downloading waits", false, Page.State.DownloadImage, true),
+            Arguments.of("a page that failed decoding waits though its file is there", true, Page.State.Ready, true),
+        )
     }
 }

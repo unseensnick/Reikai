@@ -15,19 +15,11 @@ class NovelPagingTest {
     /** Ten lines of 30 from 10 down, the shape a chapter's padding then its text has. */
     private val lines = (0 until 10).map { Band(10f + it * 30f, 40f + it * 30f) }
 
+    /** Each page takes whole lines until the next would overflow it, and the next starts on that line. */
     @Test
-    fun `a page takes whole lines until the next would overflow it`() {
-        NovelPaging.cut(lines, height = 100f).first() shouldBe Page(10f, 100f)
-    }
-
-    @Test
-    fun `the next page starts on the first line the last one left out`() {
-        NovelPaging.cut(lines, height = 100f)[1] shouldBe Page(100f, 190f)
-    }
-
-    @Test
-    fun `every line lands on a page`() {
-        NovelPaging.cut(lines, height = 100f).last() shouldBe Page(280f, 310f)
+    fun `every line lands on exactly one page`() {
+        NovelPaging.cut(lines, height = 100f) shouldBe
+            listOf(Page(10f, 100f), Page(100f, 190f), Page(190f, 280f), Page(280f, 310f))
     }
 
     @Test
@@ -156,6 +148,13 @@ class NovelPagingTest {
     @Test
     fun `a turn past the window's end leaves it`() {
         NovelPaging.turn(listOf(1L), chapterId = 1L, index = 3, count = 4, forward = true) shouldBe Turn.Beyond(true)
+    }
+
+    /** Never the window's first chapter, which is not the next one from a chapter outside it. */
+    @Test
+    fun `a turn off a chapter missing from the window leaves it`() {
+        NovelPaging.turn(listOf(1L, 2L), chapterId = 9L, index = 0, count = 1, forward = true) shouldBe
+            Turn.Beyond(true)
     }
 
     /** A WebView chapter's script can answer the measure; a page under a pixel never ended cutting. */

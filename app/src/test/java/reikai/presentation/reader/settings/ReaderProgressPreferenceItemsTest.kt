@@ -59,4 +59,9 @@ class ReaderProgressPreferenceItemsTest {
     fun `time left alone shows the bar's style rows`() {
         shown(showProgress = false, showTimeLeft = true) shouldContainAll styleRows
     }
+
+    @Test
+    fun `the page number alone shows the bar's style rows`() {
+        shown(showProgress = true, showTimeLeft = false) shouldContainAll styleRows
+    }
 }

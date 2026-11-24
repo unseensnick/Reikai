@@ -1,6 +1,5 @@
 package eu.kanade.presentation.reader
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
@@ -10,6 +9,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import io.kotest.matchers.floats.shouldBeGreaterThan
+import io.kotest.matchers.floats.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -36,6 +36,8 @@ class ReaderPageIndicatorTest {
 
     private fun height(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode().size.height.toFloat()
 
+    private fun width(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode().size.width.toFloat()
+
     @Test
     fun `the largest size draws the line over twice as tall`() {
         compose.setContent {
@@ -52,6 +54,7 @@ class ReaderPageIndicatorTest {
         }
 
         height("max") / height("default") shouldBeGreaterThan 2f
+        width("max") / width("default") shouldBeGreaterThan 2f
     }
 
     /** A chapter whose pages have not loaded counts none, and "1 / 0" is worse than nothing. */
@@ -66,22 +69,29 @@ class ReaderPageIndicatorTest {
         compose.onNodeWithTag("line").assertDoesNotExist()
     }
 
+    /** The reader hands its page colour over whatever the look, so the look alone decides the strip. */
     @Test
-    fun `a backed line spans the screen`() {
+    fun `only a backed line spans the screen`() {
         compose.setContent {
             ComposeTestHost {
-                Box(Modifier.width(300.dp).testTag("screen")) {
+                Column(Modifier.width(300.dp).testTag("screen")) {
                     ReaderPageIndicator(
                         progress,
-                        Modifier.testTag("line"),
+                        Modifier.testTag("backed"),
                         look = ReaderProgressLook(isBacked = true),
+                        pageColor = Color.White,
+                    )
+                    ReaderPageIndicator(
+                        progress,
+                        Modifier.testTag("outlined"),
+                        look = ReaderProgressLook(isBacked = false),
                         pageColor = Color.White,
                     )
                 }
             }
         }
 
-        compose.onNodeWithTag("line").fetchSemanticsNode().size.width shouldBe
-            compose.onNodeWithTag("screen").fetchSemanticsNode().size.width
+        width("backed") shouldBe width("screen")
+        width("outlined") shouldBeLessThan width("screen")
     }
 }

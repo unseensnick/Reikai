@@ -4,10 +4,9 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 /**
- * The prev/next rule both readers now run. Its asymmetry is the point: the manga reader has always
- * paged back over the whole list so the chapter just finished stays reachable once it is marked read,
- * while paging forward honours the skip settings. The novel reader stepped symmetrically and had no
- * skip settings at all, so a novel could not skip read chapters going forward.
+ * The prev/next rule both readers run. Its asymmetry is the point: paging back walks the whole list,
+ * so the chapter just finished stays reachable once it is marked read, while paging forward honours
+ * the skip settings.
  */
 class ChapterNeighboursTest {
 
@@ -22,6 +21,12 @@ class ChapterNeighboursTest {
     @Test
     fun `scrolling forward past a skipped chapter keeps the one scrolled out of behind`() {
         chapters.neighbourChapters(2, departed = "a", eligible) shouldBe ("a" to "e")
+    }
+
+    /** "b" was opened on purpose though the skip settings pass it over, so it is the only one behind. */
+    @Test
+    fun `scrolling forward out of a skipped chapter keeps that chapter behind`() {
+        chapters.neighbourChapters(2, departed = "b", eligible) shouldBe ("b" to "e")
     }
 
     /** A fling from "a" carried the reader through "c", which is on screen behind "e". */
