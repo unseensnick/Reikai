@@ -3,6 +3,7 @@ package reikai.novel.host
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import reikai.util.scriptString
 
 /**
  * A site's local and session storage, each as the JSON object of its items, as LNReader's WebView
@@ -16,7 +17,7 @@ const val WEB_STORAGE_SCRIPT =
 
 /** Reads what [WEB_STORAGE_SCRIPT] returned through `evaluateJavascript`, which JSON-encodes the string again. */
 fun parseWebStorage(result: String?): WebStorageSnapshot? {
-    val payload = result?.let { runCatching { Json.decodeFromString<String?>(it) }.getOrNull() } ?: return null
+    val payload = scriptString(result) ?: return null
     val storages = runCatching { Json.parseToJsonElement(payload).jsonObject }.getOrNull() ?: return null
     val local = storages["local"] as? JsonObject ?: return null
     val session = storages["session"] as? JsonObject ?: JsonObject(emptyMap())

@@ -20,6 +20,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import reikai.util.scriptString
 import tachiyomi.core.common.util.lang.withUIContext
 import kotlin.coroutines.resume
 
@@ -43,7 +44,7 @@ internal class PluginPageRenderer(private val appContext: Context) {
             // getHtml hands back the page as a JSON string literal, decoded here off the main thread.
             val html = page?.let {
                 withContext(Dispatchers.Default) {
-                    LnPluginHost.JSON.decodeFromString(String.serializer(), it.htmlJson)
+                    scriptString(it.htmlJson)
                 }
             }
             return RenderedPage(
