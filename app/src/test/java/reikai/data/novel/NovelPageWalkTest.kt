@@ -73,8 +73,32 @@ class NovelPageWalkTest {
         source.pagesEntered shouldBe listOf("2")
     }
 
-    /** Cancels on [cancelOnPage]; any other page lists one chapter. */
-    private class CancellingSource(private val cancelOnPage: String?) : NovelSource {
+    // A challenge page answers without an error and lists nothing; counting it walked skipped it for good.
+    @Test
+    fun `a page that lists nothing on a growth walk is walked again next time`() = runTest {
+        val walk = walkNovelPages(
+            novel = Novel.create().copy(id = 1L, url = "/novel", totalPages = 2L),
+            source = CancellingSource(cancelOnPage = null, emptyPages = setOf("2")),
+            walkedThrough = 1L,
+            toPage = 2L,
+            novelChapterRepository = mockk(),
+            novelRepository = mockk(),
+            libraryPreferences = mockk(),
+            syncRules = NovelChapterSyncRules(
+                NoChapterNumberOverrides,
+                InMemoryChapterCopyMarks(),
+                NoChapterTombstones,
+            ),
+        )
+
+        walk.walkedThrough shouldBe 1L
+    }
+
+    /** Cancels on [cancelOnPage], lists nothing on [emptyPages], as a challenge page does; any other lists one chapter. */
+    private class CancellingSource(
+        private val cancelOnPage: String?,
+        private val emptyPages: Set<String> = emptySet(),
+    ) : NovelSource {
         val pagesEntered = mutableListOf<String>()
 
         override val id = "src"
@@ -90,6 +114,7 @@ class NovelPageWalkTest {
         override suspend fun parsePage(novelPath: String, page: String): SourceNovel? {
             pagesEntered += page
             if (page == cancelOnPage) throw CancellationException("refresh cancelled")
+            if (page in emptyPages) return SourceNovel(path = novelPath, chapters = emptyList())
             return SourceNovel(
                 path = novelPath,
                 chapters = listOf(ChapterItem(name = "Chapter $page", path = "/c/$page")),

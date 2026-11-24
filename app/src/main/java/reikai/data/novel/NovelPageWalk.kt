@@ -45,8 +45,9 @@ suspend fun walkNovelPages(
         val result = runCatchingCancellable {
             val chapters = source.parsePage(novel.url, key)?.chapters.orEmpty()
             if (chapters.isEmpty()) {
-                // A challenge page loads without an error and lists nothing, so a dropping walk counts it as failed.
-                NovelChapterSyncResult.UNCHANGED.takeUnless { dropsPagesPastLast }
+                // A challenge page loads without an error and lists nothing, so it counts as failed: the stored count stops
+                // before it, and a dropping walk keeps the pages past it.
+                null
             } else {
                 syncChaptersWithNovelSource(
                     chapters,
