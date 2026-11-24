@@ -28,6 +28,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.backup.AppPreferenceCarry
 import reikai.data.novel.update.NovelUpdateWorker
@@ -69,14 +70,7 @@ class CategoryPreferenceRestoreTest {
         Category(id = 400, name = "Reading", order = 4, flags = 0, contentType = CategoryContentType.NOVEL),
     )
 
-    private val categoryIdPreferences = CategoryIdPreferences(
-        libraryPreferences,
-        DownloadPreferences(store),
-        NovelPreferences(store),
-        ReikaiLibraryPreferences(store),
-        ReikaiSourcePreferences(store),
-        UpcomingPreferences(store),
-    )
+    private val categoryIdPreferences = categoryIdPreferences(store)
 
     private val restorer = PreferenceRestorer(
         lnPluginHost = { mockk(relaxed = true) },
@@ -241,7 +235,7 @@ class CategoryPreferenceRestoreTest {
 
     /** A library or recents filter holds ids of both content types, which share one id space. */
     @ParameterizedTest(name = "shared set {0}")
-    @ValueSource(ints = [0, 1, 2, 3, 4, 5, 6, 7])
+    @MethodSource("sharedSetIndices")
     fun `a shared filter keeps its novel categories`(index: Int) = runTest {
         val filter = categoryIdPreferences.sharedSets[index]
 
@@ -265,19 +259,6 @@ class CategoryPreferenceRestoreTest {
         )
 
         filter.get() shouldBe setOf("100", "400")
-    }
-
-    @Test
-    fun `collapsed categories of either library map through their names`() = runTest {
-        val collapsed = ReikaiLibraryPreferences(store).collapsedCategories
-
-        restore(
-            reikaiCategories,
-            BackupPreference(collapsed.key(), StringSetPreferenceValue(setOf("12", "21"))),
-            novelCategories = listOf(BackupNovelCategory("Light novels", id = 21)),
-        )
-
-        collapsed.get() shouldBe setOf("200", "300")
     }
 
     @Test
@@ -314,6 +295,19 @@ class CategoryPreferenceRestoreTest {
     )
 
     private companion object {
+        // Read from the list itself, so a set added to it gets a case.
+        @JvmStatic
+        fun sharedSetIndices() = categoryIdPreferences(EmittingPreferenceStore()).sharedSets.indices.toList()
+
         const val DEFAULT_CATEGORY = LibraryPreferences.DEFAULT_CATEGORY_PREF_KEY
     }
 }
+
+private fun categoryIdPreferences(store: EmittingPreferenceStore) = CategoryIdPreferences(
+    LibraryPreferences(store),
+    DownloadPreferences(store),
+    NovelPreferences(store),
+    ReikaiLibraryPreferences(store),
+    ReikaiSourcePreferences(store),
+    UpcomingPreferences(store),
+)

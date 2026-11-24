@@ -42,11 +42,9 @@ import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.recommendation.taste.TrackerLibraryRefreshWorker
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.novel.DEAD_PLUGINS_NEED_REVALIDATION_KEY
 import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
-import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
@@ -64,7 +62,7 @@ import tachiyomi.domain.category.interactor.GetCategories
 /**
  * What a restore does with a preference key the app has retired. The store answers null for a key it
  * does not hold, which satisfies the restorer's type check, so a retired key is written back unless
- * the restorer says otherwise: the six Yōkai-era keys it already skips, and the novel reader's page
+ * the restorer says otherwise: every key in AppPreferenceCarry.SKIPPED_KEYS, and the novel reader's page
  * padding, whose value has somewhere to go. Also that a restore re-arms the periodic jobs.
  */
 class PreferenceRestorerTest {
@@ -223,14 +221,6 @@ class PreferenceRestorerTest {
         )
 
         store.getBoolean(AppPreferenceCarry.CATEGORIZED_DISPLAY_KEY, false).get() shouldBe true
-    }
-
-    // It orders the queue on the device that wrote it, which a backup does not carry.
-    @Test
-    fun `the download queue's card order is not restored`() = runTest {
-        restoreString(ReikaiSourcePreferences.DOWNLOAD_QUEUE_ORDER_KEY, "MANGA-1,NOVEL-2")
-
-        store.getString(ReikaiSourcePreferences.DOWNLOAD_QUEUE_ORDER_KEY, "").isSet() shouldBe false
     }
 
     @Test
