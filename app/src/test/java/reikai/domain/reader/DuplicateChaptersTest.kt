@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Test
 import reikai.domain.chapter.CopyMark
 
 /**
- * The one skip-duplicate rule both readers now run. The novel reader used to step over duplicates while
- * navigating instead of removing them, so its chapter sheet, download-ahead and delete-after-read each
- * counted chapters the reader would never stop on.
+ * The one skip-duplicate rule both readers run. A skipped duplicate is removed from the list rather than
+ * stepped over, so the chapter sheet, download-ahead and delete-after-read never count a chapter the
+ * reader would not stop on.
  */
 class DuplicateChaptersTest {
 

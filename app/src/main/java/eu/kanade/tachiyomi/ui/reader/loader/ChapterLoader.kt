@@ -34,7 +34,7 @@ class ChapterLoader(
     private val chapterCache: ChapterCache,
     private val appScope: CoroutineScope,
     private val canLoadAhead: () -> Boolean,
-    // RK: resume position even on already-read chapters when enabled
+    // RK: resume position even on already-read chapters when enabled, and HttpPageLoader's load-ahead count
     private val readerPreferences: ReaderPreferences,
     private val manga: Manga,
     private val source: Source,

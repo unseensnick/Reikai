@@ -31,7 +31,7 @@ data class ReaderChapter(private val loadedChapter: Chapter) {
     var requestedPage: Int = 0
 
     // RK: every number the series carries, so a boundary's missing-chapter count leaves out the ones
-    // the list has elsewhere, as the details list does (calculateChapterGap).
+    // the list has elsewhere, as the details list does (ChapterGap.withMarkers and ChapterGap.total).
     var gapPresent: ChapterGap.Present = ChapterGap.Present.NONE
 
     private var references = 0

@@ -10,9 +10,7 @@ import org.junit.jupiter.params.provider.MethodSource
 
 /**
  * The reader's position rules, pinned once over both media rather than as a twin pair. The completion
- * rule is the one that matters most: it used to live in the manga view model as an index comparison,
- * which a continuous medium can never satisfy, so a novel would have read to the end of a chapter and
- * never been credited with it.
+ * rule matters most: a continuous chapter completes by its share read, which no page index can express.
  */
 class ReaderPositionTest {
 
@@ -48,8 +46,8 @@ class ReaderPositionTest {
         progress.fraction shouldBe (expected plusOrMinus 0.0001f)
     }
 
-    // The count feeds Material's steps, which throws below zero, so the arithmetic that used to
-    // produce a negative one is clamped here instead of guarded at the call site.
+    // The count feeds Material's steps, which throws below zero, so it is clamped here rather than
+    // guarded at each call site.
     @ParameterizedTest(name = "{0}")
     @MethodSource("slider")
     fun `the slider offers detents and scrubbing only where there is a span`(
@@ -119,9 +117,8 @@ class ReaderPositionTest {
         fun completions() = listOf(
             Arguments.of("a paged chapter open on its last page is complete", pages(37, 38), true),
             Arguments.of("a paged chapter open short of the end is not complete", pages(36, 38), false),
-            // Incumbent manga behaviour, kept deliberately: one page read is the whole chapter read.
-            // The hazard this used to carry was a continuous chapter modelled as one stub page,
-            // which the Percent variant now makes unrepresentable.
+            // Manga's behaviour, kept deliberately: one page read is the whole chapter read. A continuous
+            // chapter is a Percent, so it can never pass for a one-page chapter here.
             Arguments.of("a one-page chapter is complete on its only page", pages(0, 1), true),
             Arguments.of("a chapter whose length is unknown never completes", pages(0, 0), false),
             Arguments.of("a continuous chapter at the threshold is complete", percent(9700), true),

@@ -72,8 +72,7 @@ fun VerticalReaderRail(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    // Round the background rather than clip, so the slider thumb is never cropped at
-                    // the ends (the novel reader's original fix; harmless for the manga page slider).
+                    // Round the background rather than clip, so the slider thumb is never cropped at the ends.
                     .background(backgroundColor, RoundedCornerShape(24.dp))
                     .padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

@@ -276,8 +276,9 @@ class ReaderActivity : BaseActivity() {
 
     // RK --> the engine owns dialog dispatch and the viewport, over a provider per content type.
     // The provider is held here as its own type as well, because building page actions is a manga
-    // question the neutral seam does not carry; it is stateless, so the engine surviving a recreate
-    // with an earlier instance changes nothing.
+    // question the neutral seam does not carry. After a recreate this is a second instance beside the
+    // engine's, so read only page actions through it: the provider also holds the first-open failure's
+    // attempt stamp, which only the engine's instance may answer.
     private val mangaProvider by lazy {
         MangaReaderProvider(viewModel, readerPreferences, graph.downloadManager, applicationContext.chapterTitleWords())
     }
@@ -1311,8 +1312,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     /**
-     * Called from the presenter if the initial load couldn't load the pages of the chapter. In
-     * this case the activity is closed and a toast is shown to the user.
+     * Called from the presenter if the initial load couldn't load the pages of the chapter.
      */
     private fun setInitialChapterError(error: Throwable) {
         logcat(LogPriority.ERROR, error)
