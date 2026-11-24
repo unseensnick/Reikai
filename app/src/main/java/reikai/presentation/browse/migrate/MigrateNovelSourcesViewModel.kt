@@ -9,12 +9,17 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import logcat.LogPriority
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -23,6 +28,7 @@ import reikai.domain.novel.resolveSourceIdentity
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.util.system.logcat
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -40,6 +46,11 @@ class MigrateNovelSourcesViewModel(
     private val novelPreferences: NovelPreferences,
 ) : ViewModel() {
 
+    private val failures = Channel<Unit>(Channel.UNLIMITED)
+
+    /** One emission per failed favourites read, shown as the same error the manga half shows. */
+    val failed: Flow<Unit> = failures.receiveAsFlow()
+
     /** Sources holding favourites, unsorted: the shared migrate list orders both types at once. */
     val sources: StateFlow<List<NovelMigrateSource>?> = combine(
         novelRepository.getSourcesWithLibraryNovelAsFlow(),
@@ -54,6 +65,10 @@ class MigrateNovelSourcesViewModel(
             cached = cached,
         ).map { it.copy(format = formats[it.id]) }
     }
+        .catch {
+            logcat(LogPriority.ERROR, it)
+            failures.send(Unit)
+        }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 }

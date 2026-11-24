@@ -4,9 +4,13 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -34,5 +38,16 @@ class MigrateNovelSourcesViewModelTest {
         val rows = model.sources.filterNotNull().first()
 
         rows.single().isInstalled shouldBe true
+    }
+
+    @Test
+    fun `a failed favourites read is reported, not thrown`() = runTest {
+        val repository = mockk<NovelRepository> {
+            every { getSourcesWithLibraryNovelAsFlow() } returns flow { throw IllegalStateException("bad row") }
+        }
+        val model = main.track(MigrateNovelSourcesViewModel(repository, harness.manager, harness.prefs))
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.sources.collect() }
+
+        model.failed.first() shouldBe Unit
     }
 }

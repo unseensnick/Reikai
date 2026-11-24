@@ -30,6 +30,8 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.migration.sources.MigrateSourceViewModel
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -119,11 +121,13 @@ fun reikaiMigrateSourceTab(browseViewModel: ReikaiBrowseViewModel): TabContent {
 
             val internalErrString = stringResource(MR.strings.internal_error)
             LaunchedEffect(Unit) {
-                mangaModel.channel.collectLatest { event ->
+                val mangaFailures = mangaModel.channel.map { event ->
                     when (event) {
-                        MigrateSourceViewModel.Event.FailedFetchingSourcesWithCount ->
-                            launch { snackbarHostState.showSnackbar(internalErrString) }
+                        MigrateSourceViewModel.Event.FailedFetchingSourcesWithCount -> Unit
                     }
+                }
+                merge(mangaFailures, novelModel.failed).collectLatest {
+                    launch { snackbarHostState.showSnackbar(internalErrString) }
                 }
             }
         },

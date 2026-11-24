@@ -37,6 +37,7 @@ class EntryMigrationConfigViewModelTest {
         private val pinned: Set<String> = emptySet(),
     ) : MigrationFlowAdapter {
         val writes = mutableListOf<List<String>>()
+        var tuning: MigrationTuning? = null
 
         override val contentType = ContentType.MANGA
 
@@ -54,7 +55,9 @@ class EntryMigrationConfigViewModelTest {
         override suspend fun sourceDisplayName(sourceKey: String) = sourceKey
         override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> = flowOf(emptyList())
         override fun readTuning() = MigrationTuning()
-        override fun persistTuning(tuning: MigrationTuning) = Unit
+        override fun persistTuning(tuning: MigrationTuning) {
+            this.tuning = tuning
+        }
         override suspend fun loadEntries(ids: List<Long>): List<MigrationEntry> = emptyList()
 
         override suspend fun suggest(
@@ -92,18 +95,39 @@ class EntryMigrationConfigViewModelTest {
 
     @Test
     fun `two edits leave the screen's own order saved`() = runTest(dispatcher.scheduler) {
-        // What the writes produce, not the order they land in: one test scheduler runs them in
-        // sequence, so the race the serialization fixes cannot be reproduced here.
         val adapter = SourceAdapter(sources = listOf("a", "b", "c").map { source(it) }, saved = listOf("a", "b", "c"))
         val model = model(adapter)
         advanceUntilIdle()
 
         model.toggleSelection("a")
         model.toggleSelection("b")
-        advanceUntilIdle()
 
         model.state.value.selected.map { it.key } shouldBe listOf("c")
         adapter.writes.last() shouldBe listOf("c")
+    }
+
+    // Continue replaces this screen and the next one reads what is saved, so nothing may wait on a dispatch.
+
+    @Test
+    fun `an edit is saved before the screen can be left`() = runTest(dispatcher.scheduler) {
+        val adapter = SourceAdapter(sources = listOf("a", "b").map { source(it) }, saved = listOf("a", "b"))
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        model.toggleSelection("a")
+
+        adapter.writes.last() shouldBe listOf("b")
+    }
+
+    @Test
+    fun `a search option is saved before the screen can be left`() = runTest(dispatcher.scheduler) {
+        val adapter = SourceAdapter(sources = listOf(source("a")))
+        val model = model(adapter)
+        advanceUntilIdle()
+
+        model.applyTuning(MigrationTuning(deepSearch = true))
+
+        adapter.tuning shouldBe MigrationTuning(deepSearch = true)
     }
 
     @Test

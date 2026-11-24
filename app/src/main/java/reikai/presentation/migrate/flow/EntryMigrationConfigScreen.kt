@@ -53,8 +53,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -392,14 +390,6 @@ class EntryMigrationConfigViewModel(
         fun create(adapter: MigrationFlowAdapter, io: CoroutineDispatcher): EntryMigrationConfigViewModel
     }
 
-    /** Serializes the order writes; see [editSelection]. */
-    private val persistLock = Mutex()
-
-    /** Versions them too, so a superseded write is dropped rather than saved after the one that
-     *  replaced it. Assigned on the caller's thread, like the confirm scan's id. */
-    @Volatile
-    private var selectionVersion = 0
-
     init {
         viewModelScope.launch(io) {
             adapter.prepare()
@@ -424,7 +414,7 @@ class EntryMigrationConfigViewModel(
      */
     fun applyTuning(tuning: MigrationTuning) {
         state.update { it.copy(tuning = tuning) }
-        viewModelScope.launch(io) { adapter.persistTuning(tuning) }
+        adapter.persistTuning(tuning)
     }
 
     fun toggleSelection(key: String) = editSelection { state ->
@@ -471,20 +461,13 @@ class EntryMigrationConfigViewModel(
     }
 
     /**
-     * Apply a selection edit, then save the settled order off the caller's thread.
-     *
-     * A state update re-runs its block when a write races it (the init load is the one that can), so
-     * a save inside the block repeats. The writes are serialized and versioned instead, so of two quick
-     * edits the older order can never land last and be what the flow then searches.
+     * Apply a selection edit and save the settled order at once, on the caller's thread as upstream
+     * saves at Continue. Continue replaces this screen and the next one reads the saved order, so a
+     * save still queued at the tap would be cancelled or read too late. The writes are in-memory
+     * preference sets. Saved outside the update block, which re-runs when the init load races it.
      */
     private fun editSelection(edit: (State) -> State) {
-        val settled = state.updateAndGet(edit)
-        val version = ++selectionVersion
-        viewModelScope.launch(io) {
-            persistLock.withLock {
-                if (version == selectionVersion) persist(settled)
-            }
-        }
+        persist(state.updateAndGet(edit))
     }
 
     /**
