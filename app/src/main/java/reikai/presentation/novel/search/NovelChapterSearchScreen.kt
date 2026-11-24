@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -64,6 +65,24 @@ data class NovelChapterSearchRoute(
 
         private var searchJob: Job? = null
         private val searchGeneration = AtomicLong()
+
+        // Each chapter's visible text once read, oldest dropped first past MAX_CACHED_CHARS, so a later query or an
+        // option toggle matches over it rather than reading and parsing every file again. Locked, since a cancelled search
+        // can still be reading when the next one starts.
+        private val texts = LinkedHashMap<Long, String>(16, 0.75f, true)
+        private var cachedChars = 0L
+
+        private fun remember(chapterId: Long, text: String) = synchronized(texts) {
+            texts.put(chapterId, text)?.let { cachedChars -= it.length }
+            cachedChars += text.length
+            val oldest = texts.entries.iterator()
+            while (cachedChars > MAX_CACHED_CHARS && oldest.hasNext()) {
+                val entry = oldest.next()
+                if (entry.key == chapterId) continue
+                cachedChars -= entry.value.length
+                oldest.remove()
+            }
+        }
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
@@ -127,7 +146,17 @@ data class NovelChapterSearchRoute(
             }
             searchJob = viewModelScope.launchIO {
                 val context = currentCoroutineContext()
-                downloadedTexts.readEach(chapters) { chapter, text ->
+                val order = chapters.withIndex().associate { (index, chapter) -> chapter.id to index }
+                val known = synchronized(texts) {
+                    chapters.mapNotNull { chapter ->
+                        texts[chapter.id]?.let {
+                            chapter to
+                                it
+                        }
+                    }
+                }
+                val match: suspend (NovelChapter, String?) -> Unit = match@{ chapter, text ->
+                    context.ensureActive()
                     val matches = text?.let {
                         ChapterTextSearch.findMatches(it, regex, isActive = { context.isActive })
                     }
@@ -140,19 +169,26 @@ data class NovelChapterSearchRoute(
                             )
                         }
                         context.cancel()
-                        return@readEach
+                        return@match
                     }
                     updateFor(generation) { s ->
                         s.copy(
                             searchedCount = s.searchedCount + 1,
                             failedCount = s.failedCount + if (text == null) 1 else 0,
                             results = if (matches != null && matches.count > 0) {
-                                s.results + SearchResult(chapter, matches.count, matches.snippets)
+                                (s.results + SearchResult(chapter, matches.count, matches.snippets))
+                                    .sortedBy { order[it.chapter.id] }
                             } else {
                                 s.results
                             },
                         )
                     }
+                }
+                known.forEach { (chapter, text) -> match(chapter, text) }
+                val unread = synchronized(texts) { chapters.filter { it.id !in texts } }
+                downloadedTexts.readEach(unread) { chapter, text ->
+                    text?.let { remember(chapter.id, it) }
+                    match(chapter, text)
                 }
                 updateFor(generation) { it.copy(isSearching = false) }
             }
@@ -218,3 +254,6 @@ fun NovelChapterSearchScreen(novelId: Long, sourceScoped: Boolean) {
         },
     )
 }
+
+// About 8 MB of text, a long novel's worth, so a search beyond it reads only what fell out.
+private const val MAX_CACHED_CHARS = 4_000_000L

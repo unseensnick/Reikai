@@ -65,6 +65,23 @@ class NovelChapterSearchModelTest {
         model.state.first { it.submittedQuery != null && !it.isSearching }.results.size shouldBe 2
     }
 
+    /** A long novel's files are read and parsed once per screen, not on every query or option toggle. */
+    @Test
+    fun `a second search matches the text the first read rather than reading the files again`() = runTest {
+        val files = stored.toMutableMap()
+        val model =
+            Model(1L, sourceScoped = false, NovelDownloadedTextsFixture.texts(chapters, files), mockk(relaxed = true))
+        model.state.first { it.chapters != null }
+        model.updateQuery("two")
+        model.search()
+        model.state.first { it.submittedQuery != null && !it.isSearching }
+        files[10L] = "<p>changed on disk</p>"
+
+        model.updateOptions(SearchOptions(caseSensitive = true))
+
+        model.state.first { !it.isSearching }.results.map { it.chapter.id } shouldBe listOf(10L, 12L)
+    }
+
     @Test
     fun `an invalid pattern says why and searches nothing`() = runTest {
         searched("(two", SearchOptions(isRegex = true)).submittedQuery shouldBe null
