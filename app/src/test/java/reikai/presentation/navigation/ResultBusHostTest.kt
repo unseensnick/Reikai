@@ -14,6 +14,7 @@ import androidx.navigation3.runtime.result.ResultEventBus
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import kotlinx.serialization.Serializable
 import mihon.core.navigation.Navigator
 import mihon.core.navigation.rememberNavigator
@@ -71,7 +72,8 @@ class ResultBusHostTest {
         compose.waitForIdle()
         act { navigator.pop() }
 
-        ((bus === before) to received.toList()) shouldBe (true to listOf(Picked(7)))
+        bus shouldBeSameInstanceAs before
+        received shouldBe listOf(Picked(7))
     }
 
     private fun launch() {

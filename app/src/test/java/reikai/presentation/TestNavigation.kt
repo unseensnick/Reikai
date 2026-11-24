@@ -37,7 +37,8 @@ fun testNavigator(vararg routes: NavKey): Navigator =
 
 /**
  * Draws [navigator] as the app does, providing it to the pages, each route with its own ViewModel store and the
- * host's result bus, so a test can push, pop and restore real routes. Hosted inside [ComposeTestHost], which provides the bus.
+ * host's result bus, so a test can push, pop and restore real routes. The bus comes from the host around it,
+ * [ComposeTestHost] or a test's own.
  */
 @Composable
 fun TestNavHost(navigator: Navigator, entries: EntryProviderScope<NavKey>.() -> Unit) {

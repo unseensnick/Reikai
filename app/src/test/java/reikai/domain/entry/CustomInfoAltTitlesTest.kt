@@ -16,6 +16,8 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.CustomNovelInfoRepositoryImpl
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.SetCustomNovelInfo
@@ -66,25 +68,21 @@ class CustomInfoAltTitlesTest {
     private suspend fun manga() = getManga.subscribe(ID).first()
     private suspend fun novel() = getNovel.subscribe(ID).first()
 
-    @Test
-    fun `a manga's alternative titles round-trip, commas included`() = runTest {
-        setManga.set(CustomMangaInfo(ID, altTitles = ALTS))
+    // Alternative titles alone, so a row cleared as empty fails this as well as a lost comma.
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `alternative titles alone round-trip, commas included`(kind: Kind) = runTest {
+        kind.writeAltsOnly(this@CustomInfoAltTitlesTest)
 
-        manga()?.altTitles shouldBe ALTS
+        kind.readAlts(this@CustomInfoAltTitlesTest) shouldBe ALTS
     }
 
-    @Test
-    fun `a novel's alternative titles round-trip, commas included`() = runTest {
-        setNovel.set(CustomNovelInfo(ID, altTitles = ALTS))
-
-        novel()?.altTitles shouldBe ALTS
-    }
-
-    @Test
-    fun `a row holding only alternative titles is kept, not cleared as empty`() = runTest {
-        setManga.set(CustomMangaInfo(ID, altTitles = ALTS))
-
-        (manga() != null) shouldBe true
+    enum class Kind(
+        val writeAltsOnly: suspend CustomInfoAltTitlesTest.() -> Unit,
+        val readAlts: suspend CustomInfoAltTitlesTest.() -> List<String>?,
+    ) {
+        MANGA({ setManga.set(CustomMangaInfo(ID, altTitles = ALTS)) }, { manga()?.altTitles }),
+        NOVEL({ setNovel.set(CustomNovelInfo(ID, altTitles = ALTS)) }, { novel()?.altTitles }),
     }
 
     @Test

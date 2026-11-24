@@ -83,7 +83,7 @@ class VolumeNotesLoadTest {
             loose = mapOf(SERIES to LooseFiles.EACH_ITS_OWN),
         )
 
-        model.notes.missing.value shouldBe false
+        model.notes.state.value?.notes shouldBe ""
     }
 
     private fun volumeOf(type: ContentType) = if (type == ContentType.MANGA) MANGA_VOLUME else BOOK

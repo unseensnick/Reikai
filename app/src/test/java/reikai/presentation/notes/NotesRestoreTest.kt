@@ -1,7 +1,6 @@
 package reikai.presentation.notes
 
 import androidx.compose.material3.Text
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -11,12 +10,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.result.LocalResultEventBus
-import androidx.navigation3.runtime.result.ResultEventBus
-import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
-import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
-import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.data.backup.MangaRestoreHarness
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesViewModel
@@ -28,6 +22,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.Serializable
 import mihon.core.navigation.MangaNotesRoute
+import mihon.core.navigation.MangaRoute
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -37,14 +32,18 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.data.chapter.LocalVolumeRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
+import reikai.presentation.ComposeTestHost
 import reikai.presentation.TestNavHost
+import reikai.presentation.details.detailsRoute
 import reikai.presentation.notes.VolumeNotesScreen
+import reikai.presentation.novel.details.NovelRoute
 import reikai.presentation.novel.notes.NovelNotesRoute
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.roundTrip
@@ -128,16 +127,22 @@ class NotesRestoreTest(private val editor: Editor) {
         stored() shouldContain "Alpha"
     }
 
+    // A series' details page under its gone notes cannot load it either, so it closes too; a volume's series may
+    // still be there, so its page stays.
     @Test
-    fun `a notes page whose series is gone closes`() {
-        val gone = when (editor) {
-            Editor.MANGA -> MangaNotesRoute(mangaId + 100)
-            Editor.NOVEL -> NovelNotesRoute(novelId + 100)
-            Editor.VOLUME -> VolumeNotesRoute(ContentType.NOVELS, "Gone", BOOK)
+    fun `a notes page whose subject is gone closes, with its series' details page when that is gone too`() {
+        val (details, gone, landing) = when (editor) {
+            Editor.MANGA -> Triple(EntryId.Manga(GONE).detailsRoute(), MangaNotesRoute(GONE), BELOW)
+            Editor.NOVEL -> Triple(EntryId.Novel(GONE).detailsRoute(), NovelNotesRoute(GONE), BELOW)
+            Editor.VOLUME -> Triple(
+                EntryId.Novel(novelId).detailsRoute(),
+                VolumeNotesRoute(ContentType.NOVELS, "Gone", BOOK),
+                DETAILS,
+            )
         }
-        host(Below, gone)
+        host(Below, details, gone)
 
-        compose.waitUntil { compose.onAllNodes(hasText(BELOW)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil { compose.onAllNodes(hasText(landing)).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun typeAndLeave(text: String) {
@@ -174,52 +179,47 @@ class NotesRestoreTest(private val editor: Editor) {
         return notes
     }
 
-    private val factory = object : MetroViewModelFactory() {
-        override val manualAssistedFactoryProviders:
-            Map<KClass<out ManualViewModelAssistedFactory>, () -> ManualViewModelAssistedFactory> = mapOf(
-                MangaNotesViewModel.Factory::class to {
-                    object : MangaNotesViewModel.Factory {
-                        override fun create(mangaId: Long) =
-                            MangaNotesViewModel(mangaId, appScope, GetManga(db.mangas), UpdateMangaNotes(db.mangas))
-                    }
-                },
-                NovelNotesRoute.Model.Factory::class to {
-                    object : NovelNotesRoute.Model.Factory {
-                        override fun create(novelId: Long) = NovelNotesRoute.Model(novelId, appScope, novels)
-                    }
-                },
-                VolumeNotesRoute.Model.Factory::class to {
-                    object : VolumeNotesRoute.Model.Factory {
-                        override fun create(type: ContentType, series: String, volumeKey: String) =
-                            VolumeNotesRoute.Model(
-                                type,
-                                series,
-                                volumeKey,
-                                appScope,
-                                volumes,
-                                GetMangaByUrlAndSourceId(db.mangas),
-                                GetChaptersByMangaId(db.chapters),
-                                novels,
-                                novelChapters,
-                            )
-                    }
-                },
-            )
-    }
+    private val factories: Map<KClass<out ManualViewModelAssistedFactory>, () -> ManualViewModelAssistedFactory> =
+        mapOf(
+            MangaNotesViewModel.Factory::class to {
+                object : MangaNotesViewModel.Factory {
+                    override fun create(mangaId: Long) =
+                        MangaNotesViewModel(mangaId, appScope, GetManga(db.mangas), UpdateMangaNotes(db.mangas))
+                }
+            },
+            NovelNotesRoute.Model.Factory::class to {
+                object : NovelNotesRoute.Model.Factory {
+                    override fun create(novelId: Long) = NovelNotesRoute.Model(novelId, appScope, novels)
+                }
+            },
+            VolumeNotesRoute.Model.Factory::class to {
+                object : VolumeNotesRoute.Model.Factory {
+                    override fun create(type: ContentType, series: String, volumeKey: String) =
+                        VolumeNotesRoute.Model(
+                            type,
+                            series,
+                            volumeKey,
+                            appScope,
+                            volumes,
+                            GetMangaByUrlAndSourceId(db.mangas),
+                            GetChaptersByMangaId(db.chapters),
+                            novels,
+                            novelChapters,
+                        )
+                }
+            },
+        )
 
     private fun host(vararg routes: NavKey) = compose.setContent {
-        TachiyomiPreviewTheme {
-            CompositionLocalProvider(
-                LocalMetroViewModelFactory provides factory,
-                LocalResultEventBus provides remember { ResultEventBus() },
-            ) {
-                if (shown) {
-                    TestNavHost(remember { testNavigator(*routes) }) {
-                        entry<Below> { Text(BELOW) }
-                        entry<MangaNotesRoute> { MangaNotesScreen(it.mangaId) }
-                        entry<NovelNotesRoute> { NovelNotesScreen(it.novelId) }
-                        entry<VolumeNotesRoute> { VolumeNotesScreen(it.type, it.series, it.volumeKey) }
-                    }
+        ComposeTestHost(assistedFactories = factories) {
+            if (shown) {
+                TestNavHost(remember { testNavigator(*routes) }) {
+                    entry<Below> { Text(BELOW) }
+                    entry<MangaRoute> { Text(DETAILS) }
+                    entry<NovelRoute> { Text(DETAILS) }
+                    entry<MangaNotesRoute> { MangaNotesScreen(it.mangaId) }
+                    entry<NovelNotesRoute> { NovelNotesScreen(it.novelId) }
+                    entry<VolumeNotesRoute> { VolumeNotesScreen(it.type, it.series, it.volumeKey) }
                 }
             }
         }
@@ -233,6 +233,8 @@ class NotesRestoreTest(private val editor: Editor) {
         const val SERIES = "Series"
         const val BOOK = "Book A"
         const val BELOW = "below"
+        const val DETAILS = "details"
+        const val GONE = 1000L
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
