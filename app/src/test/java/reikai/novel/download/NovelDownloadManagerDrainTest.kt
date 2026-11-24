@@ -48,6 +48,7 @@ import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
+import java.io.IOException
 import kotlin.time.Instant
 
 /**
@@ -445,6 +446,21 @@ class NovelDownloadManagerDrainTest {
         advanceUntilIdle()
 
         state shouldBe NovelDownload.State.DOWNLOADING
+    }
+
+    /** Manga's reorder is upstream's updateQueue, which queues every chapter it orders, a failed one included. */
+    @Test
+    fun `a reorder queues a failed chapter again, as manga's does`() = runTest(io) {
+        coEvery { source.parseChapter("u11") } throws IOException("no connection")
+        manager.downloadChapters(chapters.drop(1))
+        val drain = launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
+        advanceUntilIdle()
+        drain.cancel()
+        check(manager.queueState.value.single().state == NovelDownload.State.ERROR) { "The chapter did not fail" }
+
+        manager.reorderQueue(manager.queueState.value)
+
+        manager.queueState.value.single().state shouldBe NovelDownload.State.QUEUE
     }
 
     @Test

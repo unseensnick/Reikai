@@ -280,12 +280,18 @@ class NovelDownloadManager(
      * Puts the pending queue in [downloads]' order (drag-to-reorder or sort from the queue screen) and
      * persists it, so a cold restart drains in the new order. [downloads] may be an older copy, so only
      * its order is taken: a chapter that left the queue since stays out and one queued since is kept,
-     * last. The drain re-reads the queue each step, so the in-flight chapter is left alone.
+     * last. The drain re-reads the queue each step, so the in-flight chapter is left alone. A failed chapter is
+     * queued again, as manga's reorder (upstream's updateQueue) queues every chapter it orders.
      */
     fun reorderQueue(downloads: List<NovelDownload>) {
-        _queueState.update { q -> q.inOrderOf(downloads.map { it.chapterId }) { it.chapterId } }
+        _queueState.update { q ->
+            q.inOrderOf(downloads.map { it.chapterId }) { it.chapterId }.map { it.queuedIfFailed() }
+        }
         persistQueue()
     }
+
+    private fun NovelDownload.queuedIfFailed(): NovelDownload =
+        if (state == NovelDownload.State.ERROR) copy(state = NovelDownload.State.QUEUE, failure = null) else this
 
     /**
      * Rewrites the saved queue from the live one as it is at write time, once the launch restore has
