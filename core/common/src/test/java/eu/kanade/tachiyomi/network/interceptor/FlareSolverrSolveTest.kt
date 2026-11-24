@@ -16,12 +16,18 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 /** [FlareSolverrClient.resolve] against a stand-in solver on the loopback address. */
 class FlareSolverrSolveTest {
 
     private val banners = ArrayDeque<Int>()
     private val commands = CopyOnWriteArrayList<String>()
+
+    private val bannerProbes = AtomicInteger()
+
+    @Volatile
+    private var banner = """{"msg": "FlareSolverr is ready!"}"""
 
     @Volatile
     private var solution = """{"url": "https://site.example/", "status": 200, "response": "page"}"""
@@ -33,7 +39,8 @@ class FlareSolverrSolveTest {
                 val created = "sessions.create" in command
                 if (created) """{"status": "ok"}""" else """{"status": "ok", "solution": $solution}"""
             } else {
-                """{"msg": "FlareSolverr is ready!"}"""
+                bannerProbes.incrementAndGet()
+                banner
             }
             val code = if (exchange.requestURI.path == "/") banners.removeFirstOrNull() ?: 200 else 200
             val bytes = body.toByteArray()
@@ -78,6 +85,34 @@ class FlareSolverrSolveTest {
         banners += 502
         resolve().close()
         clock += 30_000L
+
+        resolve().close()
+
+        commands.last() shouldContain "\"session\""
+    }
+
+    // Byparr answers its root with its own page, and 500s on the sessions.create it cannot run.
+    @Test
+    fun `a solver that is not FlareSolverr is asked about it once and never for a session`() {
+        var clock = 0L
+        client.now = { clock }
+        banner = "<html>Byparr</html>"
+        resolve().close()
+        // Past the wait an unanswered probe gets, so only a kept answer saves the second probe.
+        clock += 30_000L
+
+        resolve().close()
+
+        commands.none { "sessions.create" in it } shouldBe true
+        bannerProbes.get() shouldBe 1
+    }
+
+    @Test
+    fun `a new address asks again whether a solver that was not FlareSolverr now is`() {
+        banner = "<html>Byparr</html>"
+        resolve().close()
+        banner = """{"msg": "FlareSolverr is ready!"}"""
+        preferences.flareSolverrUrl.set(preferences.flareSolverrUrl.get() + "/")
 
         resolve().close()
 

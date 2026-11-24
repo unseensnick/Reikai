@@ -42,11 +42,6 @@ class FlareSolverrAuthTest {
     }
 
     @Test
-    fun `a redirect is reported as its own failure`() {
-        FlareSolverrTestFailure.ofStatus(301) shouldBe FlareSolverrTestFailure.REDIRECTED
-    }
-
-    @Test
     fun `a public address with no login set is not refused`() {
         flareSolverrLoginFor(
             "http://solver.example.com:8191/v1",
@@ -54,12 +49,6 @@ class FlareSolverrAuthTest {
             "",
             "",
         ).shouldBeNull()
-    }
-
-    @Test
-    fun `a refused login is reported as such, not as an unreachable server`() {
-        FlareSolverrTestFailure.ofException(FlareSolverrLoginRefusedException(), connected = false) shouldBe
-            FlareSolverrTestFailure.LOGIN_NOT_PRIVATE
     }
 
     @Test

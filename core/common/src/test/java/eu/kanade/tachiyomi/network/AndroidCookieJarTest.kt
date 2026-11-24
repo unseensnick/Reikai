@@ -20,8 +20,8 @@ class AndroidCookieJarTest {
 
     @BeforeEach
     fun setUp() {
-        // AndroidCookieJar grabs the singleton in its field initializer, so the static mock
-        // has to be in place before the jar is constructed.
+        // AndroidCookieJar reads the singleton on first use, so the static mock has to be in
+        // place before any jar call runs.
         mockkStatic(CookieManager::class)
         manager = mockk(relaxed = true)
         every { CookieManager.getInstance() } returns manager
@@ -137,7 +137,7 @@ class AndroidCookieJarTest {
     }
 
     @Test
-    fun `targeted removal expires only the named cookie`() {
+    fun `targeted removal counts one cookie for one name`() {
         every { manager.getCookie(any()) } returns "a=1; b=2"
 
         val cleared = AndroidCookieJar().remove(url, cookieNames = listOf("b"))

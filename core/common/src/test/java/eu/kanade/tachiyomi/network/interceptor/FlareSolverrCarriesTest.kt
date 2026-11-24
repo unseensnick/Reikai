@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 /** A server only gets a request it can send as asked: Byparr turns a POST into a GET of the same url. */
 class FlareSolverrCarriesTest {
 
-    // Nothing listens on port 1, so no banner vouches for the server, as with Byparr's redirect to its docs.
+    // Nothing listens on port 1, so no banner answers for the server, which is never kept.
     private val client = FlareSolverrClient(
         mockk(relaxed = true),
         NetworkPreferences(InMemoryPreferenceStore(), false).apply { flareSolverrUrl.set("http://127.0.0.1:1") },

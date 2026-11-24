@@ -47,6 +47,7 @@ class CloudflareInterceptorTest {
     @Volatile
     private var clearance: String? = null
     private val solves = AtomicInteger()
+    private val missedMeeting = AtomicBoolean(false)
     private lateinit var interceptor: CloudflareInterceptor
 
     @BeforeEach
@@ -82,8 +83,12 @@ class CloudflareInterceptorTest {
         )
     }
 
+    // A meeting that timed out let the requests run one by one, which never reaches the dedup.
     @AfterEach
-    fun tearDown() = unmockkAll()
+    fun tearDown() {
+        unmockkAll()
+        missedMeeting.get() shouldBe false
+    }
 
     private fun solveWith(block: () -> Unit) {
         every { interceptor["solve"](any<Interceptor.Chain>(), any<Request>(), any<Response>()) } answers {
@@ -258,7 +263,7 @@ class CloudflareInterceptorTest {
         val arrived = CountDownLatch(count)
         return { request ->
             arrived.countDown()
-            arrived.await(1, TimeUnit.SECONDS)
+            if (!arrived.await(5, TimeUnit.SECONDS)) missedMeeting.set(true)
             respond(request)
         }
     }

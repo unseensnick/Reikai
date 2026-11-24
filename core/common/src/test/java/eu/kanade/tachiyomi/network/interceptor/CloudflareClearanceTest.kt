@@ -18,7 +18,7 @@ class CloudflareClearanceTest {
 
     @BeforeEach
     fun setUp() {
-        // AndroidCookieJar grabs the singleton in its field initializer.
+        // AndroidCookieJar reads the singleton on first use, so mock it before any jar call.
         mockkStatic(CookieManager::class)
         manager = mockk(relaxed = true)
         every { CookieManager.getInstance() } returns manager

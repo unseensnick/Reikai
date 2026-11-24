@@ -1,7 +1,11 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
+import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -12,69 +16,43 @@ import java.net.SocketTimeoutException
  */
 class FlareSolverrTestFailureTest {
 
-    @Test
-    fun `a password challenge is told apart from any other refusal`() {
-        FlareSolverrTestFailure.ofStatus(401) shouldBe FlareSolverrTestFailure.AUTH_REQUIRED
+    // A gateway status means the proxy is up and the solver is not: a cold solver behind a live proxy
+    // answers one for its whole startup, long enough that a reader will press Test during it.
+    @ParameterizedTest
+    @CsvSource(
+        "301, REDIRECTED",
+        "401, AUTH_REQUIRED",
+        "407, AUTH_REQUIRED",
+        "403, FORBIDDEN",
+        "404, NOT_FOUND",
+        "502, SOLVER_DOWN",
+        "503, SOLVER_DOWN",
+        "504, SOLVER_DOWN",
+        "500, HTTP_ERROR",
+    )
+    fun `the status a server answered with names its own failure`(status: Int, failure: FlareSolverrTestFailure) {
+        FlareSolverrTestFailure.ofStatus(status) shouldBe failure
     }
 
-    @Test
-    fun `a proxy's own password challenge counts as one too`() {
-        FlareSolverrTestFailure.ofStatus(407) shouldBe FlareSolverrTestFailure.AUTH_REQUIRED
+    @ParameterizedTest
+    @MethodSource("exceptions")
+    fun `a failed call names its own failure`(
+        error: IOException,
+        connected: Boolean,
+        failure: FlareSolverrTestFailure,
+    ) {
+        FlareSolverrTestFailure.ofException(error, connected) shouldBe failure
     }
 
-    @Test
-    fun `a flat refusal is not read as a password prompt`() {
-        FlareSolverrTestFailure.ofStatus(403) shouldBe FlareSolverrTestFailure.FORBIDDEN
-    }
-
-    @Test
-    fun `nothing at the address has its own case`() {
-        FlareSolverrTestFailure.ofStatus(404) shouldBe FlareSolverrTestFailure.NOT_FOUND
-    }
-
-    @Test
-    fun `a gateway status means the proxy is up and the solver is not`() {
-        // A cold solver behind a live proxy answers this for its whole startup, which is long
-        // enough that a reader will press Test during it.
-        FlareSolverrTestFailure.ofStatus(502) shouldBe FlareSolverrTestFailure.SOLVER_DOWN
-    }
-
-    @Test
-    fun `an unavailable solver reads the same way`() {
-        FlareSolverrTestFailure.ofStatus(503) shouldBe FlareSolverrTestFailure.SOLVER_DOWN
-    }
-
-    @Test
-    fun `a gateway timeout reads the same way`() {
-        FlareSolverrTestFailure.ofStatus(504) shouldBe FlareSolverrTestFailure.SOLVER_DOWN
-    }
-
-    @Test
-    fun `the solver's own error is not blamed on a gateway`() {
-        FlareSolverrTestFailure.ofStatus(500) shouldBe FlareSolverrTestFailure.HTTP_ERROR
-    }
-
-    @Test
-    fun `a read that ran out is not reported as an unreachable server`() {
-        FlareSolverrTestFailure.ofException(SocketTimeoutException("timeout"), connected = true) shouldBe
-            FlareSolverrTestFailure.TIMED_OUT
-    }
-
-    @Test
-    fun `the call timeout reads the same way, though it is a different exception`() {
-        FlareSolverrTestFailure.ofException(InterruptedIOException("timeout"), connected = true) shouldBe
-            FlareSolverrTestFailure.TIMED_OUT
-    }
-
-    @Test
-    fun `a connect that ran out is an unreachable server, since nothing answered`() {
-        FlareSolverrTestFailure.ofException(SocketTimeoutException("failed to connect"), connected = false) shouldBe
-            FlareSolverrTestFailure.UNREACHABLE
-    }
-
-    @Test
-    fun `anything else really is an unreachable server`() {
-        FlareSolverrTestFailure.ofException(ConnectException("failed to connect"), connected = false) shouldBe
-            FlareSolverrTestFailure.UNREACHABLE
+    private companion object {
+        // A read or call that ran out after connecting is not an unreachable server; a connect that ran out is.
+        @JvmStatic
+        fun exceptions() = listOf(
+            Arguments.of(SocketTimeoutException("timeout"), true, FlareSolverrTestFailure.TIMED_OUT),
+            Arguments.of(InterruptedIOException("timeout"), true, FlareSolverrTestFailure.TIMED_OUT),
+            Arguments.of(SocketTimeoutException("failed to connect"), false, FlareSolverrTestFailure.UNREACHABLE),
+            Arguments.of(ConnectException("failed to connect"), false, FlareSolverrTestFailure.UNREACHABLE),
+            Arguments.of(FlareSolverrLoginRefusedException(), false, FlareSolverrTestFailure.LOGIN_NOT_PRIVATE),
+        )
     }
 }

@@ -22,10 +22,10 @@ class MangaDexHeadersInterceptorTest {
     private fun sentReferer(url: String, referer: String): String? =
         sent(Request.Builder().url(url).header("Referer", referer).build()).header("Referer")
 
-    private fun sent(request: Request): Request {
+    private fun sent(request: Request, defaultUserAgent: String = browserUserAgent): Request {
         var sent: Request? = null
         val client = OkHttpClient.Builder()
-            .addUserAgentInterceptors { browserUserAgent }
+            .addUserAgentInterceptors { defaultUserAgent }
             .addInterceptor(
                 Interceptor { chain ->
                     sent = chain.request()
@@ -55,6 +55,14 @@ class MangaDexHeadersInterceptorTest {
     )
     fun `a MangaDex request without a User-Agent gets the app one`(url: String) {
         sentUserAgent(Request.Builder().url(url).build()) shouldBe appUserAgent
+    }
+
+    // A default set to a non-browser agent only reaches MangaDex if the default interceptor runs first.
+    @Test
+    fun `a MangaDex request without a User-Agent gets the app one over a custom default`() {
+        val request = Request.Builder().url("https://api.mangadex.org/manga").build()
+
+        sent(request, defaultUserAgent = "MyReader/1.0").header("User-Agent") shouldBe appUserAgent
     }
 
     @Test

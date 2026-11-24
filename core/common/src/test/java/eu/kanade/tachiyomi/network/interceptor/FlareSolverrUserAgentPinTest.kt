@@ -106,7 +106,6 @@ class FlareSolverrUserAgentPinTest {
         client.pinnedUserAgentFor(GET_A).shouldBeNull()
     }
 
-    // Seeded through the constructor: an in-memory preference cannot be written afterwards.
     private fun solver(enabled: Boolean, url: String) = FlareSolverrClient(
         mockk(relaxed = true),
         NetworkPreferences(

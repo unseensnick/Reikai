@@ -54,7 +54,8 @@ class FlareSolverrJsonViewerTest {
 
     @Test
     fun `a pre whose text only opens like json is left as-is`() {
-        val page = "<html><body><div class=\"story\"><pre>[Chapter 12] text</pre><p>more</p></div></body></html>"
+        // The pre holds all the page's text, so only the JSON parse can turn it away.
+        val page = "<html><body><pre>[Chapter 12] text</pre></body></html>"
         unwrapBrowserJsonViewer(page) shouldBe null
     }
 
