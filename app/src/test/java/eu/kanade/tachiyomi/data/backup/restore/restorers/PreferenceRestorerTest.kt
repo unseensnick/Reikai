@@ -201,6 +201,19 @@ class PreferenceRestorerTest {
         store.getString(key, "").isSet() shouldBe false
     }
 
+    // The category restore derives it from the restored categories' bits, which a raw value written after would contradict.
+    @Test
+    fun `the per-category sort switch is not restored over the one the categories set`() = runTest {
+        store.getBoolean(AppPreferenceCarry.CATEGORIZED_DISPLAY_KEY, false).set(true)
+
+        restorer.restoreApp(
+            listOf(BackupPreference(AppPreferenceCarry.CATEGORIZED_DISPLAY_KEY, BooleanPreferenceValue(false))),
+            backupCategories = null,
+        )
+
+        store.getBoolean(AppPreferenceCarry.CATEGORIZED_DISPLAY_KEY, false).get() shouldBe true
+    }
+
     // It orders the queue on the device that wrote it, which a backup does not carry.
     @Test
     fun `the download queue's card order is not restored`() = runTest {

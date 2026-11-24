@@ -143,8 +143,12 @@ class AppPreferenceCarry(
         // the custom info migration option, so its saved migration options gain it on restore.
         const val CUSTOM_INFO_OPTION_MARKER_KEY = "backup_migration_custom_info_known"
 
+        // LibraryPreferences.categorizedDisplaySettings, which the category restore derives from the restored bits.
+        const val CATEGORIZED_DISPLAY_KEY = "categorized_display"
+
         val SKIPPED_KEYS = setOf(
             DEAD_READER_TTS_ENABLED_KEY, // carried after it
+            CATEGORIZED_DISPLAY_KEY,
             // The retired merge prefs hold ids from the device the backup came from; the restorers rebuild
             // the groups from the backup's own {url, source} refs.
             ReikaiLibraryPreferences.MANGA_MANUAL_MERGES_KEY,
