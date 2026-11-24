@@ -306,6 +306,25 @@ class NovelReaderViewModelTest {
         harness.progressOf(opened) shouldBe 9_800L
     }
 
+    /** Manga holds the same rule in ChapterSwitches, pinned by its own test; the novel reader reads the latest report. */
+    @Test
+    fun `a fling into the next chapter and straight back finishes nothing`() = readerTest { harness ->
+        // The chapter after joins the window at once, so there is one to fling into.
+        harness.novelPreferences.readerAutoLoadNextAt().set(0)
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val next = harness.chapter(novel, 2.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+
+        model.reportVisibleChapter(next.id)
+        model.reportVisibleChapter(opened.id)
+        advanceUntilIdle()
+
+        harness.isRead(opened) shouldBe false
+    }
+
     /** Reading the novel's own renderer is no change to it, so the opening chapter is not rendered twice. */
     @Test
     fun `a novel kept on its own renderer opens its first chapter once`() = readerTest { harness ->
