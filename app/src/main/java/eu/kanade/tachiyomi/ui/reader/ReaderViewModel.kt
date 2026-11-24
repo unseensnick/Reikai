@@ -97,6 +97,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.chapterSettingsOf
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
+import reikai.domain.manga.isOnDevice
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
@@ -413,8 +414,7 @@ class ReaderViewModel(
 
     private fun isOwnCopyDownloaded(chapter: Chapter): Boolean {
         val mangaForChapter = mangaForChapterId(chapter.mangaId)
-        if (mangaForChapter.isLocal()) return true
-        return downloadManager.isChapterDownloaded(
+        return downloadManager.isOnDevice(
             chapter.name,
             chapter.scanlator,
             chapter.url,
@@ -1518,15 +1518,13 @@ class ReaderViewModel(
     val chapterSwipeStartAction = libraryPreferences.chapterSwipeActions().start
     val chapterSwipeEndAction = libraryPreferences.chapterSwipeActions().end
 
-    // RK: the sheet's list and the navigation list are built separately, so they hold different chapter
-    // instances for the same row, and a chapter the navigation list skipped (read, with skip-read on)
-    // is only in the sheet's. A dialog action therefore has to update every copy it finds, or the change
-    // shows in one list and not the other, or silently does nothing for a read chapter.
-    // One pass over each list, since a select-all on a merged series asks for thousands of ids.
+    // RK: the instances a dialog action updates, from the list the viewers, the neighbours and the sheet all
+    // take theirs from. chapterList is read only for its ids, so its own instances need no update.
+    // One pass, since a select-all on a merged series asks for thousands of ids.
     private fun chapterCopies(chapterIds: Set<Long>) = if (!chapterListsReady) {
         emptyList()
     } else {
-        (chapterList.asSequence() + fullChapterList.asSequence()).filter { it.chapter.id in chapterIds }.toList()
+        fullChapterList.filter { it.chapter.id in chapterIds }
     }
 
     // RK: every source's copy of a chapter within the merge group, so a read or bookmark from the chapter
