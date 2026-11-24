@@ -58,7 +58,7 @@ class LnPluginUpdateBadgeTest {
     private val checker = LnPluginUpdateChecker(
         fetcher,
         registries,
-        LnPluginInstaller(mockk(), mockk(), mockk(relaxed = true), prefs, mockk()),
+        LnPluginInstaller(mockk(), mockk(), mockk(relaxed = true), prefs, mockk(relaxed = true)),
         prefs,
         notifier,
     )

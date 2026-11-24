@@ -30,6 +30,7 @@ class LnPluginHarness(installedUrls: Set<String>, networkHelper: NetworkHelper =
 
     val host = mockk<LnPluginHost> {
         every { forgetWebStorage(any()) } just Runs
+        every { onStorageChanged = any() } just Runs
         every { retainPlugin(any(), any()) } answers { retained[firstArg()] = secondArg() }
     }
 

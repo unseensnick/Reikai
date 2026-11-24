@@ -98,6 +98,12 @@ class LnPluginInstaller(
     val firstLoadDone: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
+    // Below every field reload reads. A plugin can declare its site, filters and image headers from its settings,
+    // which its source copies at load, so a write to its storage loads it again.
+    init {
+        host.onStorageChanged = ::reload
+    }
+
     /** Load any installed plugins not yet registered this process, in parallel. Retries previously
      *  failed ones once their wait is up, so a novel screen opened later self-heals a transient failure. */
     suspend fun ensureLoaded() {
@@ -120,6 +126,11 @@ class LnPluginInstaller(
      */
     suspend fun retryLoad(pluginId: String) {
         loadMutex.withLock { loadUrlsLocked(urlsOf(pluginId) - loadedUrls) }
+    }
+
+    /** Loads [pluginId] again where it is loaded, so its source carries what its storage now says. */
+    internal suspend fun reload(pluginId: String) {
+        loadMutex.withLock { loadUrlsLocked(urlsOf(pluginId).filterTo(HashSet()) { it in loadedUrls }) }
     }
 
     // Not marked done when cancelled, so a screen closed mid-load leaves the next lookup to load.

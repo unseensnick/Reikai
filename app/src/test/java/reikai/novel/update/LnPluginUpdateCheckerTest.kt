@@ -47,7 +47,7 @@ class LnPluginUpdateCheckerTest {
         LnPluginUpdateChecker(
             fetcher,
             LnRepoRegistries(fetcher, prefs),
-            LnPluginInstaller(mockk(), mockk(), mockk(relaxed = true), prefs, mockk()),
+            LnPluginInstaller(mockk(), mockk(), mockk(relaxed = true), prefs, mockk(relaxed = true)),
             prefs,
             LnPluginUpdateNotifier(context, mockk(), prefs),
         )

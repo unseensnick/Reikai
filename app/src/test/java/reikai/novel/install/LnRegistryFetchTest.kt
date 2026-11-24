@@ -34,7 +34,7 @@ class LnRegistryFetchTest {
             }
             .build()
         val network = mockk<NetworkHelper> { every { this@mockk.client } returns client }
-        return LnPluginInstaller(network, mockk(), mockk(), mockk(), mockk())
+        return LnPluginInstaller(network, mockk(), mockk(), mockk(), mockk(relaxed = true))
     }
 
     @Test

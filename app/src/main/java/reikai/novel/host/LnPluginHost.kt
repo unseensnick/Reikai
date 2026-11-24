@@ -402,12 +402,17 @@ class LnPluginHost(
     }
 
     /**
-     * Starts [pluginId]'s next call in a fresh engine, since many plugins read their settings and the site
-     * storage while they are constructed: for any write to its storage, a restore's included.
+     * Starts [pluginId]'s next call in a fresh engine and loads its source again, since many plugins read their
+     * settings and the site storage while they are built: for any write to its storage, a restore's included.
      */
     fun storageChanged(pluginId: String) {
         pluginSlots[pluginId]?.rebuild = true
+        onStorageChanged?.let { reload -> scope.launch { reload(pluginId) } }
     }
+
+    /** Loads a plugin's source again after its storage changed; the installer sets it, as it owns the sources. */
+    @Volatile
+    internal var onStorageChanged: (suspend (String) -> Unit)? = null
 
     /**
      * Keeps what a WebView on [pluginId]'s site held in its storage, which the plugin reads through
