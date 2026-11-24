@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import reikai.data.notification.downloadErrorTitle
+import reikai.data.notification.shownEntryName
 import reikai.domain.novel.model.Novel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -89,9 +90,11 @@ class NovelDownloadNotifier(
                 context.stringResource(MR.strings.download_queue_progress, progress.current, progress.total),
             )
             .setContentText(
-                progress.shownText(
+                shownEntryName(
+                    progress.title,
                     securityPreferences.hideNotificationContent.get(),
                     securityPreferences.hideAdultNotificationContent.get(),
+                    progress.isAdult,
                 ),
             )
             .setProgress(progress.total, progress.current, progress.total == 0)
