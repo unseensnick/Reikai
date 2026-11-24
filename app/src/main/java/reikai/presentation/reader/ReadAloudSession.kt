@@ -59,6 +59,8 @@ import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.chapterParagraphs
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.util.concurrent.ConcurrentHashMap
@@ -329,7 +331,7 @@ class ReadAloudSession(
 
         init {
             controller.state.onEach(::record).launchIn(scope)
-            scope.launch(Dispatchers.IO) {
+            scope.launchIO {
                 val owner = getNextNovelChapter.viewerFlags(series.novelId).ownerId
                 val novel = novelRepo.getById(series.novelId)
                 val ownerRow = if (owner == series.novelId) novel else novelRepo.getById(owner)
@@ -432,7 +434,7 @@ class ReadAloudSession(
             if (prefetch?.first == at.chapterId) return
             prefetch = at.chapterId to scope.async {
                 val next = navigation.chapterAfter(at.chapterId) ?: error("No chapter after ${at.chapterId}")
-                withContext(Dispatchers.IO) {
+                withIOContext {
                     val row = chapterRepo.getById(next) ?: error("Chapter not found: $next")
                     textLoader.load(row)
                 }.also { prefetched = next }
@@ -466,7 +468,7 @@ class ReadAloudSession(
             }
         }
 
-        private fun credit(chapterId: Long, ms: Long) {
+        fun credit(chapterId: Long, ms: Long) {
             appScope.launch {
                 val owner = chapterRepo.getById(chapterId)?.novelId ?: return@launch
                 if (!incognito().of(owner)) paceRepository.addListenedTime(chapterId, ms)
@@ -477,7 +479,7 @@ class ReadAloudSession(
 
             override suspend fun chapterAfter(chapterId: Long): Long? {
                 // Read again at every chapter end, so a chapter marked, hidden or downloaded since counts.
-                val resolved = withContext(Dispatchers.IO) {
+                val resolved = withIOContext {
                     orderResolver.resolve(series.novelId, chapterId, series.sourceScoped)
                 }
                 order = resolved
@@ -499,7 +501,7 @@ class ReadAloudSession(
                 writeHeard()
             }
 
-            override suspend fun loadParagraphs(chapterId: Long): List<String> = withContext(Dispatchers.IO) {
+            override suspend fun loadParagraphs(chapterId: Long): List<String> = withIOContext {
                 val row = chapterRepo.getById(chapterId) ?: error("Chapter not found: $chapterId")
                 titles[chapterId] = row.name
                 val (html, baseUrl) = try {
@@ -598,10 +600,7 @@ class ReadAloudSession(
         session.ended = true
         session.writeHeard()
         session.listening.next(playing = false, progress = null, nowMs = nowMs()).listened?.let { (chapterId, ms) ->
-            appScope.launch {
-                val owner = chapterRepo.getById(chapterId)?.novelId ?: return@launch
-                if (!session.incognito().of(owner)) paceRepository.addListenedTime(chapterId, ms)
-            }
+            session.credit(chapterId, ms)
         }
         progressSlot.flush()
         progressSlot.releaseSpokenHolds()

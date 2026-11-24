@@ -133,8 +133,6 @@ class NovelProgressSlot(
     /** Writes every held position now. */
     fun flush() = chapters.values.forEach { it.save.flush() }
 
-    fun flush(id: Long) = chapters[id]?.save?.flush()
-
     /** Drops the held positions of the chapters [predicate] names, for ones a later write supersedes. */
     fun discardIf(predicate: (Long) -> Boolean) = chapters.forEach { (id, state) ->
         if (predicate(id)) state.save.discardIf { true }
