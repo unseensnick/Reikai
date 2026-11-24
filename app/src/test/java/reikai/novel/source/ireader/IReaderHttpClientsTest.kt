@@ -21,6 +21,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Test
 import reikai.novel.source.FetchFailures
+import java.io.IOException
 
 class IReaderHttpClientsTest {
 
@@ -111,6 +112,20 @@ class IReaderHttpClientsTest {
         withContext(failures) { answering(503).cloudflareClient.get("https://example.org/novel") }
 
         failures.last.shouldBeInstanceOf<HttpException>().code shouldBe 503
+    }
+
+    /** An extension that catches the failure itself hands back an empty page, which the call then explains. */
+    @Test
+    fun `a request that never reaches the site is reported to the source call`() = runTest {
+        val failures = FetchFailures()
+        val unreachable = IReaderHttpClients(
+            mockk(),
+            OkHttpClient.Builder().addInterceptor { throw IOException("no connection") }.build(),
+        ) { "app-agent" }
+
+        runCatching { withContext(failures) { unreachable.default.get("https://example.org/novel") } }
+
+        failures.last.shouldBeInstanceOf<IOException>().message shouldBe "no connection"
     }
 
     @Test

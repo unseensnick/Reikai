@@ -38,6 +38,15 @@ class NovelChapterTextRowsTest {
         compose.onNodeWithText("Use the chapter's own styling").assertExists()
     }
 
+    /** The native renderer draws no chapter stylesheet, so offering the switch there would be a silent no-op. */
+    @Test
+    fun `a novel on the native renderer offers no chapter styling`() {
+        showSheet(OwnMode(NovelRenderingMode.NATIVE))
+        compose.onNodeWithContentDescription("Appearance").performClick()
+
+        compose.onNodeWithText("Use the chapter's own styling").assertDoesNotExist()
+    }
+
     @Test
     fun `a novel kept paged offers the paged rows over a scrolling default`() {
         showSheet(OwnMode(NovelRenderingMode.NATIVE, NovelPageLayout.PAGED_LTR))

@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.tts.TtsPauseReason
 import reikai.domain.novel.tts.TtsPlayback
@@ -252,14 +253,22 @@ class ReadAloudSessionTest {
         otherModel.readAloud.owns() shouldBe false
     }
 
-    @Test
-    fun `a reader of another novel cannot pause read aloud`() = sessionTest { harness ->
+    /** Each reader holds the link, so a verb from one that does not own the session must leave it alone. */
+    enum class OwnerVerb(val run: (ReadAloudLink) -> Unit) {
+        PAUSE({ it.pause() }),
+        STOP({ it.stop() }),
+        OPEN_CHAPTER({ it.onUserNavigated() }),
+    }
+
+    @ParameterizedTest
+    @EnumSource(OwnerVerb::class)
+    fun `a reader of another novel cannot pause or stop read aloud`(verb: OwnerVerb) = sessionTest { harness ->
         reading(harness)
         val other = harness.novel(harness.source("other"), title = "Other")
         val otherModel = harness.open(other, harness.chapter(other, 1.0).id)
         advanceUntilIdle()
 
-        otherModel.readAloud.pause()
+        verb.run(otherModel.readAloud)
         advanceUntilIdle()
 
         harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Playing
