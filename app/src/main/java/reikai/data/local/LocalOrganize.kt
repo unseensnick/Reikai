@@ -3,7 +3,9 @@ package reikai.data.local
 import android.content.Context
 import android.net.Uri
 import com.hippo.unifile.UniFile
+import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -45,9 +47,10 @@ import kotlin.time.Duration.Companion.seconds
  * kill is finished or reversed at the next start ([replay]). A step that fails puts back the steps before it by
  * the same path; one whose putting back fails too leaves the journal row and refuses the series' folders
  * ([LocalSeriesLocks.block]), since its rows and files then disagree, until a retry in this process or the next
- * start's replay resolves it. Both content types.
+ * start's replay resolves it. Both content types. One per app, since [forget] must find a row any caller held.
  */
 @Inject
+@SingleIn(AppScope::class)
 class LocalOrganizer(
     private val context: Context,
     private val journal: LocalFileJournal,
