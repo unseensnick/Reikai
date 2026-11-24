@@ -461,7 +461,7 @@ class NovelPreferences(
     )
 
     /** How far a finger scroll must move before the menu hides, the novel twin of the manga reader's
-     *  `readerHideThreshold`, twin of `WebtoonPageTracker.onScrolledBy`, pinned by HideThresholdConformanceTest.
+     *  `readerHideThreshold`, pinned by MenuHideOnScroll, which every renderer hides the menu through.
      *  Both read the distance off the shared [ReaderHideThreshold]. */
     fun readerHideThreshold() = preferenceStore.getEnum("ln_reader_hide_threshold", ReaderHideThreshold.LOW)
 
