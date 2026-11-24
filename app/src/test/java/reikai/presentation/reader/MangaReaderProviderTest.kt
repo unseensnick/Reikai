@@ -27,6 +27,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
@@ -35,6 +37,7 @@ import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
+import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 /** How manga reports a chapter it could not open, and whether the reader can stay open after it. */
@@ -96,15 +99,29 @@ class MangaReaderProviderTest {
     }
 
     /** The state re-emits for unrelated changes, and a new attempt each time would raise a dismissed failure again. */
-    @Test
-    fun `an unrelated change keeps the same failure`() = runTest {
-        val state = MutableStateFlow(ReaderViewModel.State(adjacentLoadFailure = failure("no connection")))
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `an unrelated change keeps the same failure`(firstOpen: Boolean) = runTest {
+        val failing = if (firstOpen) {
+            ReaderViewModel.State(initError = IOException("no connection"))
+        } else {
+            ReaderViewModel.State(adjacentLoadFailure = failure("no connection"))
+        }
+        val state = MutableStateFlow(failing)
         val provider = providerOver(state)
         val before = provider.loadState.first()
 
         state.value = state.value.copy(bookmarked = true)
 
         provider.loadState.first() shouldBe before
+    }
+
+    /** A first open that failed has nothing on screen to keep reading, so the reader closes rather than staying blank. */
+    @Test
+    fun `a first open that failed offers nothing to keep reading`() = runTest {
+        val opened = provider(ReaderViewModel.State(initError = IOException("no connection")))
+
+        (opened.loadState.first() as ReaderLoadState.Failed).canKeepReading shouldBe false
     }
 
     /** The emission names its chapter; the session may already have moved past it when the map runs. */
