@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
 
 /**
@@ -29,6 +30,16 @@ class FlareSolverrCookieTest {
 
         solved.toRawCookieString("example.com") shouldBe
             "n=v; Domain=.example.com; Path=/; Expires=Tue, 14-Nov-2023 22:13:20 GMT; Secure; HttpOnly"
+    }
+
+    @Test
+    fun `a FlareSolverr cookie's expiry is read from Selenium's field name`() {
+        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(
+            FlareSolverrCookie.serializer(),
+            """{"name":"n","value":"v","domain":"example.com","path":"/","expiry":1700000000,"sameSite":"Lax"}""",
+        )
+
+        decoded.expires shouldBe 1_700_000_000.0
     }
 
     @Test

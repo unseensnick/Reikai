@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
@@ -660,7 +661,8 @@ internal data class FlareSolverrCookie(
     val value: String,
     val domain: String = "",
     val path: String = "/",
-    val expires: Double = -1.0,
+    // FlareSolverr passes Selenium's cookies on, which name it `expiry`; Byparr's Playwright says `expires`.
+    @JsonNames("expiry") val expires: Double = -1.0,
     val httpOnly: Boolean = false,
     val secure: Boolean = false,
 ) {
