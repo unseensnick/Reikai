@@ -424,8 +424,7 @@ class NovelWebViewport(
     override fun Content(modifier: Modifier) = ViewportHost(view, modifier)
 
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean {
-        if (!paged || resumeVeil.isUp) return false
-        turnPage(forward = wheelForward(event) ?: return false)
+        turnPage(forward = novelWheelTurn(event, paged, veiled = resumeVeil.isUp) ?: return false)
         return true
     }
 

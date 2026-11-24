@@ -72,7 +72,16 @@ class MouseWheelConformanceTest(private val notch: Float, private val expected: 
 
     @Test
     fun `a notch turns the novel page the way the parameter names`() {
-        wheelForward(axisEvent()) shouldBe (expected == FORWARD)
+        novelWheelTurn(axisEvent(), paged = true, veiled = false) shouldBe (expected == FORWARD)
+    }
+
+    /** A scrolling novel scrolls its own column, and the opening veil takes no input. */
+    @Test
+    fun `a notch turns no novel page while it scrolls or is veiled`() {
+        listOf(
+            novelWheelTurn(axisEvent(), paged = false, veiled = false),
+            novelWheelTurn(axisEvent(), paged = true, veiled = true),
+        ) shouldBe listOf(null, null)
     }
 
     companion object {

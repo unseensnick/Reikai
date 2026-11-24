@@ -12,3 +12,10 @@ fun wheelForward(event: MotionEvent): Boolean? {
     val scroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
     return if (scroll == 0f) null else scroll < 0f
 }
+
+/**
+ * Whether a novel's wheel [event] turns the page forward, null where it turns none: a scrolling novel scrolls its
+ * own column, and one under the opening veil takes no input. Both renderers ask this.
+ */
+fun novelWheelTurn(event: MotionEvent, paged: Boolean, veiled: Boolean): Boolean? =
+    if (!paged || veiled) null else wheelForward(event)
