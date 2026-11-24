@@ -102,6 +102,7 @@ import mihon.core.navigation.rememberNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.roundedfilled.Delete
 import mihon.icons.materialsymbols.roundedfilled.Warning
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.entry.EntryId
 import reikai.domain.track.EntryTrackPort
 import reikai.domain.track.EntryTrackPorts
@@ -286,7 +287,8 @@ fun EntryTrackInfoDialogHomeScreen(entry: EntryId) {
 
 private fun openTrackerInBrowser(context: Context, trackItem: TrackItem) {
     val url = trackItem.track?.remoteUrl ?: return
-    if (url.isNotBlank()) context.openInBrowser(url)
+    // Web addresses only: a restored backup sets this link, and another scheme starts any app claiming it.
+    if (url.toHttpUrlOrNull() != null) context.openInBrowser(url)
 }
 
 private fun Context.copyTrackerLink(trackItem: TrackItem) {
