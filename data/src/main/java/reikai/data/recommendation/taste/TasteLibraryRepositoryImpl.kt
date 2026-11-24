@@ -23,8 +23,7 @@ class TasteLibraryRepositoryImpl(
         database.taste_libraryQueries.getAll(::mapEntry).awaitAsList()
     }
 
-    // On IO whatever the caller: the settings screen's Refresh now runs on the main thread, and this
-    // transaction rewrites a whole tracker library.
+    // On IO whatever the caller, since this transaction rewrites a whole tracker library.
     override suspend fun replaceTracker(trackerId: Long, entries: List<TrackedEntry>, fetchedAt: Long) {
         withIOContext {
             database.transaction {

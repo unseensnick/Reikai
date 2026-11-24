@@ -14,10 +14,6 @@ object Constants {
     const val URL_HELP_UPCOMING = "$URL_DOCS/faq/updates/upcoming"
 
     // RK <--
-    const val URL_DONATE_PATREON = "https://patreon.com/mihon/membership"
-    const val URL_DONATE_OPENCOLLECTIVE = "https://opencollective.com/mihon/contribute"
-    const val URL_DISCORD = "https://discord.gg/mihon"
-
     const val MANGA_EXTRA = "manga"
 
     // RK: open a novel's details by row id; the source and url are what an older build wrote, still read

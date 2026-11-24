@@ -91,9 +91,6 @@ object ReikaiBindings {
         },
     ) { propagate().distribute(it) }
 
-    // Each fetcher wants a concrete tracker, and those are properties of the TrackerManager
-    // singleton rather than bindings of their own. Binding them separately would build second
-    // tracker instances carrying their own login state, so the list is assembled from the singleton.
     @Provides
     fun providesTrackerLibraryFetchers(
         trackerManager: TrackerManager,
