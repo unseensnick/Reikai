@@ -249,6 +249,35 @@ class SolveMachineTest {
         m.phase shouldBe Phase.Verified
     }
 
+    // The markup clears before the navigation that carries the clearance, as the complete event does.
+    @Test
+    fun `a solve the markup verified keeps asking for the clearance while it is still landing`() {
+        val fake = Fake()
+        val m = machine(fake)
+        m.arm()
+        interactive(m)
+        tick(m, challenged = false)
+        tick(m, challenged = false)
+
+        fake.advance(500)
+
+        fake.clearanceAsked shouldBe 3
+    }
+
+    @Test
+    fun `a tick with no events takes the clearance a verified solve was waiting on`() {
+        val fake = Fake()
+        val m = machine(fake)
+        m.arm()
+        m.onEvent("complete")
+        fake.advance(10_000)
+        fake.clearanceLands = true
+
+        tick(m, challenged = false)
+
+        m.phase shouldBe Phase.Accepted
+    }
+
     @Test
     fun `one clear reading is not enough to verify`() {
         val fake = Fake()

@@ -82,6 +82,11 @@ internal class SolveMachine(
      */
     fun onProbe(events: List<String>, challenged: Boolean, hasToken: Boolean) {
         if (phase == Phase.Accepted) return
+        // A verified solve only waits on its clearance now, which a tick asks for whatever it carries.
+        if (phase == Phase.Verified) {
+            accept()
+            return
+        }
         events.forEach(::onEvent)
         // Cloudflare is done either way, and pressing again restarts the verification it has just
         // finished, so this never falls through to the press below.
@@ -101,9 +106,8 @@ internal class SolveMachine(
             // interstitial, which is what the caller needs before it may read anything into a
             // clearance arriving late.
             phase = Phase.Verified
-            val accepted = askClearance()
-            if (accepted) phase = Phase.Accepted
-            log("challenge cleared, accepted $accepted")
+            log("challenge cleared")
+            pollForClearance(ACCEPT_POLL_ATTEMPTS)
         }
     }
 
