@@ -196,7 +196,8 @@ class SourcePaceConformanceTest {
         engine.pause()
         advanceUntilIdle()
 
-        (fetches to engine.isQueued(1L)) shouldBe (emptyList<Pair<Long, Long>>() to true)
+        fetches shouldBe emptyList()
+        engine.isQueued(1L) shouldBe true
     }
 
     @ParameterizedTest

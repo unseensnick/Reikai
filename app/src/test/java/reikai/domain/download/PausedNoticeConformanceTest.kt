@@ -76,7 +76,7 @@ class PausedNoticeConformanceTest {
 
         half.pause(this)
 
-        half.notices shouldBe 1
+        half.noticeTitles() shouldBe listOf(PAUSED)
     }
 
     @ParameterizedTest(name = "{0}")
@@ -88,7 +88,7 @@ class PausedNoticeConformanceTest {
 
         half.resumeOffline(this)
 
-        half.notices shouldBe 1
+        half.noticeTitles() shouldBe listOf(PAUSED)
     }
 
     @ParameterizedTest(name = "{0}")
@@ -198,9 +198,6 @@ interface PausedNoticeHalf : AutoCloseable {
     /** The network the engine sees, from the next start or recheck on. */
     var network: NetworkState
 
-    /** How many download notices the shade shows. */
-    val notices: Int
-
     /** What each download notice in the shade says. */
     fun noticeTexts(): List<CharSequence?>
 
@@ -232,8 +229,6 @@ class MangaPausedNoticeHalf : PausedNoticeHalf {
             field = value
             fixture?.network = value
         }
-
-    override val notices get() = shade.shown.size
 
     override fun noticeTexts() = shade.shown.keys.map(shade::textOf)
 
@@ -321,8 +316,6 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
     }
     private val securityPreferences = SecurityPreferences(InMemoryPreferenceStore())
     private lateinit var manager: NovelDownloadManager
-
-    override val notices get() = shade.shown.size
 
     override fun noticeTexts() = shade.shown.keys.map(shade::textOf)
 

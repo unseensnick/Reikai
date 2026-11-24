@@ -14,6 +14,11 @@ class DownloadNetworkGateTest {
     }
 
     @Test
+    fun `a Wi-Fi network with no internet pauses for want of a network`() {
+        downloadNetworkIssue(UNVALIDATED, wifiOnly = false) shouldBe MR.strings.download_notifier_no_network
+    }
+
+    @Test
     fun `mobile data with Wi-Fi only on pauses for want of Wi-Fi`() {
         downloadNetworkIssue(MOBILE, wifiOnly = true) shouldBe MR.strings.download_notifier_text_only_wifi
     }
@@ -32,5 +37,6 @@ class DownloadNetworkGateTest {
         val OFFLINE = NetworkState(isConnected = false, isValidated = false, isWifi = false)
         val MOBILE = NetworkState(isConnected = true, isValidated = true, isWifi = false)
         val WIFI = NetworkState(isConnected = true, isValidated = true, isWifi = true)
+        val UNVALIDATED = NetworkState(isConnected = true, isValidated = false, isWifi = true)
     }
 }

@@ -125,10 +125,13 @@ class NetworkWaitConformanceTest {
             half.network = MOBILE
             tick()
             half.failFetchInFlight()
+            tick()
+            half.fetches shouldBe 1
 
+            half.network = ONLINE
             tick()
 
-            half.fetches shouldBe 1
+            half.fetches shouldBe 2
         }
 
     private fun TestScope.tick() {
