@@ -33,10 +33,10 @@ private fun lnGenreValue(
         val filter = element as? JsonObject ?: continue
         val value = optionsOf(filter).firstOrNull { (label, _) -> label.equals(genre, true) }?.second ?: continue
         val current = defaults[key]
-        val picked = when (filter["type"]?.jsonPrimitive?.contentOrNull) {
-            "Picker" -> JsonPrimitive(value)
-            "Checkbox" -> checkboxValue(checkedValues(current) + value)
-            "ExcludableCheckboxGroup" -> IncludeExclude.of(current).let {
+        val picked = when (LnFilterType.of(filter["type"]?.jsonPrimitive?.contentOrNull)) {
+            LnFilterType.Picker -> JsonPrimitive(value)
+            LnFilterType.Checkbox -> checkboxValue(checkedValues(current) + value)
+            LnFilterType.ExcludableCheckboxGroup -> IncludeExclude.of(current).let {
                 it.copy(include = it.include + value)
             }.toJson()
             else -> continue

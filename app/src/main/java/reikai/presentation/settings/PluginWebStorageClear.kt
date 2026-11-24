@@ -2,7 +2,7 @@ package reikai.presentation.settings
 
 import reikai.novel.host.LnPluginHost
 import reikai.novel.source.isSensitivePluginKey
-import reikai.novel.source.lnStorageScope
+import reikai.novel.source.lnPluginIdOf
 import reikai.novel.source.pluginStorageScope
 import tachiyomi.core.common.preference.PreferenceStore
 
@@ -12,10 +12,7 @@ import tachiyomi.core.common.preference.PreferenceStore
  * would keep signing in with what the user just cleared.
  */
 fun pluginsKeepingWebStorage(keys: Collection<String>): Set<String> =
-    keys.filter(::isSensitivePluginKey).mapNotNullTo(HashSet()) { key ->
-        val scope = pluginStorageScope(key) ?: return@mapNotNullTo null
-        scope.removeSuffix("::").substringAfter("::").takeIf { lnStorageScope(it) == scope }
-    }
+    keys.filter(::isSensitivePluginKey).mapNotNullTo(HashSet()) { key -> pluginStorageScope(key)?.let(::lnPluginIdOf) }
 
 /** Forgets every plugin's copy of its site's storage, held in [store]. */
 fun LnPluginHost.forgetAllWebStorage(store: PreferenceStore) =

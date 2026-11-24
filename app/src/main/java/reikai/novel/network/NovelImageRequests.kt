@@ -113,7 +113,7 @@ class NovelImageRequests(
      * IReader source's cover-request ones, and for an LNReader plugin the User-Agent its fetches send.
      * A source whose headers throw gets none, as a manga source's do in the WebView.
      */
-    suspend fun webViewHeaders(sourceId: String?, url: String): Map<String, String> =
+    suspend fun webViewHeaders(sourceId: String, url: String): Map<String, String> =
         runCatchingCancellable {
             appImages(sourceId)?.webViewHeaders(url)
                 ?: pluginWebViewHeaders(sourceId) { deviceWebViewUserAgent(context) }
@@ -157,8 +157,8 @@ internal fun lnImageHeaders(deviceUserAgent: String, site: String?, pluginHeader
  * Cloudflare check passed in the WebView leaves a cookie those fetches can use, since the clearance is tied to
  * the agent. Never its `imageRequestInit` agent, which its fetches do not send. An app source's id gets none.
  */
-internal fun pluginWebViewHeaders(sourceId: String?, deviceUserAgent: () -> String): Map<String, String> {
-    if (sourceId == null || isNovelAppSourceId(sourceId)) return emptyMap()
+internal fun pluginWebViewHeaders(sourceId: String, deviceUserAgent: () -> String): Map<String, String> {
+    if (isNovelAppSourceId(sourceId)) return emptyMap()
     val agent = deviceUserAgent()
     return if (agent.isBlank()) emptyMap() else mapOf("user-agent" to agent)
 }

@@ -50,11 +50,12 @@ class TrackerWebViewLoginActivity : BaseActivity() {
             return
         }
 
+        val defaultUserAgentProvider = appGraph.networkHelper::defaultUserAgentProvider
         setComposeContent {
             TrackerLoginWebViewScreen(
                 title = stringResourceLoginTitle(tracker),
                 url = cookieLogin.cookieLoginUrl,
-                defaultUserAgentProvider = appGraph.networkHelper::defaultUserAgentProvider,
+                defaultUserAgentProvider = defaultUserAgentProvider,
                 onUp = { finish() },
                 onPageFinished = { tryCapture(tracker, cookieLogin, explicit = false) },
                 onConfirmLogin = { tryCapture(tracker, cookieLogin, explicit = true) },
