@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
@@ -834,11 +835,20 @@ class NovelReaderViewModel(
                     orientationOverride.value = it.readerOrientation.toInt()
                 }
                 opened
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // A failed read leaves the default, so the reader still opens.
+                logcat(LogPriority.ERROR, e) { "Failed to read novel $novelId's own reader settings" }
+                null
             } finally {
-                // Also on a failed read, which leaves the default, so the reader still opens.
                 viewerFlags.complete(GroupViewerFlags.of(novelId, emptyList()))
-                viewerFlagsLoaded.complete(Unit)
             }
+            // Once the settings carry the novel's own choices too, or the first tap zones are the setting's.
+            settings.first {
+                it ==
+                    NovelReaderSettings.read(novelPreferences, orientationOverride.value, pageLayout.value)
+            }
+            viewerFlagsLoaded.complete(Unit)
             novel?.let {
                 entryTitle.value = it.title
                 detailsNovelId.value = it.id

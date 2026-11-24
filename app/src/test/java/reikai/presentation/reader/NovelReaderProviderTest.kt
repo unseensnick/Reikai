@@ -164,6 +164,18 @@ class NovelReaderProviderTest {
         emissions.size shouldBe 1
     }
 
+    /** The overlay shows on every change after the first, so a first emission from the setting flashes it. */
+    @Test
+    fun `a novel kept paged has the pager's tap layout from its first emission`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelPageLayout.flagOf(NovelPageLayout.PAGED_LTR) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        model.viewerFlagsLoaded.await()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+
+        provider.tapZoneChanges.first().layout shouldBe NovelTapLayout.RIGHT_AND_LEFT
+    }
+
     @Test
     fun `paged reading opens with the pager's tap layout`() = readerTest { harness ->
         harness.novelPreferences.readerPageLayout().set(NovelPageLayout.PAGED_LTR)
