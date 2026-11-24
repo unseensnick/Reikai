@@ -5,15 +5,21 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.ProgressListener
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.Collections
 import kotlin.random.Random
@@ -129,9 +135,36 @@ class ResumedImageDownloadTest {
     }
 
     @Test
-    fun `a server that ignores the range overwrites with the whole image`() = runTest {
+    fun `a server that ignores the range overwrites with the whole image from one fetch`() = runTest {
         honoursRange = false
 
         resume(decrypting, cutAt = 9_999).contentEquals(image) shouldBe true
+        ranges.size shouldBe 1
+    }
+
+    @Test
+    fun `a failure reading the stored overlap closes the resumed answer`() = runTest {
+        var closed = false
+        val body = object : ResponseBody() {
+            override fun contentType() = null
+            override fun contentLength() = -1L
+            override fun source() = Buffer().write(ByteArray(10))
+            override fun close() {
+                closed = true
+            }
+        }
+        val partial = Response.Builder().request(Request.Builder().url(url).build()).protocol(Protocol.HTTP_1_1)
+            .code(206).message("Partial Content").body(body).build()
+
+        shouldThrow<IOException> {
+            ResumedImageDownload.write(
+                existingSize = 9_999,
+                stored = { throw IOException("unreadable") },
+                fetch = { partial },
+                open = { ByteArrayOutputStream() },
+            )
+        }
+
+        closed shouldBe true
     }
 }

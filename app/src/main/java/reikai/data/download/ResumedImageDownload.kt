@@ -28,13 +28,27 @@ object ResumedImageDownload {
     ): Response {
         val from = if (existingSize > OVERLAP) existingSize - OVERLAP else 0L
         val response = fetch(from)
-        if (response.code != 206) return response.also { it.body.source().saveTo(open(false)) }
-        val body = response.body.source()
-        val expected = stored(from)
-        val continues =
-            body.request(expected.size.toLong()) && body.readByteArray(expected.size.toLong()).contentEquals(expected)
-        if (continues) return response.also { body.saveTo(open(true)) }
+        response.closeOnFailure {
+            if (response.code != 206) return response.also { it.body.source().saveTo(open(false)) }
+            val body = response.body.source()
+            val expected = stored(from)
+            val continues = body.request(expected.size.toLong()) &&
+                body.readByteArray(expected.size.toLong()).contentEquals(expected)
+            if (continues) return response.also { body.saveTo(open(true)) }
+        }
         response.close()
-        return fetch(0L).also { it.body.source().saveTo(open(false)) }
+        val whole = fetch(0L)
+        whole.closeOnFailure { whole.body.source().saveTo(open(false)) }
+        return whole
+    }
+
+    // The caller's `use` only reaches a response this returns, so one a failed write leaves is closed here.
+    private inline fun Response.closeOnFailure(write: () -> Unit) {
+        try {
+            write()
+        } catch (e: Throwable) {
+            close()
+            throw e
+        }
     }
 }
