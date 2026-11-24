@@ -35,6 +35,9 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
@@ -149,7 +152,7 @@ class NovelDownloadCache(
         val file = provider.chapterFileName(chapter)
         scope.launch {
             mutex.withLock {
-                tree = tree.mutateSource(source) { novels -> novels.getOrPut(novelDir) { mutableSetOf() }.add(file) }
+                tree = tree.mutateSource(source) { novels -> novels.editNovel(novelDir) { it.add(file) } }
             }
             notifyChanges()
         }
@@ -166,10 +169,7 @@ class NovelDownloadCache(
         val names = chapters.flatMapTo(HashSet()) { provider.validChapterFileNames(it) }
         scope.launch {
             mutex.withLock {
-                tree = tree.mutateSource(source) { novels ->
-                    novels[novelDir]?.removeAll(names)
-                    if (novels[novelDir]?.isEmpty() == true) novels.remove(novelDir)
-                }
+                tree = tree.mutateSource(source) { novels -> novels.editNovel(novelDir) { it.removeAll(names) } }
             }
             notifyChanges()
         }
@@ -196,9 +196,11 @@ class NovelDownloadCache(
         scope.launch {
             mutex.withLock {
                 tree = tree.mutateSource(source) { novels ->
-                    val files = novels[novelDir] ?: return@mutateSource
-                    files.removeAll(oldNames)
-                    files.add(newName)
+                    if (novelDir !in novels) return@mutateSource
+                    novels.editNovel(novelDir) { files ->
+                        files.removeAll(oldNames)
+                        files.add(newName)
+                    }
                 }
             }
             notifyChanges()
@@ -293,14 +295,21 @@ class NovelDownloadCache(
         saveIndex()
     }
 
-    /** Written a second after the last change, so a burst of downloads writes once. */
+    /**
+     * Written a second after the last change, so a burst of downloads writes once. Synchronized, since changes
+     * arrive from several IO threads and two unguarded swaps would leave a job nothing cancels.
+     */
+    @Synchronized
     private fun saveIndex() {
         saveJob?.cancel()
         saveJob = scope.launch {
             delay(1.seconds)
             val snapshot = SavedIndex(tree, lastRenew)
             try {
-                indexFile.writeText(json.encodeToString(snapshot))
+                // Moved over the old file once whole, as Mihon's AtomicFile writes its index, so a kill mid-write
+                // keeps the last good copy
+                val part = File(indexFile.path + ".part").apply { writeText(json.encodeToString(snapshot)) }
+                Files.move(part.toPath(), indexFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to write the novel download index" }
             }
@@ -308,16 +317,23 @@ class NovelDownloadCache(
     }
 
     /**
-     * The tree with [source]'s novels edited by [block]. Only that source's map and sets are copied: the tree
-     * is never edited in place, so every other source's can be shared. A source left empty is dropped.
+     * The tree with [source]'s novels edited by [block]. Only that source's map is copied, and only the sets
+     * [editNovel] touches: the tree is never edited in place, so everything else can be shared. A source left
+     * empty is dropped.
      */
     private inline fun Map<String, Map<String, Set<String>>>.mutateSource(
         source: String,
-        block: (MutableMap<String, MutableSet<String>>) -> Unit,
+        block: (MutableMap<String, Set<String>>) -> Unit,
     ): Map<String, Map<String, Set<String>>> {
-        val novels = this[source].orEmpty().mapValuesTo(mutableMapOf()) { (_, files) -> files.toMutableSet() }
+        val novels = this[source].orEmpty().toMutableMap()
         block(novels)
         return toMutableMap().apply { if (novels.isEmpty()) remove(source) else put(source, novels) }
+    }
+
+    /** [dir]'s file names edited by [block] on a copy, so a set the tree shares is never changed. Dropped once empty. */
+    private inline fun MutableMap<String, Set<String>>.editNovel(dir: String, block: (MutableSet<String>) -> Unit) {
+        val files = this[dir].orEmpty().toMutableSet().also(block)
+        if (files.isEmpty()) remove(dir) else put(dir, files)
     }
 
     @Serializable
