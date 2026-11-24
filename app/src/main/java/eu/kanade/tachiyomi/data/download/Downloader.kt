@@ -644,8 +644,10 @@ class Downloader(
         val digitCount = (download.pages?.size ?: 0).toString().length.coerceAtLeast(3)
         val filename = "%0${digitCount}d".format(Locale.ENGLISH, page.number)
 
-        // RK: find this page's finished image; the helper takes the nullable name itself
-        val imageFile = tmpDir.listFiles()?.firstOrNull { isDownloadedPageImage(it.name, filename) }
+        // Try to find the image file
+        val imageFile = tmpDir.listFiles()?.firstOrNull {
+            isDownloadedPageImage(it.name ?: return@firstOrNull false, filename)
+        }
 
         try {
             // If the image is already downloaded, do nothing. Otherwise download from network
@@ -666,17 +668,6 @@ class Downloader(
             page.status = Page.State.Error(e)
             notifier.onError(e.message, download.chapter.name, download.manga) // RK
         }
-    }
-
-    // RK: match a finished page image by the page's expected prefix ("001"), never the candidate
-    // file's own name. Upstream reused `filename` here, so the check read name.startsWith(name + "."),
-    // never matched, and every resume re-downloaded finished pages, producing "001 (1).webp"
-    // duplicates that broke the completion count. Upstream mihonapp/mihon#3504 later extracted the
-    // same helper and has since converged on this shape; ours keeps a nullable name and drops the
-    // trailing dot after __001, so a split page whose suffix runs straight on still matches.
-    private fun isDownloadedPageImage(fileName: String?, pagePrefix: String): Boolean {
-        if (fileName == null || fileName.endsWith(".tmp")) return false
-        return fileName.startsWith("$pagePrefix.") || fileName.startsWith("${pagePrefix}__001")
     }
 
     /**
@@ -801,7 +792,17 @@ class Downloader(
         return downloadedImagesCount == downloadPageCount
     }
 
-    // RK: isDownloadedPageImage moved up beside getOrDownloadImage, with the fixed prefix match
+    /**
+     * Checks if the file name matches a downloaded page image.
+     *
+     * @param fileName Name of the file to check
+     * @param pagePrefix Expected page prefix (e.g., "001")
+     */
+    private fun isDownloadedPageImage(fileName: String, pagePrefix: String): Boolean =
+        !fileName.endsWith(".tmp") && (
+            fileName.startsWith("$pagePrefix.") ||
+                fileName.startsWith("${pagePrefix}__001") // RK: no dot, so a split page's suffix may run straight on
+            )
 
     /**
      * Archive the chapter pages as a CBZ.
