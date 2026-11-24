@@ -33,14 +33,17 @@ internal fun tilesFor(
     visibleTopPx: Int,
     visibleBottomPx: Int,
     drawnHeightPx: Int,
-    tileCount: Int,
+    sourceHeight: Int,
+    tileSourceHeight: Int,
     ahead: Int,
 ): IntRange {
+    val tileCount = tileCount(sourceHeight, tileSourceHeight)
     if (tileCount <= 0 || drawnHeightPx <= 0 || visibleBottomPx <= 0 || visibleTopPx >= drawnHeightPx) {
         return IntRange.EMPTY
     }
     if (visibleBottomPx <= visibleTopPx) return IntRange.EMPTY
-    val tileHeight = drawnHeightPx.toDouble() / tileCount
+    // Each slice is drawn at its rows' share of the picture, not an even share: the last one is short.
+    val tileHeight = tileSourceHeight.toDouble() * drawnHeightPx / sourceHeight
     val first = (visibleTopPx / tileHeight).toInt() - ahead
     val last = ((visibleBottomPx - 1) / tileHeight).toInt() + ahead
     return max(0, first)..min(tileCount - 1, last)

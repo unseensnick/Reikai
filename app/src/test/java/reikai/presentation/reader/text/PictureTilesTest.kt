@@ -38,23 +38,53 @@ class PictureTilesTest {
             visibleTopPx = 4_000,
             visibleBottomPx = 6_992,
             drawnHeightPx = 19_733,
-            tileCount = 10,
+            sourceHeight = 12_711,
+            tileSourceHeight = 1_288,
             ahead = 1,
         ) shouldBe
             1..4
     }
 
+    /** Slices are cut 4000/4000/2000 rows, so the screen's top sits in the second and the first is the one ahead. */
+    @Test
+    @DisplayName("the slice ahead above the screen is held when the last slice is short")
+    fun aheadAboveWithAShortLastSlice() {
+        tilesFor(
+            visibleTopPx = 3_800,
+            visibleBottomPx = 5_000,
+            drawnHeightPx = 5_000,
+            sourceHeight = 10_000,
+            tileSourceHeight = 4_000,
+            ahead = 1,
+        ) shouldBe
+            0..2
+    }
+
     @Test
     @DisplayName("the slices held stop at the picture's first and last")
     fun slicesStopAtTheEnds() {
-        tilesFor(visibleTopPx = 0, visibleBottomPx = 2_992, drawnHeightPx = 19_733, tileCount = 10, ahead = 1) shouldBe
+        tilesFor(
+            visibleTopPx = 0,
+            visibleBottomPx = 2_992,
+            drawnHeightPx = 19_733,
+            sourceHeight = 12_711,
+            tileSourceHeight = 1_288,
+            ahead = 1,
+        ) shouldBe
             0..2
     }
 
     @Test
     @DisplayName("a picture just scrolled past holds no slices")
     fun scrolledPastHoldsNothing() {
-        tilesFor(visibleTopPx = 19_733, visibleBottomPx = 22_725, drawnHeightPx = 19_733, tileCount = 10, ahead = 1)
+        tilesFor(
+            visibleTopPx = 19_733,
+            visibleBottomPx = 22_725,
+            drawnHeightPx = 19_733,
+            sourceHeight = 12_711,
+            tileSourceHeight = 1_288,
+            ahead = 1,
+        )
             .shouldBe(IntRange.EMPTY)
     }
 
@@ -97,7 +127,14 @@ class PictureTilesTest {
     @Test
     @DisplayName("a picture not yet on screen holds no slices")
     fun notOnScreenYetHoldsNothing() {
-        tilesFor(visibleTopPx = -5_000, visibleBottomPx = 0, drawnHeightPx = 19_733, tileCount = 10, ahead = 1)
+        tilesFor(
+            visibleTopPx = -5_000,
+            visibleBottomPx = 0,
+            drawnHeightPx = 19_733,
+            sourceHeight = 12_711,
+            tileSourceHeight = 1_288,
+            ahead = 1,
+        )
             .shouldBe(IntRange.EMPTY)
     }
 

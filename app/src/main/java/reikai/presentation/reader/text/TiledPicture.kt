@@ -30,7 +30,6 @@ internal class TiledPicture(
 ) : Drawable(), Closeable {
 
     private val tileSourceHeight = tileSourceHeight(reader.sourceHeight, box.height, tileDrawnPx)
-    private val tileCount = tileCount(reader.sourceHeight, tileSourceHeight)
     private val sampleSize = tileSampleSize(reader.sourceWidth, box.width)
 
     /** Main thread. The slices decoded, and the ones being decoded, keyed by their place in the picture. */
@@ -51,7 +50,7 @@ internal class TiledPicture(
 
     /** Main thread: the rows of this picture on screen, in the pixels it is drawn at. */
     fun onVisible(topPx: Int, bottomPx: Int) {
-        val next = tilesFor(topPx, bottomPx, box.height, tileCount, TILES_AHEAD)
+        val next = tilesFor(topPx, bottomPx, box.height, reader.sourceHeight, tileSourceHeight, TILES_AHEAD)
         if (next == wanted) return
         wanted = next
         // Scrolled away, so its slices are let go of before the ones now wanted are asked for.
