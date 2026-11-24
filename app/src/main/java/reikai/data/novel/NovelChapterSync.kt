@@ -1,6 +1,8 @@
 package reikai.data.novel
 
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.ChapterCopyMarkRepository
@@ -25,6 +27,7 @@ import reikai.novel.local.LocalNovelSource
 import tachiyomi.data.chapter.ChapterSanitizer
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 
 /**
@@ -46,6 +49,29 @@ suspend fun syncChaptersWithNovelSource(
     pageOpened: Boolean = false,
     novelDownloadManager: NovelDownloadManager? = null,
     dropPagesAbove: Long? = null,
+): NovelChapterSyncResult =
+    // One sync of a novel at a time: each renumbers every stored page from the list it read, so a details page
+    // fetch beside an update walk wrote back the order the other had already moved.
+    syncLocks.computeIfAbsent(novel.id) { Mutex() }.withLock {
+        syncUnlocked(
+            rawSourceChapters, novel, novelChapterRepository, novelRepository, libraryPreferences, syncRules,
+            page, pageOpened, novelDownloadManager, dropPagesAbove,
+        )
+    }
+
+private val syncLocks = ConcurrentHashMap<Long, Mutex>()
+
+private suspend fun syncUnlocked(
+    rawSourceChapters: List<ChapterItem>,
+    novel: Novel,
+    novelChapterRepository: NovelChapterRepository,
+    novelRepository: NovelRepository,
+    libraryPreferences: LibraryPreferences,
+    syncRules: NovelChapterSyncRules,
+    page: String?,
+    pageOpened: Boolean,
+    novelDownloadManager: NovelDownloadManager?,
+    dropPagesAbove: Long?,
 ): NovelChapterSyncResult {
     if (rawSourceChapters.isEmpty()) throw NoChaptersException()
 
