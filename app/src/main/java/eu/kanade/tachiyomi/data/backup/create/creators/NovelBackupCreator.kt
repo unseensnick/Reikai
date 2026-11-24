@@ -1,8 +1,8 @@
 // Novel backup. Net-new Reikai file: the light-novel twin of MangaBackupCreator, pinned by
 // backupEntries (BackupEntryDriverTest, GroupMemberBackupConformanceTest), the driver both run through,
 // plus the novel categories and the merge groups (serialized from the merge_group tables as stable
-// {url, source} refs so they survive restore). Gated by the same BackupOptions toggles as manga
-// (novels are first-class library content, no separate UI toggle).
+// {url, source} refs so they survive restore). The entries and merge groups are gated on
+// BackupOptions.includeNovels; the categories ride the Categories option alone, as manga's do.
 package eu.kanade.tachiyomi.data.backup.create.creators
 
 import dev.zacsweers.metro.Inject

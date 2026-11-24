@@ -155,9 +155,9 @@ class AppPreferenceCarry(
             ReikaiLibraryPreferences.MANGA_MANUAL_UNMERGES_KEY,
             ReikaiLibraryPreferences.NOVEL_MANUAL_MERGES_KEY,
             ReikaiLibraryPreferences.NOVEL_MANUAL_UNMERGES_KEY,
-            // Retired keys nothing reads, which an old backup would otherwise resurrect after the cleanup
-            // migration removed them. A pre-unification novel sort carries a flag layout nothing can
-            // safely decode, so restoring it would be worse than useless.
+            // Retired keys nothing reads, which an old backup would otherwise write back. Most still sit in
+            // upgraded installs, since no migration deletes them, so never reuse one for a new preference. A
+            // pre-unification novel sort carries a flag layout nothing can safely decode.
             DEAD_LAST_USED_NOVEL_CATEGORY_KEY,
             ReikaiLibraryPreferences.DEAD_NOVEL_SORT_KEY,
             ReikaiLibraryPreferences.DEAD_NOVEL_RANDOM_SEED_KEY,

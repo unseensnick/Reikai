@@ -1,5 +1,5 @@
-// Novel backup. Net-new Reikai file: the light-novel twin of BackupManga, type only, re-typed
-// to the novel domain model (String source id, text-reader fields).
+// Novel backup. Net-new Reikai file: the light-novel twin of BackupManga, pinned by
+// BackupDatesConformanceTest, re-typed to the novel domain model (String source id, text-reader fields).
 package eu.kanade.tachiyomi.data.backup.models
 
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
@@ -28,7 +28,7 @@ class BackupNovel(
     @ProtoNumber(15) var coverLastModified: Long = 0,
     @ProtoNumber(16) var totalPages: Long = 1,
     // Read only, from backups made before the Last read sort came from history: NovelRestorer seeds a
-    // history row from it for a novel that has none. Nothing writes it any more.
+    // history row from it for a novel that has none. Only the LNReader import still writes it.
     @ProtoNumber(17) var lastReadAt: Long? = null,
     // Read only, from Reikai 0.1.x and 0.2.x: which of the novel's own fields above held the user's edits, by bit
     // (author, artist, description, genres, status). Edits ride in the custom fields below since.

@@ -25,7 +25,7 @@ data class RestoreOptions(
         extensions, // RK
     )
 
-    // RK: savedSearches counts too
+    // RK: savedSearches and extensions count too
     fun canRestore() =
         libraryEntries || categories || appSettings || extensionStores || sourceSettings || savedSearches ||
             extensions

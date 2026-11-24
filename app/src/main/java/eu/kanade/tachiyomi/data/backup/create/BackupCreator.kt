@@ -95,12 +95,11 @@ class BackupCreator(
 
     // RK: set once any field is written, so a selection that produces no content (e.g. Library
     // entries on but Manga + Novels + everything else off) is rejected instead of writing a useless
-    // near-empty file, matching the old empty_backup_error guard the one-shot encode had.
+    // near-empty file (empty_backup_error).
     private var wroteAnything = false
 
-    // RK: the backup is streamed field by field straight to the gzip sink instead of building the
-    // whole Backup object graph and encoding it in one ByteArray. The one-shot encode peaked at
-    // (object graph + a ~2x transient copy) and OutOfMemoryError'd on large chapter counts
+    // RK: the backup is streamed field by field straight to the gzip sink, never built as one Backup
+    // object graph and encoded in one ByteArray, which runs out of memory on large chapter counts
     // (unseensnick/Reikai#53). A protobuf message is just its length-delimited fields concatenated in
     // any order, so per-field streaming is wire-identical: old backups still decode, new ones stay in-format.
     suspend fun backup(uri: Uri, options: BackupOptions): String {
@@ -265,8 +264,8 @@ class BackupCreator(
             }
 
             return fileUri.toString()
-            // RK --> Throwable, not Exception: an OutOfMemoryError is an Error, and catching only Exception
-            // left the blank half-written file behind and swallowed the failure (unseensnick/Reikai#53).
+            // RK --> Throwable, not Exception: an OutOfMemoryError is an Error, and the half-written file
+            // must still be deleted and the failure reported (unseensnick/Reikai#53).
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
             try {

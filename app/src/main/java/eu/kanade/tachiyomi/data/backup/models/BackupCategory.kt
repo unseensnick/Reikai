@@ -41,7 +41,7 @@ val backupCategoryMapper = { category: Category ->
         name = category.name,
         order = category.order,
         flags = category.flags,
-        // RK: emit the hidden state so Komikku (and a future Reikai restore) can read it
+        // RK: emit the hidden state, which Komikku and Reikai restores both read
         hidden = category.isHidden,
         contentType = category.contentType,
     )

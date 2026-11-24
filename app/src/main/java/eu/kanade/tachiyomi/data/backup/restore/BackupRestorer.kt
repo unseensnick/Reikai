@@ -203,7 +203,7 @@ class BackupRestorer(
 
         coroutineScope {
             // RK: categories must finish restoring BEFORE manga + app-settings, both of which map to
-            // live categories by name (a manga's category assignments in MangaRestorer.restoreCategories;
+            // live categories by name (a manga's category assignments in MangaRestorer.restore;
             // the default-category pref in PreferenceRestorer). Otherwise an entry restored before its
             // categories exist loses them and lands in Default. Upstream fixes the same race by handing
             // the categories job to those two restorers to await; we await it once here instead, because

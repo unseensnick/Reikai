@@ -73,8 +73,8 @@ class BackupCreateWorker(private val context: Context, workerParams: WorkerParam
                 notifier.showBackupComplete(UniFile.fromUri(context, location.toUri())!!)
             }
             Result.success()
-            // RK: Throwable, not Exception: an out-of-memory backup fails with an Error, which the old
-            // Exception-only catch skipped, so the job died silently with no error shown (unseensnick/Reikai#53).
+            // RK: Throwable, not Exception: an out-of-memory backup fails with an Error, which must still
+            // show the error rather than end the job silently (unseensnick/Reikai#53).
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
             if (!isAutoBackup) notifier.showBackupError(e.message)
