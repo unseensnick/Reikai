@@ -119,9 +119,11 @@ class NovelReaderProvider(
     override fun flushPosition() = viewModel.flushProgress()
 
     // The ids let a source that takes pages save the chapter's text from it.
+    // Two row reads, and the host asks from the main thread.
     override suspend fun chapterWebViewIntent(context: Context, url: String, title: String?, chapterId: Long): Intent =
-        viewModel.novelIdOf(chapterId)?.let { novelId ->
-            val sourceId = viewModel.sourceIdOf(novelId)
+        withIOContext {
+            viewModel.novelIdOf(chapterId)?.let { it to viewModel.sourceIdOf(it) }
+        }?.let { (novelId, sourceId) ->
             WebViewActivity.newNovelChapterIntent(context, url, title, novelId, chapterId, sourceId)
         } ?: WebViewActivity.newIntent(context, url, title = title)
 
@@ -588,7 +590,7 @@ internal data class NovelViewportSettings(
 }
 
 /**
- * The navigator for a novel: hundredths while scrolling, the unit the stored progress is in, on the rail or
+ * The navigator for a novel: whole percents while scrolling, the stored hundredths rounded down, on the rail or
  * slider the setting picks. Paged, the page and count on a horizontal slider, as manga's pager draws them,
  * the rail being for a scrolled column. By [layout] as well as [page], since a paged viewport has reported
  * no page until its first one is shown, and the rail must not flash up meanwhile.

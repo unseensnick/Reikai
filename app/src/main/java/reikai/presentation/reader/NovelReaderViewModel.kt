@@ -99,7 +99,6 @@ import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ChapterRetryCooldown
 import reikai.domain.reader.ReadSessionClock
 import reikai.domain.reader.ReaderProgressWrites
-import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.neighbourChapters
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey
@@ -676,10 +675,6 @@ class NovelReaderViewModel(
     @Volatile
     private var orderedIds: List<Long> = emptyList()
 
-    /** [orderedIds] before the Downloaded only switch narrows it, which is what download-ahead walks. */
-    @Volatile
-    private var aheadIds: List<Long> = emptyList()
-
     /** Which of [orderedIds] a forward step may land on, per the skip settings. A back step ignores it,
      *  so the chapter just finished stays reachable from the one after it. */
     @Volatile
@@ -1215,14 +1210,13 @@ class NovelReaderViewModel(
     }
 
     /** Whether read aloud is playing this series, whose time its own clock counts. */
-    private fun isSpeaking(): Boolean = readAloudSession.state.value.let {
-        it.isOf(novelId, sourceScoped) && it.speech.playback == TtsPlayback.Playing
-    }
+    private fun isSpeaking(state: ReadAloudSessionState = readAloudSession.state.value): Boolean =
+        state.isOf(novelId, sourceScoped) && state.speech.playback == TtsPlayback.Playing
 
     /** One clock at a time: while speech plays, the time is listening, which read aloud counts. */
     private fun holdReadClockWhileSpeaking() {
         readAloudSession.state
-            .map { it.isOf(novelId, sourceScoped) && it.speech.playback == TtsPlayback.Playing }
+            .map(::isSpeaking)
             .distinctUntilChanged()
             .onEach { holdReadClock() }
             .launchIn(viewModelScope)
@@ -1453,7 +1447,6 @@ class NovelReaderViewModel(
         order.copiesToOpen?.let { copiesToOpen = it }
         if (around == currentChapterId) currentChapterId = order.currentId
         gapPresent = order.gapPresent
-        aheadIds = order.aheadIds
         orderedIds = order.orderedIds
         forwardEligibleIds = order.forwardEligibleIds
         readingOrder = order

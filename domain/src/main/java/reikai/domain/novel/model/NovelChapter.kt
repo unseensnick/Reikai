@@ -6,8 +6,8 @@ import kotlin.time.Instant
 
 /**
  * Domain mirror of the `novel_chapters` table. [lastTextProgress] replaces the manga side's
- * `lastPageRead`: scroll progress in hundredths of a percent (0..10000), though the reader writes and
- * resumes it in whole-percent steps.
+ * `lastPageRead`: scroll progress in hundredths of a percent (0..10000), which the reader writes and
+ * resumes at that precision.
  */
 @Immutable
 data class NovelChapter(
