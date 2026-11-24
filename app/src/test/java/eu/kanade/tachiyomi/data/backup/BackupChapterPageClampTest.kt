@@ -1,9 +1,11 @@
 package eu.kanade.tachiyomi.data.backup
 
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
+import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.model.Novel
 import reikai.domain.reader.ChapterProgress
 
 /**
@@ -47,5 +49,12 @@ class BackupChapterPageClampTest {
     @Test
     fun `a negative novel chapter progress restores as not started`() {
         restoredNovel(-5L) shouldBe 0L
+    }
+
+    // The details page lists every page, so an oversized count would build that many keys on every open.
+    @Test
+    fun `a novel page count past the listable maximum restores as the maximum`() {
+        BackupNovel(source = "s", url = "u", totalPages = 2_000_000_000L).toNovelImpl().totalPages shouldBe
+            Novel.MAX_PAGES
     }
 }

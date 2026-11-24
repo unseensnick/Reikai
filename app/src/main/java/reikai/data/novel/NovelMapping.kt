@@ -90,7 +90,7 @@ fun SourceNovel.toNovel(
     chapterFlags = 0L,
     updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
     coverLastModified = null,
-    totalPages = totalPages.toLong(),
+    totalPages = totalPages.toLong().coerceAtMost(Novel.MAX_PAGES),
     notes = "",
     viewerFlags = 0L,
 )

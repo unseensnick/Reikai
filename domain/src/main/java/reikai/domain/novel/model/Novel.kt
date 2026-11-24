@@ -56,6 +56,9 @@ data class Novel(
         get() = favoriteAt != null
 
     companion object {
+        /** Past it a page count from outside the app (a source, a backup) is held, as the details page lists every page. */
+        const val MAX_PAGES = 100_000L
+
         fun create() = Novel(
             id = -1L,
             source = "",
