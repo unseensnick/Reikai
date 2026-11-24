@@ -178,6 +178,13 @@ class BackupFileValidatorTest {
     }
 
     @Test
+    fun `a backup with no novels does not load the plugins`() = runTest {
+        // Strict: loading the registry, or reading it, fails the test.
+        validator(mockk<NovelSourceManager>(), emptyList()).validate(mockk<Uri>()).missingSources shouldBe
+            emptyList()
+    }
+
+    @Test
     fun `a missing manga source backed up with no name is named by its stub`() = runTest {
         val source =
             101 to ProtoBuf.encodeToByteArray(BackupSource.serializer(), BackupSource(name = "", sourceId = 5L))

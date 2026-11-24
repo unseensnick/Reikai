@@ -36,19 +36,19 @@ class BackupFileValidator(
     /**
      * Checks for critical backup file data.
      *
-     * RK: streams the backup field by field (via [BackupProtoReader]) and decodes only the manga,
-     * source, and novel entries it needs, instead of re-inflating the whole file, which OOMs on a
+     * RK: streams the backup field by field (via [BackupProtoReader]) and decodes only the fields
+     * [scan] names, the extension and plugin records included, instead of re-inflating the whole file, which OOMs on a
      * large backup (unseensnick/Reikai#53).
      *
      * @return List of missing sources or missing trackers. RK: and the extensions to install.
      */
     suspend fun validate(uri: Uri): Results {
         // RK --> the novel registry is empty until something loads the plugins, and a cold open straight to
-        // restore is one, so without this every installed novel source reports as missing.
-        novelSourceManager.ensureLoaded()
-
+        // restore is one, so without this every installed novel source reports as missing. Loading
+        // starts every plugin, so a backup with no novels skips it.
         val scanned = scan(uri)
         val (backupSources, trackerIds, novelSources, novelSourceNames) = scanned
+        if (novelSources.isNotEmpty()) novelSourceManager.ensureLoaded()
         // RK <--
 
         val sources = backupSources.associate { it.sourceId to it.name } // RK: streamed
