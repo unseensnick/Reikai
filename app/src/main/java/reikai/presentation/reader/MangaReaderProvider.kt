@@ -167,7 +167,7 @@ class MangaReaderProvider(
         val position = state.position ?: return@map null
         val pages = (position.progress as? ChapterProgress.Pages)?.pageCount?.takeIf { it > 0 } ?: return@map null
         val mangaId = state.manga?.id ?: return@map null
-        val owner = state.currentChapter?.chapter?.takeIf { it.id == position.chapterId }?.mangaId ?: mangaId
+        val owner = state.visibleChapter?.chapter?.takeIf { it.id == position.chapterId }?.mangaId ?: mangaId
         ChapterLength(
             ContentType.MANGA,
             viewModel.seriesIds ?: setOf(mangaId),

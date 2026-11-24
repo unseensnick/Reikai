@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -219,6 +220,26 @@ class MangaReaderProviderTest {
             viewerChapters = ViewerChapters(chapter, prevChapter = null, nextChapter = null),
             position = ReaderPosition(7L, ChapterProgress.Pages(lastPageRead = 0, pageCount = 1)),
         )
+    }
+
+    /** A scroll across a merged series' seam reports the next chapter before the switch to it lands. */
+    @Test
+    fun `a position on the next chapter is recorded as that chapter's owner says`() = runTest {
+        val viewModel = mockk<ReaderViewModel>(relaxed = true) {
+            coEvery { isRecorded(1L) } returns true
+            coEvery { isRecorded(2L) } returns false
+        }
+        val state = ReaderViewModel.State(
+            manga = Manga.create().copy(id = 1L),
+            viewerChapters = ViewerChapters(
+                ReaderChapter(Chapter.create().copy(id = 4L, mangaId = 1L)),
+                prevChapter = null,
+                nextChapter = ReaderChapter(Chapter.create().copy(id = 5L, mangaId = 2L)),
+            ),
+            position = ReaderPosition(5L, ChapterProgress.Pages(lastPageRead = 0, pageCount = 10)),
+        )
+
+        provider(state, viewModel).chapterLength.first()?.recorded shouldBe false
     }
 
     private fun providerOver(state: MutableStateFlow<ReaderViewModel.State>) = MangaReaderProvider(
