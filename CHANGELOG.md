@@ -400,6 +400,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **FlareSolverr keeps its session again after being unreachable when the app first used it.** It had stayed slower until the app restarted.
 - **A novel plugin's own cookies now reach FlareSolverr along with the ones the site set.**
 - **Cookies a FlareSolverr server hands back now keep the lifetime the site gave them.** They had been kept only as long as the cookie store keeps session cookies.
+- **A site that has moved to a new address behind Cloudflare is no longer challenged again on every request after FlareSolverr solves it.**
 - **A page FlareSolverr fetches that shows a block of JSON among its text is no longer replaced by that JSON.**
 - **Light-novel plugins now send the device's browser identity again after it fails to load once, instead of a generic one until the app restarts.**
 - **On older WebView versions, Solve interactive Cloudflare challenges now ticks a box Cloudflare shows again within seconds of the last tick.**

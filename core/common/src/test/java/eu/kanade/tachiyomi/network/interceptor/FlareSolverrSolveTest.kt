@@ -1,10 +1,12 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import com.sun.net.httpserver.HttpServer
+import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.mockk.every
 import io.mockk.mockk
 import okhttp3.Cookie
 import okhttp3.CookieJar
@@ -136,6 +138,24 @@ class FlareSolverrSolveTest {
         resolve().close()
 
         client.pinnedUserAgentFor(page) shouldBe "SolverUA"
+    }
+
+    // CookieManager drops a cookie set under a url its Domain does not match, so they go under the landed page.
+    @Test
+    fun `a solve redirected to another site stores that site's cookies and pins it`() {
+        solution = """{"url": "https://moved.example/", "status": 200, "response": "page", "userAgent": "SolverUA",""" +
+            """ "cookies": [{"name": "cf_clearance", "value": "c", "domain": ".moved.example"}]}"""
+        preferences.enableFlareSolverr.set(true)
+        val jar = mockk<AndroidCookieJar>(relaxed = true)
+        val stored = mutableListOf<Pair<String, String>>()
+        every { jar.saveCookieString(any(), any()) } answers { stored += firstArg<HttpUrl>().host to secondArg() }
+
+        FlareSolverrClient(jar, preferences).apply {
+            resolve(page, CookieJar.NO_COOKIES).close()
+
+            stored shouldBe listOf("moved.example" to "cf_clearance=c; Domain=.moved.example; Path=/")
+            pinnedUserAgentFor(Request.Builder().url("https://moved.example/a").build()) shouldBe "SolverUA"
+        }
     }
 
     @Test

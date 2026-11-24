@@ -395,18 +395,22 @@ class FlareSolverrClient(
             throw IOException("FlareSolverr solution status: ${solution.status}")
         }
 
+        // The solver's cookies belong to the page its browser landed on, which a redirect may have moved
+        // to another site, and CookieManager drops a cookie whose Domain does not match the url it is set under.
+        val landedUrl = solution.url.toHttpUrlOrNull() ?: request.url
+        val hosts = setOf(request.url.host, landedUrl.host)
         if (passed) {
             // Best-effort: stash cookies + UA so unrelated future requests to this host can succeed
             // without re-invoking FS. The current request's correctness comes from the synthetic
             // response we build below, not from these.
             cookiesToKeep(solution.cookies, forwarded).forEach { fsCookie ->
-                cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
+                cookieManager.saveCookieString(landedUrl, fsCookie.toRawCookieString(landedUrl.host))
             }
-            pin(request.url.host, solution.userAgent)
+            hosts.forEach { pin(it, solution.userAgent) }
         }
 
-        // Mark this host as known-FS so the next request skips the WebView pre-attempt.
-        fsRequiredHosts.add(request.url.host)
+        // Mark the hosts as known-FS so the next request skips the WebView pre-attempt.
+        fsRequiredHosts.addAll(hosts)
 
         return buildResponseFromFlareSolverr(request, solution)
     }
