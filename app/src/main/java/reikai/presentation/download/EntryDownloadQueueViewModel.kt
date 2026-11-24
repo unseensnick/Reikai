@@ -30,7 +30,6 @@ import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.mixesContentTypes
 import reikai.domain.source.ReikaiSourcePreferences
-import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -162,7 +161,8 @@ class EntryDownloadQueueViewModel(
     }
 
     fun sort(key: DownloadQueueSortKey, descending: Boolean) {
-        appScope.launchIO { providers.values.forEach { it.sort(key, descending) } }
+        // Each writes a whole order read from the queue, so under the reorder lock, or two quick ones land in any order.
+        appScope.launch { reorderLock.withLock { providers.values.forEach { it.sort(key, descending) } } }
     }
 
     fun openSeries(card: EntryDownloadCardUi) {
@@ -182,7 +182,7 @@ class EntryDownloadQueueViewModel(
     }
 
     fun moveChapterToBottom(type: ContentType, chapterId: Long) {
-        appScope.launch { providers[type]?.moveChapterToBottom(chapterId) }
+        appScope.launch { reorderLock.withLock { providers[type]?.moveChapterToBottom(chapterId) } }
     }
 
     private suspend fun EntryDownloadCardUi.withChapterName(): EntryDownloadCardUi {

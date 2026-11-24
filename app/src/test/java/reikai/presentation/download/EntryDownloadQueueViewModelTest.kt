@@ -101,6 +101,40 @@ class EntryDownloadQueueViewModelTest {
         snapshot.value.chapters.map { it.seriesId } shouldBe listOf(SERIES, OTHER)
     }
 
+    /** A sort writes a whole order read from the queue, so the later of two quick ones must land last. */
+    @Test
+    fun `the later of two quick sorts lands last`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val landed = mutableListOf<Boolean>()
+        val manga = mockk<MangaDownloadQueueProvider>(relaxed = true) {
+            every { contentType } returns ContentType.MANGA
+            every { isRunning } returns flowOf(false)
+            every { snapshots } returns MutableStateFlow(seriesSnapshot(listOf(SERIES)))
+            coEvery { sort(any(), any()) } coAnswers {
+                val descending = secondArg<Boolean>()
+                if (!descending) gate.await()
+                landed += descending
+            }
+        }
+        val viewModel = main.track(
+            EntryDownloadQueueViewModel(
+                mangaProvider = manga,
+                novelProvider = provider(ContentType.NOVELS, queued = false),
+                sourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
+                getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(emptyMap()) },
+                appScope = main.trackScope(),
+            ),
+        )
+
+        viewModel.sort(DownloadQueueSortKey.CHAPTER_NUMBER, descending = false)
+        viewModel.sort(DownloadQueueSortKey.CHAPTER_NUMBER, descending = true)
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        landed shouldBe listOf(false, true)
+    }
+
     @Test
     fun `a reorder waiting on the downloader lands after the screen closes`() = runTest {
         val snapshot = MutableStateFlow(seriesSnapshot(listOf(SERIES, OTHER)))
