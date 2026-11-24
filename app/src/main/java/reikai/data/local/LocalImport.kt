@@ -31,6 +31,7 @@ import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.download.NovelDownloadManager
@@ -178,6 +179,7 @@ class LocalImport(
     private val xml: XML,
     private val coverCache: CoverCache,
     private val novelDownloadManager: () -> NovelDownloadManager,
+    private val reconcileMergedChapters: ReconcileMergedChapters,
 ) {
 
     /** Reads each of [uris] and groups them into series; a file that cannot be read is a problem, not a group. */
@@ -384,7 +386,16 @@ class LocalImport(
     }
 
     /** Stores the series the folder [path] now holds, fills in its chapters and, with [favorite], favorites it. */
+    // A local series merged with an online one is stitched again from the chapters this writes.
     private suspend fun add(type: ContentType, path: String, favorite: Boolean, categoryIds: List<Long>): Long =
+        reconcileMergedChapters.afterPass { addUnreconciled(type, path, favorite, categoryIds) }
+
+    private suspend fun addUnreconciled(
+        type: ContentType,
+        path: String,
+        favorite: Boolean,
+        categoryIds: List<Long>,
+    ): Long =
         when (type) {
             ContentType.NOVELS -> {
                 // A series already stored reads its details again, as manga's refresh below does, since the books

@@ -43,6 +43,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.local.LocalNovelSource
@@ -156,6 +157,7 @@ class LocalNovelVolumesTest {
         }
         val chapterMoves = LocalChapterMoveRepositoryImpl(database, tombstoneRepository)
         combine = CombineLocalVolumes(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             mangaRepository = mockk(),
             localManga = mockk(),

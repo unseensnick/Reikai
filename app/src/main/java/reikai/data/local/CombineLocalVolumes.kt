@@ -41,6 +41,7 @@ import reikai.domain.local.localShownVolumeKey
 import reikai.domain.local.localVolumeContainer
 import reikai.domain.local.localVolumeKey
 import reikai.domain.manga.RemoveMangaFromLibrary
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
@@ -150,6 +151,7 @@ class CombineLocalVolumes(
     private val seriesLocks: LocalSeriesLocks,
     private val context: Context,
     @AppCoroutineScope private val appScope: CoroutineScope,
+    private val reconcileMergedChapters: ReconcileMergedChapters,
 ) : LocalVolumeHandBack {
 
     /** The local series of [type] in the library, which a series can be added to as a volume. */
@@ -674,7 +676,12 @@ class CombineLocalVolumes(
         logcat(LogPriority.WARN, e) { "Listing local series $id again failed" }
     }
 
+    // A local series merged with an online one is stitched again from the chapters this writes.
     private suspend fun relistOrThrow(type: ContentType, id: Long) {
+        reconcileMergedChapters.afterPass { relistUnreconciled(type, id) }
+    }
+
+    private suspend fun relistUnreconciled(type: ContentType, id: Long) {
         if (type == ContentType.NOVELS) {
             val novel = novelRepository.getById(id) ?: return
             val source = novelSources.get(novel.source) ?: return

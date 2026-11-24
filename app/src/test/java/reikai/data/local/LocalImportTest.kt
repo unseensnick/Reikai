@@ -34,6 +34,7 @@ import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.SourceNovel
@@ -77,6 +78,7 @@ class LocalImportTest(private val type: ContentType) {
 
     // Storage, the source's own parse and the database are the boundary; each add's favorite write is refused.
     private val localImport = LocalImport(
+        reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
         context = context,
         storageManager = mockk<StorageManager> {
             every { getLocalSourceDirectory() } answers { storageRoot }

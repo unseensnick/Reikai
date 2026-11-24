@@ -59,6 +59,7 @@ import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
 import reikai.domain.manga.RemoveMangaFromLibrary
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.readinglog.NoReadingLog
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
@@ -325,6 +326,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         )
         val organizer = LocalOrganizer(context, journal, chapterMoves, locks, retryScope)
         val combine = CombineLocalVolumes(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             mangaRepository = mangaRepository,
             localManga = source,
@@ -353,6 +355,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             appScope = scope,
         )
         val import = LocalImport(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             storageManager = storage,
             localNovels = mockk(),

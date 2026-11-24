@@ -38,6 +38,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.RemoveMangaFromLibrary
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
@@ -201,6 +202,7 @@ internal class MangaCombineWorld(context: Context) : CombineWorld(ContentType.MA
         )
         val chapterMoves = LocalChapterMoveRepositoryImpl(database, tombstoneRepository)
         import = LocalImport(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             storageManager = storage,
             localNovels = mockk(),
@@ -227,6 +229,7 @@ internal class MangaCombineWorld(context: Context) : CombineWorld(ContentType.MA
             novelDownloadManager = { mockk() },
         )
         combine = CombineLocalVolumes(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             mangaRepository = mangaRepository,
             localManga = source,
@@ -352,6 +355,7 @@ internal class NovelCombineWorld(context: Context) : CombineWorld(ContentType.NO
         }
         val chapterMoves = LocalChapterMoveRepositoryImpl(database, tombstoneRepository)
         import = LocalImport(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             storageManager = storage,
             localNovels = source,
@@ -378,6 +382,7 @@ internal class NovelCombineWorld(context: Context) : CombineWorld(ContentType.NO
             novelDownloadManager = { downloads },
         )
         combine = CombineLocalVolumes(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             mangaRepository = mockk(),
             localManga = mockk(),

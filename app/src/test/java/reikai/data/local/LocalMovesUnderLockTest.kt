@@ -53,6 +53,7 @@ import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.RemoveMangaFromLibrary
+import reikai.domain.merge.ReconcileMergedChapters
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.storage.FakeSafProvider
@@ -199,6 +200,7 @@ class LocalMovesUnderLockTest {
         val mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Added }
         val chapterMoves = LocalChapterMoveRepositoryImpl(database, tombstoneRepository)
         combine = CombineLocalVolumes(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             mangaRepository = mangaRepository,
             localManga = source,
@@ -230,6 +232,7 @@ class LocalMovesUnderLockTest {
         )
         val importJournal = InMemoryLocalFileJournal()
         import = LocalImport(
+            reconcileMergedChapters = ReconcileMergedChapters(mockk(relaxed = true), emptySet()),
             context = context,
             storageManager = storage,
             localNovels = mockk(),
