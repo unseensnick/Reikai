@@ -77,6 +77,15 @@ class ReaderErrorPagesTest {
         compose.onNodeWithText("Retry").assertIsDisplayed()
     }
 
+    /** Worded as a novel's boundary failure is: a source's own exception reads as its text alone. */
+    @Test
+    fun `a neighbour's failure reads as the text it was thrown with`() {
+        next.state = ReaderChapter.State.Error(IllegalStateException("Failed to bypass Cloudflare"))
+        showNeighbours()
+
+        compose.onNodeWithText("Failed to load pages: Failed to bypass Cloudflare").assertIsDisplayed()
+    }
+
     @Test
     fun `Retry retries the neighbour that failed`() {
         prev.state = ReaderChapter.State.Error(Exception("timeout"))

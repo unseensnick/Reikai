@@ -8,7 +8,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.reader.ReaderError
-import eu.kanade.presentation.util.formattedMessage
+import eu.kanade.presentation.util.loadFailureMessage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -29,7 +29,7 @@ internal fun NeighbourChapterRetry(
     val error = failed?.state as? ReaderChapter.State.Error ?: return
     val context = LocalContext.current
     ReaderError(
-        message = stringResource(MR.strings.transition_pages_error, with(context) { error.error.formattedMessage }),
+        message = stringResource(MR.strings.transition_pages_error, with(context) { error.error.loadFailureMessage }),
         onRetry = { onRetry(failed) },
         onOpenInWebView = null,
     )
