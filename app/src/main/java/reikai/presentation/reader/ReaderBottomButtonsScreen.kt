@@ -1,6 +1,5 @@
 package reikai.presentation.reader
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -142,7 +143,7 @@ fun readerBottomButtonsPreference(
 }
 
 @Composable
-private fun ReorderableCollectionItemScope.ButtonRow(
+internal fun ReorderableCollectionItemScope.ButtonRow(
     row: ReaderBottomButtonsViewModel.Row,
     onToggle: () -> Unit,
 ) {
@@ -150,11 +151,12 @@ private fun ReorderableCollectionItemScope.ButtonRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = canHide, onClick = onToggle)
+            .toggleable(value = row.enabled, enabled = canHide, role = Role.Checkbox, onValueChange = { onToggle() })
             .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.extraSmall),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = row.enabled, onCheckedChange = { onToggle() }, enabled = canHide)
+        // No handler of its own, so TalkBack reads the row once, with its name and checked state.
+        Checkbox(checked = row.enabled, onCheckedChange = null, enabled = canHide)
         Text(
             text = stringResource(row.button.stringRes),
             style = MaterialTheme.typography.bodyLarge,

@@ -307,6 +307,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel picture that fails to load now looks the same in both reading modes.**
 - **Novel pictures embedded with a capitalised data address now show in every reading mode and in EPUB exports.**
 - **Split wide pages and Rotate wide pages to fit, with the high quality renderer off, now catch pages made wide by their photo rotation and JPEG 2000 and JPEG XL pages (from Mihon).** Upstream: mihonapp/mihon#4289.
+- **With TalkBack, each row of the reader's Bottom bar buttons list now reads as one checkbox named for its button.**
 
 ### Statistics
 
