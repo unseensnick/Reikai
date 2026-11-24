@@ -56,6 +56,7 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Error
 import reikai.presentation.settings.updateScheduleRows
+import reikai.util.containing
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -144,7 +145,7 @@ data object SettingsEhScreen : SearchableSettings {
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.source_settings),
                 preferenceItems = listOf(
-                    ehIncognitoMode(exhPreferences),
+                    ehIncognitoMode(),
                 ),
             ),
             Preference.PreferenceGroup(
@@ -169,21 +170,16 @@ data object SettingsEhScreen : SearchableSettings {
         )
     }
 
-    // incognito for the built-in E-Hentai sources. The pref drives the switch state; the actual
-    //     effect lives in the shared incognitoExtensions set (see GetIncognitoState's RK island).
+    // Incognito for the built-in E-Hentai sources, drawn from the incognitoExtensions set GetIncognitoState
+    // reads, so a toggle from Browse shows here too.
     @Composable
-    private fun ehIncognitoMode(
-        exhPreferences: ExhPreferences,
-    ): Preference.PreferenceItem.SwitchPreference {
+    private fun ehIncognitoMode(): Preference.PreferenceItem.SwitchPreference {
         val context = LocalContext.current
+        val incognito = remember { context.appGraph.sourcePreferences.incognitoExtensions.containing(EH_PACKAGE) }
         return Preference.PreferenceItem.SwitchPreference(
-            preference = exhPreferences.ehIncognitoMode(),
+            preference = incognito,
             title = stringResource(MR.strings.pref_incognito_mode),
             subtitle = stringResource(MR.strings.pref_incognito_mode_summary),
-            onValueChanged = { newVal ->
-                context.appGraph.toggleIncognito.await(EH_PACKAGE, newVal)
-                true
-            },
         )
     }
 

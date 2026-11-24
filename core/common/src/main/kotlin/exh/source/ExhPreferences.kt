@@ -13,8 +13,6 @@ class ExhPreferences(
 ) {
     fun isHentaiEnabled() = preferenceStore.getBoolean("eh_is_hentai_enabled", false)
 
-    fun ehIncognitoMode() = preferenceStore.getBoolean("eh_incognito_mode", false)
-
     fun enableExhentai() = preferenceStore.getBoolean(Preference.privateKey("enable_exhentai"), false)
 
     fun imageQuality() = preferenceStore.getString("ehentai_quality", "auto")
