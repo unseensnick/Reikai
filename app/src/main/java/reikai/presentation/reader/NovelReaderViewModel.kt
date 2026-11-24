@@ -705,6 +705,23 @@ class NovelReaderViewModel(
     @Volatile
     private var downloadTargets: DownloadTargets = DownloadTargets.OWN
 
+    // Above init, which starts the load on IO: one declared below can still be unassigned when it is read.
+    /** Reads [orderedIds] and the rest of the session's order again, from the chapter being read. */
+    private val orderResolver = NovelReadingOrderResolver(
+        getNextNovelChapter,
+        novelRepo,
+        chapterRepo,
+        copyMarks,
+        novelPreferences,
+        basePreferences,
+        novelDownloadCache,
+        sourceManager,
+    )
+
+    /** The order [resolveReadingOrder] read last, which [chapterAfter] steps through. */
+    @Volatile
+    private var readingOrder: NovelReadingOrder? = null
+
     private val mergeScope = MergeScope.of(sourceScoped)
 
     /** What the navigator's chapter buttons enable on. */
@@ -1410,18 +1427,6 @@ class NovelReaderViewModel(
         }
     }
 
-    /** Reads [orderedIds] and the rest of the session's order again, from the chapter being read. */
-    private val orderResolver = NovelReadingOrderResolver(
-        getNextNovelChapter,
-        novelRepo,
-        chapterRepo,
-        copyMarks,
-        novelPreferences,
-        basePreferences,
-        novelDownloadCache,
-        sourceManager,
-    )
-
     /**
      * Builds the order the reader pages in, by the rule read aloud also steps by: once per session, and again
      * [around] a chapter read aloud moved on to, which leaves the chapter on screen as it is until it loads.
@@ -1439,10 +1444,6 @@ class NovelReaderViewModel(
         forwardEligibleIds = order.forwardEligibleIds
         readingOrder = order
     }
-
-    /** The order [resolveReadingOrder] read last, which [chapterAfter] steps through. */
-    @Volatile
-    private var readingOrder: NovelReadingOrder? = null
 
     /** [shown] as the merge group answers for it, over [pooled], every member's chapters. */
     private fun groupFlags(
