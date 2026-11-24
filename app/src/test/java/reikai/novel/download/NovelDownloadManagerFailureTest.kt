@@ -270,6 +270,17 @@ class NovelDownloadManagerFailureTest {
         NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe emptyList()
     }
 
+    /** Its source back, queueing it again saves it again, though it is still in the queue as failed. */
+    @Test
+    fun `a chapter its missing source took out of the saved queue is saved when queued again`() = runTest(scheduler) {
+        manager.downloadChapters(listOf(uninstalledChapter))
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+
+        manager.downloadChapters(listOf(uninstalledChapter))
+
+        NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe listOf(20L)
+    }
+
     @Test
     fun `a chapter whose installed plugin failed to load fails with the load's reason`() = runTest(scheduler) {
         var reason: String? = null

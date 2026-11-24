@@ -194,22 +194,19 @@ class NovelDownloadManager(
         // again gives it a new order, so a restart would move it last. A failed row is handed back too, for the
         // one a missing source took out of the saved queue; the store keeps a row still saved as it is.
         var added = emptyList<NovelDownload>()
-        _queueState.update { current ->
-            val byId = current.associateByTo(LinkedHashMap()) { it.chapterId }
-            added = targets.filter { t ->
-                val existing = byId[t.chapterId]
-                existing == null || existing.state == NovelDownload.State.ERROR
-            }
-            targets.forEach { t ->
-                val existing = byId[t.chapterId]
+        // Both under the lock, so a dequeue between them cannot leave a row saved that the queue dropped.
+        synchronized(storeLock) {
+            _queueState.update { current ->
+                val byId = current.associateByTo(LinkedHashMap()) { it.chapterId }
                 // Re-queue an errored entry, add a brand-new one, leave a queued/active one alone.
-                if (existing == null || existing.state == NovelDownload.State.ERROR) {
-                    byId[t.chapterId] = t
+                added = targets.filter { t ->
+                    byId[t.chapterId].let { it == null || it.state == NovelDownload.State.ERROR }
                 }
+                added.forEach { byId[it.chapterId] = it }
+                byId.values.toList()
             }
-            byId.values.toList()
+            store.addAll(added)
         }
-        synchronized(storeLock) { store.addAll(added) }
         // Adding downloads implies wanting them, so clear any user pause and (re)start the drain.
         sourcePreferences.novelDownloadsPaused.set(false)
         dismissPausedNotification()
