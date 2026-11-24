@@ -5,7 +5,9 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
+import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 
 /** The rule every Reikai chapter row reads its download state by, for manga and novels alike. */
 class DownloadStateOfTest {
@@ -35,5 +37,17 @@ class DownloadStateOfTest {
         var diskReads = 0
         downloadStateOf(Download.State.QUEUE) { diskReads++ > 0 }
         diskReads shouldBe 0
+    }
+
+    @ParameterizedTest(name = "{0} on a row offering a download: {1}")
+    @CsvSource(
+        "Download, true, Download",
+        "Download, false, Disabled",
+        "ToggleRead, false, ToggleRead",
+        "ToggleBookmark, false, ToggleBookmark",
+    )
+    @DisplayName("only a Download swipe goes with the download control")
+    fun swipeWhereDownloadOffered(swipe: ChapterSwipeAction, offersDownload: Boolean, expected: ChapterSwipeAction) {
+        swipe.whereDownloadOffered(offersDownload) shouldBe expected
     }
 }
