@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.HttpSource
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.mockk.coEvery
@@ -191,23 +192,25 @@ class NovelImageRequestsTest {
     /** A Cloudflare clearance is tied to the agent that earned it, so the WebView must pass as the fetches. */
     @Test
     fun `an LNReader source's WebView sends the user agent its fetches send`() {
-        pluginWebViewHeaders("p", emptyMap()) { "Device UA" } shouldBe mapOf("user-agent" to "Device UA")
+        pluginWebViewHeaders("p") { "Device UA" } shouldBe mapOf("user-agent" to "Device UA")
     }
 
+    /** Its fetches send the device agent whatever its pictures ask for, so the WebView must too. */
     @Test
-    fun `a plugin that sets its own user agent has its WebView send that one`() {
-        pluginWebViewHeaders("p", mapOf("user-agent" to "Plugin UA")) { "Device UA" } shouldBe
-            mapOf("user-agent" to "Plugin UA")
+    fun `a plugin's picture user agent does not reach its WebView`() = runTest {
+        val identity = LnSourceIdentity(name = "P", site = ON_SITE, imageHeaders = mapOf("User-Agent" to "Picture UA"))
+
+        requests(seen = mapOf("p" to identity)).webViewHeaders("p", ON_SITE)["user-agent"] shouldNotBe "Picture UA"
     }
 
     @Test
     fun `an app source's WebView takes no plugin user agent`() {
-        pluginWebViewHeaders("tachiyomi:42", emptyMap()) { "Device UA" } shouldBe emptyMap()
+        pluginWebViewHeaders("tachiyomi:42") { "Device UA" } shouldBe emptyMap()
     }
 
     @Test
     fun `an unknown device user agent sends none rather than an empty one`() {
-        pluginWebViewHeaders("p", emptyMap()) { "" } shouldBe emptyMap()
+        pluginWebViewHeaders("p") { "" } shouldBe emptyMap()
     }
 
     private fun apkWithToken() = novelApp(apkSource(headersOf("X-Token", "secret")))

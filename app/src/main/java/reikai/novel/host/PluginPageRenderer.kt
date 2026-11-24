@@ -10,6 +10,7 @@ import android.webkit.WebViewClient
 import eu.kanade.tachiyomi.network.interceptor.isSameOrigin
 import eu.kanade.tachiyomi.util.system.getHtml
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -70,7 +71,8 @@ internal class PluginPageRenderer(private val appContext: Context) {
         var loaded = false
         val webView = WebView(appContext).apply {
             setDefaultSettings()
-            request.userAgent?.takeIf { it.isNotBlank() }?.let { settings.userAgentString = it }
+            // Through setUserAgent, so the client hints name the same browser as the agent.
+            request.userAgent?.takeIf { it.isNotBlank() }?.let(::setUserAgent)
             webViewClient = object : WebViewClient() {
                 // Subframes are let through: a verification widget loads its own frame from another site.
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
