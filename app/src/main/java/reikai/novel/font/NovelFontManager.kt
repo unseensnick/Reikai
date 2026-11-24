@@ -208,7 +208,9 @@ class NovelFontManager(
         if (readerFontSource(family) !is ReaderFontSource.UserFile) return
         withIOContext {
             val mirror = mirror(family)
-            if (typefaces[family]?.version != mirror?.fontVersion()) typefaces[family] = faceOf(family, mirror)
+            val cached = typefaces[family]
+            // A miss is stored too: both versions are null for a font whose file has gone.
+            if (cached == null || cached.version != mirror?.fontVersion()) typefaces[family] = faceOf(family, mirror)
         }
     }
 

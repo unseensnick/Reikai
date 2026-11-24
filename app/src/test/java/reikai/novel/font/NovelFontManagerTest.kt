@@ -34,6 +34,26 @@ class NovelFontManagerTest {
         mirrored.exists() shouldBe true
     }
 
+    /** The count is the behaviour: a first render reads the face on the main thread, so it must find the miss. */
+    @Test
+    fun `a warmed font whose file has gone asks storage no more when drawn`() = runTest {
+        var lookups = 0
+        val context = mockk<Context> { every { filesDir } returns appFiles }
+        val storage = mockk<StorageManager> {
+            every { getFontsDirectory() } answers {
+                lookups++
+                null
+            }
+        }
+        val manager = NovelFontManager(context, storage, mockk(), mockk())
+        manager.warm("Gone.ttf")
+        val warmed = lookups
+
+        manager.typeface("Gone.ttf")
+
+        lookups shouldBe warmed
+    }
+
     /** The picker's preview and the renderer can copy one font at once, and a face read half-written is lost. */
     @Test
     fun `a font being copied is not where the reader reads it until the copy is whole`() = runTest {
