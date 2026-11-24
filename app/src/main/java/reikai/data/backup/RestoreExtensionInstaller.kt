@@ -11,6 +11,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.extension.repository.ExtensionStoreRepository
+import reikai.novel.host.loggableUrl
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRepoRegistries
@@ -87,7 +88,7 @@ class RestoreExtensionInstaller(
         runCatchingCancellable { pluginInstaller.installFromUrl(entry.url, entry.toMetadata()) }.fold(
             onSuccess = { Reason.Installed },
             onFailure = {
-                logcat(LogPriority.WARN, it) { "Plugin restore failed: ${entry.url}" }
+                logcat(LogPriority.WARN, it) { "Plugin restore failed: ${loggableUrl(entry.url)}" }
                 Reason.InstallFailed
             },
         )

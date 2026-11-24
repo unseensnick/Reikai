@@ -5,6 +5,7 @@ import dev.icerock.moko.resources.StringResource
 import kotlinx.serialization.SerializationException
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
+import reikai.novel.host.loggableUrl
 import reikai.util.firstCause
 import reikai.util.rootMessage
 import tachiyomi.core.common.i18n.stringResource
@@ -100,4 +101,4 @@ fun Map<String, LnPluginLoadFailure>.unreachable(sourceId: String, context: Cont
 
 /** An installed plugin whose script is not stored and could not be fetched again at its installed version. */
 class LnPluginScriptMissingException(url: String, cause: Throwable) :
-    Exception("no installed script for $url", cause)
+    Exception("no installed script for ${loggableUrl(url)}", cause)
