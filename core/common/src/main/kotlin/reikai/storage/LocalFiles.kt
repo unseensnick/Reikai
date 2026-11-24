@@ -186,8 +186,10 @@ internal inline fun UniFile.writeInFlight(
     expectedLength: Long?,
     write: (OutputStream) -> Unit,
 ): UniFile {
-    val stale = listed.firstOrNull { it.name == name + IN_FLIGHT_SUFFIX }?.also { it.deleteFile() }
-    return writeNew(context, listed.filter { it !== stale }, name + IN_FLIGHT_SUFFIX, expectedLength, write)
+    val inFlight = name + IN_FLIGHT_SUFFIX
+    // In any letter case, since createFresh refuses the name in any case and a leftover would block it for good
+    val stale = listed.firstOrNull { it.name.equals(inFlight, ignoreCase = true) }?.also { it.deleteFile() }
+    return writeNew(context, listed.filter { it !== stale }, inFlight, expectedLength, write)
 }
 
 /**

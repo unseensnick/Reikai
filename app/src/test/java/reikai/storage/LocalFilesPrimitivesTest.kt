@@ -123,6 +123,15 @@ class LocalFilesPrimitivesTest {
     }
 
     @Test
+    fun `replace clears an in-flight file a killed write left in another letter case`() {
+        File(series, "B.cbz_tmp").writeText("half of an attempt under the old case")
+
+        picked().replace(context, "b.cbz") { it.write("X".toByteArray()) }
+
+        (File(series, "b.cbz").readText() to names()) shouldBe ("X" to listOf("a.cbz", "b.cbz"))
+    }
+
+    @Test
     fun `replace keeps the earlier file when the write fails`() {
         shouldThrow<IOException> { picked().replace(context, "b.cbz") { throw IOException("cut") } }
 
