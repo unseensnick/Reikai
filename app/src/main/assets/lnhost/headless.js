@@ -899,8 +899,16 @@
   });
   var defaultCover =
     "https://github.com/LNReader/lnreader-sources/blob/main/icons/no-cover.jpg?raw=true";
+  // LNReader's own rule, which plugins build URLs by: protocol-relative is absolute, a scheme with no host
+  // (data:, localhost:8080) is not. Its last step is the only one that can say absolute.
   function isUrlAbsolute(url) {
-    return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url);
+    if (!url) return false;
+    if (url.indexOf("//") === 0) return true;
+    if (url.indexOf("://") === -1) return false;
+    if (url.indexOf(".") === -1) return false;
+    if (url.indexOf("/") === -1) return false;
+    if (url.indexOf(":") > url.indexOf("/")) return false;
+    return url.indexOf("://") < url.indexOf(".");
   }
   function utf8ToBytes(s) {
     return Array.from(new TextEncoder().encode(s));
