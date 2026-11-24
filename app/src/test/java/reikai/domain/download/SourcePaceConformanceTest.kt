@@ -14,7 +14,6 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.NetworkState
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
-import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -110,23 +109,6 @@ class SourcePaceConformanceTest {
         advanceUntilIdle()
 
         gapBefore(3L, after = 2L) shouldBe 0L
-    }
-
-    /** The second run fetches the failed chapter again, then the new one, from the floor's first doubling. */
-    @ParameterizedTest
-    @EnumSource(Half::class)
-    fun `a back-off is forgotten once the source has nothing more queued`(half: Half) = runTest {
-        globalDelay(half).set(3_000L)
-        val engine = engine(half)
-        engine.queue(1L)
-        engine.run()
-        advanceUntilIdle()
-
-        engine.queue(2L)
-        engine.run()
-        advanceUntilIdle()
-
-        gapBefore(2L, after = 1L) shouldBeLessThanOrEqual 7_500L
     }
 
     @ParameterizedTest

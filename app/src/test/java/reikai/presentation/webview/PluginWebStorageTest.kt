@@ -9,6 +9,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -128,6 +129,17 @@ class PluginWebStorageTest {
         advanceUntilIdle()
 
         verify { host.storeWebStorage("plugin", SITE_STORAGE) }
+    }
+
+    // The browser can be restored before the first plugin load pass finishes; a sign-in made then must be captured.
+    @Test
+    fun `the browser reads storage while its plugin is still being resolved`() = runTest {
+        val sourceManager = mockk<NovelSourceManager>()
+        coEvery { sourceManager.get("plugin") } coAnswers { awaitCancellation() }
+        val model = PluginWebStorageViewModel("plugin", sourceManager, mockk(), appScope())
+        advanceUntilIdle()
+
+        model.capturesStorage shouldBe true
     }
 
     // Reading the page's storage runs on Main after every page load, so a plugin that never uses it is spared.

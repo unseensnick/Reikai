@@ -6,6 +6,7 @@ import androidx.core.content.ContextCompat
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.util.system.WebViewUtil
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -234,7 +235,7 @@ class CloudflareInterceptorTest {
 
         runBounded { interceptor.intercept(chain) }
 
-        loaded.get()?.header("Authorization") shouldBe null
+        loaded.get().shouldNotBeNull().header("Authorization") shouldBe null
     }
 
     private fun setServer(server: FlareSolverrClient) {
