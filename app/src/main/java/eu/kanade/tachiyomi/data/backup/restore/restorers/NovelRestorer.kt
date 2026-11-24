@@ -324,7 +324,7 @@ class NovelRestorer(
         prefEra: PrefEraGrouping<BackupNovelSourceRef>?,
     ) {
         restoreMergeGroups.fromBackup(ContentType.NOVELS, merges.map { it.refs }, prefEra) {
-            novelRepository.getByUrlAndSource(it.url, it.source)?.id
+            restoredId(it.source, it.url)
         }
     }
 

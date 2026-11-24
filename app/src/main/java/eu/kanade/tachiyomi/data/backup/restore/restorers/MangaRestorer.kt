@@ -127,7 +127,7 @@ class MangaRestorer(
         ranked: List<List<BackupMangaSourceRef>> = emptyList(),
     ) {
         restoreMergeGroups.fromBackup(ContentType.MANGA, merges.map { it.refs }, prefEra, ranked) {
-            getMangaByUrlAndSourceId.await(it.url, it.source)?.id
+            restoredId(it.source, it.url)
         }
     }
 
