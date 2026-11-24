@@ -30,12 +30,14 @@ class SetReadStatus(
         }
     }
 
+    // RK --> keepDownloaded: chapters the reader has open, whose pages may still load from their download, are
+    // not removed
     suspend fun await(
         read: Boolean,
         vararg chapters: Chapter,
-        // RK: chapters the reader has open, whose pages may still load from their download, are not removed
         keepDownloaded: Set<Long> = emptySet(),
     ): Result {
+        // RK <--
         val chaptersToUpdate = chapters.filter {
             when (read) {
                 true -> !it.read

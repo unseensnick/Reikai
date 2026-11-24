@@ -264,7 +264,7 @@ open class MainActivity : BaseActivity() { // RK
 
             var incognito by remember { mutableStateOf(false) }
             val downloadOnly by preferences.downloadedOnly.collectAsState()
-            val mangaIndexing by downloadCache.isInitializing.collectAsState()
+            val mangaIndexing by downloadCache.isInitializing.collectAsState() // RK
             val novelIndexing by novelDownloadCache.isInitializing.collectAsState() // RK
             val indexing = mangaIndexing || novelIndexing // RK
             // RK --> a running library update or restore, which the indexing banner shows

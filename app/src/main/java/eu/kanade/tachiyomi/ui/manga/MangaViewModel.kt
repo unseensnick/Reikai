@@ -608,8 +608,8 @@ class MangaViewModel(
             isRefreshingData = isRefreshingData,
             dialog = dialog,
             hideMissingChapters = hideMissingChapters,
-            downloadedOnly = view.downloadedOnly,
             // RK -->
+            downloadedOnly = view.downloadedOnly,
             showHidden = view.hidden.showHidden,
             hasHiddenChapters = view.hidden.hasHiddenChapters,
             hiddenChapterIds = view.hidden.hiddenChapterIds,

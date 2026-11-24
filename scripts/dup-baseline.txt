@@ -9,8 +9,8 @@
 #   proto shapes share field numbers on purpose; pinned by BackupCustomInfoConformanceTest and
 #   BackupDatesConformanceTest.
 # - NovelBackupCreator, NovelRestorer and the novel models beside them (NovelDownloadManager, the
-#   novel library, details and reader models, StatsLibrary, LocalImport): constructor parameter lists naming the
-#   same repositories, with no logic shared.
+#   novel library, details and reader models, the read aloud session, StatsLibrary, LocalImport): constructor
+#   parameter lists naming the same repositories, with no logic shared.
 # - MangaBackupCreator / NovelBackupCreator: each one's BackupEntryParts list reads (favorites, identity, the
 #   two outside-the-library lists), each from its own engine's repositories; the driver holds the logic.
 # - SyncChaptersWithSource / NovelChapterSync: each engine's sync calling the LocalChapterTombstones
@@ -140,7 +140,6 @@ app/src/main/java/reikai/presentation/reader/MangaReaderProvider.kt	app/src/main
 app/src/main/java/reikai/presentation/reader/NovelReaderViewModel.kt	app/src/main/java/reikai/presentation/reader/ReadAloudSession.kt	3013660d7883682d
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	43d49dde0e7bf076
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	539f14a99e1aa122
-app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	5643a88af593f4c0
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	750aff36b6561528
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	880892cb7cac9418
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	f15210d87539d1e3

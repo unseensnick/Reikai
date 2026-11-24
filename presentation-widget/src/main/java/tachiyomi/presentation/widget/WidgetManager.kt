@@ -48,7 +48,7 @@ class WidgetManager(
             .flatMapLatest { hasWidgets ->
                 if (hasWidgets) {
                     combine(
-                        // RK: under the library's merging switch, which decides what a hidden member hides
+                        // RK --> under the library's merging switch, which decides what a hidden member hides
                         perSeries.seriesMerging.flatMapLatest {
                             getUpdates.subscribe(
                                 read = false,
@@ -56,6 +56,7 @@ class WidgetManager(
                                 seriesMerging = it,
                             )
                         },
+                        // RK <--
                         securityPreferences.useAuthenticator.changes(),
                         transform = { a, b -> a to b },
                     )

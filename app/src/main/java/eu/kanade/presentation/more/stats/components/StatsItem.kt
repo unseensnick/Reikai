@@ -16,12 +16,13 @@ import androidx.compose.ui.text.style.TextAlign
 import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
 
+// RK --> one item in place of upstream's StatsOverviewItem and StatsItem, with no icon and the overview's
+// sizes, so the number cards read alike side by side
 @Composable
 fun RowScope.StatsItem(
     title: String,
     subtitle: String,
 ) {
-    // RK: the overview's sizes, so the number cards read alike side by side
     BaseStatsItem(
         title = title,
         titleStyle = MaterialTheme.typography.titleLarge,
@@ -29,6 +30,7 @@ fun RowScope.StatsItem(
         subtitleStyle = MaterialTheme.typography.bodyMedium,
     )
 }
+// RK <--
 
 @Composable
 private fun RowScope.BaseStatsItem(
