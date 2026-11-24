@@ -3,8 +3,9 @@ package reikai.domain.download
 import reikai.domain.category.orUncategorized
 
 /**
- * Whether the categories kept from download removal cover an entry, the one rule every removal path of
- * both content types honours. An uncategorized entry sits in Default (id 0).
+ * Whether the categories kept from download removal cover an entry, the one rule every automatic
+ * removal path of both content types honours; a manual Delete skips it. An uncategorized entry sits
+ * in Default (id 0).
  * [categoryIds] is only asked when something is excluded, so the common case costs no lookup.
  */
 private suspend fun isExcludedFromRemoval(excluded: Set<String>, categoryIds: suspend () -> List<Long>): Boolean {

@@ -9,6 +9,8 @@ import reikai.novel.content.NovelImageSources
 import reikai.novel.network.NovelImageClient
 import reikai.util.runCatchingCancellable
 
+private const val MAX_INLINE_BYTES = 5L * 1024 * 1024
+
 /**
  * Inlines a downloaded chapter's images as `data:` URIs so the saved HTML is self-contained and reads
  * offline without file access. Base64 into the HTML rather than LNReader's separate files plus a
@@ -17,8 +19,6 @@ import reikai.util.runCatchingCancellable
  * `setAllowFileAccessFromFileURLs`, which the security rules forbid. Chapters are mostly text, so the
  * roughly 33% inflation is negligible; a per-image failure leaves the original `src`.
  */
-private const val MAX_INLINE_BYTES = 5L * 1024 * 1024
-
 suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelImageClient): String {
     // As a fragment, as the reader parses a chapter: a whole-document parse moves a leading <style>, <script>
     // or <link> into a head this never writes out, so a chapter with a picture lost its styling.

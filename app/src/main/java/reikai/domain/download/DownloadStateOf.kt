@@ -18,7 +18,7 @@ inline fun downloadStateOf(queued: Download.State?, isOnDisk: () -> Boolean): Do
 
 /**
  * What a Download swipe does, decided by what the row's indicator is already showing, for every
- * Reikai row of both content types. MangaViewModel keeps upstream's copy of this mapping.
+ * row of both content types, the manga details list included.
  */
 fun Download.State.swipeDownloadAction(): ChapterDownloadAction = when (this) {
     Download.State.NOT_DOWNLOADED, Download.State.ERROR -> ChapterDownloadAction.START_NOW

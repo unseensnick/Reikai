@@ -8,7 +8,7 @@ import org.junit.jupiter.params.provider.CsvSource
 
 /**
  * What a Download swipe does at each state the indicator can be in. Pinned once because every Reikai
- * row runs this one function: Recents, the novel details list and both readers' chapter sheets.
+ * row runs this one function: Recents, both details lists and both readers' chapter sheets.
  */
 class SwipeDownloadActionTest {
 
