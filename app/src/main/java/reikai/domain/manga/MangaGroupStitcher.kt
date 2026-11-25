@@ -77,11 +77,19 @@ class MangaGroupStitcher(
         return group.chaptersBySource[trunk].orEmpty().associate { it.id to it.chapterNumber }
     }
 
-    override suspend fun rankings(): Map<Long, String> =
-        rankingStamps(
-            mergeGroupRepository.getRankedMangaMembers(),
-            reikaiLibraryPreferences.preferredMangaSources.get(),
-        )
+    /** The ranking stamps, each also naming the members on a gallery source: whether a source is one decides
+     *  which chapters pair, and the answer moves when its extension or the gallery switch comes and goes. */
+    override suspend fun rankings(): Map<Long, String> {
+        val members = mergeGroupRepository.getRankedMangaMembers()
+        val isGallery = members.map { it.sourceId }.distinct()
+            .associateWith { GallerySources.isGallerySource(it, sourceManager) }
+        val galleries = members.filter { isGallery.getValue(it.sourceId) }.groupBy({ it.groupId }, { it.memberId })
+        return rankingStamps(members, reikaiLibraryPreferences.preferredMangaSources.get())
+            .mapValues { (groupId, stamp) ->
+                galleries[groupId]?.let { "$stamp|${it.sorted().joinToString(",")}" }
+                    ?: stamp
+            }
+    }
 
     private class Inputs(
         val chaptersBySource: Map<Long, List<Chapter>>,

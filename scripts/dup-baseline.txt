@@ -107,7 +107,7 @@ app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/jav
 app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	app/src/main/java/reikai/novel/export/NovelEpubExportWorker.kt	a22d3ead731f9d1c
 app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractors.kt	app/src/main/java/reikai/domain/novel/updateerror/NovelUpdateErrorInteractors.kt	2f49a3018a725c47
 app/src/main/java/reikai/domain/manga/MangaChapterSettings.kt	app/src/main/java/reikai/domain/novel/NovelChapterSettings.kt	300b40388ffade53
-app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt	app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt	f00a33784842587b
+app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt	app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt	2540121439a90c61
 app/src/main/java/reikai/domain/manga/MergedChapterProvider.kt	app/src/main/java/reikai/domain/novel/NovelMergedChapterProvider.kt	588bb6e0dece2b9e
 app/src/main/java/reikai/domain/manga/PropagateTrackerLinks.kt	app/src/main/java/reikai/domain/novel/track/PropagateNovelTrackerLinks.kt	e388e1016493e46c
 app/src/main/java/reikai/domain/manga/RemoveMangaFromLibrary.kt	app/src/main/java/reikai/domain/novel/interactor/RemoveNovelsFromLibrary.kt	0c32cb6f9bcb58d2
