@@ -8,14 +8,14 @@ import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.reader.ChapterProgress
 import tachiyomi.domain.chapter.model.Chapter
 import kotlin.time.Instant
 
 /**
- * The chapter sheet says how far into a chapter reading got, for both types, in the unit each reader
- * counts, and titles its rows the way the details list does. The wording rules themselves are pinned on
- * the shared helpers; this proves each sheet goes through them, since the manga sheet once passed
- * nothing at all.
+ * The chapter sheet carries how far into a chapter reading got, for both types, in the unit each reader
+ * counts, and titles its rows the way the details list does. The wording is readProgressLabel's, pinned on
+ * its own helpers; this proves each sheet hands it the stored progress.
  */
 class ReaderChapterRowProgressTest {
 
@@ -24,15 +24,15 @@ class ReaderChapterRowProgressTest {
     fun `a started chapter's row says how far in reading got`(probe: ChapterRowProgressProbe) {
         val row = probe.row(started = true)
 
-        row.readProgress shouldBe probe.startedLabel
+        row.progress shouldBe probe.startedProgress
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `an unstarted chapter's row carries no progress`(probe: ChapterRowProgressProbe) {
+    fun `an unstarted chapter's row reads as not started`(probe: ChapterRowProgressProbe) {
         val row = probe.row(started = false)
 
-        row.readProgress shouldBe null
+        row.progress?.hasStarted shouldBe false
     }
 
     @ParameterizedTest(name = "{0}")
@@ -67,7 +67,7 @@ class ReaderChapterRowProgressTest {
 
 /** One content type's sheet row, built from a chapter either started or never opened. */
 interface ChapterRowProgressProbe {
-    val startedLabel: String
+    val startedProgress: ChapterProgress
 
     fun row(started: Boolean, numberOnly: Boolean = false, number: Double = 3.0): ReaderChapterRow
 }
@@ -86,8 +86,7 @@ class MangaRowProgressProbe : ChapterRowProgressProbe {
 
     override fun toString() = "manga"
 
-    // Page 6 of 38: a page is stored zero-based.
-    override val startedLabel = "Page: 6/38"
+    override val startedProgress = ChapterProgress.Pages(lastPageRead = 5, pageCount = 38)
 
     override fun row(started: Boolean, numberOnly: Boolean, number: Double): ReaderChapterRow {
         val chapter = Chapter.create().copy(
@@ -113,7 +112,7 @@ class NovelRowProgressProbe : ChapterRowProgressProbe {
 
     override fun toString() = "novel"
 
-    override val startedLabel = "42%"
+    override val startedProgress = ChapterProgress.Percent(4200L)
 
     override fun row(started: Boolean, numberOnly: Boolean, number: Double): ReaderChapterRow {
         val chapter = NovelChapter(

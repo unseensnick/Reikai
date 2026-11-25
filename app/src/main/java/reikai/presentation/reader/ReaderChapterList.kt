@@ -23,8 +23,6 @@ data class ReaderChapterRow(
     val subtitle: String?,
     /** Null where the source dated nothing; formatted by the sheet so both types read alike. */
     val dateUpload: Instant?,
-    /** How far into an unread chapter the reader got, already worded ("42%", "Page 3"), or null. */
-    val readProgress: String?,
     override val progress: ChapterProgress?,
     override val read: Boolean,
     override val bookmark: Boolean,

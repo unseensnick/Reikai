@@ -117,7 +117,6 @@ import reikai.novel.source.NovelPageFetcher
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
-import reikai.presentation.components.percentProgressLabel
 import reikai.presentation.components.savedPictureFolder
 import reikai.presentation.details.novelChapterVolume
 import reikai.presentation.reader.text.InFlightLoads
@@ -1676,8 +1675,6 @@ internal fun NovelChapter.toReaderChapterRow(
         title = chapterRowTitle(name, chapterNumber, numberOnly, words),
         subtitle = chapterSubtitle(sourceNames[novelId], scanlator),
         dateUpload = dateUpload,
-        readProgress = percentProgressLabel(lastTextProgress)
-            ?.let { (resource, args) -> words.pageProgress(resource, args) },
         progress = ChapterProgress.Percent(lastTextProgress),
         read = flags.isRead(this),
         bookmark = flags.isBookmarked(this),

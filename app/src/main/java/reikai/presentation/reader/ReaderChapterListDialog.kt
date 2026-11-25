@@ -34,6 +34,7 @@ import reikai.domain.download.whereDownloadOffered
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.progressWhileUnread
+import reikai.presentation.components.readProgressLabel
 import reikai.presentation.details.EntryChapterListItem
 import reikai.presentation.details.VolumeHeader
 import reikai.presentation.details.duplicateIndexByKey
@@ -158,7 +159,7 @@ fun ReaderChapterListDialog(
                     MangaChapterListItem(
                         title = row.volume?.takeIf { listed.size > rows.size }?.titleOf(row.title) ?: row.title,
                         date = chapterRowDate(row.dateUpload, undatedChapterDate),
-                        readProgress = progressWhileUnread(row.readProgress, read),
+                        readProgress = readProgressLabel(progressWhileUnread(row.progress, read)),
                         scanlator = row.subtitle,
                         read = read,
                         bookmark = bookmark,

@@ -43,7 +43,6 @@ import reikai.domain.reader.ReaderProgressLook
 import reikai.domain.reader.pageIndex
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
-import reikai.presentation.components.pageProgressLabel
 import reikai.presentation.details.mangaDetailsIntent
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -412,8 +411,6 @@ internal fun ReaderChapterItem.toReaderChapterRow(
         subtitle = chapterSubtitle(sourceName, chapter.scanlator),
         dateUpload = chapter.dateUpload,
         // Mihon has no reader chapter sheet; this follows its details list, which shows the page.
-        readProgress = pageProgressLabel(chapter.lastPageRead, chapter.pageCount)
-            ?.let { (resource, args) -> words.pageProgress(resource, args) },
         progress = ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount),
         read = flags.isRead(chapter),
         bookmark = flags.isBookmarked(chapter),

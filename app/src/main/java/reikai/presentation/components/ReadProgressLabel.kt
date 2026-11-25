@@ -8,8 +8,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * How far into a chapter reading stopped, written out in whichever unit the engine behind it counts.
- * The one line every chapter row draws (recents, details), so a rounding or a hide-at-zero rule cannot
- * differ by content type or by surface.
+ * The one line every chapter row draws (recents, details, the reader sheet), so a rounding or a
+ * hide-at-zero rule cannot differ by content type or by surface.
  */
 @Composable
 fun readProgressLabel(progress: ChapterProgress?): String? = when (progress) {

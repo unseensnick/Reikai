@@ -47,7 +47,6 @@ class ReaderChapterListDialogTest {
         title = "Chapter $id",
         subtitle = null,
         dateUpload = null,
-        readProgress = null,
         progress = null,
         read = false,
         bookmark = false,
