@@ -105,7 +105,7 @@ class EntryMergeGroupHost(
      * splitting one sibling away should not knock the user off the chip they were reading.
      */
     fun setRelated(ids: LongArray) {
-        _state.value = GroupState(ids, _state.value.selected?.takeIf { it in ids })
+        _state.update { GroupState(ids, it.selected?.takeIf { selected -> selected in ids }) }
     }
 
     /** Show one grouped source's chapters, or pass null for the unified ("All") list. An id that is
