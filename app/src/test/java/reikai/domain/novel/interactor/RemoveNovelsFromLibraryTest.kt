@@ -47,7 +47,7 @@ class RemoveNovelsFromLibraryTest {
 
     private fun removal(coverCache: CoverCache): RemoveNovelsFromLibrary {
         val repository = mockk<NovelRepository>(relaxed = true) {
-            coEvery { getById(novel.id) } returns novel
+            coEvery { getByIds(listOf(novel.id)) } returns listOf(novel)
             coEvery { updateAll(any()) } returns true
         }
         return RemoveNovelsFromLibrary(

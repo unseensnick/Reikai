@@ -101,8 +101,7 @@ class NovelBackupCreator(
     override suspend fun readNotInLibrary(): List<Novel> = novelRepository.getReadNovelsNotInLibrary()
 
     override suspend fun groupMembersOutsideLibrary(): List<Novel> =
-        mergeGroupRepository.getAllMemberships(ContentType.NOVELS).keys
-            .mapNotNull { novelRepository.getById(it) }
+        novelRepository.getByIds(mergeGroupRepository.getAllMemberships(ContentType.NOVELS).keys.toList())
             .filterNot { it.favorite }
 
     override suspend fun base(entries: List<Novel>): List<BackupNovel> {

@@ -39,8 +39,8 @@ class MangaMetadataRepositoryImpl(
         return database.search_tagsQueries.selectByMangaId(id, ::searchTagMapper).subscribeToList()
     }
 
-    override suspend fun getAllTags(): List<SearchTag> {
-        return database.search_tagsQueries.selectAll(::searchTagMapper).awaitAsList()
+    override fun subscribeAllTags(): Flow<List<SearchTag>> {
+        return database.search_tagsQueries.selectAll(::searchTagMapper).subscribeToList()
     }
 
     override suspend fun getTitlesById(id: Long): List<SearchTitle> {
@@ -51,8 +51,8 @@ class MangaMetadataRepositoryImpl(
         return database.search_titlesQueries.selectByMangaId(id, ::searchTitleMapper).subscribeToList()
     }
 
-    override suspend fun getAllTitles(): List<SearchTitle> {
-        return database.search_titlesQueries.selectAll(::searchTitleMapper).awaitAsList()
+    override fun subscribeAllTitles(): Flow<List<SearchTitle>> {
+        return database.search_titlesQueries.selectAll(::searchTitleMapper).subscribeToList()
     }
 
     override suspend fun insertFlatMetadata(flatMetadata: FlatMetadata) {

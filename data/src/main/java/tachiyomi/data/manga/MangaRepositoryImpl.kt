@@ -65,7 +65,6 @@ class MangaRepositoryImpl(
             .awaitAsList()
     }
 
-    // RK: backs the EHentai gallery update checker.
     // RK -->
     override suspend fun getMangaByIds(ids: List<Long>): List<Manga> =
         readInChunks(ids) { database.mangaQueries.getMangaByIds(it, MangaMapper::mapManga).awaitAsList() }

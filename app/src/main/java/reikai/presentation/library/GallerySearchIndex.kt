@@ -7,13 +7,16 @@ import exh.search.Namespace
 import exh.search.QueryComponent
 import exh.search.SearchEngine
 import exh.search.Text
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 
 /** Gallery EXH tags and alt-titles keyed by manga id, for the library's tag-search grammar. */
 data class GallerySearchIndex(
     val tags: Map<Long, List<SearchTag>> = emptyMap(),
     val titles: Map<Long, List<SearchTitle>> = emptyMap(),
 ) {
-    // One index lives for one filter pass, so each term is parsed once per search, not once per row.
+    // One index serves every filter pass while its tables stand, so each term is parsed once, not once per row.
     private val terms = SearchEngine()
 
     /**
@@ -29,22 +32,20 @@ data class GallerySearchIndex(
 }
 
 /**
- * Only the tag-search grammar reads the index, and only on gallery [rows], so both whole-table reads
- * run while a search is active over a library holding a gallery, and never otherwise. Manga only: the
- * tables are keyed by manga id, and novels have no gallery metadata.
+ * Both whole gallery tables grouped by manga id, regrouped only when a table changes, so a held search
+ * does not re-read them on every library tick. Manga only: the tables are keyed by manga id, and novels
+ * have no gallery metadata.
  */
-suspend fun gallerySearchIndexFor(
-    query: String?,
-    rows: List<LibraryItem>,
-    loadTags: suspend () -> List<SearchTag>,
-    loadTitles: suspend () -> List<SearchTitle>,
-): GallerySearchIndex {
-    if (query.isNullOrBlank() || rows.none { it.metadataSourceName != null }) return GallerySearchIndex()
-    return GallerySearchIndex(
-        tags = loadTags().groupBy { it.mangaId },
-        titles = loadTitles().groupBy { it.mangaId },
-    )
+fun gallerySearchIndexChanges(
+    tags: Flow<List<SearchTag>>,
+    titles: Flow<List<SearchTitle>>,
+): Flow<GallerySearchIndex> = combine(tags, titles) { tagRows, titleRows ->
+    GallerySearchIndex(tags = tagRows.groupBy { it.mangaId }, titles = titleRows.groupBy { it.mangaId })
 }
+
+/** The index a search for [query] reads: an empty one without a query, so neither table is read until one is typed. */
+fun gallerySearchIndexFor(query: String?, index: Flow<GallerySearchIndex>): Flow<GallerySearchIndex> =
+    if (query.isNullOrBlank()) flowOf(GallerySearchIndex()) else index
 
 // A Namespace checks the indexed tags; a Text matches across the title, author, artist, description,
 // source name, genres, tags and alt-titles. The component's excluded flag inverts the answer.

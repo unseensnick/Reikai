@@ -96,8 +96,7 @@ class MangaBackupCreator(
 
     // A membership whose row has gone is skipped rather than failing the backup.
     override suspend fun groupMembersOutsideLibrary(): List<Manga> =
-        mergeGroupRepository.getAllMemberships(ContentType.MANGA).keys
-            .mapNotNull { getManga.await(it) }
+        getManga.awaitAll(mergeGroupRepository.getAllMemberships(ContentType.MANGA).keys)
             .filterNot { it.favorite }
 
     override suspend fun base(entries: List<Manga>): List<BackupManga> {

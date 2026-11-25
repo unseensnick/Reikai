@@ -2,6 +2,7 @@ package tachiyomi.domain.manga.interactor
 
 import dev.zacsweers.metro.Inject
 import exh.metadata.sql.models.SearchTag
+import kotlinx.coroutines.flow.Flow
 import tachiyomi.domain.manga.repository.MangaMetadataRepository
 
 @Inject
@@ -13,7 +14,7 @@ class GetSearchTags(
         return mangaMetadataRepository.getTagsById(mangaId)
     }
 
-    suspend fun awaitAll(): List<SearchTag> {
-        return mangaMetadataRepository.getAllTags()
+    fun subscribeAll(): Flow<List<SearchTag>> {
+        return mangaMetadataRepository.subscribeAllTags()
     }
 }

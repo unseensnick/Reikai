@@ -15,6 +15,7 @@ import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,8 +27,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -63,6 +66,7 @@ import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
+import reikai.presentation.library.gallerySearchIndexChanges
 import reikai.presentation.library.gallerySearchIndexFor
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
@@ -162,17 +166,26 @@ class LibraryViewModel(
     private val hasActiveFilters = filterSettings.map { it.isActive }
         .distinctUntilChanged()
 
+    // Kept while a search holds it and between keystrokes, so typing re-reads neither table.
+    private val galleryIndex =
+        gallerySearchIndexChanges(getSearchTags.subscribeAll(), getSearchTitles.subscribeAll())
+            .flowOn(Dispatchers.Default)
+            .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+
     // Upstream's gate, widened in the shared libraryNeedsTracks to grouping by tracking status, which the
     // novel library asks too. The debounced query and the filters ride it, so both wait for the tracks they read.
-    // The query carries its resolved `chapter:` id sets alongside it, so a chapter lookup runs once per
-    // query change rather than on every favorites tick.
+    // The query carries its resolved `chapter:` id sets and the gallery index alongside it, so neither a
+    // chapter lookup nor a gallery table read runs on a favorites tick.
     private val searchAndTracks = libraryTracksFlow(
         filterSettings,
         getCategories.subscribe(),
         libraryPreferences,
         reikaiLibraryPreferences,
-        searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
-        { it.first },
+        searchQuery.debounce(0.25.seconds).flatMapLatest { query ->
+            val chapterMatches = resolveChapterMatches(query)
+            gallerySearchIndexFor(query, galleryIndex).map { MangaSearch(query, chapterMatches, it) }
+        },
+        { it.query },
         getTracksPerManga::subscribe,
     )
     // RK <--
@@ -197,7 +210,7 @@ class LibraryViewModel(
                 (search, filters, categoryMatches, tracksMap), // RK
                 (favorites, customInfo),
             ->
-            val (searchQuery, chapterMatches) = search // RK
+            val (searchQuery, chapterMatches, gallery) = search // RK
             val customById = customInfo.associateBy { it.mangaId } // RK
             val filteredFavorites = favorites
                 .applyFilters(tracksMap, filters.resolve(), customById) // RK
@@ -210,12 +223,6 @@ class LibraryViewModel(
                         items
                     } else {
                         val queryNode = QueryNode.from(searchQuery)
-                        val gallery = gallerySearchIndexFor(
-                            searchQuery,
-                            items,
-                            getSearchTags::awaitAll,
-                            getSearchTitles::awaitAll,
-                        )
                         val queryFields = mangaQueryFields(
                             items,
                             chapterMatches,
@@ -381,11 +388,13 @@ class LibraryViewModel(
         val mangas = state.value.mangaFor(ids)
         appScope.launch {
             val hidden = mangaPreferences.hiddenChapters().get()
+            // One snapshot for the whole selection: the entries share no chapters, so none needs another's adds
+            val queued = downloadManager.getQueuedDownloadsByChapterId()
             mangas.forEach { manga ->
                 // A lone entry's list is its own, scanlator-filtered as the details page reads it
                 val group = mergedChapterProvider.load(manga)
                 val chapters = group.chapters.inReadingOrder(group.chapterSettingsOf(manga))
-                enqueueDownloads(group.takeIf { it.isMerged }, manga, chapters, action, hidden)
+                enqueueDownloads(group.takeIf { it.isMerged }, manga, chapters, action, hidden, queued)
             }
         }
         // RK <--
@@ -396,8 +405,7 @@ class LibraryViewModel(
     // library state, so they resolve from the DB by id. Ids are captured by the caller before the
     // selection clears (LibraryEngine.dispatchAndClear clears it once the action returns), never inside the
     // coroutine, which would race that and come back empty.
-    private suspend fun resolveSelectedGroupManga(memberIds: List<Long>): List<Manga> =
-        memberIds.mapNotNull { getManga.await(it) }
+    private suspend fun resolveSelectedGroupManga(memberIds: List<Long>): List<Manga> = getManga.awaitAll(memberIds)
     // RK <--
 
     // RK -->
@@ -412,13 +420,12 @@ class LibraryViewModel(
         chapters: List<Chapter>,
         action: DownloadAction,
         hidden: Set<String>,
+        queued: Map<Long, Download>,
     ) {
         val ownerOf = { chapter: Chapter -> group?.mangaById?.get(chapter.mangaId) ?: anchor }
         val flags = group.groupFlags(chapters) { downloadManager.downloadedChapterIds(it, ownerOf) }
         val targets = group?.downloadTargets(MergeScope.Group, chapters) { sourceManager.isInstalled(it.source) }
             ?: DownloadTargets.OWN
-        // One snapshot, since searching the queue for each chapter of a long list adds up
-        val queued = downloadManager.getQueuedDownloadsByChapterId()
         DownloadCandidates.forGroup(
             chapters,
             action,
@@ -563,6 +570,13 @@ class LibraryViewModel(
         override fun hashCode(): Int = System.identityHashCode(this)
         // RK <--
     }
+
+    // RK: one debounced query with what it resolved, so a library tick re-reads neither
+    private data class MangaSearch(
+        val query: String?,
+        val chapterMatches: Map<String, Set<Long>>,
+        val gallery: GallerySearchIndex,
+    )
 
     @Immutable
     data class State(

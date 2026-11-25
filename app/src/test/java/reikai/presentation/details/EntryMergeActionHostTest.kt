@@ -262,7 +262,8 @@ class EntryMergeActionHostTest {
         val allCoversDropped = CompletableDeferred<Unit>()
         var failRestore = false
 
-        override suspend fun favoriteAt(id: Long) = favoriteAt[id]
+        override suspend fun favoritesAt(ids: List<Long>) =
+            ids.mapNotNull { id -> favoriteAt[id]?.let { id to it } }.toMap()
 
         override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean {
             if (failRestore && favoriteAt.values.all { it != null }) return false
@@ -272,8 +273,8 @@ class EntryMergeActionHostTest {
             return true
         }
 
-        override suspend fun deleteCovers(id: Long) {
-            coversDropped += id
+        override suspend fun deleteCovers(ids: List<Long>) {
+            coversDropped += ids
             if (coversDropped.size == SOURCES.size) allCoversDropped.complete(Unit)
         }
     }

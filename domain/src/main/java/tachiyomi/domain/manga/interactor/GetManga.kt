@@ -31,6 +31,10 @@ class GetManga(
     }
 
     // RK -->
+
+    /** The stored manga among [ids], in one chunked read rather than one per id; a missing row is left out. */
+    suspend fun awaitAll(ids: Collection<Long>): List<Manga> = mangaRepository.getMangaByIds(ids.toList())
+
     suspend fun await(url: String, sourceId: Long): Manga? {
         return mangaRepository.getMangaByUrlAndSourceId(url, sourceId)
     }

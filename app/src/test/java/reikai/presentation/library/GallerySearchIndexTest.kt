@@ -4,6 +4,9 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.api.Test
@@ -32,26 +35,17 @@ class GallerySearchIndexTest {
     @NullSource
     @ValueSource(strings = ["", "   "])
     fun `without a search neither table is read`(query: String?) = runTest {
-        gallerySearchIndexFor(query, galleries, { error("tags read") }, { error("titles read") }) shouldBe
-            GallerySearchIndex()
-    }
-
-    @Test
-    fun `a search over a library with no gallery reads neither table`() = runTest {
-        gallerySearchIndexFor("beta", listOf(row(1L, gallery = false)), { error("tags read") }, {
-            error("titles read")
-        }) shouldBe GallerySearchIndex()
+        gallerySearchIndexFor(query, flow { error("tables read") }).first() shouldBe GallerySearchIndex()
     }
 
     @Test
     fun `a search groups the tags by manga id`() = runTest {
-        gallerySearchIndexFor("female:", galleries, { tags }, { titles }).tags shouldBe
-            mapOf(1L to listOf(tags[0], tags[2], tags[3]), 2L to listOf(tags[1]))
+        index().tags shouldBe mapOf(1L to listOf(tags[0], tags[2], tags[3]), 2L to listOf(tags[1]))
     }
 
     @Test
     fun `a search groups the alt-titles by manga id`() = runTest {
-        gallerySearchIndexFor("alt", galleries, { tags }, { titles }).titles shouldBe mapOf(2L to titles)
+        index().titles shouldBe mapOf(2L to titles)
     }
 
     @ParameterizedTest(name = "{0}")
@@ -61,10 +55,15 @@ class GallerySearchIndexTest {
     }
 
     private suspend fun search(query: String): List<Long> {
-        val index = gallerySearchIndexFor(query, library, { tags }, { titles })
+        val index = index()
         val fields = libraryItemQueryFields(sourceKey = { "1" }, galleryIndex = index)
         return library.filter { libraryQueryMatches(QueryNode.from(query), it, fields) }.map { it.id }
     }
+
+    private suspend fun index() = gallerySearchIndexFor(
+        "q",
+        gallerySearchIndexChanges(flowOf(tags), flowOf(titles)),
+    ).first()
 
     private fun tag(mangaId: Long, namespace: String, name: String) = SearchTag(null, mangaId, namespace, name, 0)
 

@@ -25,16 +25,18 @@ class RemoveNovelsFromLibrary(
 
     override val contentType = ContentType.NOVELS
 
-    override suspend fun favoriteAt(id: Long): Instant? = novelRepository.getById(id)?.favoriteAt
+    override suspend fun favoritesAt(ids: List<Long>): Map<Long, Instant> =
+        novelRepository.getByIds(ids).mapNotNull { novel -> novel.favoriteAt?.let { novel.id to it } }.toMap()
 
     override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean =
         novelRepository.updateAll(favoriteAt.map { (id, at) -> NovelUpdate(id) { this.favoriteAt = at } })
 
-    override suspend fun deleteCovers(id: Long) {
-        val novel = novelRepository.getById(id)
-        // A local series keeps its covers, as manga's removeCovers keeps them: one set on a bare EPUB lives
-        // in the custom-cover cache, with no folder of its own to hold it.
-        if (novel?.source == LocalNovelSource.ID) return
-        coverCache.deleteFromCache(EntryId.Novel(id), novel?.thumbnailUrl, deleteCustomCover = true)
+    override suspend fun deleteCovers(ids: List<Long>) {
+        novelRepository.getByIds(ids).forEach { novel ->
+            // A local series keeps its covers, as manga's removeCovers keeps them: one set on a bare EPUB lives
+            // in the custom-cover cache, with no folder of its own to hold it.
+            if (novel.source == LocalNovelSource.ID) return@forEach
+            coverCache.deleteFromCache(EntryId.Novel(novel.id), novel.thumbnailUrl, deleteCustomCover = true)
+        }
     }
 }

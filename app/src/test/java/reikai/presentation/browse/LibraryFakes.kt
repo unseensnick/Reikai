@@ -138,7 +138,10 @@ class FakeMangaLibrary(
         coEvery { await(any<Long>()) } answers { filed[firstArg()].orEmpty().map(::libraryCategory) }
     }
 
-    val getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } }
+    val getManga = mockk<GetManga> {
+        coEvery { await(any<Long>()) } answers { rows[firstArg()] }
+        coEvery { awaitAll(any()) } answers { firstArg<Collection<Long>>().mapNotNull { rows[it] } }
+    }
 
     val setMangaCategories: SetMangaCategories =
         mockk {

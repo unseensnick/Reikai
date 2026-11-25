@@ -27,7 +27,9 @@ abstract class EntryLibraryRemoval(
      * (what [restore] puts back), or nothing when the write failed.
      */
     suspend fun takeOut(ids: List<Long>): Map<Long, Instant> {
-        val joined = ids.distinct().mapNotNull { id -> favoriteAt(id)?.let { id to it } }.toMap()
+        val distinct = ids.distinct()
+        val stored = favoritesAt(distinct)
+        val joined = distinct.mapNotNull { id -> stored[id]?.let { id to it } }.toMap()
         if (joined.isEmpty()) return emptyMap()
         mergeManager.handOutTrackersBeforeRemoval(joined.keys.toList())
         return joined.takeIf { write(it.mapValues { null }) }.orEmpty()
@@ -41,8 +43,9 @@ abstract class EntryLibraryRemoval(
      * volumes in other folders back to those folders' own series.
      */
     suspend fun finish(ids: List<Long>) {
-        ids.forEach { deleteCovers(it) }
-        if (ids.isNotEmpty()) localVolumes().handBack(contentType, ids)
+        if (ids.isEmpty()) return
+        deleteCovers(ids)
+        localVolumes().handBack(contentType, ids)
     }
 
     private suspend fun write(favoriteAt: Map<Long, Instant?>): Boolean = writeFavoriteAt(favoriteAt).also { written ->
@@ -58,15 +61,15 @@ abstract class EntryLibraryRemoval(
 
     private fun entryId(id: Long): EntryId = EntryId.of(contentType, id)
 
-    /** When the stored row joined the library, null when it is not in it or is gone. */
-    protected abstract suspend fun favoriteAt(id: Long): Instant?
+    /** When each stored row among [ids] joined the library, in one read; a row not in it or gone is left out. */
+    protected abstract suspend fun favoritesAt(ids: List<Long>): Map<Long, Instant>
 
     /** Writes every library date in [favoriteAt] or none of them. */
     protected abstract suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean
 
     /**
-     * Deletes the cached and custom covers without a new cover key, so the cover on screen does not
-     * reload; the key leaves out a custom cover once the entry is out of the library.
+     * Deletes the cached and custom covers of [ids], read in one go, without a new cover key, so the cover
+     * on screen does not reload; the key leaves out a custom cover once the entry is out of the library.
      */
-    protected abstract suspend fun deleteCovers(id: Long)
+    protected abstract suspend fun deleteCovers(ids: List<Long>)
 }

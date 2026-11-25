@@ -25,12 +25,13 @@ class RemoveMangaFromLibrary(
 
     override val contentType = ContentType.MANGA
 
-    override suspend fun favoriteAt(id: Long): Instant? = getManga.await(id)?.favoriteAt
+    override suspend fun favoritesAt(ids: List<Long>): Map<Long, Instant> =
+        getManga.awaitAll(ids).mapNotNull { manga -> manga.favoriteAt?.let { manga.id to it } }.toMap()
 
     override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean =
         updateManga.awaitAll(favoriteAt.map { (id, at) -> MangaUpdate(id) { this.favoriteAt = at } })
 
-    override suspend fun deleteCovers(id: Long) {
-        getManga.await(id)?.removeCovers(coverCache)
+    override suspend fun deleteCovers(ids: List<Long>) {
+        getManga.awaitAll(ids).forEach { it.removeCovers(coverCache) }
     }
 }

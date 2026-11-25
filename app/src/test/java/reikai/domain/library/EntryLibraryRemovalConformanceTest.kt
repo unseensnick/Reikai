@@ -308,7 +308,9 @@ class EntryLibraryRemovalConformanceTest {
                 coEvery { handOutTrackersBeforeRemoval(any()) } answers { handingOut(firstArg()) }
             },
             sourceTracker = sourceTracker,
-            getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } },
+            getManga = mockk<GetManga> {
+                coEvery { awaitAll(any()) } answers { firstArg<Collection<Long>>().mapNotNull { rows[it] } }
+            },
             updateManga = UpdateManga(repository, mockk(), mockk(relaxed = true)),
             coverCache = cache,
             localVolumes = { localVolumes },
@@ -336,6 +338,7 @@ class EntryLibraryRemovalConformanceTest {
 
         private val repository = mockk<NovelRepository> {
             coEvery { getById(any()) } answers { rows[firstArg()] }
+            coEvery { getByIds(any()) } answers { firstArg<List<Long>>().mapNotNull { rows[it] } }
             coEvery { updateAll(any()) } answers {
                 val updates = firstArg<List<NovelUpdate>>()
                 if (updates.any { it.id in refusedIds }) return@answers false
