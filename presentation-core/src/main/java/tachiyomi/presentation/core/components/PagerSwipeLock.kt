@@ -17,9 +17,9 @@ val LocalPagerSwipeSetter = compositionLocalOf<(Boolean) -> Unit> { {} }
 /**
  * While a pointer is down on this element, disable the enclosing pager's user-swipe (via
  * [LocalPagerSwipeSetter]) and re-enable it when the gesture ends. The gesture is NOT consumed, so the
- * element's own drag handling (a slider thumb, a horizontally-scrolling chip row) still works. This
- * stops a horizontal drag on such an element from leaking into the pager and switching tabs, while
- * leaving swipe-to-switch on the rest of the page intact.
+ * element's own drag handling (a slider thumb) still works. This stops a horizontal drag on such an
+ * element from leaking into the pager and switching tabs, while leaving swipe-to-switch on the rest
+ * of the page intact.
  */
 fun Modifier.lockPagerSwipeWhileDragging(): Modifier = composed {
     val setSwipeEnabled = LocalPagerSwipeSetter.current

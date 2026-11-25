@@ -83,11 +83,10 @@ fun TabbedDialog(
                 tabOverflowMenuContent?.let { MoreMenu(it) }
             }
 
-            // RK --> a drag on a slider or chip row locks the pager swipe
+            // RK --> a drag on a slider locks the pager swipe
             // Swipe-between-tabs stays on, but content can lock it for the duration of a drag (see
-            // Modifier.lockPagerSwipeWhileDragging) so a horizontal drag on a slider or a
-            // horizontally-scrolling chip row doesn't leak into the pager and switch tabs. Swiping the
-            // rest of a page still changes tabs.
+            // Modifier.lockPagerSwipeWhileDragging) so a horizontal drag on a slider doesn't leak into
+            // the pager and switch tabs. Swiping the rest of a page still changes tabs.
             var pagerSwipeEnabled by remember { mutableStateOf(true) }
             CompositionLocalProvider(LocalPagerSwipeSetter provides { enabled -> pagerSwipeEnabled = enabled }) {
                 HorizontalPager(

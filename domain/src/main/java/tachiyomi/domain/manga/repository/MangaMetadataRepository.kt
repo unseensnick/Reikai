@@ -10,10 +10,8 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Persistence for adult/EXH gallery metadata (tags, titles, raw extra) keyed by manga id.
  *
- * Ported from Komikku's EXH subsystem. The favorites-join queries
- * (getExhFavoriteMangaWithMetadata / getIdsOfFavoriteMangaWithMetadata) are deferred to the
- * E-Hentai favorites-sync phase, since they depend on the E-Hentai source ids and custom
- * manga.sq queries that ship with that phase.
+ * Ported from Komikku's EXH subsystem. The favorites join is not here: it reads manga rows, so it is
+ * [MangaRepository.getExhFavoriteMangaWithMetadata].
  */
 interface MangaMetadataRepository {
     suspend fun getMetadataById(id: Long): SearchMetadata?
