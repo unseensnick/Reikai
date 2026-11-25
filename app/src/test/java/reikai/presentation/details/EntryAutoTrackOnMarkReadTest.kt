@@ -24,6 +24,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.track.ChapterPushOutcome
 import reikai.presentation.track.trackerErrorMessage
 import reikai.util.testAppScope
@@ -51,6 +53,7 @@ class EntryAutoTrackOnMarkReadTest {
     private val kitsu = tracker("Kitsu")
 
     private val written = mutableListOf<Copy>()
+    private val writtenRead = mutableListOf<Boolean>()
     private val pushed = mutableListOf<Double>()
     private val toasts = mutableListOf<String?>()
 
@@ -70,6 +73,14 @@ class EntryAutoTrackOnMarkReadTest {
     fun tearDown() {
         unmockkStatic(TOAST, LOCALIZE, TRACKER_ERROR)
         Dispatchers.resetMain()
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `the copies are written as marked, read or unread`(read: Boolean) = runTest {
+        step().setRead(entryId = 1L, chapters = listOf(marked), read = read)
+
+        writtenRead shouldBe listOf(read)
     }
 
     @Test
@@ -197,7 +208,10 @@ class EntryAutoTrackOnMarkReadTest {
             every { autoUpdateTrackOnMarkRead } returns mockk { every { get() } returns state }
         },
         expandToGroup = { chapters -> chapters + siblingCopy },
-        writeRead = { chapters, _ -> written += chapters },
+        writeRead = { chapters, read ->
+            written += chapters
+            writtenRead += read
+        },
         trackedNumbers = { chapters -> chapters.map { trunkNumbers[it] ?: it.number } },
         refresh = { refreshFailed },
         lastReadPerTracker = { listOf(lastRead) },
