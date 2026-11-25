@@ -746,6 +746,17 @@ class LibraryEngineTest {
     }
 
     @Test
+    fun `bulk Download reaches the provider whose part can download`() {
+        every { manga.containsLocal(setOf(m1, n1)) } returns true
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, n1)
+
+        engine.performDownloadAction(ContentType.ALL, DownloadAction.NEXT_1_CHAPTER)
+
+        verify { novel.performDownloadAction(setOf(m1, n1), DownloadAction.NEXT_1_CHAPTER) }
+    }
+
+    @Test
     fun `two entries of one type can merge`() {
         engine.toggleSelection(bucket, m1)
         engine.toggleSelection(bucket, m2)
@@ -785,6 +796,16 @@ class LibraryEngineTest {
         engine.mergeSelection(ContentType.ALL)
 
         verify(exactly = 0) { manga.mergeSelection(any()) }
+    }
+
+    @Test
+    fun `a merge the gate takes reaches the provider`() {
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, m2)
+
+        engine.mergeSelection(ContentType.ALL)
+
+        verify { manga.mergeSelection(setOf(m1, m2)) }
     }
 
     @Test
