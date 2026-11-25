@@ -79,7 +79,7 @@ ORDER BY CAST(page AS INTEGER), min(source_order);
 getNovelIdsWithChapterNameLike:
 SELECT DISTINCT novel_id
 FROM novel_chapters
-WHERE lower(name) LIKE '%' || lower(:name) || '%';
+WHERE lower(name) LIKE lower(:pattern) ESCAPE '\';
 
 getById:
 SELECT *

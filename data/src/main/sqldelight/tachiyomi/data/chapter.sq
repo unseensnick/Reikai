@@ -85,7 +85,7 @@ WHERE manga_id = :mangaId;
 getMangaIdsWithChapterNameLike:
 SELECT DISTINCT manga_id
 FROM chapter
-WHERE lower(remote_name) LIKE '%' || lower(:name) || '%';
+WHERE lower(remote_name) LIKE lower(:pattern) ESCAPE '\';
 
 getBookmarkedChaptersByMangaId:
 SELECT

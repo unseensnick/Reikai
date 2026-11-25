@@ -80,6 +80,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A series whose chapter names hold a # no longer fails to refresh (from Mihon).** Upstream: mihonapp/mihon#4107.
 - **The library's Lewd filter no longer hides series tagged Young Adult or Adult Cast.** Adult notifications stop blanking them too.
 - **Grouping novels by tracking status now follows a tracker login or logout at once.**
+- **A library search for `chapter:` now matches a % or _ you type literally instead of as a wildcard.**
 
 ### Details
 

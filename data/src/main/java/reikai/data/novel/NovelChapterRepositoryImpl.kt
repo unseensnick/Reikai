@@ -10,6 +10,7 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import logcat.LogPriority
+import reikai.data.likeContaining
 import reikai.data.readInChunks
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
@@ -50,7 +51,7 @@ class NovelChapterRepositoryImpl(
         database.novel_chaptersQueries.getDistinctPages(novelId).awaitAsList()
 
     override suspend fun getNovelIdsWithChapterNameLike(name: String): Set<Long> =
-        database.novel_chaptersQueries.getNovelIdsWithChapterNameLike(name).awaitAsList().toSet()
+        database.novel_chaptersQueries.getNovelIdsWithChapterNameLike(likeContaining(name)).awaitAsList().toSet()
 
     override suspend fun getById(id: Long): NovelChapter? =
         database.novel_chaptersQueries.getById(id, ::mapNovelChapter).awaitAsOneOrNull()

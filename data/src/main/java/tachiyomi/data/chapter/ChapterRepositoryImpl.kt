@@ -9,6 +9,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonObject
+import reikai.data.likeContaining
 import tachiyomi.core.common.util.lang.toLong
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -139,7 +140,7 @@ class ChapterRepositoryImpl(
     // RK -->
     override suspend fun getMangaIdsWithChapterNameLike(name: String): Set<Long> {
         return database.chapterQueries
-            .getMangaIdsWithChapterNameLike(name)
+            .getMangaIdsWithChapterNameLike(likeContaining(name))
             .awaitAsList()
             .toSet()
     }
