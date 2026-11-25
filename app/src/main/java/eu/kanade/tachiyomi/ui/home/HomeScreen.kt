@@ -61,9 +61,7 @@ import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.details.detailsRoute
 import reikai.presentation.recents.RecentsMode
 import reikai.presentation.recents.RecentsModeEvent
-import reikai.presentation.recents.RecentsTab
 import reikai.presentation.recents.ShowsUpdatesBadge
-import reikai.presentation.stats.StatsTab
 import soup.compose.material.motion.animation.materialFadeThroughIn
 import soup.compose.material.motion.animation.materialFadeThroughOut
 import tachiyomi.i18n.MR
@@ -234,15 +232,7 @@ fun HomeScreen() {
                     MoreTab()
                 }
 
-                // RK -->
-                entry<RecentsTabRoute> {
-                    RecentsTab()
-                }
-
-                entry<StatsTabRoute> {
-                    StatsTab()
-                }
-                // RK <--
+                reikaiTabEntries() // RK
             },
         )
     }

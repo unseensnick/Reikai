@@ -3,12 +3,16 @@ package eu.kanade.tachiyomi.ui.home
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.navigation3.runtime.EntryProviderScope
+import androidx.navigation3.runtime.NavKey
 import eu.kanade.tachiyomi.R
 import kotlinx.serialization.Serializable
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.QueryStats
 import reikai.presentation.components.cachedAnimatedVector
+import reikai.presentation.recents.RecentsTab
 import reikai.presentation.recents.ShowsUpdatesBadge
+import reikai.presentation.stats.StatsTab
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -35,4 +39,10 @@ data object StatsTabRoute : TopLevelRoute {
         title = stringResource(MR.strings.label_stats),
         icon = rememberVectorPainter(MaterialSymbols.Rounded.QueryStats),
     )
+}
+
+/** Reikai's tabs on Home's tab navigator, after upstream's five. A tab registered nowhere crashes on a switch. */
+fun EntryProviderScope<NavKey>.reikaiTabEntries() {
+    entry<RecentsTabRoute> { RecentsTab() }
+    entry<StatsTabRoute> { StatsTab() }
 }

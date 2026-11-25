@@ -23,6 +23,7 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesRoute
 import eu.kanade.tachiyomi.ui.home.RecentsTabRoute
 import eu.kanade.tachiyomi.ui.home.StatsTabRoute
 import eu.kanade.tachiyomi.ui.home.TopLevelRoute
+import eu.kanade.tachiyomi.ui.home.reikaiTabEntries
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import exh.debug.SettingsDebugRoute
@@ -108,17 +109,19 @@ import reikai.presentation.track.EntryTrackSheetRoute
 import reikai.presentation.track.EntryTrackStatusSelectorRoute
 import reikai.presentation.track.EntryTrackerRemoveRoute
 import reikai.presentation.track.EntryTrackerSearchRoute
+import reikai.presentation.track.trackSheetEntries
 import java.io.File
 
 /**
- * Every route the app module declares survives a save and restore, and every one the main display draws is
- * registered there. A route only another navigator draws (a tab, a track sheet page) is listed as such, and
- * [RouteListGuardTest] fails on a declared route this list does not name, so none is left untested.
+ * Every route the app module declares survives a save and restore, and is registered on the navigator that
+ * draws it and on no other: the main display, Reikai's tabs or the track sheet. Upstream's five tabs are
+ * drawn by Home's own provider, left inline as upstream has it. [RouteListGuardTest] fails on a declared
+ * route this list does not name, so none is left untested.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 class ReikaiRoutesTest(private val name: String, private val route: NavKey, private val drawnBy: DrawnBy) {
 
-    enum class DrawnBy { MAIN, TABS, TRACK_SHEET }
+    enum class DrawnBy { MAIN, UPSTREAM_TABS, TABS, TRACK_SHEET }
 
     @Test
     fun `the route survives a save and restore`() {
@@ -126,17 +129,21 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
     }
 
     @Test
-    fun `a route the main display draws is registered there`() {
-        val registered = runCatching { mainEntries(route) }.isSuccess
+    fun `a route is registered on the navigator that draws it and no other`() {
+        val registeredOn = navigators.filterValues { runCatching { it(route) }.isSuccess }.keys
 
-        registered shouldBe (drawnBy == DrawnBy.MAIN)
+        registeredOn shouldBe setOfNotNull(drawnBy.takeIf { it != DrawnBy.UPSTREAM_TABS })
     }
 
     companion object {
-        private val mainEntries = entryProvider<NavKey> {
-            appEntries()
-            reikaiEntries()
-        }
+        private val navigators = mapOf(
+            DrawnBy.MAIN to entryProvider<NavKey> {
+                appEntries()
+                reikaiEntries()
+            },
+            DrawnBy.TABS to entryProvider<NavKey> { reikaiTabEntries() },
+            DrawnBy.TRACK_SHEET to entryProvider<NavKey> { trackSheetEntries() },
+        )
 
         val routes: List<Pair<NavKey, DrawnBy>> = listOf(
             NovelRoute(1L, fromSource = true) to DrawnBy.MAIN,
@@ -220,11 +227,11 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
             RestoreBackupRoute("content://backup") to DrawnBy.MAIN,
             SettingsSearchRoute to DrawnBy.MAIN,
             WorkerInfoRoute to DrawnBy.MAIN,
-            TopLevelRoute.Library to DrawnBy.TABS,
-            TopLevelRoute.Updates to DrawnBy.TABS,
-            TopLevelRoute.History to DrawnBy.TABS,
-            TopLevelRoute.Browse to DrawnBy.TABS,
-            TopLevelRoute.More to DrawnBy.TABS,
+            TopLevelRoute.Library to DrawnBy.UPSTREAM_TABS,
+            TopLevelRoute.Updates to DrawnBy.UPSTREAM_TABS,
+            TopLevelRoute.History to DrawnBy.UPSTREAM_TABS,
+            TopLevelRoute.Browse to DrawnBy.UPSTREAM_TABS,
+            TopLevelRoute.More to DrawnBy.UPSTREAM_TABS,
             RecentsTabRoute to DrawnBy.TABS,
             StatsTabRoute to DrawnBy.TABS,
             EntryTrackInfoDialogHomeRoute(EntryId.Novel(1L)) to DrawnBy.TRACK_SHEET,

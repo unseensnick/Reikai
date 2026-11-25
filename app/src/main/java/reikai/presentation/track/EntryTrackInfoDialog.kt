@@ -46,6 +46,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.SavedStateHandleSaveableApi
 import androidx.lifecycle.viewmodel.compose.saveable
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
@@ -1118,23 +1119,22 @@ fun EntryTrackSheet(entry: EntryId, onDismissRequest: () -> Unit) {
                     rememberSaveableStateHolderNavEntryDecorator(),
                     rememberViewModelStoreNavEntryDecorator(),
                 ),
-                entryProvider = entryProvider {
-                    entry<EntryTrackInfoDialogHomeRoute> { EntryTrackInfoDialogHomeScreen(it.entry) }
-                    entry<EntryTrackStatusSelectorRoute> { EntryTrackStatusSelectorScreen(it.serviceId, it.entry) }
-                    entry<EntryTrackChapterSelectorRoute> { EntryTrackChapterSelectorScreen(it.serviceId, it.entry) }
-                    entry<EntryTrackScoreSelectorRoute> { EntryTrackScoreSelectorScreen(it.serviceId, it.entry) }
-                    entry<EntryTrackDateSelectorRoute> {
-                        EntryTrackDateSelectorScreen(it.serviceId, it.start, it.entry)
-                    }
-                    entry<EntryTrackDateRemoverRoute> {
-                        EntryTrackDateRemoverScreen(it.serviceId, it.start, it.entry)
-                    }
-                    entry<EntryTrackerSearchRoute> { EntryTrackerSearchScreen(it.entry, it.serviceId) }
-                    entry<EntryTrackerRemoveRoute> { EntryTrackerRemoveScreen(it.entry, it.serviceId) }
-                },
+                entryProvider = entryProvider { trackSheetEntries() },
             )
         }
     }
 }
 
 private val sheetFade = fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90))
+
+/** The track sheet's pages, drawn by the sheet's own navigator. A page registered nowhere crashes when pushed. */
+internal fun EntryProviderScope<NavKey>.trackSheetEntries() {
+    entry<EntryTrackInfoDialogHomeRoute> { EntryTrackInfoDialogHomeScreen(it.entry) }
+    entry<EntryTrackStatusSelectorRoute> { EntryTrackStatusSelectorScreen(it.serviceId, it.entry) }
+    entry<EntryTrackChapterSelectorRoute> { EntryTrackChapterSelectorScreen(it.serviceId, it.entry) }
+    entry<EntryTrackScoreSelectorRoute> { EntryTrackScoreSelectorScreen(it.serviceId, it.entry) }
+    entry<EntryTrackDateSelectorRoute> { EntryTrackDateSelectorScreen(it.serviceId, it.start, it.entry) }
+    entry<EntryTrackDateRemoverRoute> { EntryTrackDateRemoverScreen(it.serviceId, it.start, it.entry) }
+    entry<EntryTrackerSearchRoute> { EntryTrackerSearchScreen(it.entry, it.serviceId) }
+    entry<EntryTrackerRemoveRoute> { EntryTrackerRemoveScreen(it.entry, it.serviceId) }
+}

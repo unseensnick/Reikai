@@ -65,7 +65,8 @@ class TabViewModelStoresTest {
         act { outer.push(Other) }
         act { outer.pop() }
 
-        ((seen.getValue(TabB) === b) to b.cleared) shouldBe (true to false)
+        (seen.getValue(TabB) === b) shouldBe true
+        b.cleared shouldBe false
     }
 
     @Test
