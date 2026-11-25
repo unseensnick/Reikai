@@ -153,7 +153,6 @@ internal fun loadedDetails(
     hasStarted = false,
     hasViewedDownloads = false,
     showChapterNumberOnly = false,
-    seedColor = null,
     webPage = null,
     downloadTargets = DownloadTargets.OWN,
 )

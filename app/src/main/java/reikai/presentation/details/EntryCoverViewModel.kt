@@ -38,8 +38,9 @@ import kotlin.time.Duration.Companion.seconds
 abstract class EntryCoverViewModel<T : Any>(
     private val imageSaver: ImageSaver,
     private val appScope: CoroutineScope,
-    val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : ViewModel() {
+
+    val snackbarHostState = SnackbarHostState()
 
     /** The reactive entry the cover belongs to; emits null until loaded. */
     protected abstract suspend fun subscribe(): Flow<T?>

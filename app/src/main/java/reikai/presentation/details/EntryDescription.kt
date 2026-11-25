@@ -86,7 +86,7 @@ fun ExpandableEntryDescription(
     // The description's images, a setting the caller reads.
     loadImages: Boolean,
     // Namespaced, color-weighted tag chips for adult-gallery metadata sources; null = flat genre tags.
-    searchMetadataChips: SearchMetadataChips? = null,
+    searchMetadataChips: SearchMetadataChips?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {

@@ -1,7 +1,6 @@
 package reikai.presentation.details
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.graphics.Color
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.download.offersDownload
 import reikai.domain.entry.EntryId
@@ -53,8 +52,6 @@ sealed interface EntryDetailsScreenState {
         val hasViewedDownloads: Boolean,
         /** Show each chapter row as "Chapter N" rather than its title (manga display mode / novel hide-titles). */
         val showChapterNumberOnly: Boolean,
-        /** Cover-derived header tint; null when off or not yet extracted. */
-        val seedColor: Color?,
         /** The viewed member's page, which each model resolves off the render path; null hides the web actions. */
         val webPage: EntryWebPage?,
         /** The copy each row's download fetches, which the All view moves off a member whose source is gone. */

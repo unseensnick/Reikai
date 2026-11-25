@@ -89,7 +89,7 @@ class MangaEntryAdapter(
                     sourceState = servingSource.entrySourceState(),
                     sourceQuery = model.headerSourceQuery(this),
                     // Only the All view stands for the group; a chip shows its own source's cover.
-                    coverFallbacks = if (mergeDisplayManga == null) {
+                    coverFallbacks = if (headerNamesWholeGroup(mergeSources.size, selectedSourceMangaId)) {
                         coverFallbacks(manga.id, mergedMangaById.values.toList()) { it.id }
                     } else {
                         emptyList()
@@ -177,7 +177,6 @@ class MangaEntryAdapter(
             hasStarted = chapters.any { it.isRead },
             hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER,
-            seedColor = seedColor,
             // Resolved by the model: asking the extension here would run on every tick and blink the
             // WebView button whenever the adapter is rebuilt.
             webPage = webPage,

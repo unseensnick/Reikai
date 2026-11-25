@@ -61,8 +61,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 internal fun LazyListScope.volumeChipsItem(
     view: VolumeView,
     onPick: (String?) -> Unit,
-    onKeepDuplicates: ((renames: List<Pair<String, String>>) -> Unit)? = null,
-    onDeleteDuplicates: ((keys: List<String>) -> Unit)? = null,
+    onKeepDuplicates: ((renames: List<Pair<String, String>>) -> Unit)?,
+    onDeleteDuplicates: ((keys: List<String>) -> Unit)?,
 ) {
     if (view.duplicates.isNotEmpty() && onKeepDuplicates != null && onDeleteDuplicates != null) {
         item(key = "rk-volume-duplicates", contentType = "rk-volume-duplicates") {
@@ -93,12 +93,12 @@ internal fun LazyListScope.volumeChipsItem(
     }
 }
 
-/** A volume's header: its label and read count; a tap selects its chapters where [onSelect] is given, the
- *  button marks them read or unread. */
+/** A volume's header: its label and read count; a tap selects its chapters, the button marks them read or
+ *  unread. */
 @Composable
 internal fun VolumeHeader(
     volume: EntryChapterListItem.Volume,
-    onSelect: (() -> Unit)?,
+    onSelect: () -> Unit,
     onMarkRead: (Boolean) -> Unit,
     coverOf: (suspend () -> Any?)? = null,
 ) {
@@ -107,7 +107,7 @@ internal fun VolumeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (onSelect != null) Modifier.clickable(onClick = onSelect) else Modifier)
+            .clickable(onClick = onSelect)
             .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

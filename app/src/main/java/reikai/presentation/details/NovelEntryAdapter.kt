@@ -103,8 +103,12 @@ class NovelEntryAdapter(
                     sourceName = model.headerSourceName(this),
                     sourceState = sourceState,
                     sourceQuery = model.headerSourceQuery(this),
-                    // Filled on the All view only; a chip shows its own source's cover.
-                    coverFallbacks = coverFallbacks(novel.id, groupNovels) { it.id },
+                    // Only the All view stands for the group; a chip shows its own source's cover.
+                    coverFallbacks = if (headerNamesWholeGroup(mergeSources.size, selectedSourceNovelId)) {
+                        coverFallbacks(novel.id, groupNovels) { it.id }
+                    } else {
+                        emptyList()
+                    },
                     altTitles = seriesAltTitles(
                         display.title,
                         altTitleMembers(mergeSources.size, selectedSourceNovelId, groupNovels, displayNovel).map {
@@ -166,7 +170,6 @@ class NovelEntryAdapter(
             hasStarted = hasStarted,
             hasViewedDownloads = downloadFolderOwner != null,
             showChapterNumberOnly = hideChapterTitles,
-            seedColor = seedColor,
             webPage = webPage,
             downloadTargets = downloadTargets,
         )
