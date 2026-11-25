@@ -13,6 +13,16 @@ class CategorySortOverrideTest {
     private fun category(id: Long, flags: Long) = Category(id = id, name = "C$id", order = 0, flags = flags)
 
     @Test
+    fun `a sort picked on a category goes to the global sort while per-category sorts are off`() {
+        sortsOnItsOwn(category(7, 0L), own.type, categorized = false) shouldBe false
+    }
+
+    @Test
+    fun `a sort picked on a category is its own while per-category sorts are on`() {
+        sortsOnItsOwn(category(7, 0L), own.type, categorized = true) shouldBe true
+    }
+
+    @Test
     fun `a category without the override bit follows the global sort`() {
         // Own-looking flags, but no CUSTOMIZED bit: it should still follow the global sort.
         sortForCategory(category(7, own.type.flag or own.direction.flag), global) shouldBe global

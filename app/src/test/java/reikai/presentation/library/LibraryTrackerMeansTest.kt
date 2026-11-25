@@ -76,11 +76,14 @@ class LibraryTrackerMeansTest {
     @Test
     fun `a group is filed under the first logged-in tracker's status`() {
         val reading = mockk<StringResource>()
-        val loggedIn = mockk<BaseTracker> { every { getStatus(any()) } returns reading }
+        val loggedIn = mockk<BaseTracker> {
+            every { getStatus(any()) } returns null
+            every { getStatus(READING) } returns reading
+        }
         val manager = mockk<TrackerManager> { every { get(3L) } returns loggedIn }
 
         val status = groupTrackStatus(
-            groupTracks = listOf(track(1L, 1L, 0.0), track(2L, 3L, 0.0)),
+            groupTracks = listOf(track(1L, 1L, 0.0), track(2L, 3L, 0.0).copy(status = READING)),
             loggedInTrackerIds = setOf(3L),
             trackerManager = manager,
         )
@@ -97,5 +100,9 @@ class LibraryTrackerMeansTest {
         )
 
         means shouldBe emptyMap()
+    }
+
+    private companion object {
+        const val READING = 7L
     }
 }

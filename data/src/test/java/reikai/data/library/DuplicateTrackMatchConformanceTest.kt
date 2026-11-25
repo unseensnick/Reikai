@@ -44,6 +44,14 @@ class DuplicateTrackMatchConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
+    fun `one remote id on two different trackers is no duplicate`(type: Type) = runTest {
+        type.seed(driver, remoteId = 42L, secondTracker = 2L)
+
+        type.duplicatesOfFirst(database) shouldBe emptyList()
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
     fun `two entries whose tracker left the remote id unset are not duplicates`(type: Type) = runTest {
         type.seed(driver, remoteId = 0L)
 
@@ -58,10 +66,10 @@ class DuplicateTrackMatchConformanceTest {
         type.duplicatesOfFirst(database, title = "") shouldBe emptyList()
     }
 
-    /** Two favourited entries with unrelated titles, each tracked on tracker 1 at [remoteId]. */
+    /** Two favourited entries with unrelated titles, tracked at [remoteId] on tracker 1 and [secondTracker]. */
     enum class Type {
         MANGA {
-            override fun statements(remoteId: Long) = listOf(
+            override fun statements(remoteId: Long, secondTracker: Long) = listOf(
                 "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
                     "state_initialized, user_reader_flags, user_chapter_flags, " +
                     "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
@@ -70,19 +78,19 @@ class DuplicateTrackMatchConformanceTest {
                     "0, 0, 0, '', '{}')",
                 "INSERT INTO manga_track(manga_id, tracker_id, remote_id, title, last_chapter_read, " +
                     "total_chapters, status, score, remote_url, start_date, finish_date) VALUES (1, 1, $remoteId, " +
-                    "'t', 0, 0, 0, 0, '', 0, 0), (2, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0)",
+                    "'t', 0, 0, 0, 0, '', 0, 0), (2, $secondTracker, $remoteId, 't', 0, 0, 0, 0, '', 0, 0)",
             )
 
             override suspend fun duplicatesOfFirst(database: Database, title: String) =
                 MangaRepositoryImpl(database).getDuplicateLibraryManga(1L, title).map { it.manga.id }
         },
         NOVEL {
-            override fun statements(remoteId: Long) = listOf(
+            override fun statements(remoteId: Long, secondTracker: Long) = listOf(
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
                     "favorite_at) VALUES (1, 'src', 'a', 'Alpha', 0, 0, 0, 0), (2, 'src', 'b', 'Beta', 0, 0, 0, 0)",
                 "INSERT INTO novel_tracks(novel_id, sync_id, remote_id, title, last_chapter_read, total_chapters, " +
                     "status, score, remote_url, start_date, finish_date) VALUES " +
-                    "(1, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0), (2, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0)",
+                    "(1, 1, $remoteId, 't', 0, 0, 0, 0, '', 0, 0), (2, $secondTracker, $remoteId, 't', 0, 0, 0, 0, '', 0, 0)",
             )
 
             override suspend fun duplicatesOfFirst(database: Database, title: String) =
@@ -90,11 +98,11 @@ class DuplicateTrackMatchConformanceTest {
         },
         ;
 
-        abstract fun statements(remoteId: Long): List<String>
+        abstract fun statements(remoteId: Long, secondTracker: Long): List<String>
 
         abstract suspend fun duplicatesOfFirst(database: Database, title: String = "alpha"): List<Long>
 
-        suspend fun seed(driver: JdbcSqliteDriver, remoteId: Long) =
-            statements(remoteId).forEach { driver.execute(null, it, 0).await() }
+        suspend fun seed(driver: JdbcSqliteDriver, remoteId: Long, secondTracker: Long = 1L) =
+            statements(remoteId, secondTracker).forEach { driver.execute(null, it, 0).await() }
     }
 }

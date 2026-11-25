@@ -40,14 +40,22 @@ class LibraryCategoryCollapseTest {
 
     @Test
     fun `a dynamic group collapses into its own set`() {
-        preferences.toggleDynamicCategoryCollapsed("Action")
+        preferences.toggleDynamicCategoryCollapsed("action")
 
-        preferences.collapsedDynamicCategories.get() shouldBe setOf("Action")
+        preferences.collapsedDynamicCategories.get() shouldBe setOf("action")
+    }
+
+    @Test
+    fun `collapsing the same dynamic group twice expands it again`() {
+        preferences.toggleDynamicCategoryCollapsed("action")
+        preferences.toggleDynamicCategoryCollapsed("action")
+
+        preferences.collapsedDynamicCategories.get() shouldBe emptySet()
     }
 
     @Test
     fun `a dynamic group never lands in the real-category set`() {
-        preferences.toggleDynamicCategoryCollapsed("Action")
+        preferences.toggleDynamicCategoryCollapsed("action")
 
         preferences.collapsedCategories.get() shouldBe emptySet()
     }

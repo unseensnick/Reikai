@@ -39,9 +39,11 @@ class SourceBadgeTest {
     }
 
     @Test
-    fun `a novel source keeps its own icon`() {
-        novelSourceBadge(otherSite, installedIconsBySite(listOf(sameSite))) shouldBe
-            SourceBadge.Icon("https://cdn/other.png")
+    fun `a novel source keeps its own icon over another source's for the same site`() {
+        val ownIcon = novelSource("own", "https://example.com", iconUrl = "https://cdn/own.png")
+
+        novelSourceBadge(ownIcon, installedIconsBySite(listOf(sameSite))) shouldBe
+            SourceBadge.Icon("https://cdn/own.png")
     }
 
     @Test

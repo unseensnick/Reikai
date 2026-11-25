@@ -60,15 +60,15 @@ class LibraryDynamicGroupingTest {
 
     @Test
     fun `BY_TRACK_STATUS keeps progress order under a Z to A category sort`() {
-        // Z->A no longer reverses track status: it stays in reading-progress order, not reversed.
+        // Z->A would put Reading first; an order that ranks Completed first shows Z->A is not applied.
         val result = build(
             listOf(libraryManga(1), libraryManga(2)),
             LibraryGroup.BY_TRACK_STATUS,
             trackStatuses = mapOf(1L to "Completed", 2L to "Reading"),
-            trackingStatusOrder = { mapOf("Reading" to "1", "Completed" to "5")[it] ?: "9" },
+            trackingStatusOrder = { mapOf("Completed" to "1", "Reading" to "5")[it] ?: "9" },
             categorySortOrder = CategorySortOrder.Z_TO_A,
         )
-        result.keys.map { it.label } shouldContainExactly listOf("Reading", "Completed")
+        result.keys.map { it.label } shouldContainExactly listOf("Completed", "Reading")
     }
 
     @Test

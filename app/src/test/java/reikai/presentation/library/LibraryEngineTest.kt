@@ -82,11 +82,6 @@ class LibraryEngineTest {
     private val novel = provider(ContentType.NOVELS)
     private val engine = engineOver(listOf(manga, novel))
 
-    /**
-     * An engine over a store whose preference flows emit, which the in-memory one's do not: the
-     * assembly combines several of them, so on the cheaper store it would never emit at all and every
-     * assertion about what it assembled would pass without one having run.
-     */
     @Test
     fun `a search for a hidden type lands on the shown type`() {
         val manga = provider(ContentType.MANGA)
@@ -99,14 +94,21 @@ class LibraryEngineTest {
 
     @Test
     fun `a search lands on its own type while both show`() {
+        val manga = provider(ContentType.MANGA)
         val novels = provider(ContentType.NOVELS)
-        val engine = engineOver(listOf(provider(ContentType.MANGA), novels))
+        val engine = engineOver(listOf(manga, novels))
 
         engine.searchFrom(ContentType.NOVELS, "q")
 
         verify { novels.search("q") }
+        verify(exactly = 0) { manga.search(any()) }
     }
 
+    /**
+     * An engine over a store whose preference flows emit, which the in-memory one's do not: the
+     * assembly combines several of them, so on the cheaper store it would never emit at all and every
+     * assertion about what it assembled would pass without one having run.
+     */
     private fun engineOver(
         providers: List<LibraryProvider>,
         categories: List<Category> = emptyList(),

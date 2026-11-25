@@ -103,8 +103,8 @@ class LibraryQueryMatchTest {
         libraryQueryMatches(QueryNode.from(query), row, fields) shouldBe expected
     }
 
-    // The name on the card wins over the source's, and searching the source title of a renamed entry
-    // no longer finds it, which is the tradeoff.
+    // The name on the card wins over the source's. The source title still finds a renamed entry, as an
+    // alternative title, which LibraryAltTitlesSearchConformanceTest pins through the production binding.
     @ParameterizedTest(name = "{0}")
     @MethodSource("overlaidQueries")
     fun `a custom override is what search matches`(name: String, query: String, expected: Boolean) {
@@ -279,7 +279,6 @@ class LibraryQueryMatchTest {
             Arguments.of("title finds the overridden title", "title:renamed", true),
             Arguments.of("author finds the overridden author", "author:\"new author\"", true),
             Arguments.of("genre finds the overridden genre", "genre:renamed", true),
-            Arguments.of("the source title no longer finds a renamed entry", "mysteries", false),
             Arguments.of("the source author no longer finds a re-authored entry", "author:cuttlefish", false),
             Arguments.of("an unoverridden field still reads the source value", "srcid:novelarrow", true),
         )

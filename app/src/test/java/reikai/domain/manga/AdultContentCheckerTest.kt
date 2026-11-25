@@ -138,7 +138,9 @@ class AdultContentCheckerTest {
         val novelSources = mockk<NovelSourceManager> { coEvery { getWithoutPlugins(any()) } returns null }
         val checker = AdultContentChecker(mockk(), mockk(), novelSources)
 
-        checker.adultNovelIdsAmong(listOf(novel("plugin", genre = listOf("Fantasy")))) shouldBe emptySet()
+        checker.adultNovelIdsAmong(
+            listOf(novel("plugin", genre = listOf("Fantasy")), novel("plugin", id = 2L, genre = listOf("Smut"))),
+        ) shouldBe setOf(2L)
     }
 
     enum class Type {
@@ -188,8 +190,8 @@ class AdultContentCheckerTest {
         @JvmStatic
         fun types() = Type.entries
 
-        private fun novel(source: String, genre: List<String>?): Novel =
-            Novel.create().copy(id = 1L, source = source, url = "u", title = "t", genre = genre)
+        private fun novel(source: String, genre: List<String>?, id: Long = 1L): Novel =
+            Novel.create().copy(id = id, source = source, url = "u", title = "t", genre = genre)
 
         private fun extensions(warning: ContentWarning, sourceId: Long): List<Extension.Loaded> {
             val extSource = mockk<Source> { every { id } returns sourceId }

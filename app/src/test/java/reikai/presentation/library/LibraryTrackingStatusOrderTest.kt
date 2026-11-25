@@ -54,4 +54,15 @@ class LibraryTrackingStatusOrderTest {
         listOf("Dropped", "Completed", "Reading").sortedBy { order(it) } shouldBe
             listOf("Reading", "Completed", "Dropped")
     }
+
+    /** The grouping sorts these keys as strings, so the eleventh status must not sort between the first two. */
+    @Test
+    fun `a tenth or later status still sorts after the earlier ones`() {
+        val statuses = List(11) { mockk<StringResource>() }
+        val order = LibraryTrackingStatusOrder.build(
+            listOf(tracker(statuses.mapIndexed { i, res -> i.toLong() to res })),
+        ) { "s${statuses.indexOf(it)}" }
+
+        (order("s10") > order("s2")) shouldBe true
+    }
 }
