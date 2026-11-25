@@ -119,6 +119,8 @@ import reikai.domain.novel.tts.TtsPlayback
 import reikai.presentation.components.copyPictureToClipboard
 import reikai.presentation.reader.ACTION_OPEN_NOVEL
 import reikai.presentation.reader.EXTRA_FOLLOW_SESSION
+import reikai.presentation.reader.EXTRA_LAUNCH_PAGE
+import reikai.presentation.reader.EXTRA_SOURCE_SCOPED
 import reikai.presentation.reader.LocalPageColorAdjust
 import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
@@ -168,7 +170,7 @@ class ReaderActivity : BaseActivity() {
 
     companion object {
         // RK: optional page param jumps the reader to a specific page (gallery page previews); the
-        // ViewModel reads it from "launch_page", which is deliberately not the "page_index" key its
+        // ViewModel reads it from EXTRA_LAUNCH_PAGE, which is deliberately not the "page_index" key its
         // process-death restore uses. Null keeps Mihon's default behavior.
         // sourceScoped narrows the chapter list to the opened source's own chapters (Updates, a
         // specific source chip); default false = the whole merge group (group scope).
@@ -183,8 +185,8 @@ class ReaderActivity : BaseActivity() {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterId)
                 // RK --> the page and source scope newIntent takes, see the note above it
-                if (page != null) putExtra("launch_page", page)
-                if (sourceScoped) putExtra("source_scoped", true)
+                if (page != null) putExtra(EXTRA_LAUNCH_PAGE, page)
+                if (sourceScoped) putExtra(EXTRA_SOURCE_SCOPED, true)
                 // RK: name the entry by type as well, so the host can tell a novel launch from a
                 // manga one. The "manga" extra above stays for ReaderViewModel's own saved state.
                 if (mangaId != null) putEntryId(EntryId.Manga(mangaId))
@@ -209,7 +211,7 @@ class ReaderActivity : BaseActivity() {
         ): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("chapter", chapterId)
-                if (sourceScoped) putExtra("source_scoped", true)
+                if (sourceScoped) putExtra(EXTRA_SOURCE_SCOPED, true)
                 // Reopens read aloud where it is speaking rather than at [chapterId], which a different
                 // chapter would otherwise stop it at.
                 if (followSession) putExtra(EXTRA_FOLLOW_SESSION, true)
@@ -299,7 +301,7 @@ class ReaderActivity : BaseActivity() {
                     .create(
                         launchNovelId = intent.entryId()?.rawId ?: -1L,
                         initialChapterId = intent.getLongExtra("chapter", -1L),
-                        launchSourceScoped = intent.getBooleanExtra("source_scoped", false),
+                        launchSourceScoped = intent.getBooleanExtra(EXTRA_SOURCE_SCOPED, false),
                         // The model's own, as ReaderViewModel takes one off the graph's extras: a
                         // process kill must reopen the chapter being read, not the launch chapter.
                         savedState = createSavedStateHandle(),
@@ -858,13 +860,13 @@ class ReaderActivity : BaseActivity() {
         // The reader's own view, which a follow can have taken from read aloud rather than from its launch.
         val (openEntry, openSourceScoped) = openView(
             this.intent.entryId(),
-            this.intent.getBooleanExtra("source_scoped", false),
+            this.intent.getBooleanExtra(EXTRA_SOURCE_SCOPED, false),
             novelSession?.let { novelViewModel.novelId to novelViewModel.sourceScoped },
         )
         val readAloud = graph.readAloudSession.state.value
         val follows = intent.getBooleanExtra(EXTRA_FOLLOW_SESSION, false)
         val (requestedEntry, requestedSourceScoped) =
-            requestedView(requested, intent.getBooleanExtra("source_scoped", false), follows, readAloud)
+            requestedView(requested, intent.getBooleanExtra(EXTRA_SOURCE_SCOPED, false), follows, readAloud)
         val sameLaunch = isSameLaunch(
             requestedEntry,
             requestedChapter,

@@ -21,6 +21,12 @@ private const val EXTRA_ENTRY_ID = "entry_id"
 /** A novel launch that reopens read aloud where it is speaking. */
 internal const val EXTRA_FOLLOW_SESSION = "follow_session"
 
+/** A manga launch kept to the chapter's own source in a merged series, read from ReaderViewModel's saved state. */
+internal const val EXTRA_SOURCE_SCOPED = "source_scoped"
+
+/** The page a manga launch jumps to once, as ReaderViewModel reads it from its saved state. */
+internal const val EXTRA_LAUNCH_PAGE = "launch_page"
+
 /**
  * Every novel launch's action. A PendingIntent is matched by its request code and its intent less the extras, so
  * without it a novel's would equal the manga entry's whose id shares its code, and one tap would open the other.

@@ -132,6 +132,8 @@ import reikai.presentation.components.savedPictureFolder
 import reikai.presentation.details.ChapterVolume
 import reikai.presentation.details.mangaChapterVolume
 import reikai.presentation.reader.ChapterSwitches
+import reikai.presentation.reader.EXTRA_LAUNCH_PAGE
+import reikai.presentation.reader.EXTRA_SOURCE_SCOPED
 import reikai.presentation.reader.ReaderLoadState
 import reikai.presentation.reader.ReaderResume
 import reikai.presentation.reader.unloadForReload
@@ -278,9 +280,9 @@ class ReaderViewModel(
      * It has its own key because it shares nothing but a shape with the restore index above: this is
      * a one-off jump, that is a position being kept up to date, and one slot could not be both.
      */
-    private var launchPageIndex: Int? = savedState.get<Int>("launch_page")
+    private var launchPageIndex: Int? = savedState.get<Int>(EXTRA_LAUNCH_PAGE)
         set(value) {
-            savedState["launch_page"] = value
+            savedState[EXTRA_LAUNCH_PAGE] = value
             field = value
         }
 
@@ -327,7 +329,7 @@ class ReaderViewModel(
     // source chip); group scope (default) shows the whole merge group. Read from the launching intent
     // like the ids above, so it survives a configuration change. mergedGroup stays full either way, so
     // the mark-duplicates-read pass over groupChapters still reaches sibling sources.
-    private val sourceScoped = savedState.get<Boolean>("source_scoped") ?: false
+    private val sourceScoped = savedState.get<Boolean>(EXTRA_SOURCE_SCOPED) ?: false
     private val mergeScope = MergeScope.of(sourceScoped)
 
     // RK: resolve a chapter's own manga within the merge group, falling back to the opened manga when

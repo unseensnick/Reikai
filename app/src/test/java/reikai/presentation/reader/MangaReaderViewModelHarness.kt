@@ -293,8 +293,8 @@ class MangaReaderViewModelHarness private constructor(
                 // On the test's scheduler, so its writes land in virtual time and are joined below.
                 appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also { appScope = it },
                 savedState = SavedStateHandle(
-                    mapOf("manga" to manga.id, "chapter" to chapterId, "source_scoped" to sourceScoped) +
-                        listOfNotNull(launchPage?.let { "launch_page" to it }) +
+                    mapOf("manga" to manga.id, "chapter" to chapterId, EXTRA_SOURCE_SCOPED to sourceScoped) +
+                        listOfNotNull(launchPage?.let { EXTRA_LAUNCH_PAGE to it }) +
                         restored?.let { (id, page) -> listOf("chapter_id" to id, "page_index" to page) }.orEmpty(),
                 ).also { this@MangaReaderViewModelHarness.savedState = it },
                 context = mockk<Context>(relaxed = true),
