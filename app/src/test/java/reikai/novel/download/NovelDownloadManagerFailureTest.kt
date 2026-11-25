@@ -37,6 +37,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
 import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
@@ -147,6 +148,8 @@ class NovelDownloadManagerFailureTest {
             cache = mockk { every { downloadedChapterIds(any(), any()) } returns emptySet() },
             chapterRepo = chapterRepo,
             novelRepo = mockk<NovelRepository> {
+                byIdsFromById()
+
                 coEvery { getById(1L) } returns novel
                 coEvery { getById(2L) } returns uninstalled
                 coEvery { getById(3L) } returns unloaded

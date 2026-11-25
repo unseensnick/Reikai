@@ -11,6 +11,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.util.byIdsFromById
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import java.io.IOException
@@ -45,7 +46,10 @@ object NovelDownloadedTextsFixture {
         books: Map<String, String> = emptyMap(),
     ): NovelDownloadedTexts {
         val novel = Novel.create().copy(id = 1L, source = "src")
-        val novelRepository = mockk<NovelRepository> { coEvery { getById(1L) } returns novel }
+        val novelRepository = mockk<NovelRepository> {
+            byIdsFromById()
+            coEvery { getById(1L) } returns novel
+        }
         val prefs = NovelPreferences(
             InMemoryPreferenceStore(
                 sequenceOf(

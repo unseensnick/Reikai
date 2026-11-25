@@ -23,6 +23,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.byIdsFromById
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
@@ -280,6 +281,7 @@ class NovelActionsHarness(private val entryMissing: Boolean = false) : ActionsHa
         mergedChapterProvider = mergedChapterProvider,
         downloadManager = { downloadManager },
         novelRepository = mockk {
+            byIdsFromById()
             coEvery { getById(any()) } answers
                 { Novel.create().copy(id = firstArg(), source = "src${firstArg<Long>()}") }
         },

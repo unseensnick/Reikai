@@ -30,6 +30,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
 import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
@@ -76,7 +77,10 @@ class NovelDownloadManagerStorageTest {
         provider = mockk { every { availableSpace() } returns 1024L },
         cache = mockk { every { downloadedChapterIds(novel, any()) } returns emptySet() },
         chapterRepo = mockk<NovelChapterRepository> { coEvery { getById(10L) } returns chapter },
-        novelRepo = mockk<NovelRepository> { coEvery { getById(1L) } returns novel },
+        novelRepo = mockk<NovelRepository> {
+            byIdsFromById()
+            coEvery { getById(1L) } returns novel
+        },
         sourceManager = sourceManager,
         installer = mockk { coEvery { ensureLoaded() } just runs },
         downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),

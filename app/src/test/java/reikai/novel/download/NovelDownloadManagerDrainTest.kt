@@ -43,6 +43,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
 import reikai.util.sourceContacts
 import reikai.util.testAppScope
@@ -127,6 +128,8 @@ class NovelDownloadManagerDrainTest {
 
     private val provider = mockk<NovelDownloadProvider>(relaxed = true) { every { availableSpace() } returns -1L }
     private val novelRepo = mockk<NovelRepository> {
+        byIdsFromById()
+
         coEvery { getById(1L) } returns novel
         coEvery { getById(2L) } returns otherNovel
     }

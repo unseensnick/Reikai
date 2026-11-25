@@ -17,13 +17,14 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
+import reikai.util.byIdsFromById
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import kotlin.time.Instant
 
 class GetNextNovelChapterTest {
 
     private val chapterRepository = mockk<NovelChapterRepository>()
-    private val novelRepository = mockk<NovelRepository>()
+    private val novelRepository = mockk<NovelRepository>().apply { byIdsFromById() }
     private val mergeManager = mockk<NovelMergeManager>(relaxed = true)
     private val mergedChapterProvider = mockk<NovelMergedChapterProvider>()
     private val interactor = GetNextNovelChapter(

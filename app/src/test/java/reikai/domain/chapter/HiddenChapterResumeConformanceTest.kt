@@ -27,6 +27,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.presentation.novel.details.novelShownRows
+import reikai.util.byIdsFromById
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.chapter.model.Chapter
@@ -168,7 +169,10 @@ class HiddenChapterResumeConformanceTest {
                 ),
             )
             val chapterRepository = mockk<NovelChapterRepository> { coEvery { getByNovelId(1L) } returns novelChapters }
-            val novelRepository = mockk<NovelRepository> { coEvery { getById(1L) } returns novel(bookmarkedOnly) }
+            val novelRepository = mockk<NovelRepository> {
+                byIdsFromById()
+                coEvery { getById(1L) } returns novel(bookmarkedOnly)
+            }
             val mergeManager = mockk<NovelMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L) }
             GetNextNovelChapter(
                 chapterRepository,

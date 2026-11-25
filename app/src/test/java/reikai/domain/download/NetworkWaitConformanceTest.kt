@@ -39,6 +39,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
 import reikai.util.sourceContacts
 import reikai.util.testAppScope
@@ -239,7 +240,10 @@ class NovelNetworkWaitHalf : NetworkWaitHalf {
             provider = mockk { every { availableSpace() } returns -1L },
             cache = mockk { every { downloadedChapterIds(novel, any()) } returns emptySet() },
             chapterRepo = mockk { coEvery { getById(chapter.id) } returns chapter },
-            novelRepo = mockk<NovelRepository> { coEvery { getById(novel.id) } returns novel },
+            novelRepo = mockk<NovelRepository> {
+                byIdsFromById()
+                coEvery { getById(novel.id) } returns novel
+            },
             sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get(novel.source) } returns source },
             installer = mockk { coEvery { ensureLoaded() } just runs },
             downloadPreferences = downloadPreferences,

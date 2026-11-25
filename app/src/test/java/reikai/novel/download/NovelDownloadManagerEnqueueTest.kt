@@ -25,6 +25,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
 import reikai.util.sourceContacts
 import reikai.util.testAppScope
@@ -56,7 +57,10 @@ class NovelDownloadManagerEnqueueTest {
         }
         every { removeNovel(novel) } just runs
     }
-    private val novelRepository = mockk<NovelRepository> { coEvery { getById(1L) } returns novel }
+    private val novelRepository = mockk<NovelRepository> {
+        byIdsFromById()
+        coEvery { getById(1L) } returns novel
+    }
     private val chapterRepo = mockk<NovelChapterRepository> {
         coEvery { getById(missing.id) } returns missing
         coEvery { getById(later.id) } returns later

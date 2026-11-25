@@ -25,6 +25,7 @@ import reikai.presentation.reader.toReaderChapterRow
 import reikai.presentation.recents.fetchedCopies
 import reikai.presentation.recents.recentsCopiesDownloadUi
 import reikai.presentation.recents.soloUnit
+import reikai.util.byIdsFromById
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
@@ -187,6 +188,7 @@ private fun novelReader(): GetNextNovelChapter {
         coEvery { getByNovelId(2L) } returns listOf(novel(20, 2))
     }
     val novels = mockk<NovelRepository> {
+        byIdsFromById()
         coEvery { getById(any()) } answers { Novel.create().copy(id = firstArg()) }
     }
     val mergeManager = mockk<NovelMergeManager> {

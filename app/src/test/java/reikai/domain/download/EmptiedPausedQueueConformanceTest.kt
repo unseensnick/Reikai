@@ -37,6 +37,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadWorker
+import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
 import reikai.util.sourceContacts
 import reikai.util.testAppScope
@@ -282,7 +283,10 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
                 },
                 cache = mockk(relaxed = true) { every { downloadedChapterIds(novel, any()) } returns emptySet() },
                 chapterRepo = mockk { chapters.forEach { ch -> coEvery { getById(ch.id) } returns ch } },
-                novelRepo = mockk<NovelRepository> { coEvery { getById(novel.id) } returns novel },
+                novelRepo = mockk<NovelRepository> {
+                    byIdsFromById()
+                    coEvery { getById(novel.id) } returns novel
+                },
                 sourceManager = mockk(),
                 installer = mockk { coEvery { ensureLoaded() } just runs },
                 downloadPreferences = downloadPreferences,

@@ -50,6 +50,7 @@ import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
 import reikai.novel.source.NovelSourceManager
+import reikai.util.byIdsFromById
 import reikai.util.testAppScope
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.model.CustomMangaInfo
@@ -399,6 +400,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             }
         }
         val novels = mockk<NovelRepository>(relaxed = true) {
+            byIdsFromById()
             coEvery { getByUrlAndSource("u", "s") } returns
                 Novel.create().copy(id = BackupCustomInfoConformanceTest.LOCAL_ID, url = "u", source = "s")
             coEvery { getById(BackupCustomInfoConformanceTest.LOCAL_ID) } returns null

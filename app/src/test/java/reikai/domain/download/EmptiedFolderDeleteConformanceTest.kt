@@ -37,6 +37,7 @@ import reikai.novel.download.NovelDownloadProvider
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.storage.FakeSafProvider
 import reikai.storage.FakeSafProvider.ChildListingFault
+import reikai.util.byIdsFromById
 import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -297,7 +298,10 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
                 ),
                 cache = mockk(relaxed = true),
                 chapterRepo = mockk { coEvery { getByNovelId(1L) } returns listOf(chapterRow("Ch 1")) },
-                novelRepo = mockk<NovelRepository> { coEvery { getById(1L) } returns novel },
+                novelRepo = mockk<NovelRepository> {
+                    byIdsFromById()
+                    coEvery { getById(1L) } returns novel
+                },
                 sourceManager = mockk(),
                 installer = mockk(),
                 downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),

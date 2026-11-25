@@ -28,6 +28,7 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadCache
+import reikai.util.byIdsFromById
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.chapter.model.Chapter
@@ -123,6 +124,8 @@ class MergedResumeDownloadedConformanceTest {
                 coEvery { getByNovelId(2L) } returns listOf(chapter(21L, 2L, 1.0))
             }
             val novelRepository = mockk<NovelRepository> {
+                byIdsFromById()
+
                 coEvery { getById(any()) } answers { Novel.create().copy(id = firstArg(), source = "ln-source") }
             }
             val mergeManager = mockk<NovelMergeManager> {

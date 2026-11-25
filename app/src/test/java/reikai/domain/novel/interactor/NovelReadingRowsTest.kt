@@ -16,6 +16,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.util.byIdsFromById
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import kotlin.time.Instant
 
@@ -26,7 +27,7 @@ import kotlin.time.Instant
 class NovelReadingRowsTest {
 
     private val chapterRepository = mockk<NovelChapterRepository>()
-    private val novelRepository = mockk<NovelRepository>()
+    private val novelRepository = mockk<NovelRepository>().apply { byIdsFromById() }
     private val mergeManager = mockk<NovelMergeManager>()
     private val mergedChapterProvider = mockk<NovelMergedChapterProvider>()
     private val interactor = GetNextNovelChapter(

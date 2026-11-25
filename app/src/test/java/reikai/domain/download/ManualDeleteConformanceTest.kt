@@ -30,6 +30,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.byIdsFromById
 import reikai.util.resetVirtualDispatchers
 import reikai.util.restubDefaultDispatcher
 import reikai.util.sourceContacts
@@ -178,7 +179,10 @@ class NovelManualDeleteHalf : ManualDeleteHalf {
             provider = provider,
             cache = mockk<NovelDownloadCache>(relaxed = true),
             chapterRepo = mockk(relaxed = true),
-            novelRepo = mockk<NovelRepository> { coEvery { getById(novel.id) } returns novel },
+            novelRepo = mockk<NovelRepository> {
+                byIdsFromById()
+                coEvery { getById(novel.id) } returns novel
+            },
             sourceManager = mockk(),
             installer = mockk(),
             downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),

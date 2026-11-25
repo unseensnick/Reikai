@@ -46,6 +46,7 @@ import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
 import reikai.util.sourceContacts
 import reikai.util.testAppScope
@@ -185,7 +186,10 @@ class ParallelSourceLimitConformanceTest {
             provider = mockk { every { availableSpace() } returns -1L },
             cache = mockk { every { downloadedChapterIds(any(), any()) } returns emptySet() },
             chapterRepo = mockk { chapters.forEach { coEvery { getById(it.id) } returns it } },
-            novelRepo = mockk<NovelRepository> { novels.forEach { coEvery { getById(it.id) } returns it } },
+            novelRepo = mockk<NovelRepository> {
+                byIdsFromById()
+                novels.forEach { coEvery { getById(it.id) } returns it }
+            },
             sourceManager = sourceManager,
             installer = mockk { coEvery { ensureLoaded() } just runs },
             downloadPreferences = preferences,

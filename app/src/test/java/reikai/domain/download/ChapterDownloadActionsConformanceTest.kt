@@ -59,6 +59,7 @@ import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.byIdsFromById
 import reikai.util.resetVirtualDispatchers
 import reikai.util.restubDefaultDispatcher
 import reikai.util.sourceContacts
@@ -436,7 +437,10 @@ class NovelDownloadActionsHalf : DownloadActionsHalf {
             provider = mockk { every { availableSpace() } returns -1L },
             cache = mockk { every { downloadedChapterIds(novel, any()) } returns emptySet() },
             chapterRepo = chapterRepo,
-            novelRepo = mockk<NovelRepository> { coEvery { getById(novel.id) } returns novel },
+            novelRepo = mockk<NovelRepository> {
+                byIdsFromById()
+                coEvery { getById(novel.id) } returns novel
+            },
             sourceManager = sourceManager,
             installer = mockk { coEvery { ensureLoaded() } just runs },
             downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
