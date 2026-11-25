@@ -48,15 +48,6 @@ class LibraryManualOrderRepositoryImpl(
         database.library_manual_orderQueries.yieldToRestore()
     }
 
-    private suspend fun insert(position: ManualOrderPosition, categoryId: Long) {
-        database.library_manual_orderQueries.insert(
-            contentType = position.contentType.toDbValue(),
-            entryId = position.entryId,
-            categoryId = categoryId,
-            position = position.position,
-        )
-    }
-
     override fun subscribeBases(): Flow<Map<Long, Long>> =
         database.library_manual_orderQueries.getAllBases { categoryId, sortFlags -> categoryId to sortFlags }
             .subscribeToList()
@@ -64,6 +55,15 @@ class LibraryManualOrderRepositoryImpl(
 
     override suspend fun setBase(categoryId: Long, sortFlags: Long) {
         database.library_manual_orderQueries.setBase(categoryId, sortFlags)
+    }
+
+    private suspend fun insert(position: ManualOrderPosition, categoryId: Long) {
+        database.library_manual_orderQueries.insert(
+            contentType = position.contentType.toDbValue(),
+            entryId = position.entryId,
+            categoryId = categoryId,
+            position = position.position,
+        )
     }
 
     private fun mapPosition(contentType: Long, entryId: Long, categoryId: Long, position: Long) =

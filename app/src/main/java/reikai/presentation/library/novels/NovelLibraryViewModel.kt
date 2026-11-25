@@ -296,7 +296,6 @@ class NovelLibraryViewModel(
 
         return State(
             isLoading = false,
-            searchQuery = query,
             favorites = items,
             allFavorites = allItems,
             trackerMeans = trackerMeanScores,

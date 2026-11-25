@@ -106,7 +106,7 @@ class MangaLibraryRows(
                 mergingEnabled = mergePrefs.mergingEnabled,
                 showMergeSourceIcons = mergePrefs.showSourceIcons,
                 resolveSource = sourceManager::badgeSource,
-                mergedCountsByGroup = if (mergePrefs.mergingEnabled) mergePrefs.mergedCounts else emptyMap(),
+                mergedCountsByGroup = mergePrefs.mergedCounts,
                 // The same treatment for downloads, which summing the members double-counted for every
                 // chapter two of them hold.
                 mergedDownloadsByGroup = if (mergePrefs.mergingEnabled) {

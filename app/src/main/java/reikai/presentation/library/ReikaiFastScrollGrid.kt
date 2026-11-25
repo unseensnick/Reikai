@@ -22,7 +22,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -54,8 +53,6 @@ fun ReikaiFastScrollLazyVerticalGrid(
     itemIndexForRow: (Int) -> Int,
     modifier: Modifier = Modifier,
     state: LazyGridState = rememberLazyGridState(),
-    thumbAllowed: () -> Boolean = { true },
-    thumbColor: Color = MaterialTheme.colorScheme.primary,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     topContentPadding: Dp = Dp.Hairline,
     bottomContentPadding: Dp = Dp.Hairline,
@@ -155,12 +152,12 @@ fun ReikaiFastScrollLazyVerticalGrid(
                 if (stableScrollInProgress) scrolled.tryEmit(Unit)
             }
 
-            val alpha = rememberFastScrollThumbAlpha(scrolled, thumbAllowed)
+            val alpha = rememberFastScrollThumbAlpha(scrolled) { true }
             val isThumbVisible = alpha.value > 0f
 
             FastScrollThumb(
                 alpha = { alpha.value },
-                color = thumbColor,
+                color = MaterialTheme.colorScheme.primary,
                 endContentPadding = endContentPadding,
                 modifier = Modifier
                     .offset { IntOffset(0, thumbOffsetY.roundToInt()) }
