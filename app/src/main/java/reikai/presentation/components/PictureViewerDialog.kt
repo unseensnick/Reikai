@@ -64,12 +64,13 @@ import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.MobileRotate
 import mihon.icons.materialsymbols.rounded.Save
 import mihon.icons.materialsymbols.rounded.Share
+import reikai.presentation.reader.WidePageShape
+import reikai.presentation.reader.reshapePixels
+import reikai.presentation.reader.rotationDegrees
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.clickableNoIndication
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 /**
  * A picture full screen, fitted and zoomable, closed by Back, by the X, or by a tap on the picture or around
@@ -169,22 +170,28 @@ fun PictureViewerDialog(
                     // the frame's native pixels alive.
                     page = res.frame.use {
                         withContext(Dispatchers.Default) {
-                            val pixels = if (turned) quarterTurn(res.image, res.width, res.height) else res.image
+                            // The reader's Rotate to fit turn, so the gain map turns with the picture.
+                            val shape = if (turned) {
+                                WidePageShape.Rotated(rotationDegrees(invert = false))
+                            } else {
+                                WidePageShape.Whole
+                            }
+                            val shown = reshapePixels(res.image, res.width, res.height, if (res.isHdr) 8 else 4, shape)
                             ImagePage.ImageSingle(
                                 Image(
-                                    pixels ?: res.image,
-                                    if (turned && pixels != null) res.height else res.width,
-                                    if (turned && pixels != null) res.width else res.height,
+                                    shown.pixels,
+                                    shown.width,
+                                    shown.height,
                                     createMipMaps = true,
                                     backgroundColor = 0,
                                     hdr = res.isHdr,
                                     hdrHeadroom = res.hdrHeadroom,
-                                    // The gain map stays the picture's way up, so a turned picture goes without it.
-                                    gainmap = res.gainmap?.takeIf { !turned }?.let {
+                                    gainmap = res.gainmap?.let {
+                                        val map = reshapePixels(it.pixels, it.width, it.height, it.channels, shape)
                                         GainmapInput(
-                                            pixels = it.pixels,
-                                            width = it.width,
-                                            height = it.height,
+                                            pixels = map.pixels,
+                                            width = map.width,
+                                            height = map.height,
                                             channels = it.channels,
                                             gamma = it.gamma,
                                             minContentBoost = it.minContentBoost,
@@ -283,29 +290,6 @@ fun PictureViewerDialog(
 
 private fun Bitmap.turnedQuarter(): Bitmap =
     Bitmap.createBitmap(this, 0, 0, width, height, Matrix().apply { postRotate(90f) }, true)
-
-/**
- * [pixels], [width] by [height] and tightly packed, turned a quarter clockwise. Null when the buffer is not a
- * whole number of bytes a pixel, which a padded row would leave.
- */
-private fun quarterTurn(pixels: ByteBuffer, width: Int, height: Int): ByteBuffer? {
-    val count = width.toLong() * height
-    if (count <= 0 || pixels.capacity() % count != 0L) return null
-    val bytes = (pixels.capacity() / count).toInt()
-    val out = ByteBuffer.allocateDirect(pixels.capacity()).order(ByteOrder.nativeOrder())
-    val pixel = ByteArray(bytes)
-    for (y in 0 until height) {
-        for (x in 0 until width) {
-            pixels.position((y * width + x) * bytes)
-            pixels.get(pixel)
-            out.position(((x * height) + (height - 1 - y)) * bytes)
-            out.put(pixel)
-        }
-    }
-    pixels.rewind()
-    out.rewind()
-    return out
-}
 
 @Composable
 private fun ActionsPill(content: @Composable RowScope.() -> Unit) {
