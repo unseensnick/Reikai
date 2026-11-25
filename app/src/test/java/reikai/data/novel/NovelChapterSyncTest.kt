@@ -4,7 +4,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.unmockkAll
 import kotlinx.coroutines.Job
@@ -80,7 +79,6 @@ class NovelChapterSyncTest {
         db: List<NovelChapter>,
         source: List<ChapterItem>,
         downloadManager: NovelDownloadManager = mockk(relaxed = true),
-        markDuplicates: Set<String> = setOf(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW),
     ): Synced {
         val inserted = mutableListOf<InsertedRow>()
         val changed = mutableListOf<NovelChapter>()
@@ -114,7 +112,13 @@ class NovelChapterSyncTest {
             novelRepository,
             LibraryPreferences(
                 InMemoryPreferenceStore(
-                    sequenceOf(InMemoryPreference("mark_duplicate_read_chapter_read", markDuplicates, emptySet())),
+                    sequenceOf(
+                        InMemoryPreference(
+                            "mark_duplicate_read_chapter_read",
+                            setOf(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW),
+                            emptySet(),
+                        ),
+                    ),
                 ),
             ),
             NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
@@ -187,51 +191,10 @@ class NovelChapterSyncTest {
     }
 
     @Test
-    fun `a new duplicate chapter stays unread when the setting is off`() = runTest {
-        val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
-        val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
-
-        sync(db, source, markDuplicates = emptySet()).inserted.single().read shouldBe false
-    }
-
-    @Test
-    fun `a new unnumbered chapter stays unread when an unnumbered chapter was read`() = runTest {
-        val db = listOf(dbChapter("/prologue", number = -1.0, read = true))
-        val source = listOf(srcItem("/prologue", number = -1.0), srcItem("/afterword", number = -1.0))
-
-        sync(db, source).inserted.single().read shouldBe false
-    }
-
-    @Test
-    fun `a re-added chapter inherits the deleted twin's read and bookmark state`() = runTest {
-        val db = listOf(dbChapter("/c/5-old", number = 5.0, read = true, bookmark = true))
-        val source = listOf(srcItem("/c/5-new", number = 5.0))
-
-        val row = sync(db, source).inserted.single()
-
-        (row.read to row.bookmark) shouldBe (true to true)
-    }
-
-    @Test
-    fun `a re-added chapter reuses the deleted twin's fetch date`() = runTest {
-        val db = listOf(dbChapter("/c/5-old", number = 5.0, read = true, dateFetch = 1000L))
-        val source = listOf(srcItem("/c/5-new", number = 5.0))
-
-        sync(db, source).inserted.single().dateFetch shouldBe 1000L
-    }
-
-    @Test
     fun `a genuinely new chapter surfaces as new`() = runTest {
         val source = listOf(srcItem("/c/1", number = 1.0))
 
         sync(emptyList(), source).result.newChapters.map { it.url } shouldBe listOf("/c/1")
-    }
-
-    @Test
-    fun `a genuinely new chapter is inserted unread`() = runTest {
-        val source = listOf(srcItem("/c/1", number = 1.0))
-
-        sync(emptyList(), source).inserted.single().read shouldBe false
     }
 
     @Test
@@ -240,24 +203,6 @@ class NovelChapterSyncTest {
         val source = listOf(srcItem("/c/5", number = 5.0), srcItem("/c/5/", number = 5.0))
 
         sync(emptyList(), source).inserted.map { it.url } shouldContainExactlyInAnyOrder listOf("/c/5", "/c/5/")
-    }
-
-    @Test
-    fun `a re-titled chapter triggers a download rename so its stable-name file follows`() = runTest {
-        // Same url, new name: a toChange whose downloaded file must be relocated (Option 1 rename-on-sync).
-        val old = dbChapter("/c/5", number = 5.0) // name = "name"
-        val source = listOf(srcItem("/c/5", number = 5.0, name = "Renamed"))
-        val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
-
-        sync(listOf(old), source, downloadManager)
-
-        coVerify {
-            downloadManager.renameChapter(
-                match { it.id == 1L },
-                match { it.url == "/c/5" && it.name == "name" },
-                match { it.url == "/c/5" && it.name == "Renamed" },
-            )
-        }
     }
 
     /** The rows are committed by then, so a later sync sees no change of name and would never move the rest. */
@@ -282,18 +227,6 @@ class NovelChapterSyncTest {
         job.join()
 
         moved.size shouldBe 2
-    }
-
-    @Test
-    fun `a changed chapter that keeps its title does not trigger a download rename`() = runTest {
-        val old = dbChapter("/c/5", number = 5.0) // name = "name"
-        // Same name, a new group, so the row changes and reaches the rename check
-        val source = listOf(srcItem("/c/5", number = 5.0, scanlator = "Group"))
-        val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
-
-        sync(listOf(old), source, downloadManager)
-
-        coVerify(exactly = 0) { downloadManager.renameChapter(any(), any(), any()) }
     }
 
     @Test

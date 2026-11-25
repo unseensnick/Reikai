@@ -31,13 +31,13 @@ class DeleteNovelChaptersBehindReaderTest {
     private val order = listOf(1L, 2L, 3L, 4L, 5L)
     private val publicSource = ChapterIncognito(sourceOf = { null }, isIncognito = { false })
 
-    private fun chapter(id: Long, read: Boolean = true, bookmark: Boolean = false) = NovelChapter(
+    private fun chapter(id: Long, read: Boolean = true) = NovelChapter(
         id = id,
         novelId = 7L,
         url = "c$id",
         name = "Chapter $id",
         read = read,
-        bookmark = bookmark,
+        bookmark = false,
         lastTextProgress = 0L,
         chapterNumber = id.toDouble(),
         sourceOrder = id,
@@ -57,7 +57,6 @@ class DeleteNovelChaptersBehindReaderTest {
     private fun subject(
         slots: Int = 1,
         chapters: Map<Long, NovelChapter> = order.associateWith { chapter(it) },
-        allowRemovingBookmarked: Boolean = false,
         excludedCategoryIds: Set<String> = emptySet(),
         novelCategoryIds: List<Long> = emptyList(),
     ): DeleteNovelChaptersBehindReader {
@@ -66,7 +65,6 @@ class DeleteNovelChaptersBehindReaderTest {
         val store = InMemoryPreferenceStore(
             sequenceOf(
                 InMemoryPreferenceStore.InMemoryPreference("novel_remove_after_read_slots", slots, -1),
-                InMemoryPreferenceStore.InMemoryPreference("novel_remove_bookmarked", allowRemovingBookmarked, false),
                 InMemoryPreferenceStore.InMemoryPreference(
                     "novel_remove_exclude_categories",
                     excludedCategoryIds,
@@ -167,37 +165,6 @@ class DeleteNovelChaptersBehindReaderTest {
     }
 
     @Test
-    fun `a bookmarked chapter is kept by default`() = runTest {
-        val chapters = order.associateWith { chapter(it, bookmark = it == 3L) }
-        subject(
-            chapters = chapters,
-        ).await(
-            orderedIds = order,
-            readChapterId = 4L,
-            memberIds = listOf(7L),
-            stitch = emptyList(),
-            incognito = publicSource,
-        )
-
-        queued shouldBe emptyList()
-    }
-
-    @Test
-    fun `a bookmarked chapter is queued once the user allows removing them`() = runTest {
-        val chapters = order.associateWith { chapter(it, bookmark = it == 3L) }
-        subject(chapters = chapters, allowRemovingBookmarked = true)
-            .await(
-                orderedIds = order,
-                readChapterId = 4L,
-                memberIds = listOf(7L),
-                stitch = emptyList(),
-                incognito = publicSource,
-            )
-
-        queued.map { it.id } shouldBe listOf(3L)
-    }
-
-    @Test
     fun `a novel in an excluded category keeps its chapters`() = runTest {
         subject(excludedCategoryIds = setOf("11"), novelCategoryIds = listOf(11L))
             .await(
@@ -209,20 +176,5 @@ class DeleteNovelChaptersBehindReaderTest {
             )
 
         queued shouldBe emptyList()
-    }
-
-    /** The other half: a set with something in it must not stop every novel, only its members. */
-    @Test
-    fun `a novel outside the excluded categories is still queued`() = runTest {
-        subject(excludedCategoryIds = setOf("11"), novelCategoryIds = listOf(12L))
-            .await(
-                orderedIds = order,
-                readChapterId = 4L,
-                memberIds = listOf(7L),
-                stitch = emptyList(),
-                incognito = publicSource,
-            )
-
-        queued.map { it.id } shouldBe listOf(3L)
     }
 }

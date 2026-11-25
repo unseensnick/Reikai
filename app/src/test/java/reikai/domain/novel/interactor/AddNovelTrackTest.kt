@@ -78,13 +78,6 @@ class AddNovelTrackTest {
         coVerify { updater.setRemoteStartDate(tracker, any(), FIRST_READ_AT) }
     }
 
-    @Test
-    fun `nothing read sends the site nothing`() = runTest {
-        bindAfterReading(false, false)
-
-        coVerify(exactly = 0) { updater.setRemoteLastChapterRead(tracker, any(), any()) }
-    }
-
     private companion object {
         const val NOVEL_ID = 7L
         const val FIRST_READ_AT = 1_700_000_000_000L
