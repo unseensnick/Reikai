@@ -48,8 +48,9 @@ class MergedChapterUnitRepositoryImpl(
 
     override suspend fun isStale(contentType: ContentType, groupId: Long): Boolean =
         when (contentType) {
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
             ContentType.NOVELS -> queries.staleMergedNovelGroup(groupId).awaitAsOneOrNull()
-            else -> queries.staleMergedGroup(groupId).awaitAsOneOrNull()
+            ContentType.MANGA -> queries.staleMergedGroup(groupId).awaitAsOneOrNull()
         } != null
 
     override suspend fun getRankings(): Map<Long, String> =
@@ -57,10 +58,11 @@ class MergedChapterUnitRepositoryImpl(
 
     override suspend fun getStitch(contentType: ContentType, groupId: Long): List<ChapterUnit> =
         when (contentType) {
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
             ContentType.NOVELS -> queries.stitchOfNovelGroup(groupId) { chapterId, unit, copyOrder ->
                 ChapterUnit(chapterId, unit!!.toInt(), copyOrder.toInt())
             }
-            else -> queries.stitchOfGroup(groupId) { chapterId, unit, copyOrder ->
+            ContentType.MANGA -> queries.stitchOfGroup(groupId) { chapterId, unit, copyOrder ->
                 ChapterUnit(chapterId, unit!!.toInt(), copyOrder.toInt())
             }
         }.awaitAsList()
@@ -73,10 +75,11 @@ class MergedChapterUnitRepositoryImpl(
 
     private fun groupCountsQuery(contentType: ContentType) =
         when (contentType) {
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
             ContentType.NOVELS -> queries.countsByGroupNovel { groupId, total, read, bookmarked ->
                 groupId to MergedGroupCounts(total, read, bookmarked)
             }
-            else -> queries.countsByGroup { groupId, total, read, bookmarked ->
+            ContentType.MANGA -> queries.countsByGroup { groupId, total, read, bookmarked ->
                 groupId to MergedGroupCounts(total, read, bookmarked)
             }
         }
@@ -87,8 +90,9 @@ class MergedChapterUnitRepositoryImpl(
     ): Map<Long, List<DownloadUnitRow>> {
         if (ownerIds.isEmpty()) return emptyMap()
         val memberCount = when (contentType) {
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
             ContentType.NOVELS -> queries.mergedNovelLibraryMemberCount()
-            else -> queries.mergedLibraryMemberCount()
+            ContentType.MANGA -> queries.mergedLibraryMemberCount()
         }.awaitAsOne()
         val readAll = ownerIds.size >= memberCount * READ_ALL_SHARE
         return downloadUnitRows(contentType, ownerIds, readAll).groupBy { it.groupId }
@@ -108,11 +112,12 @@ class MergedChapterUnitRepositoryImpl(
 
     private fun downloadUnitsQuery(contentType: ContentType, ownerIds: Collection<Long>?) =
         when (contentType) {
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
             ContentType.NOVELS -> when (ownerIds) {
                 null -> queries.downloadUnitsByGroupNovel(::novelDownloadUnit)
                 else -> queries.downloadUnitsOfNovelOwners(ownerIds, ::novelDownloadUnit)
             }
-            else -> when (ownerIds) {
+            ContentType.MANGA -> when (ownerIds) {
                 null -> queries.downloadUnitsByGroup(::mangaDownloadUnit)
                 else -> queries.downloadUnitsOfOwners(ownerIds, ::mangaDownloadUnit)
             }
@@ -141,6 +146,7 @@ class MergedChapterUnitRepositoryImpl(
         chapterIds: Collection<Long>,
     ): Flow<Map<Long, List<ChapterCopyRow>>> =
         when (contentType) {
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
             ContentType.NOVELS -> queries.copiesOfNovelChapters(chapterIds) {
                     namedId,
                     copyId,
@@ -162,7 +168,7 @@ class MergedChapterUnitRepositoryImpl(
                     chapterUrl = url,
                 )
             }
-            else -> queries.copiesOfChapters(chapterIds) {
+            ContentType.MANGA -> queries.copiesOfChapters(chapterIds) {
                     namedId,
                     copyId,
                     unit,
@@ -202,7 +208,11 @@ class MergedChapterUnitRepositoryImpl(
         stitch: GroupStitch,
         ranking: String?,
     ) {
-        val novels = contentType == ContentType.NOVELS
+        val novels = when (contentType) {
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+            ContentType.MANGA -> false
+            ContentType.NOVELS -> true
+        }
         database.transaction {
             if (novels) queries.deleteNovelGroup(groupId) else queries.deleteGroup(groupId)
             if (!novels) {
@@ -246,3 +256,5 @@ class MergedChapterUnitRepositoryImpl(
 
 /** How many ids one IN list binds, under SQLite's 999-variable limit on older Android versions. */
 const val MAX_SQL_IDS_PER_QUERY = 500
+
+private const val ALL_UNSUPPORTED = "ContentType.ALL is not a merged-stitch type"
