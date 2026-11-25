@@ -22,9 +22,9 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.MergedGroupStitcher
 import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelGroupStitcher
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.novels.NovelMergeCollapse
@@ -403,11 +403,13 @@ class MergedTrunkConformanceTest {
             )
         }
 
-        override suspend fun managedLead(members: List<Long>): Long {
-            val chapters = NovelChapterRepositoryImpl(database)
-            return NovelChapterAggregation.ranking.rank(members.associateWith { chapters.getByNovelId(it) })
-                .first().memberId
-        }
+        override suspend fun managedLead(members: List<Long>): Long = NovelMergedChapterProvider(
+            mockk(),
+            mockk(),
+            NovelRepositoryImpl(database),
+            NovelChapterRepositoryImpl(database),
+            preferences,
+        ).rankedMemberIds(members, emptyList()).first()
 
         override suspend fun libraryPrimary(preferred: List<Long>): Long =
             NovelMergeCollapse.collapse(

@@ -77,6 +77,25 @@ class GroupRanking<C, S>(private val chapterCount: (List<C>) -> Long) {
         }
         .sortedWith(trunkOrder({ it.priority }, { it.chapterCount }, { it.memberId }))
 
+    /** [memberIds] in [rank]'s order, each read through [chaptersOf] and [sourceOf]: the manage-sources rows. */
+    suspend fun rankIds(
+        memberIds: List<Long>,
+        chaptersOf: suspend (Long) -> List<C>,
+        sourceOf: suspend (Long) -> S,
+        preferredSourceIds: List<S>,
+        memberRanking: List<Long>,
+    ): List<Long> {
+        val chapters = memberIds.associateWith { chaptersOf(it) }
+        return rank(
+            chapters,
+            memberIds.associateWith {
+                sourceOf(it)
+            },
+            preferredSourceIds,
+            memberRanking,
+        ).map { it.memberId }
+    }
+
     /** The members as the stitch walks them, trunk first. */
     fun walkOrder(
         chaptersByMember: Map<Long, List<C>>,

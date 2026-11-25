@@ -43,7 +43,7 @@ class NovelReadingRowsTest {
         coEvery { mergeManager.computeRelatedIds(any()) } returns longArrayOf(1L, 2L)
         coEvery { mergedChapterProvider.stitchOf(any()) } returns
             listOf(ChapterUnit(10, 0, 0), ChapterUnit(20, 0, 1), ChapterUnit(21, 1, 0))
-        val render = NovelMergedChapterProvider(mockk(), mockk())
+        val render = NovelMergedChapterProvider(mockk(), mockk(), mockk(), mockk(), mockk())
         every { mergedChapterProvider.merged(any(), any()) } answers { render.merged(firstArg(), secondArg()) }
         coEvery { novelRepository.getById(any()) } answers { Novel.create().copy(id = firstArg()) }
         coEvery { chapterRepository.getByNovelId(1L) } returns listOf(chapter(10, novelId = 1L, order = 1))

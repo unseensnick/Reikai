@@ -511,7 +511,13 @@ class NovelReaderViewModelHarness private constructor(
             novelRepo,
             novelPreferences,
             mergeManager,
-            NovelMergedChapterProvider(mergeManager, ReconcileMergedChapters(units, setOf(stitcher))),
+            NovelMergedChapterProvider(
+                mergeManager,
+                ReconcileMergedChapters(units, setOf(stitcher)),
+                novelRepo,
+                chapterRepo,
+                reikaiPreferences,
+            ),
             NovelChapterSettings(novelRepo),
         )
     }
@@ -703,7 +709,13 @@ class NovelReaderViewModelHarness private constructor(
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences, onMerged = {}) {}
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
         val mergedChapterProvider =
-            NovelMergedChapterProvider(mergeManager, ReconcileMergedChapters(units, setOf(stitcher)))
+            NovelMergedChapterProvider(
+                mergeManager,
+                ReconcileMergedChapters(units, setOf(stitcher)),
+                novelRepo,
+                chapterRepo,
+                reikaiLibraryPreferences,
+            )
         return NovelDetailsViewModel(
             appScope = appScope,
             novelId = novelId,
@@ -727,7 +739,6 @@ class NovelReaderViewModelHarness private constructor(
             },
             mergeManager = mergeManager,
             mergedChapterProvider = mergedChapterProvider,
-            reikaiLibraryPreferences = reikaiLibraryPreferences,
             libraryPreferences = LibraryPreferences(store),
             syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, NoChapterTombstones),
             // A remote novel's failed refresh offers no folders, as offerAfterFailure answers for one.

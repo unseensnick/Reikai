@@ -106,12 +106,13 @@ class MergedChapterProvider(
      *  scanlator is a display choice; [memberRanking] is the caller's already-resolved per-group
      *  override (empty = the global ranking wins). */
     suspend fun rankedMemberIds(memberIds: List<Long>, memberRanking: List<Long>): List<Long> =
-        ChapterAggregation.ranking.rank(
-            memberIds.associateWith { getMangaWithChapters.awaitChapters(it) },
-            memberIds.associateWith { getMangaWithChapters.awaitManga(it).source },
+        ChapterAggregation.ranking.rankIds(
+            memberIds,
+            { getMangaWithChapters.awaitChapters(it) },
+            { getMangaWithChapters.awaitManga(it).source },
             reikaiLibraryPreferences.preferredMangaSources.get(),
             memberRanking,
-        ).map { it.memberId }
+        )
 }
 
 /** [shown]'s flags across the whole group, as the library's resume and download ask them; a null group

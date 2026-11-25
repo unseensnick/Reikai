@@ -192,7 +192,7 @@ private fun novelReader(): GetNextNovelChapter {
     val mergeManager = mockk<NovelMergeManager> {
         coEvery { computeRelatedIds(any()) } returns longArrayOf(1L, 2L)
     }
-    val render = NovelMergedChapterProvider(mockk(), mockk())
+    val render = NovelMergedChapterProvider(mockk(), mockk(), mockk(), mockk(), mockk())
     val provider = mockk<NovelMergedChapterProvider> {
         coEvery { stitchOf(any()) } returns emptyList()
         every { merged(any(), any()) } answers { render.merged(firstArg(), secondArg()) }

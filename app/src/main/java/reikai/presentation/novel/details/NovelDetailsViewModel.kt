@@ -84,7 +84,6 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.ResetEntryInfo
 import reikai.domain.library.ChapterSwipeActions
 import reikai.domain.library.ContentType
-import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.ChapterUnit
@@ -95,7 +94,6 @@ import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.RemovalPrompt
 import reikai.domain.merge.mergeMemberName
 import reikai.domain.merge.refreshMergeGroup
-import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelChapterSettings
@@ -228,7 +226,6 @@ class NovelDetailsViewModel(
     private val uiPreferences: UiPreferences,
     private val mergeManager: NovelMergeManager,
     private val mergedChapterProvider: NovelMergedChapterProvider,
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
     private val syncRules: NovelChapterSyncRules,
     private val localSeriesRelink: LocalSeriesRelink,
@@ -1023,23 +1020,15 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             if (loaded.mergeSources.size <= 1) return@launchIO
-            // Per-source chapters, resolved on open for both the coverage-hint counts and the trunk rank.
-            val chaptersByNovel = loaded.mergeSources.associate { it.id to chapterRepo.getByNovelId(it.id) }
             val withCounts = loaded.mergeSources.associateBy({ it.id }) {
                 val isLocal = LocalNovelSource.isLocal(memberSources[it.id])
-                EntryManageSourceInfo(it.id, it.sourceName, chaptersByNovel[it.id]?.size ?: 0, isLocal)
+                EntryManageSourceInfo(it.id, it.sourceName, chapterRepo.getByNovelId(it.id).size, isLocal)
             }
             // Order the rows by the same ranking aggregation uses, so the primary source opens on top even
             // under the global order (no override). memberRanking non-empty == override on.
             val memberRanking = mergeManager.overrideRankingMemberIds(anchorNovelId)
-            // The stored source, installed or not, as the stitch ranks it (NovelGroupStitcher).
-            val ranked = NovelChapterAggregation.ranking.rank(
-                chaptersByNovel,
-                chaptersByNovel.keys.associateWith { memberSources[it].orEmpty() },
-                reikaiLibraryPreferences.preferredNovelSources.get(),
-                memberRanking,
-            )
-            val orderedSources = ranked.mapNotNull { withCounts[it.memberId] }
+            val ranked = mergedChapterProvider.rankedMemberIds(withCounts.keys.toList(), memberRanking)
+            val orderedSources = ranked.mapNotNull { withCounts[it] }
             showDialog(NovelDetailsDialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
         }
     }
