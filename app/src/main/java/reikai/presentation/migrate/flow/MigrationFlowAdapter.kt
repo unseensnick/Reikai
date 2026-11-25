@@ -14,9 +14,9 @@ import tachiyomi.domain.source.model.Source
 
 /**
  * Content-type-neutral data flags for the migration confirm dialog. Both per-type enums carry the
- * same five concepts but on DIFFERENT bit layouts (manga `MigrationFlag`, novel `NovelMigrationFlag`),
- * so adapters map by name, never by bit. Tracks migrate unconditionally on both types and are
- * deliberately not a flag.
+ * same six concepts but on DIFFERENT bit layouts (manga `MigrationFlag`, novel `NovelMigrationFlag`),
+ * so each adapter maps them by an exhaustive when, never by bit. Tracks migrate unconditionally on
+ * both types and are deliberately not a flag.
  */
 enum class MigrationDataFlag {
     CHAPTER,

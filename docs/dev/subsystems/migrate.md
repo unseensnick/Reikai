@@ -94,7 +94,7 @@ Both engines refuse a self-target and a missing target source, and rethrow every
 - `app/src/main/java/reikai/presentation/migrate/flow/MigrationCandidateUi.kt`: `openDetails`, `openDetailsAfterCommit`.
 - `app/src/main/java/reikai/presentation/migrate/MigrationSourcePick.kt`: `MigrationSourcePickContent`, `PickMember`.
 - `app/src/main/java/mihon/domain/migration/usecases/MigrateMangaUseCase.kt` and `app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt`: the engines; `computeChapterMigration`, `computeHistoryMigration`.
-- `app/src/main/java/reikai/domain/migration/MigrationSwapEffects.kt`: `afterSwap`, what both engines do once the favourite swap commits (the target's categories, both entries' cover colours, the source's tracker); a new after-swap step goes here.
+- `app/src/main/java/reikai/domain/migration/MigrationSwapEffects.kt`: `afterSwap`, what both engines do once the favourite swap commits (the target's categories, both entries' cover colours, the source's tracker), run past a Stop and logged rather than failing the row, since the swap already happened; a new after-swap step goes here.
 - `app/src/main/java/mihon/feature/migration/list/search/BaseSmartSearchEngine.kt`, `SmartSourceSearchEngine.kt` and `app/src/main/java/reikai/novel/source/SmartNovelSearchEngine.kt`: title matching.
 - `app/src/main/java/reikai/presentation/browse/migrate/ReikaiMigrateSourceTab.kt`: the Migrate tab's source list.
 

@@ -256,11 +256,11 @@ class MangaMigrationFlowAdapter(
     }
 
     override fun savedFlags(): Set<MigrationDataFlag> {
-        return sourcePreferences.migrationFlags.get().map { MigrationDataFlag.valueOf(it.name) }.toSet()
+        return sourcePreferences.migrationFlags.get().mapTo(HashSet()) { it.toNeutral() }
     }
 
     override fun persistFlags(flags: Set<MigrationDataFlag>) {
-        sourcePreferences.migrationFlags.set(flags.mapTo(HashSet()) { MigrationFlag.valueOf(it.name) })
+        sourcePreferences.migrationFlags.set(flags.mapTo(HashSet()) { it.toMangaFlag() })
     }
 
     override suspend fun applicableFlags(entries: List<MigrationEntry>): Set<MigrationDataFlag> {
@@ -287,7 +287,7 @@ class MangaMigrationFlowAdapter(
             current,
             targetManga,
             replace,
-            flags.mapTo(HashSet()) { MigrationFlag.valueOf(it.name) },
+            flags.mapTo(HashSet()) { it.toMangaFlag() },
             skipTargetRefresh = targetJustSynced,
         )
     }
@@ -305,4 +305,23 @@ class MangaMigrationFlowAdapter(
         inLibrary = favorite,
         handle = MangaCandidateHandle(this),
     )
+
+    // Mapped by when, as the novel adapter does, so a flag an upstream sync adds fails the build here.
+    private fun MigrationFlag.toNeutral(): MigrationDataFlag = when (this) {
+        MigrationFlag.CHAPTER -> MigrationDataFlag.CHAPTER
+        MigrationFlag.CATEGORY -> MigrationDataFlag.CATEGORY
+        MigrationFlag.CUSTOM_COVER -> MigrationDataFlag.CUSTOM_COVER
+        MigrationFlag.NOTES -> MigrationDataFlag.NOTES
+        MigrationFlag.REMOVE_DOWNLOAD -> MigrationDataFlag.REMOVE_DOWNLOAD
+        MigrationFlag.CUSTOM_INFO -> MigrationDataFlag.CUSTOM_INFO
+    }
+
+    private fun MigrationDataFlag.toMangaFlag(): MigrationFlag = when (this) {
+        MigrationDataFlag.CHAPTER -> MigrationFlag.CHAPTER
+        MigrationDataFlag.CATEGORY -> MigrationFlag.CATEGORY
+        MigrationDataFlag.CUSTOM_COVER -> MigrationFlag.CUSTOM_COVER
+        MigrationDataFlag.NOTES -> MigrationFlag.NOTES
+        MigrationDataFlag.REMOVE_DOWNLOAD -> MigrationFlag.REMOVE_DOWNLOAD
+        MigrationDataFlag.CUSTOM_INFO -> MigrationFlag.CUSTOM_INFO
+    }
 }
