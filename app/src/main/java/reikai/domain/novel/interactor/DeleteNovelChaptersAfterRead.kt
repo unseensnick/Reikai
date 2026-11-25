@@ -15,9 +15,9 @@ import reikai.novel.download.NovelDownloadManager
 class DeleteNovelChaptersAfterRead(
     private val novelPreferences: NovelPreferences,
     private val removableDownloads: NovelRemovableDownloads,
-    // Deferred on purpose: building the manager restores the persisted queue and resumes the drain, so
-    // taking it directly would resume downloads from every screen that can mark a chapter read. This is
-    // the choke point, since the library, details, updates and the notification receiver all reach the
+    // Deferred on purpose: building the manager reads the saved download queue from the database, so
+    // taking it directly would pay that read on every screen that can mark a chapter read. This is the
+    // choke point, since the library, details, updates and the notification receiver all reach the
     // manager only through here. See docs/dev/subsystems/architecture.md.
     private val downloadManager: () -> NovelDownloadManager,
 ) {

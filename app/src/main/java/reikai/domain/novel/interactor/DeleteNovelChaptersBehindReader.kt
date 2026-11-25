@@ -28,8 +28,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 class DeleteNovelChaptersBehindReader(
     private val novelPreferences: NovelPreferences,
     private val removableDownloads: NovelRemovableDownloads,
-    // Deferred for the same reason as in [DeleteNovelChaptersAfterRead]: building the manager resumes
-    // the persisted download queue, and a reader open must not do that.
+    // Deferred for the same reason as in [DeleteNovelChaptersAfterRead]: building the manager reads
+    // the saved download queue from the database, which a reader open need not pay.
     private val downloadManager: () -> NovelDownloadManager,
     private val chapterRepository: NovelChapterRepository,
     private val pendingDeleter: NovelDownloadPendingDeleter,

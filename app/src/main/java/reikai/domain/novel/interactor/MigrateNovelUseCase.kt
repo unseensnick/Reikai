@@ -51,8 +51,8 @@ class MigrateNovelUseCase(
     private val novelChapterRepository: NovelChapterRepository,
     private val getNovelCategories: GetNovelCategories,
     private val novelMergeManager: NovelMergeManager,
-    // A Provider: constructing the manager restores the persisted download queue and can start the
-    // download worker, which building a migration must not do.
+    // Deferred: constructing the manager reads the saved download queue from the database, which
+    // building a migration need not pay.
     private val novelDownloadManagerProvider: () -> NovelDownloadManager,
     private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,

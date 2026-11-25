@@ -1,6 +1,7 @@
 package reikai.domain.novel.interactor
 
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
@@ -11,12 +12,13 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.category.model.Category
 import kotlin.time.Instant
 
 /**
- * The manager is injected as a lambda because building it restores the persisted download queue and
- * resumes the drain. Every novel mark-read site reaches it only through here, so this is where the
- * deferral is pinned: taking it as a plain parameter again would resume downloads on library open.
+ * The manager is injected as a lambda because building it reads the saved download queue from the
+ * database. Every novel mark-read site reaches it only through here, so this is where the deferral is
+ * pinned: taking it as a plain parameter again would pay that read on library open.
  */
 class DeleteNovelChaptersAfterReadTest {
 
@@ -27,8 +29,11 @@ class DeleteNovelChaptersAfterReadTest {
     private var managerBuilds = 0
     private val manager = mockk<NovelDownloadManager>(relaxed = true)
 
-    // The categories mock answers none, so the novel sits in Default.
-    private val removable = NovelRemovableDownloads(preferences, mockk<GetNovelCategories>(relaxed = true))
+    // Novel 2 sits in category 5; the categories mock answers none for any other, so it sits in Default.
+    private val categories = mockk<GetNovelCategories>(relaxed = true) {
+        coEvery { awaitByNovelId(2L) } returns listOf(Category(id = 5L, name = "Kept", order = 1L, flags = 0L))
+    }
+    private val removable = NovelRemovableDownloads(preferences, categories)
 
     private val interactor = DeleteNovelChaptersAfterRead(
         novelPreferences = preferences,
@@ -39,8 +44,8 @@ class DeleteNovelChaptersAfterReadTest {
         },
     )
 
-    private fun chapter(id: Long) = NovelChapter(
-        id = id, novelId = 1L, url = "", name = "", read = true, bookmark = false,
+    private fun chapter(id: Long, novelId: Long = 1L) = NovelChapter(
+        id = id, novelId = novelId, url = "", name = "", read = true, bookmark = false,
         lastTextProgress = 0L, chapterNumber = id.toDouble(), sourceOrder = id,
         dateFetch = Instant.fromEpochMilliseconds(0L),
         dateUpload = null, page = "",
@@ -70,13 +75,14 @@ class DeleteNovelChaptersAfterReadTest {
     }
 
     @Test
-    fun `marking read with delete-after-read on builds the manager and deletes`() = runTest {
+    fun `marking read with delete-after-read on deletes only what an excluded category does not keep`() = runTest {
         preferences.removeAfterMarkedAsRead().set(true)
+        preferences.removeExcludeCategories().set(setOf("5"))
 
-        interactor.await(listOf(chapter(1)))
+        interactor.await(listOf(chapter(1), chapter(2, novelId = 2L)))
 
         managerBuilds shouldBe 1
-        verify { manager.deleteChapters(any()) }
+        verify { manager.deleteChapters(listOf(chapter(1))) }
     }
 
     @Test
