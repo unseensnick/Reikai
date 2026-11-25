@@ -5,6 +5,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -206,7 +207,7 @@ data object SettingsNovelReaderScreen : SearchableSettings {
     ): Preference.PreferenceItem.ListPreference<Int> {
         val title = stringResource(titleRes)
         val customLabel = stringResource(MR.strings.color_custom)
-        var picking by remember { mutableStateOf(false) }
+        var picking by rememberSaveable { mutableStateOf(false) }
         if (picking) {
             ColorPickerDialog(
                 title = title,

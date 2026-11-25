@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
+import java.util.Locale
 
 /** What the settings sheet accepts when a value or a colour is typed rather than stepped or slid. */
 class ReaderSettingsInputTest {
@@ -61,5 +62,17 @@ class ReaderSettingsInputTest {
     @Test
     fun `a whole-number stepper keeps digits only`() {
         stepperInputText("1,5.", scale = 1) shouldBe "15"
+    }
+
+    /** The dialog's title and starting text match the row, which writes the locale's decimal mark. */
+    @Test
+    fun `a tenths value is written with the locale's decimal mark`() {
+        val before = Locale.getDefault()
+        Locale.setDefault(Locale.GERMANY)
+        try {
+            unscaled(15, scale = 10) shouldBe "1,5"
+        } finally {
+            Locale.setDefault(before)
+        }
     }
 }

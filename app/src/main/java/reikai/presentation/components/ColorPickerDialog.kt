@@ -20,12 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -52,8 +54,8 @@ fun ColorPickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit,
 ) {
-    var color by remember { mutableIntStateOf(initialColor or OPAQUE) }
-    var hex by remember { mutableStateOf(color.toHexRgb().drop(1)) }
+    var color by rememberSaveable { mutableIntStateOf(initialColor or OPAQUE) }
+    var hex by rememberSaveable { mutableStateOf(color.toHexRgb().drop(1)) }
     val hexValid = parseHexRgb(hex) != null
 
     AlertDialog(
@@ -75,8 +77,9 @@ fun ColorPickerDialog(
                     MR.strings.color_filter_b_value to 0,
                 ).forEach { (labelRes, shift) ->
                     val channel = (color shr shift) and 0xFF
+                    val label = stringResource(labelRes)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(labelRes), modifier = Modifier.width(56.dp))
+                        Text(label, modifier = Modifier.width(56.dp))
                         Slider(
                             value = channel.toFloat(),
                             onValueChange = { value ->
@@ -84,7 +87,7 @@ fun ColorPickerDialog(
                                 hex = color.toHexRgb().drop(1)
                             },
                             valueRange = 0f..255f,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).semantics { contentDescription = label },
                         )
                         Text(channel.toString(), modifier = Modifier.widthIn(min = 36.dp))
                     }

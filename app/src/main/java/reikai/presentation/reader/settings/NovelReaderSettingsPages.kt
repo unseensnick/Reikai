@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -417,7 +418,7 @@ private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences, paged: 
  *  gets six hex digits. */
 @Composable
 private fun PageColorRow(labelRes: StringResource, color: Int, onPick: (String) -> Unit) {
-    var picking by remember { mutableStateOf(false) }
+    var picking by rememberSaveable { mutableStateOf(false) }
     val label = stringResource(labelRes)
     Row(
         modifier = Modifier
@@ -737,7 +738,7 @@ private fun ListPickerDialog(
 @Composable
 private fun ColumnScope.TtsColorRow(pref: Preference<Int>, presets: List<TtsColorPreset>, labelRes: StringResource) {
     val color by pref.collectAsState()
-    var picking by remember { mutableStateOf(false) }
+    var picking by rememberSaveable { mutableStateOf(false) }
     val label = stringResource(labelRes)
     SettingsChipRow(labelRes) {
         presets.forEach {

@@ -887,6 +887,7 @@
     <string name="action_decrease">Decrease</string>
     <string name="action_increase">Increase</string>
     <string name="reader_settings_value_range">Enter a value from %1$s to %2$s</string>
+    <string name="reader_settings_enter_value">Enter a value</string>
     <!-- RK: the in-reader settings sheet's tab labels, read out for its icon tabs -->
     <string name="reader_settings_controls">Controls</string>
     <string name="reader_settings_filters">Filters</string>

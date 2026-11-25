@@ -344,6 +344,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **With the high quality renderer, a next or previous chapter that fails to load now explains why in the same words a novel uses.**
 - **Read aloud's Underline mark in the web view of a novel now follows the text colour on older Android System WebView versions too.**
 - **Read aloud no longer skips a paragraph when you tap Next just as one finishes.**
+- **Typing a novel reader setting's value now shows your locale's decimal mark in the dialog, as the setting does.** TalkBack also says the value opens that dialog.
+- **A custom novel reader colour you are picking now stays open through a rotation or unfold.** TalkBack also names each colour slider.
 
 ### Statistics
 
