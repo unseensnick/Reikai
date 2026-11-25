@@ -54,6 +54,53 @@ fun ChapterSettingsDialog(
     onSetAsDefault: (applyToExistingManga: Boolean) -> Unit,
     onResetToDefault: () -> Unit,
 ) {
+    // RK --> the shell is shared with the novel chapter settings, which fill the same three pages
+    ChapterSettingsTabs(
+        onDismissRequest = onDismissRequest,
+        onSetAsDefault = onSetAsDefault,
+        onReset = onResetToDefault,
+        filterPage = {
+            FilterPage(
+                downloadFilter = manga?.downloadedFilter(downloadedOnly) ?: TriState.DISABLED,
+                onDownloadFilterChanged = onDownloadFilterChanged
+                    .takeUnless { downloadedOnly },
+                unreadFilter = manga?.unreadFilter ?: TriState.DISABLED,
+                onUnreadFilterChanged = onUnreadFilterChanged,
+                bookmarkedFilter = manga?.bookmarkedFilter ?: TriState.DISABLED,
+                onBookmarkedFilterChanged = onBookmarkedFilterChanged,
+            )
+            ScanlatorFilterItem(
+                active = scanlatorFilterActive,
+                onClick = onScanlatorFilterClicked,
+            )
+        },
+        sortPage = {
+            SortPage(
+                sortingMode = manga?.sorting ?: 0,
+                sortDescending = manga?.sortDescending() ?: false,
+                onItemSelected = onSortModeChanged,
+            )
+        },
+        displayPage = {
+            DisplayPage(
+                displayMode = manga?.displayMode ?: 0,
+                onItemSelected = onDisplayModeChanged,
+            )
+        },
+    )
+    // RK <--
+}
+
+// RK --> the tabs, overflow and page column both content types' chapter settings draw their pages in
+@Composable
+internal fun ChapterSettingsTabs(
+    onDismissRequest: () -> Unit,
+    onSetAsDefault: (applyToExisting: Boolean) -> Unit,
+    onReset: () -> Unit,
+    filterPage: @Composable ColumnScope.() -> Unit,
+    sortPage: @Composable ColumnScope.() -> Unit,
+    displayPage: @Composable ColumnScope.() -> Unit,
+) {
     var showSetAsDefaultDialog by rememberSaveable { mutableStateOf(false) }
     if (showSetAsDefaultDialog) {
         SetAsDefaultDialog(
@@ -80,7 +127,7 @@ fun ChapterSettingsDialog(
             DropdownMenuItem(
                 text = { Text(stringResource(MR.strings.action_reset)) },
                 onClick = {
-                    onResetToDefault()
+                    onReset()
                     closeMenu()
                 },
             )
@@ -92,40 +139,14 @@ fun ChapterSettingsDialog(
                 .verticalScroll(rememberScrollState()),
         ) {
             when (page) {
-                0 -> {
-                    // RK --> the scanlator row sits outside FilterPage, which the novel chapter settings share
-                    FilterPage(
-                        downloadFilter = manga?.downloadedFilter(downloadedOnly) ?: TriState.DISABLED,
-                        onDownloadFilterChanged = onDownloadFilterChanged
-                            .takeUnless { downloadedOnly },
-                        unreadFilter = manga?.unreadFilter ?: TriState.DISABLED,
-                        onUnreadFilterChanged = onUnreadFilterChanged,
-                        bookmarkedFilter = manga?.bookmarkedFilter ?: TriState.DISABLED,
-                        onBookmarkedFilterChanged = onBookmarkedFilterChanged,
-                    )
-                    ScanlatorFilterItem(
-                        active = scanlatorFilterActive,
-                        onClick = onScanlatorFilterClicked,
-                    )
-                    // RK <--
-                }
-                1 -> {
-                    SortPage(
-                        sortingMode = manga?.sorting ?: 0,
-                        sortDescending = manga?.sortDescending() ?: false,
-                        onItemSelected = onSortModeChanged,
-                    )
-                }
-                2 -> {
-                    DisplayPage(
-                        displayMode = manga?.displayMode ?: 0,
-                        onItemSelected = onDisplayModeChanged,
-                    )
-                }
+                0 -> filterPage()
+                1 -> sortPage()
+                2 -> displayPage()
             }
         }
     }
 }
+// RK <--
 
 // RK: internal, shared with the novel chapter settings.
 @Composable
