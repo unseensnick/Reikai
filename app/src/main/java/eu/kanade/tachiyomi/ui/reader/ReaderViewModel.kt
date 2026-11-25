@@ -52,7 +52,6 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
-import eu.kanade.tachiyomi.util.chapter.filterDownloaded
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.storage.DiskUtil
@@ -375,7 +374,7 @@ class ReaderViewModel(
 
     // RK: which of [chapters] are on disk, each asked of its own merged source
     private fun onDiskIds(chapters: List<Chapter>): Set<Long> =
-        chapters.filterDownloaded(downloadCache) { mangaForChapterId(it.mangaId) }.mapTo(HashSet()) { it.id }
+        downloadManager.downloadedChapterIds(chapters) { mangaForChapterId(it.mangaId) }
 
     /** RK: read, bookmarked and on disk as the group answers them, for the rows in [shown]. Resolved
      *  against [shown] rather than reused from the group, whose own set names the rows the merged list
