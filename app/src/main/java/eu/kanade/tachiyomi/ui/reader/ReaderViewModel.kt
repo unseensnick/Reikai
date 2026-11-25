@@ -138,6 +138,7 @@ import reikai.presentation.reader.ReaderResume
 import reikai.presentation.reader.unloadForReload
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -257,7 +258,8 @@ class ReaderViewModel(
      */
     private var chapterId = savedState.get<Long>("chapter_id") ?: -1L
         set(value) {
-            savedState["chapter_id"] = value
+            // RK: posted to Main in call order: init sets this on IO, and Android copies saved state on Main
+            viewModelScope.launchUI { savedState["chapter_id"] = value }
             field = value
         }
 

@@ -465,6 +465,8 @@ class NovelReaderViewModelTest {
             val savedState = SavedStateHandle()
             val private = harness.open(novel, opened.id, savedState = savedState)
             private.awaitIdleOn(opened)
+            // The place is kept on Main, which Android saves on after any write already queued there.
+            advanceUntilIdle()
 
             val restored = harness.open(novel, first.id, savedState = savedState)
             restored.loadState.first { it == ReaderLoadState.Idle }

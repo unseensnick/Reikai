@@ -129,6 +129,7 @@ import reikai.presentation.reader.text.NovelWindowReach
 import reikai.util.runCatchingCancellable
 import reikai.util.snapshotOnChange
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.io.ByteArrayInputStream
@@ -643,13 +644,21 @@ class NovelReaderViewModel(
     /** The chapter being read with its position, kept for a process kill as manga keeps its page: in incognito the
      *  database holds none to reopen at. Kept as each is written, so it is never a place the save skipped, and only
      *  once the chapter has rendered, or a kill during a slow first load reopened History's newest instead. One
-     *  value checked and written under [placeLock], so a write racing a crossing cannot save the departed chapter
-     *  or pair one chapter with another's position. */
-    private fun keepPlace(chapterId: Long, at: ChapterProgress.Percent) = synchronized(placeLock) {
-        if (chapterId == currentChapterId) savedState[SAVED_PLACE] = longArrayOf(chapterId, at.hundredths)
+     *  value, posted to Main in call order and checked there: Android copies saved state on Main as it saves,
+     *  so a write from IO could break that copy, and a crossing's departed chapter is never saved. */
+    private fun keepPlace(chapterId: Long, at: ChapterProgress.Percent) {
+        viewModelScope.launchUI {
+            if (chapterId != currentChapterId) return@launchUI
+            longArrayOf(chapterId, at.hundredths).let {
+                savedState[SAVED_PLACE] = it
+                keptPlace = it
+            }
+        }
     }
 
-    private val placeLock = Any()
+    // The kept place, read on IO without touching the saved state map Main writes and copies.
+    @Volatile
+    private var keptPlace: LongArray? = savedState.get<LongArray>(SAVED_PLACE)
 
     /** The newest position this session has for [chapterId] that the database may not hold yet: one held
      *  back, one waiting to be written, or, in incognito, the one kept across a process kill. Outside it the
@@ -657,7 +666,7 @@ class NovelReaderViewModel(
      *  can write on behind it. */
     private suspend fun unstoredPosition(chapterId: Long, ownerId: Long): Long? =
         progressSlot.unstored(chapterId)?.hundredths
-            ?: savedState.get<LongArray>(SAVED_PLACE)
+            ?: keptPlace
                 ?.takeIf { it[0] == chapterId && incognito.of(ownerId) }
                 ?.get(1)
 
