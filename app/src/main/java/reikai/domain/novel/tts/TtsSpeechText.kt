@@ -10,6 +10,16 @@ object TtsSpeechText {
 
     private const val BRACKETS = "()[]{}<>【】〔〕〖〗「」『』《》〈〉（）［］｛｝«»‹›⟨⟩⟦⟧"
     private const val QUOTES = "\"“”„‟'‘’‚‛＂＇〝〞〟"
+
+    // Never an apostrophe, so dropped between two letters too.
+    private const val DOUBLE_QUOTES = "\"“”„‟＂〝〞〟"
+
+    // Written without spaces, so a quote between two of their characters is a quotation, not an apostrophe.
+    private val UNSPACED_SCRIPTS = setOf(
+        Character.UnicodeScript.HAN,
+        Character.UnicodeScript.HIRAGANA,
+        Character.UnicodeScript.KATAKANA,
+    )
     private const val TILDES = "~～〜"
 
     // Never a dash: voices pause on one by themselves, and a hyphen or ー is part of a word.
@@ -47,12 +57,12 @@ object TtsSpeechText {
     }
 
     /**
-     * Never said. A quote mark between two letters is an apostrophe and a tilde between two digits a range
-     * ("5~10"), so those stay.
+     * Never said. A single quote mark between two letters of a spaced script is an apostrophe and a tilde between
+     * two digits a range ("5~10"), so those stay.
      */
     private fun isDropped(text: String, i: Int): Boolean = when (text[i]) {
         in BRACKETS, in SYMBOLS -> true
-        in QUOTES -> !text.isBetween(i, Char::isLetter)
+        in QUOTES -> text[i] in DOUBLE_QUOTES || !text.isBetween(i, ::isSpacedLetter)
         in TILDES -> !text.isBetween(i, Char::isDigit)
         else -> PICTOGRAPHS.any { text.codePointHolding(i) in it }
     }
@@ -62,6 +72,8 @@ object TtsSpeechText {
         val isSecondHalf = this[i].isLowSurrogate() && i > 0 && this[i - 1].isHighSurrogate()
         return if (isSecondHalf) codePointBefore(i + 1) else codePointAt(i)
     }
+
+    private fun isSpacedLetter(c: Char) = c.isLetter() && Character.UnicodeScript.of(c.code) !in UNSPACED_SCRIPTS
 
     private fun String.isBetween(i: Int, kind: (Char) -> Boolean) =
         getOrNull(i - 1)?.let(kind) == true && getOrNull(i + 1)?.let(kind) == true

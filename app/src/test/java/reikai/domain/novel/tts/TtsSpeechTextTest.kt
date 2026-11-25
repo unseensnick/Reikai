@@ -46,6 +46,13 @@ class TtsSpeechTextTest {
         TtsSpeechText.of("said ${quote}go$quote now") shouldBe "said  go  now"
     }
 
+    // Unspaced, so the quote sits between two characters a Latin apostrophe would.
+    @ParameterizedTest
+    @ValueSource(strings = ["“", "‘", "＂", "〝"])
+    fun `a quote mark between two Chinese characters is a space`(quote: String) {
+        TtsSpeechText.of("他喊${quote}快跑${quote}然后") shouldBe "他喊 快跑 然后"
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["don't", "it’s", "l'homme"])
     fun `an apostrophe inside a word is kept`(word: String) {
