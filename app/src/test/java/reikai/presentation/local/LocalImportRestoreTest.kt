@@ -27,6 +27,7 @@ import reikai.domain.library.ContentType
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.util.AppScopeRule
 import reikai.util.testAppScope
 
 /**
@@ -38,6 +39,9 @@ class LocalImportRestoreTest {
 
     @get:Rule
     val compose = createComposeRule()
+
+    @get:Rule
+    val appScopes = AppScopeRule()
 
     private val file = Uri.parse("content://files/alpha.cbz")
 

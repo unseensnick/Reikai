@@ -1,11 +1,13 @@
 package reikai.util
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.isActive
@@ -78,6 +80,15 @@ class AppScopeSettlerTest {
     @Order(5)
     fun `a scope built for a later case is still live when that case runs`(case: Int, scope: CoroutineScope) {
         scope.isActive shouldBe true
+    }
+
+    @Test
+    @Order(6)
+    fun `work that ignores its cancel fails the settle rather than running on`() {
+        CoroutineScope(SupervisorJob() + StandardTestDispatcher()).also(AppScopeSettler::track)
+            .launch(start = CoroutineStart.UNDISPATCHED) { withContext(NonCancellable) { awaitCancellation() } }
+
+        shouldThrow<IllegalStateException> { AppScopeSettler.settleAll(waitSeconds = 0) }
     }
 
     companion object {

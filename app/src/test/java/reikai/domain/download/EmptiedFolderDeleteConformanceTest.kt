@@ -37,6 +37,7 @@ import reikai.novel.download.NovelDownloadProvider
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.storage.FakeSafProvider
 import reikai.storage.FakeSafProvider.ChildListingFault
+import reikai.util.AppScopeRule
 import reikai.util.byIdsFromById
 import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
@@ -61,6 +62,9 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
 
     @get:Rule
     val tmp = TemporaryFolder()
+
+    @get:Rule
+    val appScopes = AppScopeRule()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var downloads: File

@@ -24,6 +24,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.category.CategoryActions
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.AppScopeRule
 import reikai.util.testAppScope
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -38,6 +39,9 @@ class CategoryScreenRecreateTest {
 
     @get:Rule
     val compose = createComposeRule()
+
+    @get:Rule
+    val appScopes = AppScopeRule()
 
     private val a = Category(id = 1L, name = "A", order = 0L, flags = 0L)
     private val table = MutableStateFlow(listOf(a))
