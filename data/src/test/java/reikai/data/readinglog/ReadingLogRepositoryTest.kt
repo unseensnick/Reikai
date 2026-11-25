@@ -79,16 +79,39 @@ class ReadingLogRepositoryTest {
         (sessionCount(type) to sessionCount(other)) shouldBe (0L to 1L)
     }
 
+    /** Clear database runs this for both types; a reset row is one History no longer shows. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `removing reset history removes only those chapters' rows and sessions`(type: ContentType) = runTest {
+        entry(type, id = 1L, title = "Own")
+        chapter(type, id = 1L, entryId = 1L, url = "/1")
+        chapter(type, id = 2L, entryId = 1L, url = "/2")
+        history(type, entryId = 1L, chapterId = 1L, duration = 60_000L, readAt = null)
+        history(type, entryId = 1L, chapterId = 2L, duration = 60_000L)
+        log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
+        log.record(type, 2L, Instant.fromEpochMilliseconds(2_000L), 60_000L)
+
+        when (type) {
+            ContentType.MANGA -> HistoryRepositoryImpl(database).deleteResetHistory()
+            else -> NovelHistoryRepositoryImpl(database).deleteResetNovelHistory()
+        }
+
+        (count(if (type == ContentType.MANGA) "history" else "novel_history") to sessionCount(type)) shouldBe
+            (1L to 1L)
+    }
+
     @Test
-    fun `removing reset manga history removes only those chapters' sessions`() = runTest {
-        exec("INSERT INTO history(manga_id, chapter_id, read_at, read_duration) VALUES (1, 1, NULL, 60000)")
-        exec("INSERT INTO history(manga_id, chapter_id, read_at, read_duration) VALUES (1, 2, 5000, 60000)")
-        log.record(ContentType.MANGA, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
-        log.record(ContentType.MANGA, 2L, Instant.fromEpochMilliseconds(2_000L), 60_000L)
+    fun `removing reset novel history clears only those chapters' read aloud share`() = runTest {
+        entry(ContentType.NOVELS, id = 1L, title = "Own")
+        chapter(ContentType.NOVELS, id = 1L, entryId = 1L, url = "/1")
+        chapter(ContentType.NOVELS, id = 2L, entryId = 1L, url = "/2")
+        history(ContentType.NOVELS, entryId = 1L, chapterId = 1L, duration = 60_000L, readAt = null)
+        history(ContentType.NOVELS, entryId = 1L, chapterId = 2L, duration = 60_000L)
+        exec("INSERT INTO novel_chapter_words(chapter_id, words, listened_ms) VALUES (1, 10, 5000), (2, 10, 5000)")
 
-        HistoryRepositoryImpl(database).deleteResetHistory()
+        NovelHistoryRepositoryImpl(database).deleteResetNovelHistory()
 
-        sessionCount(ContentType.MANGA) shouldBe 1L
+        count("novel_chapter_words WHERE listened_ms > 0") shouldBe 1L
     }
 
     @ParameterizedTest
@@ -210,12 +233,18 @@ class ReadingLogRepositoryTest {
         },
     )
 
-    private suspend fun history(type: ContentType, entryId: Long, chapterId: Long, duration: Long) = exec(
+    private suspend fun history(
+        type: ContentType,
+        entryId: Long,
+        chapterId: Long,
+        duration: Long,
+        readAt: Long? = 1000L,
+    ) = exec(
         if (type == ContentType.MANGA) {
             "INSERT INTO history(manga_id, chapter_id, read_at, read_duration) " +
-                "VALUES ($entryId, $chapterId, 1000, $duration)"
+                "VALUES ($entryId, $chapterId, $readAt, $duration)"
         } else {
-            "INSERT INTO novel_history(chapter_id, last_read, time_read) VALUES ($chapterId, 1000, $duration)"
+            "INSERT INTO novel_history(chapter_id, last_read, time_read) VALUES ($chapterId, $readAt, $duration)"
         },
     )
 
@@ -237,11 +266,13 @@ class ReadingLogRepositoryTest {
         driver.execute(null, sql, 0).await()
     }
 
-    private suspend fun sessionCount(type: ContentType): Long {
-        val table = if (type == ContentType.MANGA) "reading_session" else "novel_reading_session"
+    private suspend fun sessionCount(type: ContentType): Long =
+        count(if (type == ContentType.MANGA) "reading_session" else "novel_reading_session")
+
+    private suspend fun count(from: String): Long {
         return driver.executeQuery(
             null,
-            "SELECT count(*) FROM $table",
+            "SELECT count(*) FROM $from",
             { cursor ->
                 app.cash.sqldelight.db.QueryResult.Value(if (cursor.next().value) cursor.getLong(0)!! else 0L)
             },

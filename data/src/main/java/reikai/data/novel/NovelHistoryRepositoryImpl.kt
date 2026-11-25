@@ -73,6 +73,15 @@ class NovelHistoryRepositoryImpl(
             false
         }
 
+    override suspend fun deleteResetNovelHistory() {
+        // The log and the listened share go first, while the rows still say which chapters they were.
+        database.transaction {
+            database.reading_sessionQueries.removeNovelOfResetHistory()
+            database.reading_paceQueries.clearNovelListenedOfResetHistory()
+            database.novel_historyQueries.removeResetHistory()
+        }
+    }
+
     override suspend fun upsertNovelHistory(update: NovelHistoryUpdate) {
         try {
             database.novel_historyQueries.upsert(update.chapterId, update.readAt, update.sessionReadDuration)

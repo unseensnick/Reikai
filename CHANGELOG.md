@@ -389,6 +389,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **TalkBack now says which novel font is selected and whether a novel find-and-replace rule or code snippet is on.**
 - **Picking a storage folder the app can't write to now says so instead of saving it (from Mihon).** Upstream: mihonapp/mihon#3510.
 - **The Incognito switch in the built-in adult source's settings now shows the state set from Browse.**
+- **Settings -> Advanced -> Clear database now also removes the novel chapters you removed from History, with their reading time.**
 
 ### Browse
 

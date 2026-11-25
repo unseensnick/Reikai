@@ -39,6 +39,11 @@ WHERE _id IN (
 removeAll:
 DELETE FROM novel_history;
 
+-- Clear database drops the rows resetById / resetByNovelId hid, as history.sq removeResettedHistory does.
+removeResetHistory:
+DELETE FROM novel_history
+WHERE last_read IS NULL;
+
 -- Total novel reading time across all chapters, backing the novel Stats screen (twin of history.sq's
 -- getReadDuration). Soft-deleted rows keep their time_read, matching the manga sum.
 getTotalReadDuration:

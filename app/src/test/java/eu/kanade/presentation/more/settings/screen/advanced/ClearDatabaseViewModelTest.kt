@@ -3,6 +3,7 @@ package eu.kanade.presentation.more.settings.screen.advanced
 import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnSourceIdentity
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.novel.install.LnPluginInstaller
@@ -48,6 +50,7 @@ class ClearDatabaseViewModelTest {
             appScope = testAppScope(),
             mangaRepository = mockk(),
             historyRepository = mockk(),
+            novelHistoryRepository = mockk(),
             getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
             novelRepository = mockk<NovelRepository> {
                 every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(listOf("p1" to 2L))
@@ -67,6 +70,7 @@ class ClearDatabaseViewModelTest {
             appScope = testAppScope(),
             mangaRepository = mockk(),
             historyRepository = mockk(),
+            novelHistoryRepository = mockk(),
             getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
             novelRepository = mockk<NovelRepository> {
                 every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(listOf("p1" to 2L))
@@ -89,6 +93,7 @@ class ClearDatabaseViewModelTest {
             appScope = testAppScope(),
             mangaRepository = mockk(),
             historyRepository = mockk(),
+            novelHistoryRepository = mockk(),
             getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
             novelRepository = mockk<NovelRepository> {
                 every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(listOf("p1" to 2L))
@@ -110,6 +115,7 @@ class ClearDatabaseViewModelTest {
             appScope = testAppScope(),
             mangaRepository = mockk(),
             historyRepository = mockk(),
+            novelHistoryRepository = mockk(),
             getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
             novelRepository = mockk<NovelRepository> {
                 every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(listOf("p1" to 2L))
@@ -165,6 +171,31 @@ class ClearDatabaseViewModelTest {
         (model.state.value as ClearDatabaseViewModel.State.Ready).novelSelection shouldBe emptyList()
     }
 
+    /** Clear database purges reset history for both types, whichever sources were picked. */
+    @Test
+    fun `a clear removes reset novel history`() = runTest {
+        var novelResetsRemoved = 0
+        val model = ClearDatabaseViewModel(
+            appScope = testAppScope(),
+            mangaRepository = mockk(),
+            historyRepository = mockk(relaxed = true),
+            novelHistoryRepository = mockk<NovelHistoryRepository> {
+                coEvery { deleteResetNovelHistory() } answers { novelResetsRemoved += 1 }
+            },
+            getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
+            novelRepository = mockk<NovelRepository> {
+                every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(emptyList())
+            },
+            novelSourceManager = manager(seen = emptyMap()),
+        )
+        model.state.filterIsInstance<ClearDatabaseViewModel.State.Ready>().first()
+
+        model.removeMangaBySourceId(keepReadManga = false)
+        model.viewModelScope.cancel()
+
+        novelResetsRemoved shouldBe 1
+    }
+
     private suspend fun readyModel(
         manga: List<SourceWithCount> = emptyList(),
         novels: List<Pair<String, Long>> = emptyList(),
@@ -172,6 +203,7 @@ class ClearDatabaseViewModelTest {
         appScope = testAppScope(),
         mangaRepository = mockk(),
         historyRepository = mockk(),
+        novelHistoryRepository = mockk(),
         getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(manga) },
         novelRepository = mockk<NovelRepository> {
             every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(novels)

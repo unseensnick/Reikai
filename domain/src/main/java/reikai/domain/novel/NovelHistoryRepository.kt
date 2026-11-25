@@ -27,6 +27,9 @@ interface NovelHistoryRepository {
 
     /** Answers whether the wipe went through, so a surface can say so only when it did. */
     suspend fun deleteAllNovelHistory(): Boolean
+
+    /** Clear database's purge of the rows a reset hid, with their reading log and read aloud share. */
+    suspend fun deleteResetNovelHistory()
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
 
     /** All of [updates] in one transaction; false when it failed, for a caller that must fail with it. */

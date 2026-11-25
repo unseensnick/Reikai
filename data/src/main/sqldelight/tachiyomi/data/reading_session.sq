@@ -42,6 +42,11 @@ removeMangaOfResetHistory:
 DELETE FROM reading_session
 WHERE chapter_id IN (SELECT chapter_id FROM history WHERE read_at IS NULL);
 
+-- The novel twin, run ahead of novel_history.sq removeResetHistory.
+removeNovelOfResetHistory:
+DELETE FROM novel_reading_session
+WHERE chapter_id IN (SELECT chapter_id FROM novel_history WHERE last_read IS NULL);
+
 -- A backup carries sessions by chapter url, which a restore finds again on another device.
 sessionsByUrlOfMangas:
 SELECT C.manga_id, C.remote_url, S.ended_at, S.duration

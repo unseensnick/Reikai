@@ -51,6 +51,7 @@ import mihon.core.navigation.LocalNavigator
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.isInstalled
 import reikai.domain.source.sourceVisualName
@@ -287,6 +288,7 @@ class ClearDatabaseViewModel(
     private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga,
     // RK -->
     private val novelRepository: NovelRepository,
+    private val novelHistoryRepository: NovelHistoryRepository,
     private val novelSourceManager: NovelSourceManager,
     // RK <--
 ) : ViewModel() {
@@ -344,6 +346,7 @@ class ClearDatabaseViewModel(
             if (state.novelSelection.isNotEmpty()) {
                 novelRepository.deleteNonLibraryNovels(state.novelSelection, keepReadManga)
             }
+            novelHistoryRepository.deleteResetNovelHistory()
             // RK <--
         }.join()
     }

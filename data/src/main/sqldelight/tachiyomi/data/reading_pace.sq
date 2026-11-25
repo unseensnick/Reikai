@@ -39,6 +39,11 @@ ON CONFLICT(chapter_id) DO UPDATE SET listened_ms = MAX(listened_ms, excluded.li
 clearNovelListened:
 UPDATE novel_chapter_words SET listened_ms = 0;
 
+-- The same for the reset history rows novel_history.sq removeResetHistory is about to delete.
+clearNovelListenedOfResetHistory:
+UPDATE novel_chapter_words SET listened_ms = 0
+WHERE chapter_id IN (SELECT chapter_id FROM novel_history WHERE last_read IS NULL);
+
 -- Each kept chapter of these novels, keyed by url as a backup carries chapters.
 novelChapterPace:
 SELECT C.novel_id, C._id, C.url, W.words, W.listened_ms
