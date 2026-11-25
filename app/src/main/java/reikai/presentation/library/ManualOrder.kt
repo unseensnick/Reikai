@@ -175,14 +175,8 @@ fun LazyGridScope.libraryCells(
     val shown = if (drag != null) manualOrder.orderOf(section, rows) else rows
     items(count = shown.size, key = { manualOrderKey(section, shown[it]) }, contentType = { contentType }) { index ->
         val item = shown[index]
-        if (drag == null) {
-            cell(item, { onLongClick(item) }, { true })
-            return@items
-        }
-        ReorderableItem(reorder, key = manualOrderKey(section, item)) { isDragging ->
-            ManualOrderTile(manualOrder, section, drag, isDragging, { onLongClick(item) }) {
-                cell(item, null) { !manualOrder.swallowsTap }
-            }
+        ManualOrderCell(item, section, drag, manualOrder, onLongClick, cell) { tile ->
+            ReorderableItem(reorder, key = manualOrderKey(section, item)) { tile(this, it) }
         }
     }
 }
@@ -201,14 +195,30 @@ fun LazyListScope.libraryRows(
     val shown = if (drag != null) manualOrder.orderOf(section, rows) else rows
     items(count = shown.size, key = { manualOrderKey(section, shown[it]) }, contentType = { contentType }) { index ->
         val item = shown[index]
-        if (drag == null) {
-            cell(item, { onLongClick(item) }, { true })
-            return@items
+        ManualOrderCell(item, section, drag, manualOrder, onLongClick, cell) { tile ->
+            ReorderableItem(reorder, key = manualOrderKey(section, item)) { tile(this, it) }
         }
-        ReorderableItem(reorder, key = manualOrderKey(section, item)) { isDragging ->
-            ManualOrderTile(manualOrder, section, drag, isDragging, { onLongClick(item) }) {
-                cell(item, null) { !manualOrder.swallowsTap }
-            }
+    }
+}
+
+/** One tile of [libraryCells] or [libraryRows], which differ only in the lazy scope [reorderable] draws it in. */
+@Composable
+private fun ManualOrderCell(
+    item: LibraryItem,
+    section: Any,
+    drag: ManualOrderDrag?,
+    manualOrder: ManualOrder,
+    onLongClick: (LibraryItem) -> Unit,
+    cell: @Composable (item: LibraryItem, onLongClick: (() -> Unit)?, tapAllowed: () -> Boolean) -> Unit,
+    reorderable: @Composable (tile: @Composable ReorderableCollectionItemScope.(isDragging: Boolean) -> Unit) -> Unit,
+) {
+    if (drag == null) {
+        cell(item, { onLongClick(item) }, { true })
+        return
+    }
+    reorderable { isDragging ->
+        ManualOrderTile(manualOrder, section, drag, isDragging, { onLongClick(item) }) {
+            cell(item, null) { !manualOrder.swallowsTap }
         }
     }
 }
