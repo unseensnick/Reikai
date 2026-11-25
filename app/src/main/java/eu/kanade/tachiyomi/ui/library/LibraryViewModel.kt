@@ -82,6 +82,7 @@ import reikai.presentation.library.withCustomInfo
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.subscribedWhileOpen
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.model.Chapter
@@ -166,11 +167,13 @@ class LibraryViewModel(
     private val hasActiveFilters = filterSettings.map { it.isActive }
         .distinctUntilChanged()
 
-    // Kept while a search holds it and between keystrokes, so typing re-reads neither table.
+    // Kept while a search holds it and between keystrokes, so typing re-reads neither table; a hidden
+    // library stops reading it, as its other queries pause.
     private val galleryIndex =
         gallerySearchIndexChanges(getSearchTags.subscribeAll(), getSearchTitles.subscribeAll())
             .flowOn(Dispatchers.Default)
             .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+            .subscribedWhileOpen()
 
     // Upstream's gate, widened in the shared libraryNeedsTracks to grouping by tracking status, which the
     // novel library asks too. The debounced query and the filters ride it, so both wait for the tracks they read.
