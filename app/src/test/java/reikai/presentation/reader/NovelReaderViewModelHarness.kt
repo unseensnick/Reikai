@@ -10,6 +10,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.network.interceptor.CloudflareBypassIOException
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.mockk.coEvery
@@ -42,6 +43,7 @@ import mihon.domain.extension.model.ContentWarning
 import org.jsoup.Jsoup
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.coil.NovelChapterPictureCache
+import reikai.data.local.LocalSeriesRelink
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
@@ -73,6 +75,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.interactor.SetNovelChapterFlags
@@ -381,6 +384,9 @@ class NovelReaderViewModelHarness private constructor(
     /** Live collectors of the chapter queries details screens hold open while they are shown. */
     val chapterQueries = AtomicInteger()
 
+    /** How many times details screens have opened a chapter query. */
+    val chapterQueryStarts = AtomicInteger()
+
     private val detailsChapters = object : NovelChapterRepository by chapterRepo {
         override fun getByNovelIdAsFlow(novelId: Long) = chapterRepo.getByNovelIdAsFlow(novelId).counted()
 
@@ -388,7 +394,10 @@ class NovelReaderViewModelHarness private constructor(
             chapterRepo.getByNovelIdAndPageAsFlow(novelId, page).counted()
 
         private fun <T> Flow<T>.counted() =
-            onStart { chapterQueries.incrementAndGet() }.onCompletion { chapterQueries.decrementAndGet() }
+            onStart {
+                chapterQueries.incrementAndGet()
+                chapterQueryStarts.incrementAndGet()
+            }.onCompletion { chapterQueries.decrementAndGet() }
     }
 
     /** Each novel's Edit info overlay, as details screens opened after a write read it. */
@@ -716,6 +725,23 @@ class NovelReaderViewModelHarness private constructor(
                 chapterRepo,
                 reikaiLibraryPreferences,
             )
+        // A remote novel's failed refresh offers no folders, as offerAfterFailure answers for one.
+        val localSeriesRelink = mockk<LocalSeriesRelink> {
+            coEvery { offerAfterFailure(any(), any(), false) } returns
+                null
+        }
+        val uiPreferences = mockk<UiPreferences>(relaxed = true) {
+            every { themeCoverBased } returns store.getBoolean("theme_cover_based", false)
+        }
+        val getCustomNovelInfo = mockk<GetCustomNovelInfo>(relaxed = true) {
+            every { subscribe(any()) } answers { flowOf(customInfo[firstArg()]) }
+        }
+        val basePreferences = mockk<BasePreferences>(relaxed = true) {
+            every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
+        }
+        val trackedChapterNumber = ownChapterNumbers()
+        // After the stubs above, each of which can leave Default a bare mock again.
+        defaultFollowsIo()
         return NovelDetailsViewModel(
             appScope = appScope,
             novelId = novelId,
@@ -734,30 +760,23 @@ class NovelReaderViewModelHarness private constructor(
             novelLibraryAdder = mockk(relaxed = true),
             setNovelReadStatus = setNovelReadStatus(),
             novelPreferences = novelPreferences,
-            uiPreferences = mockk(relaxed = true) {
-                every { themeCoverBased } returns store.getBoolean("theme_cover_based", false)
-            },
+            uiPreferences = uiPreferences,
             mergeManager = mergeManager,
             mergedChapterProvider = mergedChapterProvider,
             libraryPreferences = LibraryPreferences(store),
             syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, NoChapterTombstones),
-            // A remote novel's failed refresh offers no folders, as offerAfterFailure answers for one.
-            localSeriesRelink = mockk { coEvery { offerAfterFailure(any(), any(), false) } returns null },
+            localSeriesRelink = localSeriesRelink,
             editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
-            getCustomNovelInfo = mockk(relaxed = true) {
-                every { subscribe(any()) } answers { flowOf(customInfo[firstArg()]) }
-            },
+            getCustomNovelInfo = getCustomNovelInfo,
             setCustomNovelInfo = mockk(relaxed = true),
             getNovelTracks = mockk(relaxed = true),
             refreshNovelTracks = mockk(relaxed = true),
             trackNovelChapter = mockk(relaxed = true),
-            trackedChapterNumber = ownChapterNumbers(),
+            trackedChapterNumber = trackedChapterNumber,
             trackerManager = mockk(relaxed = true),
             trackPreferences = TrackPreferences(store),
-            basePreferences = mockk<BasePreferences>(relaxed = true) {
-                every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
-            },
+            basePreferences = basePreferences,
             removeNovelsFromLibrary = removeNovelsFromLibrary,
             combineLocalVolumes = mockk(relaxed = true),
             trackPorts = mockk(relaxed = true),
@@ -783,6 +802,16 @@ class NovelReaderViewModelHarness private constructor(
             restubDefaultDispatcher()
             if (shown) model.viewModelScope.launch { model.state.collect {} }
         }
+    }
+
+    /**
+     * Points a mocked Dispatchers.Default at IO before a details model is built, since its state chain reads
+     * Default then. A `coEvery` leaves Default a bare mock, and IO need not be the virtual one
+     * [restubDefaultDispatcher] looks for, since a later `mockkStatic` drops that stub. Nothing to do unmocked.
+     */
+    private fun defaultFollowsIo() {
+        val io = Dispatchers.IO
+        runCatching { every { Dispatchers.Default } returns io }
     }
 
     private fun track(model: ViewModel) {

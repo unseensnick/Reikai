@@ -31,6 +31,7 @@ import java.text.NumberFormat
 @Composable
 fun NovelWordCountDialog(
     dialog: NovelDetailsDialog.WordCount,
+    checkedChapters: Int,
     onDismissRequest: () -> Unit,
 ) {
     val toCount = dialog.chaptersToCount
@@ -56,7 +57,7 @@ fun NovelWordCountDialog(
         text = {
             when {
                 toCount == 0 -> Text(text = stringResource(MR.strings.word_count_no_downloads))
-                result == null -> CountingProgress(dialog.checkedChapters, toCount)
+                result == null -> CountingProgress(checkedChapters, toCount)
                 result.countedChapters == 0 -> Text(text = stringResource(MR.strings.word_count_unreadable))
                 else -> WordCountResult(result)
             }

@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -174,6 +175,7 @@ import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.groupSourceTags
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.loadThenRenderOn
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
 import reikai.presentation.details.unifiedViewMember
@@ -190,6 +192,7 @@ import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -361,18 +364,16 @@ class NovelDetailsViewModel(
     // ("All") view pools every grouped source's chapters into one list (no page bar); a selected source
     // chip (or a non-merged novel) keeps its own per-page lazy list. Null while the novel has no stored row.
     private val chapterList: Flow<NovelDetailsState.Loaded?> = combine(
-        combine(
-            storedAnchor,
-            mergeGroup.state,
-            pageIndex,
-            // In the combine only to rebuild with the chips once they resolve.
-            mergeGroup.chips,
-        ) { anchor, group, idx, _ -> ChapterInputs(anchor, group, idx) },
-        // Rebuild on a hide/unhide or the show-hidden toggle.
-        hiddenChaptersPref.changes(),
-        showHiddenFlow,
-    ) { inputs, _, _ -> inputs }
-        .flatMapLatest { (stored, group, idx) ->
+        storedAnchor,
+        mergeGroup.state,
+        pageIndex,
+        // In the combine only to rebuild with the chips once they resolve.
+        mergeGroup.chips,
+    ) { anchor, group, idx, _ -> ChapterInputs(anchor, group, idx) }
+        // A hide, the show-hidden toggle or a download only renders the loaded rows again, as manga's list does.
+        .loadThenRenderOn(
+            merge(hiddenChaptersPref.changes(), showHiddenFlow, novelDownloadCache.changes.pausedWhileUnsubscribed()),
+        ) { (stored, group, idx) ->
             shownSettings(stored, group.ids.firstOrNull()).flatMapLatest { anchor ->
                 when {
                     anchor == null -> flowOf(null)
@@ -381,7 +382,11 @@ class NovelDetailsViewModel(
                 }
             }
         }
+        // The loads read the database on the collector's thread; the render's sort and filter are CPU work.
+        .flowOn(Dispatchers.IO)
+        .mapLatest { render -> render?.invoke() }
         .onEach { it?.let { list -> updateSeedColor(list.displayNovel) } }
+        .flowOn(Dispatchers.Default)
 
     /**
      * Sort, filter and display are the group's shared settings, its settings owner's (GroupChapterSettings).
@@ -636,43 +641,47 @@ class NovelDetailsViewModel(
 
     /** Unified ("All") view: pool every grouped source's chapters into one aggregated, reading-ordered
      *  list (no pagination, pages don't align across sources). Each chapter keeps its own novelId. */
-    private fun unifiedChapters(anchor: Novel, group: EntryMergeGroupHost.GroupState): Flow<NovelDetailsState.Loaded> {
+    private fun unifiedChapters(anchor: Novel, group: EntryMergeGroupHost.GroupState): Flow<RenderRows> {
         val related = group.ids
         val flows = related.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }
-        // Fold the download cache's change signal in so a download/delete rebuilds the list (the
-        // downloaded state is disk-derived now, not a chapter-row flow).
-        return combine(
-            combine(flows) { pairs -> pairs.toMap() },
-            novelDownloadCache.changes.pausedWhileUnsubscribed(),
-        ) { byNovel, _ -> byNovel }.mapLatest { byNovel ->
+        return combine(flows) { pairs -> pairs.toMap() }.mapLatest { byNovel ->
             // Read off the stored stitch, the same rows the library badge counts, rather than
             // stitching again here where the two could come to different answers.
             val pooled = byNovel.values.flatten()
             val stitch = mergedChapterProvider.stitchOf(anchor.id)
-            val ordered = mergedChapterProvider.merged(pooled, stitch)
-            val flags = group.novelRowFlags(pooled, ordered, stitch)
-            // The chips resolve the plugins before this list is rebuilt for them, so the map is current here.
-            val installed = siblingSources.value
-            buildLoaded(
-                group,
-                anchor,
-                anchor,
-                ordered,
-                emptyList(),
-                0,
-                flags.downloadedIds,
-                // Filled in with the members (withMembers), which are watched apart from the chapters.
-                null,
-                flags.marks,
-                // Off each source's own list: [ordered] is restamped and keeps one copy per chapter.
-                pooled.numberHints(),
-                ordered.gapPresent(),
-            ).copy(
-                downloadTargets = DownloadTargets.of(group.mergeScope, pooled, ordered, stitch, { it.id }) {
-                    it.novelId in installed
-                },
-            )
+            suspend { unifiedLoaded(anchor, group, pooled, stitch) }
         }
+    }
+
+    private suspend fun unifiedLoaded(
+        anchor: Novel,
+        group: EntryMergeGroupHost.GroupState,
+        pooled: List<NovelChapter>,
+        stitch: List<ChapterUnit>,
+    ): NovelDetailsState.Loaded {
+        val ordered = mergedChapterProvider.merged(pooled, stitch)
+        val flags = group.novelRowFlags(pooled, ordered, stitch)
+        // The chips resolve the plugins before this list is rebuilt for them, so the map is current here.
+        val installed = siblingSources.value
+        return buildLoaded(
+            group,
+            anchor,
+            anchor,
+            ordered,
+            emptyList(),
+            0,
+            flags.downloadedIds,
+            // Filled in with the members (withMembers), which are watched apart from the chapters.
+            null,
+            flags.marks,
+            // Off each source's own list: [ordered] is restamped and keeps one copy per chapter.
+            pooled.numberHints(),
+            ordered.gapPresent(),
+        ).copy(
+            downloadTargets = DownloadTargets.of(group.mergeScope, pooled, ordered, stitch, { it.id }) {
+                it.novelId in installed
+            },
+        )
     }
 
     /** Which of [chapters] are on disk, each under its own novel: a unified merged list spans several. */
@@ -686,7 +695,7 @@ class NovelDetailsViewModel(
         shown: List<NovelChapter>,
         stitch: List<ChapterUnit>,
     ): GroupChapterFlags<NovelChapter> {
-        val downloaded = downloadedIdsFor(pooled)
+        val downloaded = withIOContext { downloadedIdsFor(pooled) }
         return rowFlags(pooled, shown, stitch, { it.id }, { it.read }, { it.bookmark }) { downloaded }
     }
 
@@ -697,7 +706,7 @@ class NovelDetailsViewModel(
         anchor: Novel,
         group: EntryMergeGroupHost.GroupState,
         idx: Int,
-    ): Flow<NovelDetailsState.Loaded> {
+    ): Flow<RenderRows> {
         val selected = group.selected
         val isAnchorView = selected == null || selected == anchor.id
         val viewNovel = if (isAnchorView) anchor else (novelRepo.getById(selected!!) ?: anchor)
@@ -733,37 +742,37 @@ class NovelDetailsViewModel(
         // A sibling chip's row is watched like manga's, so its notes or a refresh reach the page; the
         // anchor's already arrives live through storedAnchor.
         val viewRow = if (isAnchorView) flowOf(viewNovel) else novelRepo.getByIdAsFlow(viewNovel.id).filterNotNull()
-        // Fold the download cache's change signal in so a download/delete rebuilds the list, and the plugin's
-        // answer so a page shown before it loaded is still fetched once it has.
+        // Fold the plugin's answer in so a page shown before it loaded is still fetched once it has.
         return combine(
             chapterFlow,
             otherPages,
-            novelDownloadCache.changes.pausedWhileUnsubscribed(),
             combine(siblingChapters, viewRow, ::Pair),
             anchorSource,
-        ) { chapters, allPages, _, (siblings, shown), _ ->
+        ) { chapters, allPages, (siblings, shown), _ ->
             SingleInputs(chapters, allPages ?: chapters, siblings, shown)
         }
             .mapLatest { (chapters, gapRows, siblings, shown) ->
                 val stitch = mergedChapterProvider.stitchOf(viewNovel.id)
-                val flags = group.novelRowFlags(chapters + siblings, chapters, stitch)
-                buildLoaded(
-                    group,
-                    anchor,
-                    shown,
-                    chapters,
-                    pages,
-                    idx,
-                    flags.downloadedIds,
-                    downloadFolderOwnerOf(viewNovel, listOf(viewNovel), anchor),
-                    flags.marks,
-                    chapters.numberHints(),
-                    gapRows.gapPresent(),
-                )
-            }.onEach { loaded ->
-                // Part of the shown list, so a page is fetched only while the page is on screen.
-                if (pageKey != null && isAnchorView && loaded.storedRows.isEmpty()) {
-                    maybeFetchPage(viewNovel, pageKey, loaded.chapterFilters)
+                suspend {
+                    val flags = group.novelRowFlags(chapters + siblings, chapters, stitch)
+                    buildLoaded(
+                        group,
+                        anchor,
+                        shown,
+                        chapters,
+                        pages,
+                        idx,
+                        flags.downloadedIds,
+                        downloadFolderOwnerOf(viewNovel, listOf(viewNovel), anchor),
+                        flags.marks,
+                        chapters.numberHints(),
+                        gapRows.gapPresent(),
+                    ).also { loaded ->
+                        // Part of the shown list, so a page is fetched only while the page is on screen.
+                        if (pageKey != null && isAnchorView && loaded.storedRows.isEmpty()) {
+                            maybeFetchPage(viewNovel, pageKey, loaded.chapterFilters)
+                        }
+                    }
                 }
             }
     }
@@ -1675,6 +1684,10 @@ class NovelDetailsViewModel(
 
     private var wordCountJob: Job? = null
 
+    /** How many chapters the open word count has read, apart from the page's state so a tick rebuilds no rows. */
+    val wordCountChecked: StateFlow<Int>
+        field = MutableStateFlow(0)
+
     /** The Export as EPUB dialog, told how many of the novel's chapters are on the device to put in a book. */
     fun showExportDialog() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
@@ -1730,7 +1743,8 @@ class NovelDetailsViewModel(
     fun showWordCountDialog() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         wordCountJob?.cancel()
-        showDialog(NovelDetailsDialog.WordCount(checkedChapters = 0, chaptersToCount = null))
+        wordCountChecked.value = 0
+        showDialog(NovelDetailsDialog.WordCount(chaptersToCount = null))
         wordCountJob = viewModelScope.launchIO {
             val scope = downloadedTexts.chaptersOf(
                 loaded.selectedSourceNovelId ?: loaded.novel.id,
@@ -1749,7 +1763,7 @@ class NovelDetailsViewModel(
                     unreadable++
                 }
                 checked++
-                updateWordCount { it.copy(checkedChapters = checked) }
+                wordCountChecked.value = checked
             }
             val result = NovelWordDensity(totalWords, counted, scope.total, unreadable)
             updateWordCount { it.copy(result = result) }
@@ -1922,9 +1936,11 @@ sealed interface NovelDetailsDialog {
     data object PageSelector : NovelDetailsDialog
     data class SourceSettings(val source: NovelSource) : NovelDetailsDialog
 
-    /** [chaptersToCount] is null until the chapters on disk are known, [result] until they are counted. */
+    /**
+     * [chaptersToCount] is null until the chapters on disk are known, [result] until they are counted. How many
+     * are read so far is [NovelDetailsViewModel.wordCountChecked].
+     */
     data class WordCount(
-        val checkedChapters: Int,
         val chaptersToCount: Int?,
         val result: NovelWordDensity? = null,
     ) : NovelDetailsDialog
@@ -1964,3 +1980,6 @@ internal fun <S> novelSourceState(viewedSource: S?, isAnchorView: Boolean, ancho
     } else {
         EntrySourceState.Installed
     }
+
+/** A view's loaded rows, rendered again on each tick that changes what they show but not which they are. */
+private typealias RenderRows = suspend () -> NovelDetailsState.Loaded

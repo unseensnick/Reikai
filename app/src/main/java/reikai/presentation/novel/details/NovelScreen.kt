@@ -251,7 +251,10 @@ private fun NovelDetailsDialogs(
             }
             null -> {}
         }
-        is NovelDetailsDialog.WordCount -> NovelWordCountDialog(dialog, onDismissRequest = viewModel::dismissDialog)
+        is NovelDetailsDialog.WordCount -> {
+            val checked by viewModel.wordCountChecked.collectAsStateWithLifecycle()
+            NovelWordCountDialog(dialog, checked, onDismissRequest = viewModel::dismissDialog)
+        }
         is NovelDetailsDialog.ExportEpub -> NovelExportDialog(
             dialog = dialog,
             onDownloadMissing = { viewModel.downloadMissingForExport(dialog.missing) },
