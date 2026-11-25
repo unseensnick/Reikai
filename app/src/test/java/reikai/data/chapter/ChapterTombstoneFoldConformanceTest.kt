@@ -188,7 +188,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, "Series/v1/c1", NEWER)
         type.seedTombstone(driver, "Series/v10/c1", NEWER)
 
-        repository.forget(type.contentType, OWNER, listOf("Series/v1/"))
+        repository.forget(type.contentType, OWNER, listOf("Series/v1/"), emptyList())
 
         listOf(type.urls(driver), type.count(driver, type.sessionTable)) shouldBe listOf(listOf("Series/v10/c1"), 1L)
     }

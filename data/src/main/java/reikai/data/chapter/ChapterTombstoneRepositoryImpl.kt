@@ -128,17 +128,20 @@ class ChapterTombstoneRepositoryImpl(
         settled.awaitAsList().forEach { apply(type, ownerId, it, it) }
     }
 
+    // One transaction: a tombstone dropped without its sessions would hand them to the next chapter at its url.
     override suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>, urls: List<String>) {
-        urlPrefixes.forEach { prefix ->
-            if (type == ContentType.NOVELS) {
-                queries.forgetNovel(ownerId, prefix)
-                queries.forgetNovelSessions(ownerId, prefix)
-            } else {
-                queries.forgetManga(ownerId, prefix)
-                queries.forgetMangaSessions(ownerId, prefix)
+        database.transaction {
+            urlPrefixes.forEach { prefix ->
+                if (type == ContentType.NOVELS) {
+                    queries.forgetNovel(ownerId, prefix)
+                    queries.forgetNovelSessions(ownerId, prefix)
+                } else {
+                    queries.forgetManga(ownerId, prefix)
+                    queries.forgetMangaSessions(ownerId, prefix)
+                }
             }
+            urls.forEach { consume(type, ownerId, it) }
         }
-        urls.forEach { consume(type, ownerId, it) }
     }
 
     override suspend fun restore(

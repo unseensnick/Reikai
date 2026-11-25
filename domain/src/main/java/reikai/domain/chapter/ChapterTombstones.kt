@@ -149,7 +149,7 @@ interface ChapterTombstoneRepository {
      * Drops [ownerId]'s tombstones at urls starting with any of [urlPrefixes], and at each of [urls] exactly: the user
      * deleted those files.
      */
-    suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>, urls: List<String> = emptyList())
+    suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>, urls: List<String>)
 
     /**
      * Folds a backup's [tombstones] in under [ownerId], then settles them and the restored [chapterUrls]
