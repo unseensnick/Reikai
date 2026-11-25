@@ -39,7 +39,7 @@ fun LibraryToolbar(
     // RK: library-wide tracker refresh
     onClickRefreshTrackers: () -> Unit,
     // RK: opt-in "Update errors" overflow entry (null = hidden)
-    onClickUpdateErrors: (() -> Unit)? = null,
+    onClickUpdateErrors: (() -> Unit)?,
     onClickHiddenEntries: () -> Unit, // RK: the series hidden from the library view
     onClickStats: (() -> Unit)?, // RK: a shortcut to Statistics (null = hidden)
     onClickImport: () -> Unit, // RK: copy files into the local sources
@@ -84,7 +84,7 @@ private fun LibraryRegularToolbar(
     onClickOpenRandomManga: () -> Unit,
     // RK: tracker refresh and the opt-in update-errors entry
     onClickRefreshTrackers: () -> Unit,
-    onClickUpdateErrors: (() -> Unit)? = null,
+    onClickUpdateErrors: (() -> Unit)?,
     onClickHiddenEntries: () -> Unit, // RK
     onClickStats: (() -> Unit)?, // RK
     onClickImport: () -> Unit, // RK

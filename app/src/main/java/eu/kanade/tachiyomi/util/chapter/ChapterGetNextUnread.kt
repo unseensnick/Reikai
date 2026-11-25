@@ -22,9 +22,9 @@ fun List<Chapter>.getNextUnread(
     downloadManager: DownloadManager,
     // RK --> the merge group this list is the stitch of, whose other sources answer read, bookmarked and
     // on disk, as the details list does. The library resumes in group scope, so any copy counts.
-    group: MergedChapterProvider.Group? = null,
+    group: MergedChapterProvider.Group?,
     // RK: the hidden-chapter keys, passed over unless only hidden chapters are left unread.
-    hiddenKeys: Set<String> = emptySet(),
+    hiddenKeys: Set<String>,
 ): Chapter? {
     val mangaById = group?.mangaById.orEmpty()
     val ownerOf = { chapter: Chapter -> mangaById[chapter.mangaId] ?: manga }

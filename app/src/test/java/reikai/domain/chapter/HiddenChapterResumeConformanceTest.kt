@@ -141,6 +141,7 @@ class HiddenChapterResumeConformanceTest {
                 manga(bookmarkedOnly),
                 downloadedOnly = false,
                 mockk(),
+                group = null,
                 hiddenKeys = mangaKeys(hiddenUrls),
             )?.id
         }

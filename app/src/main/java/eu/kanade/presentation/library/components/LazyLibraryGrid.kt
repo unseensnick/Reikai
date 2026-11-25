@@ -16,7 +16,7 @@ import tachiyomi.presentation.core.util.plus
 @Composable
 internal fun LazyLibraryGrid(
     modifier: Modifier = Modifier,
-    state: LazyGridState = rememberLazyGridState(), // RK: the Manual drag reads it
+    state: LazyGridState, // RK: the Manual drag reads it
     columns: Int,
     contentPadding: PaddingValues,
     content: LazyGridScope.() -> Unit,

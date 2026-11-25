@@ -66,7 +66,7 @@ class MangaReadingOrderTest {
         val chapters = group(read = setOf(BETA))
 
         ReadingOrder.nextToRead(chapters.inReadingOrder(manga)) { it.read } shouldBe
-            chapters.getNextUnread(manga, downloadedOnly = false, mockk())
+            chapters.getNextUnread(manga, downloadedOnly = false, mockk(), group = null, hiddenKeys = emptySet())
     }
 
     @Test
@@ -75,6 +75,8 @@ class MangaReadingOrderTest {
             mangaSortedBy(Manga.CHAPTER_SORTING_ALPHABET),
             downloadedOnly = false,
             mockk(),
+            group = null,
+            hiddenKeys = emptySet(),
         )?.id shouldBe
             ALPHA
     }
@@ -148,7 +150,13 @@ class MangaReadingOrderTest {
                 ReadingOrder.nextToRead(chapters.inReadingOrder(manga)) { it.read }?.id
             },
             NextChapterCaller("library continue reading") { manga, chapters ->
-                chapters.getNextUnread(manga, downloadedOnly = false, mockk())?.id
+                chapters.getNextUnread(
+                    manga,
+                    downloadedOnly = false,
+                    mockk(),
+                    group = null,
+                    hiddenKeys = emptySet(),
+                )?.id
             },
             NextChapterCaller("details resume") { manga, chapters ->
                 chapters.map {

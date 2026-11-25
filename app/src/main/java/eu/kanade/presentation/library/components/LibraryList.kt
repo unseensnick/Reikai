@@ -16,7 +16,6 @@ import reikai.presentation.library.libraryRows // RK
 import reikai.presentation.library.rememberManualOrder // RK
 import reikai.presentation.library.rememberManualOrderColumn // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.util.plus
 
@@ -31,7 +30,7 @@ internal fun LibraryList(
     onClickContinueReading: ((LibraryItem) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
-    drag: ManualOrderDrag? = null, // RK: set on a Manual category whose rows drag into a new order
+    drag: ManualOrderDrag?, // RK: set on a Manual category whose rows drag into a new order
 ) {
     // RK --> the Manual drag, one section per page (reikai.presentation.library.ManualOrder)
     val listState = rememberLazyListState()

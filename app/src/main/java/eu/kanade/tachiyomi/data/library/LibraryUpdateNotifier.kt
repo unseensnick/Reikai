@@ -267,7 +267,7 @@ class LibraryUpdateNotifier(
         manga: Manga,
         chapters: Array<Chapter>,
         // RK: when true, show a generic title + count and no cover (adult / hidden content)
-        hideContent: Boolean = false,
+        hideContent: Boolean,
     ): Notification {
         val icon = if (hideContent) null else context.notificationCover(manga) // RK: shared with novels
         return context.notificationBuilder(Notifications.CHANNEL_NEW_CHAPTERS) {

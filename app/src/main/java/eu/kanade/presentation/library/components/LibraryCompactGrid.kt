@@ -14,7 +14,6 @@ import reikai.presentation.library.libraryCells // RK
 import reikai.presentation.library.rememberManualOrder // RK
 import reikai.presentation.library.rememberManualOrderGrid // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.domain.library.model.LibraryManga
 
 @Composable
 internal fun LibraryCompactGrid(
@@ -29,7 +28,7 @@ internal fun LibraryCompactGrid(
     onClickContinueReading: ((LibraryItem) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
-    drag: ManualOrderDrag? = null, // RK: set on a Manual category whose tiles drag into a new order
+    drag: ManualOrderDrag?, // RK: set on a Manual category whose tiles drag into a new order
 ) {
     // RK --> the Manual drag, one section per page (reikai.presentation.library.ManualOrder)
     val gridState = rememberLazyGridState()
