@@ -66,6 +66,16 @@ class LibraryUpdateScheduleTest {
     }
 
     @Test
+    fun `a manual run never defers, though the manual tag reports running`() = runTest {
+        shouldDeferTaggedRun(setOf(TAG, MANUAL), AUTO) { true } shouldBe false
+    }
+
+    @Test
+    fun `a scheduled run defers when its check says so`() = runTest {
+        shouldDeferTaggedRun(setOf(TAG, AUTO), AUTO) { true } shouldBe true
+    }
+
+    @Test
     fun `a scheduled update waits while a manual one runs`() {
         shouldDeferAutoUpdate(sdkInt = 34, emptySet(), isOnWifi = { true }, isManualRunning = true) shouldBe true
     }

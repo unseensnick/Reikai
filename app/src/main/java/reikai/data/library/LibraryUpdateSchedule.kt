@@ -79,19 +79,26 @@ suspend fun ListenableWorker.libraryUpdateGate(
     manualTag: String,
 ) = libraryUpdateGate(libraryUpdateJob, shown) { shouldDeferLibraryUpdate(restrictions, autoTag, manualTag) }
 
-/** [shouldDeferAutoUpdate] for this run; a manual run never defers. */
+/** [shouldDeferAutoUpdate] for this run. */
 private suspend fun ListenableWorker.shouldDeferLibraryUpdate(
     restrictions: Set<String>,
     autoTag: String,
     manualTag: String,
-) =
-    autoTag in tags &&
-        shouldDeferAutoUpdate(
-            Build.VERSION.SDK_INT,
-            restrictions,
-            { applicationContext.isConnectedToWifi() },
-            applicationContext.workManager.isRunning(manualTag),
-        )
+) = shouldDeferTaggedRun(tags, autoTag) {
+    shouldDeferAutoUpdate(
+        Build.VERSION.SDK_INT,
+        restrictions,
+        { applicationContext.isConnectedToWifi() },
+        applicationContext.workManager.isRunning(manualTag),
+    )
+}
+
+/**
+ * Only a scheduled run (tagged [autoTag]) asks [deferAuto]. A manual run never defers: asking whether
+ * a manual run is running would find itself, so it would retry for good.
+ */
+internal suspend fun shouldDeferTaggedRun(tags: Set<String>, autoTag: String, deferAuto: suspend () -> Boolean) =
+    autoTag in tags && deferAuto()
 
 inline fun <reified W : ListenableWorker> libraryUpdatePeriodicRequest(
     intervalHours: Int,
