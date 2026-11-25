@@ -357,6 +357,9 @@ class NovelReaderViewModelHarness private constructor(
         sourcePreferences.incognitoExtensions.set(setOf(SourceKey.Novel(source.id).serialize()))
     }
 
+    /** The chapter the History tab shows for the novel read last. */
+    suspend fun lastInHistory(): Long? = history.getLastNovelHistory()?.chapterId
+
     /** The chapters of [novelId] reading has put in history. */
     suspend fun historyOf(novelId: Long): List<Long> = history.getHistoryByNovelId(novelId).map { it.chapterId }
 

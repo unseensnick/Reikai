@@ -144,15 +144,19 @@ class ReadAloudSessionTest {
         harness.isRead(reading.chapters[0]) shouldBe true
     }
 
-    /** History is what a process kill reopens on, so the chapter speech reached is stamped as it arrives. */
+    /**
+     * History is what a process kill reopens on, so the chapter speech reached is stamped as it arrives, after
+     * the chapter left, which is written with its time heard as it ends, on the same clock reading here.
+     */
     @Test
-    fun `the chapter reached with no reader open is stamped in History`() = sessionTest { harness ->
+    fun `History shows the chapter reached with no reader open`() = sessionTest { harness ->
         val reading = reading(harness)
         closeReader(harness, reading)
+        now += 30.seconds
 
         repeat(2) { finishParagraph(harness) }
 
-        harness.historyOf(reading.novel).contains(reading.chapters[1].id) shouldBe true
+        harness.lastInHistory() shouldBe reading.chapters[1].id
     }
 
     @Test

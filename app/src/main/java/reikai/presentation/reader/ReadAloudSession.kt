@@ -67,7 +67,9 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 import kotlin.time.TimeSource
 
 /**
@@ -315,6 +317,9 @@ class ReadAloudSession(
         /** The time heard of the chapter being spoken, written into History on every pause and chapter end. */
         val heard = ReadSessionClock()
         var heardChapter: Long? = null
+
+        /** History's last stamp, which a chapter reached is stamped after: on a tie History may show either. */
+        @Volatile private var lastStamp: Instant? = null
         var listening = Listening()
 
         private val navigation = Navigation()
@@ -471,6 +476,7 @@ class ReadAloudSession(
             val now = clock.now()
             val duration = heard.take(now)
             if (duration <= 0L) return
+            lastStamp = now
             appScope.launch {
                 val owner = chapterRepo.getById(chapterId)?.novelId ?: return@launch
                 if (incognito().of(owner)) return@launch
@@ -529,13 +535,15 @@ class ReadAloudSession(
             override fun movedTo(chapterId: Long) {
                 moves.value = ReadAloudMove(series, chapterId)
                 val stampArrival = !readerOf(series, onScreen = true)
+                val arrivedAt = clock.now().let { now -> lastStamp?.let { maxOf(now, it + 1.milliseconds) } ?: now }
+                if (stampArrival) lastStamp = arrivedAt
                 val reached = order
                 appScope.launch {
                     val owner = chapterRepo.getById(chapterId)?.also { titles[chapterId] = it.name }?.novelId
                     // History is what a process kill reopens on, so the chapter reached is stamped now when no
                     // reader shows it; with no read time, which the clock writes on the next pause.
                     if (stampArrival && owner != null && !incognito().of(owner)) {
-                        upsertNovelHistory.await(NovelHistoryUpdate(chapterId, clock.now(), 0L))
+                        upsertNovelHistory.await(NovelHistoryUpdate(chapterId, arrivedAt, 0L))
                     }
                     reached?.let { orderResolver.downloadAhead(it, chapterId, downloadManagerProvider()) }
                 }
