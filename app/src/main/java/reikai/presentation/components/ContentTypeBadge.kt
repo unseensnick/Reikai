@@ -22,7 +22,7 @@ fun ContentTypeBadge(
     contentType: ContentType,
     modifier: Modifier = Modifier,
 ) {
-    if (contentType == ContentType.ALL || LocalShownContent.current != ContentType.ALL) return
+    if (contentType == ContentType.ALL || !showsBothTypes()) return
     TypeBadge(stringResource(contentType.labelRes), modifier)
 }
 

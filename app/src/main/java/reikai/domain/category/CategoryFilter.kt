@@ -6,7 +6,7 @@ package reikai.domain.category
  * unit-tests directly. The Recents feeds filter in SQL instead (their `includedEmpty` clauses),
  * pinned to [matchesCategoryFilter] by RecentsCategoryFilterConformanceTest.
  *
- * Callers convert their stored Set<String> prefs to Set<Long> first (category ids are Long).
+ * Callers convert their stored Set<String> prefs with [toLongIdSet] first, and store with [toStringIdSet].
  */
 
 /** True when an include/exclude category filter is actually constraining the list. */
@@ -40,3 +40,9 @@ fun isUpdateScope(categories: Collection<Long>, categoryId: Long, include: Set<L
  */
 fun mergeCategorySelection(stored: Set<Long>, shown: Set<Long>, confirmed: Set<Long>): Set<Long> =
     stored.filterNotTo(mutableSetOf()) { it in shown } + confirmed
+
+/** A stored category-id selection as ids, dropping any non-numeric entry. */
+fun Set<String>.toLongIdSet(): Set<Long> = mapNotNull(String::toLongOrNull).toSet()
+
+/** Category ids as the string set the selection preferences store. */
+fun Set<Long>.toStringIdSet(): Set<String> = mapTo(HashSet()) { it.toString() }

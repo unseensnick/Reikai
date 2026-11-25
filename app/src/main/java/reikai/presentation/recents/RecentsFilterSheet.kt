@@ -23,8 +23,8 @@ import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsViewModel
 import reikai.domain.category.RecentsSurface
+import reikai.domain.category.toLongIdSet
 import reikai.presentation.category.CategoryFilterRow
-import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import tachiyomi.i18n.MR

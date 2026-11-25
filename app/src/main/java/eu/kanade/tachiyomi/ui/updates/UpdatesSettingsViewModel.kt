@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.categoryFilterPrefs
+import reikai.domain.category.toStringIdSet
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.library.subscribeAllInCategoryOrder
@@ -69,8 +70,8 @@ class UpdatesSettingsViewModel(
     }
 
     fun setCategorySelections(include: Set<Long>, exclude: Set<Long>) {
-        categoryPrefs.second.set(include.map(Long::toString).toSet())
-        categoryPrefs.third.set(exclude.map(Long::toString).toSet())
+        categoryPrefs.second.set(include.toStringIdSet())
+        categoryPrefs.third.set(exclude.toStringIdSet())
     }
 
     fun toggleShowRead() {

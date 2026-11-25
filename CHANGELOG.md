@@ -79,6 +79,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Undoing a category delete on Edit categories can no longer leave two categories with the same name.**
 - **A drag, rename, hide or new category on Edit categories is no longer lost when you leave the screen straight away.**
 - **TalkBack now says which categories are selected on Edit categories.**
+- **Categories picked in the library or Recents category filter are no longer lost when the phone rotates or folds before you tap OK.**
 - **The library now shows your novels at once on a cold start, without waiting for every novel plugin to load.** Source badges fill in as each plugin finishes.
 - **A series whose chapter names hold a # no longer fails to refresh (from Mihon).** Upstream: mihonapp/mihon#4107.
 - **The library's Lewd filter no longer hides series tagged Young Adult or Adult Cast.** Adult notifications stop blanking them too.

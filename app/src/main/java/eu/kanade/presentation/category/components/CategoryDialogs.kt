@@ -34,7 +34,7 @@ import eu.kanade.presentation.category.visualName
 import reikai.domain.category.CategoryContentType
 import reikai.domain.library.ContentType
 import reikai.presentation.category.categoryContentTypeLabel
-import reikai.presentation.components.LocalShownContent
+import reikai.presentation.components.showsBothTypes
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -103,7 +103,7 @@ fun CategoryCreateDialog(
                 )
 
                 // RK --> which libraries the new category applies to
-                if (LocalShownContent.current == ContentType.ALL) {
+                if (showsBothTypes()) {
                     Text(
                         text = stringResource(MR.strings.category_content_type),
                         style = MaterialTheme.typography.labelMedium,

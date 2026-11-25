@@ -18,7 +18,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,7 +99,9 @@ private fun CategoryFilterDialog(
     val defaultLabel = stringResource(MR.strings.label_default)
     // Keyed on the stable contents, not on onConfirm: that lambda is a fresh instance each
     // recomposition, which would otherwise reset in-dialog selections.
-    val states = remember(categories, included, excluded) { categoryStatesOf(categories, included, excluded) }
+    val states = rememberSaveable(categories, included, excluded, saver = CategoryStatesSaver) {
+        categoryStatesOf(categories, included, excluded)
+    }
     // The chip narrows what is drawn, never the state map or the confirm below: every category keeps
     // its state whichever chip is up, so switching chips cannot drop a pick or a stored id.
     var chipContentType by rememberSaveable { mutableStateOf(ContentType.ALL) }

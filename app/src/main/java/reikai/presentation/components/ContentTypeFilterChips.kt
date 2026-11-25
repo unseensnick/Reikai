@@ -33,7 +33,7 @@ fun ContentTypeFilterChips(
     // Opt-in per-type count badge (the Extensions tab passes pending updates per type); empty = none.
     badges: Map<ContentType, Int> = emptyMap(),
 ) {
-    if (LocalShownContent.current != ContentType.ALL) return
+    if (!showsBothTypes()) return
     Row(
         modifier = modifier
             .fillMaxWidth()

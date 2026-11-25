@@ -83,8 +83,8 @@ fun ReikaiSourcePreferences.recentsCategoryFilterFlow(surface: RecentsSurface): 
             RecentsCategoryFilter()
         } else {
             RecentsCategoryFilter(
-                include = include.mapNotNull(String::toLongOrNull),
-                exclude = exclude.mapNotNull(String::toLongOrNull),
+                include = include.toLongIdSet().toList(),
+                exclude = exclude.toLongIdSet().toList(),
             )
         }
     }

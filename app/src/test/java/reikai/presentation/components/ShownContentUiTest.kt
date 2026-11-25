@@ -2,8 +2,10 @@ package reikai.presentation.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -89,6 +91,27 @@ class ShownContentUiTest {
     }
 
     @Test
+    fun `the category picker drops the type label while one type shows`() {
+        showCategoryPicker(ContentType.MANGA)
+
+        compose.onNodeWithText("Manga only").assertDoesNotExist()
+    }
+
+    /** A rotation or fold rebuilds the open dialog, which must keep the picks not yet confirmed. */
+    @Test
+    fun `a pick the category picker has not confirmed survives a rotation`() {
+        var included: Set<Long>? = null
+        val restoration = StateRestorationTester(compose)
+        showCategoryPicker(ContentType.ALL, restoration) { include, _ -> included = include }
+        compose.onNodeWithText("Comic").performClick()
+
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("OK").performClick()
+
+        included shouldBe setOf(1L)
+    }
+
+    @Test
     fun `a mixed download queue still names its cards under Show`() {
         compose.setContent {
             CompositionLocalProvider(LocalShownContent provides ContentType.MANGA) {
@@ -116,8 +139,12 @@ class ShownContentUiTest {
         status = EntryDownloadCardStatus.QUEUED,
     )
 
-    private fun showCategoryPicker(shown: ContentType) {
-        compose.setContent {
+    private fun showCategoryPicker(
+        shown: ContentType,
+        restoration: StateRestorationTester? = null,
+        onConfirm: (Set<Long>, Set<Long>) -> Unit = { _, _ -> },
+    ) {
+        val content: @Composable () -> Unit = {
             CompositionLocalProvider(LocalShownContent provides shown) {
                 Column {
                     CategoryFilterRow(
@@ -135,12 +162,13 @@ class ShownContentUiTest {
                         ),
                         included = emptySet(),
                         excluded = emptySet(),
-                        onConfirm = { _, _ -> },
+                        onConfirm = onConfirm,
                         showContentTypeChip = true,
                     )
                 }
             }
         }
+        if (restoration != null) restoration.setContent(content) else compose.setContent(content)
         compose.onNodeWithText("Edit", substring = true, ignoreCase = true).performClick()
     }
 

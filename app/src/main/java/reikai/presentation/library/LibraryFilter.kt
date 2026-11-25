@@ -10,13 +10,13 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.category.toLongIdSet
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.TagAliases
 import reikai.domain.library.TagFilter
 import reikai.domain.library.effectiveIntervalFilter
 import reikai.domain.library.tagAliasesFlow
 import reikai.domain.library.tagFilterFlow
-import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.applyFilter

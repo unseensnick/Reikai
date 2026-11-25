@@ -30,9 +30,9 @@ import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
 import reikai.presentation.components.HeaderTabRow
-import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.listsBothTypes
 import reikai.presentation.components.rememberChipListState
+import reikai.presentation.components.showsBothTypes
 import reikai.presentation.details.detailsRoute
 import reikai.presentation.details.rememberDetailsOpener
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
@@ -149,7 +149,7 @@ fun EntryGlobalSearchScreen(
                 onReverseSelection = { selection.invert(state.visibleRows) },
                 onChangeCategoryClick = selection::add,
                 tabs = {
-                    if (LocalShownContent.current == ContentType.ALL) {
+                    if (showsBothTypes()) {
                         HeaderTabRow(
                             items = ContentType.entries,
                             selected = state.contentType,

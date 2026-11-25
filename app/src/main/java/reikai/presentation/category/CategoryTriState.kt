@@ -2,8 +2,10 @@ package reikai.presentation.category
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import reikai.domain.category.CategoryContentType
+import reikai.presentation.components.showsBothTypes
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.presentation.core.components.TriStateItem
@@ -29,11 +31,22 @@ fun categoryStatesOf(
         }
     }
 
+/** Keeps the picks a dialog has not confirmed through a rotation or fold, which rebuilds it over the same inputs. */
+val CategoryStatesSaver = listSaver<SnapshotStateMap<Long, TriState>, Long>(
+    save = { states -> states.flatMap { (id, state) -> listOf(id, state.ordinal.toLong()) } },
+    restore = { saved ->
+        mutableStateMapOf<Long, TriState>().apply {
+            saved.chunked(2).forEach { (id, state) -> this[id] = TriState.entries[state.toInt()] }
+        }
+    },
+)
+
 /**
  * One [TriStateItem] per category bound to [states]; a blank category name falls back to [defaultLabel].
  * A category restricted to one content type says so after its name, because one selection now spans
  * both libraries and picking a manga-only row while thinking about novels is otherwise invisible.
- * Universal rows carry no suffix: labelling every row would bury the ones that constrain something.
+ * Universal rows carry no suffix: labelling every row would bury the ones that constrain something. While
+ * Show leaves one type, no row carries one, as on Edit categories.
  */
 @Composable
 fun CategoryTriStateRows(
@@ -41,8 +54,9 @@ fun CategoryTriStateRows(
     states: SnapshotStateMap<Long, TriState>,
     defaultLabel: String,
 ) {
+    val labelled = showsBothTypes()
     categories.forEach { category ->
-        val restricted = category.contentType != CategoryContentType.UNIVERSAL
+        val restricted = labelled && category.contentType != CategoryContentType.UNIVERSAL
         TriStateItem(
             label = category.name.ifBlank { defaultLabel },
             state = states[category.id] ?: TriState.DISABLED,
@@ -55,6 +69,3 @@ fun CategoryTriStateRows(
 /** Category ids currently set to [state] (e.g. [TriState.ENABLED_IS] for the included set). */
 fun SnapshotStateMap<Long, TriState>.idsWith(state: TriState): Set<Long> =
     filterValues { it == state }.keys.toSet()
-
-/** Parse a string-id pref set into category ids, dropping any non-numeric entry. */
-fun Set<String>.toLongIdSet(): Set<Long> = mapNotNull(String::toLongOrNull).toSet()

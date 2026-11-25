@@ -17,10 +17,11 @@ import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Refresh
+import reikai.domain.category.toLongIdSet
+import reikai.domain.category.toStringIdSet
 import reikai.domain.library.isSortOverridden
 import reikai.domain.library.sortForCategory
 import reikai.presentation.category.CategoryFilterRow
-import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
@@ -139,8 +140,8 @@ private fun ColumnScope.CategoriesFilter(
         included = included.toLongIdSet(),
         excluded = excluded.toLongIdSet(),
         onConfirm = { include, exclude ->
-            categoryFilter.included.set(include.mapTo(mutableSetOf()) { it.toString() })
-            categoryFilter.excluded.set(exclude.mapTo(mutableSetOf()) { it.toString() })
+            categoryFilter.included.set(include.toStringIdSet())
+            categoryFilter.excluded.set(exclude.toStringIdSet())
         },
         onManageCategories = onManageCategories,
     )
