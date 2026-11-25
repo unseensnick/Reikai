@@ -53,9 +53,10 @@ abstract class EntryLibraryRemoval(
         }
     }
 
-    abstract fun entryId(id: Long): EntryId
+    /** The type this removal takes out, which every entry id it writes about is of. */
+    abstract val contentType: ContentType
 
-    protected abstract val contentType: ContentType
+    private fun entryId(id: Long): EntryId = EntryId.of(contentType, id)
 
     /** When the stored row joined the library, null when it is not in it or is gone. */
     protected abstract suspend fun favoriteAt(id: Long): Instant?

@@ -133,7 +133,7 @@ class EntryMergeActionHost(
         dismissDialog()
         scope.launch {
             val anchor = anchorId()
-            val contentType = removal.entryId(anchor).contentType
+            val contentType = removal.contentType
             // Dissolving, combining and merging again after a failed combine run as one step on the app scope,
             // so leaving the screen part way never leaves the merge dissolved with nothing combined.
             val combined = lasting {

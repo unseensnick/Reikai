@@ -4,7 +4,6 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.removeCovers
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.local.LocalVolumeHandBack
@@ -23,8 +22,6 @@ class RemoveMangaFromLibrary(
     private val coverCache: CoverCache,
     localVolumes: () -> LocalVolumeHandBack,
 ) : EntryLibraryRemoval(mergeManager, sourceTracker, localVolumes) {
-
-    override fun entryId(id: Long): EntryId = EntryId.Manga(id)
 
     override val contentType = ContentType.MANGA
 

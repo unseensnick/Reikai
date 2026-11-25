@@ -22,8 +22,6 @@ class RemoveNovelsFromLibrary(
     localVolumes: () -> LocalVolumeHandBack,
 ) : EntryLibraryRemoval(mergeManager, sourceTracker, localVolumes) {
 
-    override fun entryId(id: Long): EntryId = EntryId.Novel(id)
-
     override val contentType = ContentType.NOVELS
 
     override suspend fun favoriteAt(id: Long): Instant? = novelRepository.getById(id)?.favoriteAt

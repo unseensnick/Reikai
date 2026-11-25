@@ -25,7 +25,6 @@ import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalVolumeMove
-import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.EntryMergeManager
@@ -262,8 +261,6 @@ class EntryMergeActionHostTest {
         val takenOut = CompletableDeferred<Unit>()
         val allCoversDropped = CompletableDeferred<Unit>()
         var failRestore = false
-
-        override fun entryId(id: Long) = EntryId.Manga(id)
 
         override suspend fun favoriteAt(id: Long) = favoriteAt[id]
 
