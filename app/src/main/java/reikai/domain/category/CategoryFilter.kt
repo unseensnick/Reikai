@@ -15,8 +15,8 @@ fun categoryFilterActive(enabled: Boolean, include: Set<Long>, exclude: Set<Long
 
 /**
  * A series passes when it sits on at least one included category (or none are required) and on none
- * of the excluded categories. [categories] is the set of category ids the series belongs to (empty
- * means uncategorized).
+ * of the excluded categories. [categories] is the set of category ids the series belongs to; an
+ * uncategorized series passes `[0]`, the Default category's id, or no include can ever match it.
  */
 fun matchesCategoryFilter(categories: Collection<Long>, include: Set<Long>, exclude: Set<Long>): Boolean {
     val isIncluded = include.isEmpty() || categories.any { it in include }

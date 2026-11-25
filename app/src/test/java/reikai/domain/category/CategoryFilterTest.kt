@@ -2,115 +2,99 @@ package reikai.domain.category
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
 class CategoryFilterTest {
 
-    @Test
-    fun `filter is inactive when disabled even with selections`() {
-        categoryFilterActive(enabled = false, include = setOf(1L), exclude = setOf(2L)) shouldBe false
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("activeCases")
+    fun `a filter is active only while enabled with a selection`(
+        case: String,
+        enabled: Boolean,
+        include: Set<Long>,
+        exclude: Set<Long>,
+        active: Boolean,
+    ) {
+        categoryFilterActive(enabled, include, exclude) shouldBe active
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("matchCases")
+    fun `a series passes on an included category and on no excluded one`(
+        case: String,
+        categories: List<Long>,
+        include: Set<Long>,
+        exclude: Set<Long>,
+        passes: Boolean,
+    ) {
+        matchesCategoryFilter(categories, include, exclude) shouldBe passes
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("updateScopeCases")
+    fun `a manual update of one category overrides the update filter`(
+        case: String,
+        categories: List<Long>,
+        categoryId: Long,
+        include: Set<Long>,
+        exclude: Set<Long>,
+        covered: Boolean,
+    ) {
+        isUpdateScope(categories, categoryId, include, exclude) shouldBe covered
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("mergeCases")
+    fun `a confirm replaces only the ids the picker showed`(
+        case: String,
+        stored: Set<Long>,
+        shown: Set<Long>,
+        confirmed: Set<Long>,
+        merged: Set<Long>,
+    ) {
+        mergeCategorySelection(stored, shown, confirmed) shouldBe merged
     }
 
     @Test
-    fun `filter is inactive when enabled but nothing is selected`() {
-        categoryFilterActive(enabled = true, include = emptySet(), exclude = emptySet()) shouldBe false
+    fun `an empty category list matches no included category, Default included`() {
+        matchesCategoryFilter(categories = emptyList(), include = setOf(0L), exclude = emptySet()) shouldBe false
     }
 
-    @Test
-    fun `filter is active when enabled with an include selection`() {
-        categoryFilterActive(enabled = true, include = setOf(1L), exclude = emptySet()) shouldBe true
-    }
+    private companion object {
+        @JvmStatic
+        fun activeCases() = listOf(
+            Arguments.of("disabled with selections", false, setOf(1L), setOf(2L), false),
+            Arguments.of("enabled with nothing selected", true, emptySet<Long>(), emptySet<Long>(), false),
+            Arguments.of("enabled with an include", true, setOf(1L), emptySet<Long>(), true),
+            Arguments.of("enabled with only an exclude", true, emptySet<Long>(), setOf(2L), true),
+        )
 
-    @Test
-    fun `filter is active when enabled with only an exclude selection`() {
-        categoryFilterActive(enabled = true, include = emptySet(), exclude = setOf(2L)) shouldBe true
-    }
+        @JvmStatic
+        fun matchCases() = listOf(
+            Arguments.of("no include constraint", listOf(5L), emptySet<Long>(), emptySet<Long>(), true),
+            Arguments.of("on an included category", listOf(1L, 3L), setOf(3L), emptySet<Long>(), true),
+            Arguments.of("missing every included category", listOf(1L, 2L), setOf(3L), emptySet<Long>(), false),
+            Arguments.of("on an excluded category", listOf(1L, 2L), emptySet<Long>(), setOf(2L), false),
+            Arguments.of("exclude wins over include", listOf(1L, 2L), setOf(1L), setOf(2L), false),
+            Arguments.of("uncategorized against another include", listOf(0L), setOf(1L), emptySet<Long>(), false),
+            Arguments.of("uncategorized against Default", listOf(0L), setOf(0L), emptySet<Long>(), true),
+        )
 
-    @Test
-    fun `empty include means no include constraint`() {
-        matchesCategoryFilter(categories = listOf(5L), include = emptySet(), exclude = emptySet()) shouldBe true
-    }
+        @JvmStatic
+        fun updateScopeCases() = listOf(
+            Arguments.of("manual category the filter excludes", listOf(2L), 2L, setOf(1L), setOf(2L), true),
+            Arguments.of("outside the manual category", listOf(1L), 2L, emptySet<Long>(), emptySet<Long>(), false),
+            Arguments.of("no manual category, the filter decides", listOf(1L), -1L, setOf(1L), emptySet<Long>(), true),
+        )
 
-    @Test
-    fun `series on an included category passes`() {
-        matchesCategoryFilter(categories = listOf(1L, 3L), include = setOf(3L), exclude = emptySet()) shouldBe true
-    }
-
-    @Test
-    fun `series missing every included category is filtered out`() {
-        matchesCategoryFilter(categories = listOf(1L, 2L), include = setOf(3L), exclude = emptySet()) shouldBe false
-    }
-
-    @Test
-    fun `series on an excluded category is filtered out`() {
-        matchesCategoryFilter(categories = listOf(1L, 2L), include = emptySet(), exclude = setOf(2L)) shouldBe false
-    }
-
-    @Test
-    fun `exclude wins over include when a series is on both`() {
-        matchesCategoryFilter(categories = listOf(1L, 2L), include = setOf(1L), exclude = setOf(2L)) shouldBe false
-    }
-
-    @Test
-    fun `uncategorized series passes when only an include is set`() {
-        matchesCategoryFilter(categories = emptyList(), include = setOf(1L), exclude = emptySet()) shouldBe false
-    }
-
-    @Test
-    fun `uncategorized series can be targeted by the synthetic uncategorized id`() {
-        matchesCategoryFilter(categories = listOf(0L), include = setOf(0L), exclude = emptySet()) shouldBe true
-    }
-
-    @Test
-    fun `a manual update of one category covers it whatever the update filter excludes`() {
-        isUpdateScope(categories = listOf(2L), categoryId = 2L, include = setOf(1L), exclude = setOf(2L)) shouldBe
-            true
-    }
-
-    @Test
-    fun `a manual update of one category leaves out a series outside it`() {
-        isUpdateScope(categories = listOf(1L), categoryId = 2L, include = emptySet(), exclude = emptySet()) shouldBe
-            false
-    }
-
-    @Test
-    fun `without a manual category the update filter decides`() {
-        isUpdateScope(categories = listOf(1L), categoryId = -1L, include = setOf(1L), exclude = emptySet()) shouldBe
-            true
-    }
-
-    @Test
-    fun `a confirm keeps stored ids the picker never showed`() {
-        mergeCategorySelection(
-            stored = setOf(1L, 100000007L),
-            shown = setOf(1L, 2L),
-            confirmed = setOf(1L),
-        ) shouldBe setOf(1L, 100000007L)
-    }
-
-    @Test
-    fun `a confirm drops a shown id the user cleared`() {
-        mergeCategorySelection(
-            stored = setOf(1L, 2L),
-            shown = setOf(1L, 2L),
-            confirmed = setOf(1L),
-        ) shouldBe setOf(1L)
-    }
-
-    @Test
-    fun `a confirm adds a newly selected id`() {
-        mergeCategorySelection(
-            stored = setOf(1L),
-            shown = setOf(1L, 2L),
-            confirmed = setOf(1L, 2L),
-        ) shouldBe setOf(1L, 2L)
-    }
-
-    @Test
-    fun `a confirm over an empty picker leaves the stored selection alone`() {
-        mergeCategorySelection(
-            stored = setOf(1L, 2L),
-            shown = emptySet(),
-            confirmed = emptySet(),
-        ) shouldBe setOf(1L, 2L)
+        @JvmStatic
+        fun mergeCases() = listOf(
+            Arguments.of("keeps ids never shown", setOf(1L, 9L), setOf(1L, 2L), setOf(1L), setOf(1L, 9L)),
+            Arguments.of("drops a shown id cleared", setOf(1L, 2L), setOf(1L, 2L), setOf(1L), setOf(1L)),
+            Arguments.of("adds a newly selected id", setOf(1L), setOf(1L, 2L), setOf(1L, 2L), setOf(1L, 2L)),
+            Arguments.of("empty picker", setOf(1L, 2L), emptySet<Long>(), emptySet<Long>(), setOf(1L, 2L)),
+        )
     }
 }
