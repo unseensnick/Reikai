@@ -24,11 +24,13 @@ import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.track.source.SourceTrackerDispatcher
+import reikai.novel.local.LocalNovelSource
 import reikai.util.idleAppScope
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.source.local.LocalSource
 import java.io.File
 import kotlin.time.Instant
 
@@ -92,6 +94,17 @@ class EntryLibraryRemovalConformanceTest {
         table.removal.await(listOf(ID))
 
         custom.exists() shouldBe false
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a removed local entry keeps its custom cover`(type: ContentType) = runTest {
+        val table = table(type).apply { put(ID, local = true) }
+        val custom = table.cache.getCustomCoverFile(table.entryId(ID)).also { it.writeText("x") }
+
+        table.removal.await(listOf(ID))
+
+        custom.exists() shouldBe true
     }
 
     @ParameterizedTest
@@ -264,7 +277,7 @@ class EntryLibraryRemovalConformanceTest {
 
         abstract val removal: EntryLibraryRemoval
         abstract fun entryId(id: Long): EntryId
-        abstract fun put(id: Long, joinedAt: Instant? = JOINED_AT)
+        abstract fun put(id: Long, joinedAt: Instant? = JOINED_AT, local: Boolean = false)
         abstract fun favoriteAt(id: Long): Instant?
         abstract fun cachedCover(id: Long): File
 
@@ -303,11 +316,11 @@ class EntryLibraryRemovalConformanceTest {
 
         override fun entryId(id: Long) = EntryId.Manga(id)
 
-        override fun put(id: Long, joinedAt: Instant?) {
+        override fun put(id: Long, joinedAt: Instant?, local: Boolean) {
             rows[id] =
                 Manga.create().copy(
                     id = id,
-                    source = 99L,
+                    source = if (local) LocalSource.ID else 99L,
                     thumbnailUrl = "https://example.org/$id.jpg",
                     favoriteAt = joinedAt,
                 )
@@ -348,8 +361,13 @@ class EntryLibraryRemovalConformanceTest {
 
         override fun entryId(id: Long) = EntryId.Novel(id)
 
-        override fun put(id: Long, joinedAt: Instant?) {
-            rows[id] = Novel.create().copy(id = id, thumbnailUrl = "https://example.org/$id.jpg", favoriteAt = joinedAt)
+        override fun put(id: Long, joinedAt: Instant?, local: Boolean) {
+            rows[id] = Novel.create().copy(
+                id = id,
+                source = if (local) LocalNovelSource.ID else "plugin",
+                thumbnailUrl = "https://example.org/$id.jpg",
+                favoriteAt = joinedAt,
+            )
         }
 
         override fun favoriteAt(id: Long) = rows.getValue(id).favoriteAt

@@ -10,6 +10,7 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.track.source.SourceTrackerDispatcher
+import reikai.novel.local.LocalNovelSource
 import kotlin.time.Instant
 
 /** [EntryLibraryRemoval] over the novels table. Writes only the library date. */
@@ -30,10 +31,10 @@ class RemoveNovelsFromLibrary(
         novelRepository.updateAll(favoriteAt.map { (id, at) -> NovelUpdate(id) { this.favoriteAt = at } })
 
     override suspend fun deleteCovers(id: Long) {
-        coverCache.deleteFromCache(
-            EntryId.Novel(id),
-            novelRepository.getById(id)?.thumbnailUrl,
-            deleteCustomCover = true,
-        )
+        val novel = novelRepository.getById(id)
+        // A local series keeps its covers, as manga's removeCovers keeps them: one set on a bare EPUB lives
+        // in the custom-cover cache, with no folder of its own to hold it.
+        if (novel?.source == LocalNovelSource.ID) return
+        coverCache.deleteFromCache(EntryId.Novel(id), novel?.thumbnailUrl, deleteCustomCover = true)
     }
 }
