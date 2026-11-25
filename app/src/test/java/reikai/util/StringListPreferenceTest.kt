@@ -17,7 +17,7 @@ class StringListPreferenceTest {
         pref.get() shouldBe listOf("b", "a", "c")
     }
 
-    /** The format stored values and backups already hold, so the four keys read as they did. */
+    /** The format stored values and backups already hold, so every key on getStringList reads as it did. */
     @Test
     fun `a list is stored newline-joined`() {
         pref.set(listOf("b", "a", "c"))

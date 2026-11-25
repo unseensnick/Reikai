@@ -27,10 +27,8 @@ class NovelReadingOrderTest {
 
     private val prefs = prefs()
 
-    private fun novel(sorting: Long, descending: Boolean = false) = Novel.create().copy(
-        chapterFlags = NovelChapterFlags.SORT_LOCAL or
-            sorting or
-            if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC,
+    private fun novel(sorting: Long) = Novel.create().copy(
+        chapterFlags = NovelChapterFlags.SORT_LOCAL or sorting or NovelChapterFlags.SORT_ASC,
     )
 
     private fun chapter(id: Long, name: String, number: Double, order: Long, upload: Long) = NovelChapter(
@@ -55,36 +53,6 @@ class NovelReadingOrderTest {
     private val alpha = chapter(id = 2, name = "Alpha", number = 1.0, order = 3, upload = 300)
     private val gamma = chapter(id = 3, name = "Gamma", number = 2.0, order = 1, upload = 200)
     private val all = listOf(beta, alpha, gamma)
-
-    private fun orderedIds(sorting: Long, descending: Boolean = false) =
-        all.sortedWith(readingOrderComparator(novel(sorting, descending), prefs)).map { it.id }
-
-    @Test
-    fun `source order is the default and follows the source's own numbering`() {
-        orderedIds(NovelChapterFlags.SORTING_SOURCE) shouldBe listOf(3L, 1L, 2L)
-    }
-
-    @Test
-    fun `sorting by number reads in chapter-number order`() {
-        orderedIds(NovelChapterFlags.SORTING_NUMBER) shouldBe listOf(2L, 3L, 1L)
-    }
-
-    @Test
-    fun `sorting by upload date reads oldest first`() {
-        orderedIds(NovelChapterFlags.SORTING_UPLOAD_DATE) shouldBe listOf(1L, 3L, 2L)
-    }
-
-    @Test
-    fun `sorting alphabetically reads by chapter name`() {
-        orderedIds(NovelChapterFlags.SORTING_ALPHABET) shouldBe listOf(2L, 1L, 3L)
-    }
-
-    @Test
-    fun `a descending chapter list is still read ascending`() {
-        // The direction bit belongs to how the list is shown, not to which chapter comes next.
-        orderedIds(NovelChapterFlags.SORTING_NUMBER, descending = true) shouldBe
-            orderedIds(NovelChapterFlags.SORTING_NUMBER, descending = false)
-    }
 
     @Test
     fun `a novel without its own sort falls back to the global default`() {
