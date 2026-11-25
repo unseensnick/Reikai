@@ -1,7 +1,9 @@
 package reikai.presentation.details
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -10,6 +12,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
+import eu.kanade.tachiyomi.source.model.SManga
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -34,7 +37,14 @@ class EntryEditInfoDialogTest {
         initial: EntryEditInfoUi = INITIAL,
         mergedTags: List<String>? = null,
         canRenameFiles: Boolean = false,
-    ) = compose.setContent {
+    ) = compose.setContent { Dialog(initial, mergedTags, canRenameFiles) }
+
+    @Composable
+    private fun Dialog(
+        initial: EntryEditInfoUi = INITIAL,
+        mergedTags: List<String>? = null,
+        canRenameFiles: Boolean = false,
+    ) {
         ComposeTestHost {
             EntryEditInfoDialog(
                 initial = initial,
@@ -51,6 +61,27 @@ class EntryEditInfoDialogTest {
                 canRenameFiles = canRenameFiles,
             )
         }
+    }
+
+    @Test
+    fun `a typed edit survives the dialog being rebuilt from saved state`() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { Dialog() }
+
+        compose.onNodeWithText("Edited title").performTextReplacement("New title")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("Save").performClick()
+
+        saved?.title shouldBe "New title"
+    }
+
+    @Test
+    fun `a status code the app does not know saves as following the source`() {
+        show(initial = INITIAL.copy(status = 7))
+
+        compose.onNodeWithText("Save").performClick()
+
+        saved?.status shouldBe SManga.UNKNOWN.toLong()
     }
 
     @Test

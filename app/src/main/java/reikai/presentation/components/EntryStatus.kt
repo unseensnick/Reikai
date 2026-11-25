@@ -19,7 +19,7 @@ import tachiyomi.i18n.MR
  * content types; a code outside the known set reads as [UNKNOWN].
  */
 enum class EntryStatus(
-    private val code: Int,
+    val code: Int,
     val label: StringResource,
     val icon: () -> ImageVector,
     /** The word `status:` matches it by. */

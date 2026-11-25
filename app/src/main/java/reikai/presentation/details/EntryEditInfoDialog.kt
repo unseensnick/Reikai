@@ -45,6 +45,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -79,6 +81,7 @@ import logcat.LogPriority
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
+import reikai.presentation.components.EntryStatus
 import reikai.presentation.components.entryStatusRes
 import reikai.presentation.track.trackerErrorMessage
 import reikai.util.runCatchingCancellable
@@ -139,12 +142,13 @@ fun EntryEditInfoDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val form = remember { EditInfoForm(initial) }
+    // Saved, as the open dialog is saved with its model, so a rotation or fold keeps what was typed.
+    val form = rememberSaveable(saver = EditInfoForm.Saver) { EditInfoForm(initial) }
     val scroll = rememberScrollState()
     var isDraggingTag by remember { mutableStateOf(false) }
     var pickerTracks by remember { mutableStateOf<List<Pair<Track, Tracker>>?>(null) }
-    var isAddingTags by remember { mutableStateOf(false) }
-    var alsoRenameFiles by remember { mutableStateOf(false) }
+    var isAddingTags by rememberSaveable { mutableStateOf(false) }
+    var alsoRenameFiles by rememberSaveable { mutableStateOf(false) }
     val titleChanged = form.title.text.toString() != initial.title
     var collatable by remember { mutableStateOf<List<String>?>(null) }
     LaunchedEffect(Unit) { collatable = runCatchingCancellable { mergedTags() }.getOrNull() }
@@ -302,7 +306,7 @@ private class EditInfoForm(initial: EntryEditInfoUi) {
     }
 
     fun setInfo(ui: EntryEditInfoUi) {
-        status = ui.status.toInt().coerceIn(0, STATUS_CODES.last)
+        status = EntryStatus.of(ui.status).code
         title.setTextAndPlaceCursorAtEnd(ui.title)
         author.setTextAndPlaceCursorAtEnd(ui.author)
         artist.setTextAndPlaceCursorAtEnd(ui.artist)
@@ -340,9 +344,43 @@ private class EditInfoForm(initial: EntryEditInfoUi) {
         thumbnailUrl = thumbnailUrl.text.toString(),
         altTitles = altTitles.text.lines().filter { it.isNotBlank() },
     )
+
+    companion object {
+        val Saver = listSaver<EditInfoForm, Any>(
+            save = {
+                it.collect().run {
+                    listOf(
+                        title,
+                        author,
+                        artist,
+                        description,
+                        ArrayList(genre),
+                        status,
+                        thumbnailUrl,
+                        ArrayList(altTitles),
+                    )
+                }
+            },
+            restore = {
+                @Suppress("UNCHECKED_CAST")
+                EditInfoForm(
+                    EntryEditInfoUi(
+                        title = it[0] as String,
+                        author = it[1] as String,
+                        artist = it[2] as String,
+                        description = it[3] as String,
+                        genre = it[4] as List<String>,
+                        status = it[5] as Long,
+                        thumbnailUrl = it[6] as String,
+                        altTitles = it[7] as List<String>,
+                    ),
+                )
+            },
+        )
+    }
 }
 
-private val STATUS_CODES = SManga.UNKNOWN..SManga.ON_HIATUS
+private val STATUS_CODES = EntryStatus.entries.map { it.code }.sorted()
 
 private fun statusLabel(code: Int) = when (code) {
     SManga.UNKNOWN -> MR.strings.label_default
