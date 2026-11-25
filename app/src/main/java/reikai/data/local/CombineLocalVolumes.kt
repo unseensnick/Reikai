@@ -59,6 +59,7 @@ import reikai.storage.deleteTree
 import reikai.storage.freeName
 import reikai.storage.listOrNull
 import reikai.util.runCatchingCancellable
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -717,7 +718,7 @@ class CombineLocalVolumes(
         series: CombinableSeries,
         title: String,
         labels: List<Pair<String, String>>,
-    ) =
+    ) = withIOContext {
         localFileNames(type, series.folder, title, labels).let { names ->
             if (LocalGroups(
                     localVolumes.all(type),
@@ -732,15 +733,16 @@ class CombineLocalVolumes(
             val free = freeName(names.series.to, held)
             names.copy(series = names.series.copy(to = free), taken = names.series.to.takeIf { it != free })
         }
+    }
 
     /**
      * Whether Organize files can run on [series]: the provider must move and rename documents, which many do not,
      * and the action is hidden where it cannot.
      */
-    suspend fun canOrganize(type: ContentType, series: CombinableSeries): Boolean {
-        val parent = storageManager.localRoot(type) ?: return false
+    suspend fun canOrganize(type: ContentType, series: CombinableSeries): Boolean = withIOContext {
+        val parent = storageManager.localRoot(type) ?: return@withIOContext false
         val folders = LocalGroups(localVolumes.all(type)).foldersOf(series.folder)
-        return folders.isNotEmpty() && folders.all { parent.findFile(it)?.canMoveAndRename(context) == true }
+        folders.isNotEmpty() && folders.all { parent.findFile(it)?.canMoveAndRename(context) == true }
     }
 
     /**
@@ -748,10 +750,10 @@ class CombineLocalVolumes(
      * answers false to both questions, and reading that as "a loose book" would hand a caller the local folder
      * itself, where a volume's name can be another series'.
      */
-    suspend fun folderOf(type: ContentType, id: Long): UniFile? {
-        val series = series(type, listOf(id)).firstOrNull() ?: return null
-        val parent = storageManager.localRoot(type) ?: return null
-        return parent.findFile(series.folder)?.let { if (it.isFile) parent else it }
+    suspend fun folderOf(type: ContentType, id: Long): UniFile? = withIOContext {
+        val series = series(type, listOf(id)).firstOrNull() ?: return@withIOContext null
+        val parent = storageManager.localRoot(type) ?: return@withIOContext null
+        parent.findFile(series.folder)?.let { if (it.isFile) parent else it }
     }
 
     /**

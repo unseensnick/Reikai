@@ -240,9 +240,8 @@ class VolumePicking(
     }
 
     /** Whether [entry]'s storage can move and rename files, without which Organize files is not offered. */
-    suspend fun canOrganize(entry: EntryId): Boolean = withIOContext {
+    suspend fun canOrganize(entry: EntryId): Boolean =
         series(entry)?.let { combine.canOrganize(entry.contentType, it) } == true
-    }
 
     // App-wide, since a request made on one screen (a combine in the library, a split) opens on another.
     private val organizeRequests = MutableStateFlow(emptyMap<EntryId, OrganizeRequest>())
@@ -408,11 +407,12 @@ class LocalVolumeFiles(private val manga: LocalSource, private val novels: Local
 
 /**
  * The volumes of [structural] and [volumes] that Delete volumes offers for [keys]. A manga folder's loose files
- * shown as one Extras volume are left out: they are no one thing to delete, so the delete stops at them.
+ * shown as one volume, the series' own or a folder combined in, are left out: they are no one thing to delete,
+ * so the delete stops at them, by the same [localGroupUnit] reading the delete makes.
  */
 internal fun volumesToDelete(structural: VolumeView?, volumes: VolumeView?, keys: List<String>) =
     (structural?.chips.orEmpty() + volumes?.chips.orEmpty()).distinctBy { it.key }
-        .filter { it.key in keys && it.key != VolumeOwner.LOOSE }
+        .filter { it.key in keys && localGroupUnit("", it.key).second != VolumeOwner.LOOSE }
 
 /** What a picked volume's own files give its page: a [cover] where it has one, and a [description]. */
 @Immutable
