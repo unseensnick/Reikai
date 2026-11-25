@@ -628,8 +628,11 @@ class BackupRestorer(
             decode = {
                 library.decode(it).also { entry ->
                     val ref = library.ref(entry)
-                    owners += entry.restoredOwners(ref.second)
-                    if (library.isLocal(entry)) localSeries += ref.second
+                    // Only a local series owns volumes; a real backup writes owner rows for no other.
+                    if (library.isLocal(entry)) {
+                        owners += entry.restoredOwners(ref.second)
+                        localSeries += ref.second
+                    }
                     if (library.libraryHidden(entry)) hiddenRefs += ref
                     if (!library.mergeGroupsStored) library.favorite(entry)?.let(favorites::add)
                 }

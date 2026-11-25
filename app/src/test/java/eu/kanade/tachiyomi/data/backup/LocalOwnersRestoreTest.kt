@@ -17,12 +17,16 @@ import reikai.domain.local.VolumeOwner
 class LocalOwnersRestoreTest {
 
     @Test
-    fun `a backup's owner rows and local series reach the combine step for both content types`() = runTest {
+    fun `only local series and their owner rows reach the combine step, for both content types`() = runTest {
         val combine = mockk<CombineLocalVolumes>(relaxed = true)
         val backup = Backup(
             backupManga = listOf(
-                // A remote series, which no local grouping can claim.
-                BackupManga(source = 1L, url = "Remote"),
+                // A remote series, which no local grouping can claim, even one a crafted backup lends a folder.
+                BackupManga(
+                    source = 1L,
+                    url = "Remote",
+                    volumeOwners = listOf(BackupVolumeOwner("Kept", VolumeOwner.WHOLE)),
+                ),
                 BackupManga(
                     source = 0L,
                     url = "Kept",
@@ -30,7 +34,11 @@ class LocalOwnersRestoreTest {
                 ),
             ),
             backupNovels = listOf(
-                BackupNovel(source = "s", url = "Remote"),
+                BackupNovel(
+                    source = "s",
+                    url = "Remote",
+                    volumeOwners = listOf(BackupVolumeOwner("Saga", VolumeOwner.WHOLE)),
+                ),
                 BackupNovel(
                     source = "local",
                     url = "Saga",
