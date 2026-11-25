@@ -8,6 +8,7 @@ import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
@@ -265,6 +266,13 @@ class EntryMergeManagerTest {
         )
 
         manager.suggestGroupingOnAdd shouldBe true
+    }
+
+    @Test
+    fun `suggestGroupingOnAdd is off while merging is off`() {
+        val manager = manager(ContentType.MANGA, mergingEnabled = false, mangaSameTitle = true)
+
+        manager.suggestGroupingOnAdd shouldBe false
     }
 
     @ParameterizedTest

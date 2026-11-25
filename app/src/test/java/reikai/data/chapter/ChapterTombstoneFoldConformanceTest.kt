@@ -60,6 +60,56 @@ class ChapterTombstoneFoldConformanceTest {
         type.tombstoneState(driver, URL) shouldBe type.of(FOLDED)
     }
 
+    // A never-read side has no history, length or listened time at all, and SQLite's MAX is NULL beside a NULL.
+    @ParameterizedTest
+    @MethodSource("neverReadOrders")
+    fun `a never-read row captured onto a kept state loses none of its history`(
+        type: Type,
+        held: State,
+        incoming: State,
+    ) = runTest {
+        type.seedOwner(driver)
+        type.seedTombstone(driver, URL, held)
+        type.seedRow(driver, CHAPTER, URL, incoming)
+
+        repository.capturing(type.contentType, OWNER, listOf(CHAPTER), emptyList()) {
+            type.deleteRow(database, CHAPTER)
+        }
+
+        type.tombstoneState(driver, URL) shouldBe type.of(OLDER)
+    }
+
+    @ParameterizedTest
+    @MethodSource("neverReadOrders")
+    fun `a never-read kept state restored onto one already there loses none of its history`(
+        type: Type,
+        held: State,
+        incoming: State,
+    ) = runTest {
+        type.seedOwner(driver)
+        type.seedTombstone(driver, URL, held)
+
+        repository.restore(type.contentType, OWNER, listOf(incoming.tombstone(type)), emptyList())
+
+        type.tombstoneState(driver, URL) shouldBe type.of(OLDER)
+    }
+
+    @ParameterizedTest
+    @MethodSource("neverReadOrders")
+    fun `a never-read kept state moved onto one already there loses none of its history`(
+        type: Type,
+        held: State,
+        incoming: State,
+    ) = runTest {
+        type.seedOwner(driver)
+        type.seedTombstone(driver, URL, held)
+        type.seedTombstone(driver, MOVED_URL, incoming)
+
+        repository.move(type.contentType, OWNER, MOVED_URL, OWNER, URL)
+
+        type.tombstoneState(driver, URL) shouldBe type.of(OLDER)
+    }
+
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a kept state applied onto a row keeps the newer of each and is spent`(type: Type) = runTest {
@@ -166,16 +216,19 @@ class ChapterTombstoneFoldConformanceTest {
         val historyDuration: Long,
         val sessions: List<Pair<Long, Long>>,
     ) {
+        /** Never opened: no history row, no word count and no listened time, so each reads back NULL. */
+        val neverRead get() = historyReadAt == null
+
         fun tombstone(type: Type? = null) = ChapterTombstone(
             url = URL,
             read = read,
             bookmark = bookmark,
             progress = progress,
-            length = length,
-            listenedMs = if (type == Type.MANGA) null else listened,
+            length = length.takeUnless { neverRead && type == Type.NOVEL },
+            listenedMs = if (type == Type.MANGA || neverRead) null else listened,
             dateFetch = Instant.fromEpochMilliseconds(dateFetch),
             historyReadAt = historyReadAt?.let(Instant::fromEpochMilliseconds),
-            historyDuration = historyDuration,
+            historyDuration = historyDuration.takeUnless { neverRead },
             sessions = sessions.map { TombstoneSession(it.first, it.second) },
             removedAt = 0,
         )
@@ -200,10 +253,12 @@ class ChapterTombstoneFoldConformanceTest {
                         "VALUES ($id, $OWNER, '$url', 'c', 1.0, 0, '{}', ${read.bit()}, ${bookmark.bit()}, " +
                         "$progress, $length, $dateFetch)",
                 )
-                driver.exec(
-                    "INSERT INTO history(manga_id, chapter_id, read_at, read_duration) " +
-                        "VALUES ($OWNER, $id, $historyReadAt, $historyDuration)",
-                )
+                if (!neverRead) {
+                    driver.exec(
+                        "INSERT INTO history(manga_id, chapter_id, read_at, read_duration) " +
+                            "VALUES ($OWNER, $id, $historyReadAt, $historyDuration)",
+                    )
+                }
                 sessions.forEach { (at, duration) ->
                     driver.exec(
                         "INSERT INTO reading_session(chapter_id, ended_at, duration) VALUES ($id, $at, $duration)",
@@ -217,7 +272,7 @@ class ChapterTombstoneFoldConformanceTest {
                         "last_page_read, page_count, date_fetch, history_read_at, history_read_duration, removed_at) " +
                         "VALUES " +
                         "($OWNER, '$url', ${read.bit()}, ${bookmark.bit()}, $progress, $length, $dateFetch, " +
-                        "$historyReadAt, $historyDuration, 0)",
+                        "$historyReadAt, ${historyDuration.takeUnless { neverRead }}, 0)",
                 )
                 sessions.forEach { (at, duration) ->
                     driver.exec(
@@ -274,13 +329,15 @@ class ChapterTombstoneFoldConformanceTest {
                         "chapter_number, source_order, date_fetch) VALUES ($id, $OWNER, '$url', 'c', ${read.bit()}, " +
                         "${bookmark.bit()}, $progress, 1.0, 0, $dateFetch)",
                 )
-                driver.exec(
-                    "INSERT INTO novel_history(chapter_id, last_read, time_read) " +
-                        "VALUES ($id, $historyReadAt, $historyDuration)",
-                )
-                driver.exec(
-                    "INSERT INTO novel_chapter_words(chapter_id, words, listened_ms) VALUES ($id, $length, $listened)",
-                )
+                if (!neverRead) {
+                    driver.exec(
+                        "INSERT INTO novel_history(chapter_id, last_read, time_read) " +
+                            "VALUES ($id, $historyReadAt, $historyDuration)",
+                    )
+                    driver.exec(
+                        "INSERT INTO novel_chapter_words(chapter_id, words, listened_ms) VALUES ($id, $length, $listened)",
+                    )
+                }
                 sessions.forEach { (at, duration) ->
                     driver.exec(
                         "INSERT INTO novel_reading_session(chapter_id, ended_at, duration) " +
@@ -294,7 +351,8 @@ class ChapterTombstoneFoldConformanceTest {
                     "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, " +
                         "last_text_progress, words, listened_ms, date_fetch, history_last_read, history_time_read, " +
                         "removed_at) VALUES ($OWNER, '$url', ${read.bit()}, ${bookmark.bit()}, $progress, " +
-                        "$length, $listened, $dateFetch, $historyReadAt, $historyDuration, 0)",
+                        "${length.takeUnless { neverRead }}, ${listened.takeUnless { neverRead }}, $dateFetch, " +
+                        "$historyReadAt, ${historyDuration.takeUnless { neverRead }}, 0)",
                 )
                 sessions.forEach { (at, duration) ->
                     driver.exec(
@@ -391,11 +449,19 @@ class ChapterTombstoneFoldConformanceTest {
         @JvmStatic
         fun orders() = Type.entries.flatMap { type -> Order.entries.map { Arguments.of(type, it) } }
 
+        @JvmStatic
+        fun neverReadOrders() = Type.entries.flatMap { type ->
+            listOf(Arguments.of(type, OLDER, NEVER_READ), Arguments.of(type, NEVER_READ, OLDER))
+        }
+
         /** State read first: read, further along in a shorter chapter, fetched earlier, read earlier, one session. */
         private val OLDER = State(true, false, 9, 20, 500, 300, 100, 60, listOf(1_000L to 30L))
 
         /** State read since: unread again, a page in, a longer chapter, fetched later, read later, another session. */
         private val NEWER = State(false, true, 3, 25, 400, 500, 200, 90, listOf(2_000L to 40L))
+
+        /** A copy never opened, fetched after both: it adds nothing, so a fold with it keeps the other whole. */
+        private val NEVER_READ = State(false, false, 0, 0, 0, 1_000, null, 0, emptyList())
 
         private val FOLDED = State(true, true, 9, 25, 500, 300, 200, 90, listOf(1_000L to 30L, 2_000L to 40L))
 

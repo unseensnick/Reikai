@@ -142,6 +142,18 @@ class MergedGroupPendingConformanceTest {
         units.claimPendingGroups(type).toSet() shouldBe setOf(1L, 2L)
     }
 
+    @ParameterizedTest
+    @EnumSource(names = ["MANGA", "NOVELS"])
+    fun `a write landing on a claim a failed reconcile left is claimed again`(type: ContentType) = runTest {
+        val t = Tables.of(type)
+        seed(t)
+        units.claimPendingGroups(type)
+
+        exec(t.chapter(150, 1, 9.0))
+
+        units.claimPendingGroups(type).toSet() shouldBe setOf(1L, 2L)
+    }
+
     /** What a reconcile does, with an exact stitch standing in for the real one. */
     private suspend fun reconcile(t: Tables) {
         units.claimPendingGroups(t.type).forEach { group ->

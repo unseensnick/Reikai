@@ -83,6 +83,13 @@ class SourceRankingTest {
         rankingStamps(members, listOf(200L))[GROUP] shouldNotBe rankingStamps(members, emptyList())[GROUP]
     }
 
+    @Test
+    fun `swapping which member's source is preferred stamps apart`() {
+        val members = group(false, 1L to 100L, 2L to 200L)
+
+        rankingStamps(members, listOf(200L))[GROUP] shouldNotBe rankingStamps(members, listOf(100L))[GROUP]
+    }
+
     /** A member as the trunk order sees it: its priority, its chapter count, its id. */
     private data class Member(val priority: Int, val chapters: Long, val id: Long)
 
