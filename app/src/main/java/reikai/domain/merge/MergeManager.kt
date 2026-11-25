@@ -29,9 +29,9 @@ interface MergeManager {
     /** Put a group captured by [captureGroup] back as it was. */
     suspend fun restoreGroup(snapshot: GroupSnapshot)
 
-    /** Emits on every membership change for this content type (add / remove / split / dissolve). Backed by
-     *  the group-member table, so it misses an entry leaving or rejoining the library; a screen holding a
-     *  resolved group follows [reikai.domain.merge.EntryMergeManager.relatedIdsChanges] instead. */
+    /** Entry id to group id for this content type's library members, emitted on every membership change
+     *  and when a member leaves or rejoins the library: a removed member counts as a group member nowhere
+     *  it is displayed, as [reikai.domain.merge.EntryMergeManager.computeRelatedIds] resolves it. */
     fun membershipChanges(): Flow<Map<Long, Long>>
 }
 

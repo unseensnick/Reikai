@@ -144,7 +144,7 @@ open class EntryMergeManager(
     }
 
     override fun membershipChanges(): Flow<Map<Long, Long>> =
-        repository.getAllMembershipsAsFlow(contentType)
+        repository.getLibraryMembershipsAsFlow(contentType)
 
     /**
      * Split [targetIds] out of their group, keeping the survivors grouped; the group is dissolved when

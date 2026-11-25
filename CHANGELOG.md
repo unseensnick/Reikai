@@ -458,6 +458,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Adding a series to the library from Updates or History now says so when the add fails.**
 - **Clear history and the selection actions in Updates and History now finish even if you leave the tab straight away.**
 - **The manga Updates widgets now show the cover set in Edit info, as the combined widget does.**
+- **A merged series' source you removed from the library now shows its own rows in Updates, History and Recents instead of folding into the series.**
 
 ### Migration
 

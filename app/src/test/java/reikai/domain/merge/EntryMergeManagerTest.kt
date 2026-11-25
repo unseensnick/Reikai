@@ -8,6 +8,7 @@ import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -64,6 +65,18 @@ class EntryMergeManagerTest {
         }
 
         manager(type, repo).computeRelatedIds(1L).toList() shouldBe listOf(1L, 2L, 3L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `membership changes leave out a member removed from the library`(type: ContentType) = runTest {
+        // 2 is grouped but has left the library.
+        val repo = mockk<MergeGroupRepository> {
+            every { getAllMembershipsAsFlow(type) } returns flowOf(mapOf(1L to 7L, 2L to 7L, 3L to 7L))
+            every { getLibraryMembershipsAsFlow(type) } returns flowOf(mapOf(1L to 7L, 3L to 7L))
+        }
+
+        manager(type, repo).membershipChanges().first() shouldBe mapOf(1L to 7L, 3L to 7L)
     }
 
     @ParameterizedTest
