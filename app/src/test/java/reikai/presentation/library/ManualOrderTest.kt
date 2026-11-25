@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -168,6 +169,25 @@ class ManualOrderTest {
         dropped shouldBe listOf("B", "A", "C")
     }
 
+    /** Rows come again as a new list mid-drag whenever a download lands or an update writes. */
+    @Test
+    fun `a drop keeps the moves made before the rows came again`() {
+        val order = ManualOrder(mockk(relaxed = true))
+        var current = rows
+        order.orderOf(PAGE_SECTION, current)
+        order.pressed(Offset.Zero)
+        order.longPressed()
+        order.move(keyOf(current[0]), keyOf(current[1])) { current }
+        current = current.toList()
+        order.orderOf(PAGE_SECTION, current)
+        order.move(keyOf(current[2]), keyOf(current[0])) { current }
+        order.dragged(Offset(100f, 0f))
+
+        order.released(PAGE_SECTION, slop = 1f, ManualOrderDrag { o, _ -> dropped = o.map(::titleOf) }) {}
+
+        dropped shouldBe listOf("B", "C", "A")
+    }
+
     @Test
     fun `a tile outside a manual category keeps its own long press`() {
         show(draggable = false)
@@ -182,6 +202,8 @@ class ManualOrderTest {
     }
 
     private fun titleOf(item: LibraryItem) = item.libraryManga.manga.title
+
+    private fun keyOf(item: LibraryItem) = manualOrderKey(PAGE_SECTION, item)
 
     private fun centerOf(title: String) = compose.onNodeWithText(title).fetchSemanticsNode().boundsInRoot.center
 

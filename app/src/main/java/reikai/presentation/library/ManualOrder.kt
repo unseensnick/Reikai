@@ -39,8 +39,8 @@ class ManualOrderDrag(val onDrop: (order: List<LibraryItem>, moved: LibraryItem)
 /**
  * One lazy list's drag state over its sections: the order each shows while a drag is under way, and the
  * press bookkeeping its tiles share. A move lands only on a tile of the dragged one's own section, so a tile
- * never crosses a header. The order shown starts again from the section's rows whenever they change, which
- * is how a stored drop replaces the local one. Rules: docs/dev/subsystems/library.md.
+ * never crosses a header. Outside a drag, the order shown starts again from the section's rows whenever they
+ * change, which is how a stored drop replaces the local one. Rules: docs/dev/subsystems/library.md.
  */
 @Stable
 class ManualOrder internal constructor(private val haptic: HapticFeedback) {
@@ -59,11 +59,27 @@ class ManualOrder internal constructor(private val haptic: HapticFeedback) {
     var swallowsTap = false
         private set
 
-    /** [section]'s rows in the order shown now, registering each tile's key as belonging to [section]. */
+    /**
+     * [section]'s rows in the order shown now, registering each tile's key as belonging to [section]. Rows
+     * that come again mid-drag (a download landing) keep the drag's order, since only the drop is stored.
+     */
     fun orderOf(section: Any, rows: List<LibraryItem>): List<LibraryItem> {
         rows.forEach { owners[manualOrderKey(section, it)] = section }
         latest[section] = rows
-        return orders[section]?.takeIf { it.first === rows }?.second ?: rows
+        val (base, order) = orders[section] ?: return rows
+        return when {
+            base === rows -> order
+            moved != null -> order.rebasedOnto(section, rows)
+            else -> rows
+        }
+    }
+
+    /** This order over [rows]' own items, with any row it has not seen at the end. */
+    private fun List<LibraryItem>.rebasedOnto(section: Any, rows: List<LibraryItem>): List<LibraryItem> {
+        val byKey = rows.associateBy { manualOrderKey(section, it) }
+        val kept = mapNotNull { byKey[manualOrderKey(section, it)] }
+        val keptKeys = kept.mapTo(HashSet()) { manualOrderKey(section, it) }
+        return kept + rows.filterNot { manualOrderKey(section, it) in keptKeys }
     }
 
     internal fun move(fromKey: Any, toKey: Any, rowsOf: (Any) -> List<LibraryItem>) {
@@ -101,11 +117,12 @@ class ManualOrder internal constructor(private val haptic: HapticFeedback) {
      */
     internal fun released(section: Any, slop: Float, drag: ManualOrderDrag, select: () -> Unit) {
         val item = moved
+        // Read while the drag is still under way, so rows that came again keep its order.
+        val order = latest[section]?.let { orderOf(section, it) }
         moved = null
-        val rows = latest[section]
         when {
             travel < slop -> select()
-            item != null && rows != null -> drag.onDrop(orderOf(section, rows), item)
+            item != null && order != null -> drag.onDrop(order, item)
         }
     }
 }
