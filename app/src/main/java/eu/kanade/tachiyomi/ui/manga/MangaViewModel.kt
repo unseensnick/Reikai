@@ -217,6 +217,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
+import java.util.Collections
 import kotlin.math.floor
 import kotlin.time.Duration.Companion.seconds
 
@@ -750,7 +751,7 @@ class MangaViewModel(
         try {
             // RK --> one fetch per grouped source by the rule novels share; the first failure is rethrown
             // once all have run
-            val newChapters = mutableListOf<Chapter>()
+            val newChapters = Collections.synchronizedList(mutableListOf<Chapter>())
 
             // Recorded as a contact, so a new chapter queued below still waits out the source's delay
             suspend fun fetch(source: Source, manga: Manga) = sourceContacts.reaching(source.id.toString()) {

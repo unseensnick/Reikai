@@ -1045,7 +1045,7 @@ class NovelDetailsViewModel(
         refreshJob = viewModelScope.launchIO {
             isRefreshing.value = true
             try {
-                val toDownload = mutableListOf<NovelChapter>()
+                val toDownload = java.util.Collections.synchronizedList(mutableListOf<NovelChapter>())
                 // Only the anchor's own list has pages; the unified view has none.
                 val viewedPage = loaded.pages.getOrNull(loaded.pageIndex)?.toLongOrNull()
                     ?.takeIf { loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id }
