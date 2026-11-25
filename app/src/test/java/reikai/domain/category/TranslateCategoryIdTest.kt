@@ -2,6 +2,9 @@ package reikai.domain.category
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
 /**
  * Pins the shared old-id -> name -> new-id translation PreferenceRestorer runs on both content types'
@@ -14,24 +17,10 @@ class TranslateCategoryIdTest {
     private val backupIdToName = mapOf("1" to "Reading", "2" to "Plan to read", "9" to "Gone")
     private val nameToNewId = mapOf("Reading" to "10", "Plan to read" to "20")
 
-    @Test
-    fun `remaps an id through its category name to the new local id`() {
-        translateCategoryId("2", backupIdToName, nameToNewId) shouldBe "20"
-    }
-
-    @Test
-    fun `drops an id whose category name did not come back on restore`() {
-        translateCategoryId("9", backupIdToName, nameToNewId) shouldBe null
-    }
-
-    @Test
-    fun `drops an id that is not in the backup category set`() {
-        translateCategoryId("7", backupIdToName, nameToNewId) shouldBe null
-    }
-
-    @Test
-    fun `keeps the Default category, which is 0 in every app that writes these backups`() {
-        translateCategoryId("0", backupIdToName, nameToNewId) shouldBe "0"
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("translations")
+    fun `an id survives a restore only through a category name that came back`(case: String, id: String, new: String?) {
+        translateCategoryId(id, backupIdToName, nameToNewId) shouldBe new
     }
 
     @Test
@@ -43,5 +32,15 @@ class TranslateCategoryIdTest {
     @Test
     fun `names no backup id when two categories share one, as a Yokai backup's all do`() {
         backupCategoryIdToName(listOf(0L to "Reading", 0L to "Completed")) shouldBe emptyMap()
+    }
+
+    private companion object {
+        @JvmStatic
+        fun translations() = listOf(
+            Arguments.of("remapped through its name to the new local id", "2", "20"),
+            Arguments.of("dropped when its name did not come back", "9", null),
+            Arguments.of("dropped when the backup has no such category", "7", null),
+            Arguments.of("the Default category, 0 in every app that writes these backups, is kept", "0", "0"),
+        )
     }
 }

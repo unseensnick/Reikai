@@ -36,8 +36,10 @@ class ResetCategoryFlagsTest {
     }
 
     @Test
-    fun `clears the override on every content type and keeps the hidden bit`() = runTest {
-        val flags = CATEGORY_SORT_CUSTOMIZED or CATEGORY_HIDDEN_MASK
+    fun `clears the override on every content type and keeps the sort and hidden bits`() = runTest {
+        // A sort mode and direction, which turning the override back on reads again
+        val sortBits = 0b1011100L
+        val flags = CATEGORY_SORT_CUSTOMIZED or sortBits or CATEGORY_HIDDEN_MASK
         listOf(CategoryContentType.MANGA, CategoryContentType.NOVEL, CategoryContentType.UNIVERSAL)
             .forEachIndexed { index, type ->
                 driver.execute(
@@ -53,6 +55,6 @@ class ResetCategoryFlagsTest {
         database.categoryQueries.getAllCategories { id, _, _, flags, _ -> id to flags }
             .awaitAsList()
             .filter { (id, _) -> id >= 10L }
-            .map { (_, flags) -> flags } shouldBe List(3) { CATEGORY_HIDDEN_MASK }
+            .map { (_, flags) -> flags } shouldBe List(3) { sortBits or CATEGORY_HIDDEN_MASK }
     }
 }

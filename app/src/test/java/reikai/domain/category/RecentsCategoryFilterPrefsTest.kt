@@ -85,18 +85,17 @@ class RecentsCategoryFilterPrefsTest {
         preferences.recentsContentType.get() shouldBe ContentType.NOVELS
     }
 
-    @Test
-    fun `a selection stored for one surface leaves every other surface alone`() {
+    @ParameterizedTest
+    @EnumSource(RecentsSurface::class, names = ["UPDATES"], mode = EnumSource.Mode.EXCLUDE)
+    fun `a selection stored for one surface leaves every other surface alone`(other: RecentsSurface) {
         val (enabled, include, exclude) = preferences.categoryFilterPrefs(RecentsSurface.UPDATES)
         enabled.set(true)
         include.set(setOf("7"))
         exclude.set(setOf("9"))
 
-        RecentsSurface.entries.filterNot { it == RecentsSurface.UPDATES }.forEach { other ->
-            val (otherEnabled, otherInclude, otherExclude) = preferences.categoryFilterPrefs(other)
-            otherEnabled.get() shouldBe false
-            otherInclude.get() shouldBe emptySet()
-            otherExclude.get() shouldBe emptySet()
-        }
+        val (otherEnabled, otherInclude, otherExclude) = preferences.categoryFilterPrefs(other)
+        otherEnabled.get() shouldBe false
+        otherInclude.get() shouldBe emptySet()
+        otherExclude.get() shouldBe emptySet()
     }
 }

@@ -1,7 +1,9 @@
 package reikai.domain.category
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -18,28 +20,25 @@ class DefaultCategoryResolutionTest {
         flags = 0L,
     )
 
-    @Test
-    fun `a set default category applies directly`() {
-        resolveDefaultCategoryIds(listOf(category(3), category(7)), 7) shouldBe listOf(7L)
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("defaults")
+    fun `the default category decides the add or asks`(
+        case: String,
+        categoryIds: List<Long>,
+        default: Int,
+        ids: List<Long>?,
+    ) {
+        resolveDefaultCategoryIds(categoryIds.map(::category), default) shouldBe ids
     }
 
-    @Test
-    fun `default none adds uncategorized`() {
-        resolveDefaultCategoryIds(listOf(category(3)), 0) shouldBe emptyList()
-    }
-
-    @Test
-    fun `no categories adds uncategorized regardless of the preference`() {
-        resolveDefaultCategoryIds(emptyList(), -1) shouldBe emptyList()
-    }
-
-    @Test
-    fun `always-ask with categories present prompts`() {
-        resolveDefaultCategoryIds(listOf(category(3)), -1) shouldBe null
-    }
-
-    @Test
-    fun `a default pointing at a deleted category prompts`() {
-        resolveDefaultCategoryIds(listOf(category(3)), 9) shouldBe null
+    private companion object {
+        @JvmStatic
+        fun defaults() = listOf(
+            Arguments.of("a set default applies directly", listOf(3L, 7L), 7, listOf(7L)),
+            Arguments.of("none adds uncategorized", listOf(3L), 0, emptyList<Long>()),
+            Arguments.of("no categories adds uncategorized", emptyList<Long>(), -1, emptyList<Long>()),
+            Arguments.of("always ask with categories present prompts", listOf(3L), -1, null),
+            Arguments.of("a default pointing at a deleted category prompts", listOf(3L), 9, null),
+        )
     }
 }

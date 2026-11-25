@@ -1,5 +1,6 @@
 package reikai.data.category
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
@@ -7,7 +8,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.CategoryContentType
 import reikai.domain.library.ContentType
 import tachiyomi.data.Database
@@ -88,6 +91,18 @@ class CategoryLinkGuardTest {
         linkCount(type) shouldBe 1L
     }
 
+    /** The guard and the picker each restate which rows a type sees, so the two are checked against each other. */
+    @ParameterizedTest(name = "{0} entry, category type {1}")
+    @MethodSource("typeAndCategoryType")
+    fun `a link is written exactly when the type's picker lists the category`(type: ContentType, categoryType: Long) =
+        runTest {
+            val categoryId = categoryOf(categoryType)
+
+            link(type, categoryId)
+
+            (linkCount(type) == 1L) shouldBe (categoryId in pickerIds(type))
+        }
+
     private var nextCategoryId = 10L
 
     private suspend fun categoryOf(contentType: Long): Long {
@@ -108,6 +123,11 @@ class CategoryLinkGuardTest {
         }
     }
 
+    private suspend fun pickerIds(type: ContentType): List<Long> = when (type) {
+        ContentType.MANGA -> database.categoryQueries.getCategories { id, _, _, _, _ -> id }
+        else -> database.categoryQueries.getNovelCategories { id, _, _, _, _ -> id }
+    }.awaitAsList()
+
     private suspend fun linkCount(type: ContentType): Long {
         val table = if (type == ContentType.MANGA) "manga_category" else "novels_categories"
         return driver.executeQuery(
@@ -126,5 +146,11 @@ class CategoryLinkGuardTest {
 
     private companion object {
         const val ENTRY_ID = 1L
+
+        @JvmStatic
+        fun typeAndCategoryType() = listOf(ContentType.MANGA, ContentType.NOVELS).flatMap { type ->
+            listOf(CategoryContentType.UNIVERSAL, CategoryContentType.MANGA, CategoryContentType.NOVEL)
+                .map { Arguments.of(type, it) }
+        }
     }
 }
