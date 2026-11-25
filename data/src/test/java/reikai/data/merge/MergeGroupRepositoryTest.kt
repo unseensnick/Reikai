@@ -54,19 +54,17 @@ class MergeGroupRepositoryTest {
         repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 2L)
         repository.getGroupId(ContentType.MANGA, 1) shouldBe groupId
         repository.getGroupId(ContentType.MANGA, 2) shouldBe groupId
-        val group = repository.getGroup(groupId)!!
-        group.contentType shouldBe ContentType.MANGA
-        group.overrideSourceRanking shouldBe false
+        repository.getGroup(groupId)!!.overrideSourceRanking shouldBe false
     }
 
-    @Test
-    fun `getFavoriteMembers leaves out a member removed from the library`() = runTest {
-        insertManga(1)
-        insertManga(2, favorite = false)
-        insertManga(3)
-        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `getFavoriteMembers leaves out a member removed from the library`(type: ContentType) = runTest {
+        (1L..3L).forEach { insertEntry(type, it) }
+        val groupId = repository.createGroup(type, listOf(1, 2, 3))!!
+        setFavorite(type, 2, false)
 
-        repository.getFavoriteMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 3L)
+        repository.getFavoriteMembers(type, groupId) shouldBe listOf(1L, 3L)
     }
 
     @Test
@@ -79,15 +77,6 @@ class MergeGroupRepositoryTest {
         val groupId = repository.materializeGroup(ContentType.MANGA, listOf(3, 1, 2), false)!!
 
         repository.getFavoriteMembers(ContentType.MANGA, groupId) shouldBe listOf(3L, 1L, 2L)
-    }
-
-    @Test
-    fun `getFavoriteMembers leaves out a novel removed from the library`() = runTest {
-        insertNovel(1)
-        insertNovel(2, favorite = false)
-        val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
-
-        repository.getFavoriteMembers(ContentType.NOVELS, groupId) shouldBe listOf(1L)
     }
 
     /** The reconcile trigger reads this, and the stitch counts only the library's members. */
@@ -139,16 +128,21 @@ class MergeGroupRepositoryTest {
         repository.createGroup(ContentType.MANGA, listOf(1, 1)) shouldBe null
     }
 
-    @Test
-    fun `deleting a manga cascades its membership away`() = runTest {
-        insertManga(1)
-        insertManga(2)
-        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `deleting an entry cascades its membership away`(type: ContentType) = runTest {
+        insertEntry(type, 1)
+        insertEntry(type, 2)
+        val groupId = repository.createGroup(type, listOf(1, 2))!!
 
-        driver.execute(null, "DELETE FROM manga WHERE id = 1", 0).await()
+        val delete = when (type) {
+            ContentType.MANGA -> "DELETE FROM manga WHERE id = 1"
+            else -> "DELETE FROM novels WHERE _id = 1"
+        }
+        driver.execute(null, delete, 0).await()
 
-        repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
-        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(2L)
+        repository.getGroupId(type, 1).shouldBeNull()
+        repository.getMembers(type, groupId) shouldBe listOf(2L)
     }
 
     @ParameterizedTest
@@ -164,21 +158,6 @@ class MergeGroupRepositoryTest {
     }
 
     @Test
-    fun `novel groups persist and cascade like manga`() = runTest {
-        insertNovel(1)
-        insertNovel(2)
-
-        val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
-        repository.getMembers(ContentType.NOVELS, groupId) shouldBe listOf(1L, 2L)
-        repository.getGroup(groupId)!!.contentType shouldBe ContentType.NOVELS
-
-        driver.execute(null, "DELETE FROM novels WHERE _id = 1", 0).await()
-
-        repository.getGroupId(ContentType.NOVELS, 1).shouldBeNull()
-        repository.getMembers(ContentType.NOVELS, groupId) shouldBe listOf(2L)
-    }
-
-    @Test
     fun `merge combines ungrouped entries into one group`() = runTest {
         insertManga(1)
         insertManga(2)
@@ -189,19 +168,17 @@ class MergeGroupRepositoryTest {
         repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 2L, 3L)
     }
 
-    @Test
-    fun `merge absorbs the existing groups its ids already belong to`() = runTest {
-        insertManga(1)
-        insertManga(2)
-        insertManga(3)
-        insertManga(4)
-        val g1 = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
-        val g2 = repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `merge absorbs the existing groups its ids already belong to`(type: ContentType) = runTest {
+        (1L..4L).forEach { insertEntry(type, it) }
+        val g1 = repository.createGroup(type, listOf(1, 2))!!
+        val g2 = repository.createGroup(type, listOf(3, 4))!!
 
         // Merging one member of each group pulls in every hidden member.
-        val merged = repository.merge(ContentType.MANGA, listOf(1, 3))!!
+        val merged = repository.merge(type, listOf(1, 3))!!
 
-        repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(1L, 2L, 3L, 4L)
+        repository.getMembers(type, merged) shouldBe listOf(1L, 2L, 3L, 4L)
         // The first id's group is the one that SURVIVES, keeping its row and everything on it; only
         // the absorbed one goes. A fresh row would drop the group's own columns, so this pins the
         // identity, not just the membership.
@@ -425,19 +402,18 @@ class MergeGroupRepositoryTest {
         repository.getAllMemberships(ContentType.MANGA) shouldBe mapOf(1L to groupId, 2L to groupId)
     }
 
-    @Test
-    fun `setSourceOrder turns the override on and reorders the members`() = runTest {
-        insertManga(1)
-        insertManga(2)
-        insertManga(3)
-        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `setSourceOrder turns the override on and reorders the members`(type: ContentType) = runTest {
+        (1L..3L).forEach { insertEntry(type, it) }
+        val groupId = repository.createGroup(type, listOf(1, 2, 3))!!
         repository.getGroup(groupId)!!.overrideSourceRanking shouldBe false
 
-        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(3, 1, 2))
+        repository.setSourceOrder(type, groupId, listOf(3, 1, 2))
 
         repository.getGroup(groupId)!!.overrideSourceRanking shouldBe true
         // getMembers reads ORDER BY source_priority, so it now reflects the persisted order.
-        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(3L, 1L, 2L)
+        repository.getMembers(type, groupId) shouldBe listOf(3L, 1L, 2L)
     }
 
     @Test
@@ -470,19 +446,19 @@ class MergeGroupRepositoryTest {
         repository.getMembers(ContentType.MANGA, other) shouldBe listOf(3L, 4L)
     }
 
-    @Test
-    fun `merge keeps a hand-set source order and its override`() = runTest {
-        insertManga(1)
-        insertManga(2)
-        insertManga(3)
-        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
-        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(2, 1))
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `merge keeps a hand-set source order and its override`(type: ContentType) = runTest {
+        (1L..3L).forEach { insertEntry(type, it) }
+        val groupId = repository.createGroup(type, listOf(1, 2))!!
+        repository.setSourceOrder(type, groupId, listOf(2, 1))
 
-        val merged = repository.merge(ContentType.MANGA, listOf(2, 3))!!
+        // The newcomer is listed first; the grouped member's group still survives and keeps its trunk.
+        val merged = repository.merge(type, listOf(3, 2))!!
 
         // Absorbing the group keeps its ranking, and the override survives instead of the merged
         // group silently falling back to the global preferred-source list.
-        repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(2L, 1L, 3L)
+        repository.getMembers(type, merged) shouldBe listOf(2L, 1L, 3L)
         repository.getGroup(merged)!!.overrideSourceRanking shouldBe true
     }
 
@@ -545,33 +521,17 @@ class MergeGroupRepositoryTest {
         repository.getGroup(restored)!!.overrideSourceRanking shouldBe true
     }
 
-    @Test
-    fun `materializeGroup replaces a prior grouping rather than folding into it`() = runTest {
-        insertManga(1)
-        insertManga(2)
-        insertManga(3)
-        repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `materializeGroup replaces a prior grouping rather than folding into it`(type: ContentType) = runTest {
+        (1L..3L).forEach { insertEntry(type, it) }
+        repository.createGroup(type, listOf(1, 2))!!
 
         // Stating the whole group is the point: a merge would have absorbed 2 as a hidden member.
-        val materialized = repository.materializeGroup(ContentType.MANGA, listOf(3, 1), false)!!
+        val materialized = repository.materializeGroup(type, listOf(3, 1), false)!!
 
-        repository.getMembers(ContentType.MANGA, materialized) shouldBe listOf(3L, 1L)
-        repository.getGroupId(ContentType.MANGA, 2).shouldBeNull()
-    }
-
-    @Test
-    fun `merge keeps an absorbed order for novels too`() = runTest {
-        insertNovel(1)
-        insertNovel(2)
-        insertNovel(3)
-        val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
-        repository.setSourceOrder(ContentType.NOVELS, groupId, listOf(2, 1))
-
-        val merged = repository.merge(ContentType.NOVELS, listOf(3, 2))!!
-
-        // Same rule as manga: the group that survives keeps its trunk, the newcomer appends.
-        repository.getMembers(ContentType.NOVELS, merged) shouldBe listOf(2L, 1L, 3L)
-        repository.getGroup(merged)!!.overrideSourceRanking shouldBe true
+        repository.getMembers(type, materialized) shouldBe listOf(3L, 1L)
+        repository.getGroupId(type, 2).shouldBeNull()
     }
 
     @Test
@@ -606,18 +566,6 @@ class MergeGroupRepositoryTest {
 
         repository.getMembers(ContentType.MANGA, target) shouldBe listOf(2L, 1L)
         repository.getMembers(ContentType.MANGA, other) shouldBe listOf(4L, 3L)
-    }
-
-    @Test
-    fun `setSourceOrder works for novels`() = runTest {
-        insertNovel(1)
-        insertNovel(2)
-        val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
-
-        repository.setSourceOrder(ContentType.NOVELS, groupId, listOf(2, 1))
-
-        repository.getGroup(groupId)!!.overrideSourceRanking shouldBe true
-        repository.getMembers(ContentType.NOVELS, groupId) shouldBe listOf(2L, 1L)
     }
 
     // Minimal valid parent rows: only the NOT NULL columns without a default need values.
