@@ -38,60 +38,68 @@ fun reikaiIsCollapsed(
     is LibraryBucket.Dynamic -> bucket.key in collapsedDynamicCategories
 }
 
-/**
- * Lazy item index of each category header in [ReikaiLibraryContent]'s grid (1 header + its cells
- * per non-collapsed category). Kept in lock-step with the grid building below so the hopper /
- * picker can scroll to a category. Layout-agnostic: List mode renders as a 1-column grid, so the
- * item count per category is unchanged.
- */
-fun reikaiCategoryHeaderIndices(
-    buckets: List<LibraryBucket>,
-    hasSearchItem: Boolean,
-    isCollapsed: (LibraryBucket) -> Boolean,
-    itemCount: (LibraryBucket) -> Int,
-): List<Int> {
-    var index = if (hasSearchItem) 1 else 0
-    return buckets.map { bucket ->
-        val headerIndex = index
-        index += 1
-        if (!isCollapsed(bucket)) index += itemCount(bucket)
-        headerIndex
+/** One run of lazy items in [ReikaiLibraryContent]'s grid, in the order the grid emits them. */
+sealed interface ReikaiGridSection {
+    /** How many lazy items this run emits. */
+    val itemCount: Int
+
+    data object Search : ReikaiGridSection {
+        override val itemCount = 1
+    }
+
+    data class Header(val bucket: LibraryBucket, val isCollapsed: Boolean) : ReikaiGridSection {
+        override val itemCount = 1
+    }
+
+    data class Cells(val bucket: LibraryBucket, val items: List<LibraryItem>) : ReikaiGridSection {
+        override val itemCount get() = items.size
     }
 }
 
 /**
- * Grid item index that begins each visual row, in grid order: the search item (if any), then per
- * category a header row plus, when expanded, its cells chunked into rows of [columns]. The list
- * length is the total row count. Lets [ReikaiFastScrollLazyVerticalGrid] position its thumb by row
- * proportion (and map a drag back to an item) without averaging row heights. Stays in lock-step with
- * the grid building below and with [reikaiCategoryHeaderIndices].
+ * The single list's item layout, which the grid builds from and the hopper, picker and fast-scroll thumb
+ * index into, so the three cannot disagree: the search item, then per bucket a header and, unless
+ * collapsed, its cells. List mode renders as a 1-column grid, so the layout is the same in every mode.
  */
-fun reikaiRowStartIndices(
+fun reikaiGridSections(
     buckets: List<LibraryBucket>,
     hasSearchItem: Boolean,
     isCollapsed: (LibraryBucket) -> Boolean,
-    itemCount: (LibraryBucket) -> Int,
-    columns: Int,
-): List<Int> {
+    itemsOf: (LibraryBucket) -> List<LibraryItem>,
+): List<ReikaiGridSection> = buildList {
+    if (hasSearchItem) add(ReikaiGridSection.Search)
+    buckets.forEach { bucket ->
+        val collapsed = isCollapsed(bucket)
+        add(ReikaiGridSection.Header(bucket, collapsed))
+        if (!collapsed) add(ReikaiGridSection.Cells(bucket, itemsOf(bucket)))
+    }
+}
+
+/** Lazy item index of each bucket's header in [sections], so the hopper and picker can scroll to it. */
+fun reikaiCategoryHeaderIndices(sections: List<ReikaiGridSection>): List<Int> {
+    var index = 0
+    return sections.mapNotNull { section ->
+        val start = index
+        index += section.itemCount
+        start.takeIf { section is ReikaiGridSection.Header }
+    }
+}
+
+/**
+ * Lazy item index that begins each visual row of [sections], a cell run chunked into rows of [columns];
+ * the list length is the total row count. Lets [ReikaiFastScrollLazyVerticalGrid] position its thumb by
+ * row proportion (and map a drag back to an item) without averaging row heights.
+ */
+fun reikaiRowStartIndices(sections: List<ReikaiGridSection>, columns: Int): List<Int> {
     val cols = columns.coerceAtLeast(1)
     val rows = mutableListOf<Int>()
-    var item = 0
-    if (hasSearchItem) {
-        rows.add(item)
-        item += 1
-    }
-    buckets.forEach { bucket ->
-        rows.add(item)
-        item += 1
-        if (!isCollapsed(bucket)) {
-            val count = itemCount(bucket)
-            var offset = 0
-            while (offset < count) {
-                rows.add(item + offset)
-                offset += cols
-            }
-            item += count
+    var index = 0
+    sections.forEach { section ->
+        when (section) {
+            is ReikaiGridSection.Cells -> (0 until section.itemCount step cols).mapTo(rows) { index + it }
+            else -> rows += index
         }
+        index += section.itemCount
     }
     return rows
 }
@@ -164,22 +172,21 @@ fun ReikaiLibraryContent(
 
         // Walks every bucket's items, so only what it reads rebuilds it, not every recomposition.
         val hasSearchItem = !searchQuery.isNullOrEmpty()
-        val rowStartIndices = remember(
+        val sections = remember(
             buckets,
             hasSearchItem,
             collapsedCategories,
             collapsedDynamicCategories,
             getItemsForCategory,
-            columnCount,
         ) {
-            reikaiRowStartIndices(
+            reikaiGridSections(
                 buckets = buckets,
                 hasSearchItem = hasSearchItem,
                 isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
-                itemCount = { getItemsForCategory(it).size },
-                columns = columnCount,
+                itemsOf = getItemsForCategory,
             )
         }
+        val rowStartIndices = remember(sections, columnCount) { reikaiRowStartIndices(sections, columnCount) }
 
         val manualOrder = rememberManualOrder()
         val reorder = rememberManualOrderGrid(gridState, manualOrder) { section ->
@@ -208,63 +215,63 @@ fun ReikaiLibraryContent(
                 ),
                 horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
             ) {
-                if (!searchQuery.isNullOrEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }, contentType = "reikai_global_search") {
-                        GlobalSearchItem(searchQuery = searchQuery, onClick = onGlobalSearchClicked)
-                    }
-                }
-
-                buckets.forEach { bucket ->
-                    // Null for a dynamic group, which is what turns the sort / refresh affordances off.
-                    val category = bucket.realCategory
-                    val collapsed = reikaiIsCollapsed(bucket, collapsedCategories, collapsedDynamicCategories)
-                    val items = getItemsForCategory(bucket)
-                    val itemCount = getItemCount(bucket)
-
-                    item(
-                        span = { GridItemSpan(maxLineSpan) },
-                        key = "reikai_header_${bucket.key}",
-                        contentType = "reikai_header",
-                    ) {
-                        ReikaiLibraryCategoryHeader(
-                            name = bucket.visualLabel,
-                            itemCount = itemCount ?: 0,
-                            showItemCount = itemCount != null,
-                            isCollapsed = collapsed,
-                            onClick = {
-                                if (category != null) {
-                                    onToggleDefaultCollapse(bucket.key)
-                                } else {
-                                    onToggleDynamicCollapse(bucket.key)
-                                }
-                            },
-                            selectionMode = selection.isNotEmpty(),
-                            allSelected = items.isNotEmpty() && items.all { it.entryId in selection },
-                            onToggleSelectAll = { onSelectAllInCategory(bucket) },
-                            sortLabel = category?.let(sortLabelFor),
-                            sortAscending = category?.let(sortAscendingFor),
-                            onClickSort = category?.let { { onClickCategorySort(it) } },
-                            onClickRefresh = category?.let { { onRefreshCategory(it) } },
-                        )
-                    }
-
-                    if (!collapsed) {
+                sections.forEach { section ->
+                    when (section) {
+                        ReikaiGridSection.Search -> item(
+                            span = { GridItemSpan(maxLineSpan) },
+                            contentType = "reikai_global_search",
+                        ) {
+                            GlobalSearchItem(searchQuery = searchQuery.orEmpty(), onClick = onGlobalSearchClicked)
+                        }
+                        is ReikaiGridSection.Header -> {
+                            val bucket = section.bucket
+                            // Null for a dynamic group, which is what turns the sort / refresh affordances off.
+                            val category = bucket.realCategory
+                            val items = getItemsForCategory(bucket)
+                            val itemCount = getItemCount(bucket)
+                            item(
+                                span = { GridItemSpan(maxLineSpan) },
+                                key = "reikai_header_${bucket.key}",
+                                contentType = "reikai_header",
+                            ) {
+                                ReikaiLibraryCategoryHeader(
+                                    name = bucket.visualLabel,
+                                    itemCount = itemCount ?: 0,
+                                    showItemCount = itemCount != null,
+                                    isCollapsed = section.isCollapsed,
+                                    onClick = {
+                                        if (category != null) {
+                                            onToggleDefaultCollapse(bucket.key)
+                                        } else {
+                                            onToggleDynamicCollapse(bucket.key)
+                                        }
+                                    },
+                                    selectionMode = selection.isNotEmpty(),
+                                    allSelected = items.isNotEmpty() && items.all { it.entryId in selection },
+                                    onToggleSelectAll = { onSelectAllInCategory(bucket) },
+                                    sortLabel = category?.let(sortLabelFor),
+                                    sortAscending = category?.let(sortAscendingFor),
+                                    onClickSort = category?.let { { onClickCategorySort(it) } },
+                                    onClickRefresh = category?.let { { onRefreshCategory(it) } },
+                                )
+                            }
+                        }
                         // Keyed by bucket and type (manualOrderKey): an entry can belong to several buckets,
                         // and a manga and a novel can share a row id.
-                        libraryCells(
-                            section = bucket.key,
-                            rows = items,
+                        is ReikaiGridSection.Cells -> libraryCells(
+                            section = section.bucket.key,
+                            rows = section.items,
                             contentType = cellContentType,
-                            drag = manualDragFor(bucket),
+                            drag = manualDragFor(section.bucket),
                             manualOrder = manualOrder,
                             reorder = reorder,
-                            onLongClick = { onLongClickManga(bucket, it) },
+                            onLongClick = { onLongClickManga(section.bucket, it) },
                         ) { libraryItem, longClick, tapAllowed ->
                             LibraryItemCell(
                                 item = libraryItem,
                                 displayMode = displayMode,
                                 isSelected = libraryItem.entryId in selection,
-                                onClick = { if (tapAllowed()) onClickManga(bucket, libraryItem) },
+                                onClick = { if (tapAllowed()) onClickManga(section.bucket, libraryItem) },
                                 onLongClick = longClick,
                                 onClickContinueReading = onClickContinueReading,
                             )

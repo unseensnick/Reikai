@@ -94,6 +94,7 @@ import reikai.presentation.library.hidden.HiddenEntriesRoute // RK
 import reikai.presentation.library.libraryToolbarTitle
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
+import reikai.presentation.library.reikaiGridSections
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.sortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsRoute
@@ -288,10 +289,12 @@ fun LibraryTab() {
             emptyList()
         } else {
             reikaiCategoryHeaderIndices(
-                buckets = activeBuckets,
-                hasSearchItem = hasSearchItem,
-                isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
-                itemCount = { activeGetItems(it).size },
+                reikaiGridSections(
+                    buckets = activeBuckets,
+                    hasSearchItem = hasSearchItem,
+                    isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
+                    itemsOf = activeGetItems,
+                ),
             )
         }
     }
