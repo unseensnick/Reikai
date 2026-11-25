@@ -168,16 +168,17 @@ private suspend fun syncUnlocked(
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
     // The user's copy marks bend the rule as they do in the reader; read only when the rule runs.
     val marks = if (markDuplicateAsRead) copyMarks.loadedMarks(ContentType.NOVELS, novelId) else emptyMap()
-    // Sources list newest first, so the kernel counts fetch dates down from now in that order.
+    // Plugins list oldest first and the kernel reads newest first, as manga sources list, so the newest
+    // arrival takes the latest fetch date.
     val arrivals = chapterArrivals(
-        added = toAdd.map {
+        added = toAdd.asReversed().map {
             ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload, it.name, it.scanlator, marks[it.url])
         },
         stored = dbChapters.map { it.toStoredChapter(sourceNumbers[it.url] ?: it.chapterNumber, marks[it.url]) },
         removed = toDelete.map { it.toStoredChapter() },
         markDuplicateAsRead = markDuplicateAsRead,
         now = now,
-    )
+    ).asReversed()
     val changedOrDuplicateReadUrls = toAdd.zip(arrivals)
         .filter { (_, arrival) -> arrival.isChangedOrDuplicate }
         .mapTo(mutableSetOf()) { (chapter, _) -> chapter.url }

@@ -160,10 +160,10 @@ class NovelChapterSyncTest {
     }
 
     @Test
-    fun `an undated new chapter takes the date of the dated one listed above it`() = runTest {
+    fun `an undated new chapter takes the date of the newer dated one listed after it`() = runTest {
         val source = listOf(
-            srcItem("/c/2", number = 2.0, releaseTime = "2024-01-02T00:00:00Z"),
             srcItem("/c/1", number = 1.0),
+            srcItem("/c/2", number = 2.0, releaseTime = "2024-01-02T00:00:00Z"),
         )
 
         sync(emptyList(), source).inserted.map { it.dateUpload }.distinct() shouldBe listOf(1_704_153_600_000L)
@@ -296,12 +296,11 @@ class NovelChapterSyncTest {
     }
 
     @Test
-    fun `fetch dates stagger strictly downward in source order`() = runTest {
-        // Sources return newest-first, so earlier rows get the higher date_fetch to preserve order.
-        val source = listOf(srcItem("/c/3", 3.0), srcItem("/c/2", 2.0), srcItem("/c/1", 1.0))
+    fun `the newest chapter of an oldest-first listing gets the latest fetch date`() = runTest {
+        val source = listOf(srcItem("/c/1", 1.0), srcItem("/c/2", 2.0), srcItem("/c/3", 3.0))
 
         val dates = sync(emptyList(), source).inserted.map { it.dateFetch }
 
-        dates.zipWithNext().all { (a, b) -> a > b } shouldBe true
+        dates.zipWithNext().all { (a, b) -> a < b } shouldBe true
     }
 }
