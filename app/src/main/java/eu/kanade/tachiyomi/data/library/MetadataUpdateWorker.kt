@@ -58,6 +58,7 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
     @Inject private lateinit var sourceContacts: SourceContacts // RK
 
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
+    private var progressTotal = 0 // RK
 
     override suspend fun doWork(): Result {
         // RK: graph.inject moved to init
@@ -107,6 +108,8 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
         // RK: the kernel below replaces upstream's semaphore here
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
+        // RK: one bar over both passes, so the novel pass carries on from the manga one rather than restarting
+        progressTotal = mangaToUpdate.size + novelMetadataRefresh.libraryCount()
 
         // RK: the kernel the novel pass and both update jobs run on
         updateBySource(mangaToUpdate, sourceOf = { it.manga.source }, sourceContacts) { libraryManga ->
@@ -131,7 +134,10 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
             }
         }
 
-        novelMetadataRefresh.run(notifier::showProgressTitles) // RK: the one Settings action covers both content types
+        // RK: the one Settings action covers both content types
+        novelMetadataRefresh.run { titles, done, _ ->
+            notifier.showProgressTitles(titles, mangaToUpdate.size + done, progressTotal)
+        }
 
         notifier.cancelProgressNotification()
     }
@@ -148,7 +154,7 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
         notifier.showProgressNotification(
             updatingManga,
             completed.load(),
-            mangaToUpdate.size,
+            progressTotal, // RK
         )
 
         block()
@@ -160,7 +166,7 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
         notifier.showProgressNotification(
             updatingManga,
             completed.load(),
-            mangaToUpdate.size,
+            progressTotal, // RK
         )
     }
 

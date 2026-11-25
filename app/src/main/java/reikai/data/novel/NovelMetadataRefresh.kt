@@ -34,6 +34,9 @@ class NovelMetadataRefresh(
     private val sourceContacts: SourceContacts,
 ) {
 
+    /** How many novels [run] refreshes, so a caller can show one bar over its own pass and this one. */
+    suspend fun libraryCount(): Int = novelRepository.getFavorites().size
+
     /** [onProgress] gets the titles as a lookup, so a tick the notice throttles away reads nothing. */
     suspend fun run(onProgress: suspend (titles: suspend () -> List<String>, done: Int, total: Int) -> Unit) {
         runCatchingCancellable { installer.ensureLoaded() }
