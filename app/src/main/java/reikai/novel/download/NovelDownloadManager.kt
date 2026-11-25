@@ -334,7 +334,7 @@ class NovelDownloadManager(
         val dir = provider.findNovelDir(novel) ?: return
         val newName = provider.novelDirName(newTitle)
         if (dir.name == newName) return
-        val otherFolders = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
+        val otherFolders = otherFolderNames(novel)
         if (!movesDownloadFolder(dir, newName, otherFolders)) return
         cancelDownloads(_queueState.value.filter { it.novelId == novel.id }.map { it.chapterId })
         if (withIOContext { provider.renameNovel(novel, newTitle) }) {
@@ -393,12 +393,15 @@ class NovelDownloadManager(
         }
     }
 
-    // As DownloadManager.deleteManga asks: a folder another novel on the source is named onto holds its downloads.
+    // As DownloadManager.deleteManga asks: a folder another novel is named onto holds its downloads.
     private suspend fun folderIsShared(novel: Novel): Boolean {
         val folder = provider.findNovelDir(novel)?.name ?: return false
-        val others = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
-        return sharesDownloadFolder(folder, others)
+        return sharesDownloadFolder(folder, otherFolderNames(novel))
     }
+
+    // Every other novel named into the novel's source folder, which a source of the same label shares
+    private suspend fun otherFolderNames(novel: Novel): List<String> =
+        sourceTitles.otherNovelTitles(provider.sourcesSharingFolder(novel.source), novel.id).map(provider::novelDirName)
 
     /**
      * Drops [ids] from the live queue and the saved one in one step under [storeLock], which the launch
