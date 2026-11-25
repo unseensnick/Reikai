@@ -8,7 +8,11 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -61,8 +65,8 @@ class NovelDownloadProviderTest {
 
     private val provider by lazy { provider(UniFile.fromFile(root)) }
 
-    private fun provider(downloads: UniFile?) = NovelDownloadProvider(
-        scope = testAppScope(),
+    private fun provider(downloads: UniFile?, scope: CoroutineScope = testAppScope()) = NovelDownloadProvider(
+        scope = scope,
         context = mockk(),
         storageManager = mockk<StorageManager> {
             every { getNovelDownloadsDirectory() } returns downloads
@@ -97,6 +101,20 @@ class NovelDownloadProviderTest {
         provider.renameSourceFolders(listOf("plugin"), from = { it }, to = provider::sourceFolderLabel)
 
         File(root, "plugin (Plugin Site)/Old Title").isDirectory shouldBe true
+    }
+
+    /** The seen record was written with the new name and the process died before the folder moved. */
+    @Test
+    fun `a source folder left at its old label by a killed rename moves on the next start`() = runTest {
+        novelPreferences.downloadFolderLabels().set(
+            mapOf("plugin" to "plugin (Old Site)", "tachiyomi:123" to "Novel Site (EN)"),
+        )
+        File(root, "plugin (Old Site)/Title").mkdirs()
+
+        provider(UniFile.fromFile(root), CoroutineScope(StandardTestDispatcher(testScheduler)))
+        advanceUntilIdle()
+
+        File(root, "plugin (Plugin Site)/Title").isDirectory shouldBe true
     }
 
     /** A case-blind disk finds the folder itself at its new name, which is no reason to leave it. */

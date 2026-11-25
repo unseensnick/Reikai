@@ -59,10 +59,13 @@ class NovelDownloadProvider(
     private val downloadsDir: UniFile?
         get() = storageManager.getNovelDownloadsDirectory()
 
-    // The seen record names every source loaded, installed or since removed. Read once per change rather than
-    // per lookup, since the download cache names a source for every library row.
+    // Where each source's folder is on disk, read once per change rather than per lookup, since the download
+    // cache names a source for every library row. Before any label was stored it is the seen record's.
+    private val appliedLabels = novelPreferences.downloadFolderLabels()
+
     @Volatile
-    private var folderLabels = novelPreferences.seenNovelSources().get().let(::sourceFolderLabels)
+    private var folderLabels = appliedLabels.takeIf { it.isSet() }?.get()
+        ?: novelPreferences.seenNovelSources().get().let(::sourceFolderLabels)
 
     // Held by a rename with its label swap and by a chapter write, so a write between the two never makes a
     // folder under the old label the cache no longer reads.
@@ -79,6 +82,7 @@ class NovelDownloadProvider(
                 val renamed = labels.keys.filter { folderLabels[it] != labels[it] }
                 renameSourceFolders(renamed, from = { folderLabels[it] ?: it }, to = { labels.getValue(it) })
                 folderLabels = labels
+                if (renamed.isNotEmpty() || !appliedLabels.isSet()) appliedLabels.set(labels)
             }
         }
         .stateIn(scope, SharingStarted.Eagerly, folderLabels)

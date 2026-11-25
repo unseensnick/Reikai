@@ -75,6 +75,20 @@ class NovelPreferences(
         deserializer = { decodeSeenNovelSources(it) },
     )
 
+    /**
+     * The label each source's download folder has on disk, written once a label change has moved the folder.
+     * Device state, never backed up. The provider diffs the seen record against this rather than against memory,
+     * so a move a process death cut off is made on the next start.
+     */
+    fun downloadFolderLabels() = preferenceStore.getObjectFromString(
+        key = Preference.appStateKey("novel_download_folder_labels"),
+        defaultValue = emptyMap(),
+        serializer = { metadataJson.encodeToString(folderLabelsSerializer, it) },
+        deserializer = { stored ->
+            runCatching { metadataJson.decodeFromString(folderLabelsSerializer, stored) }.getOrElse { emptyMap() }
+        },
+    )
+
     /** Icons for a novel app whose own icon shows nothing, gathered from the store and repo listings. */
     fun novelIconHints() = preferenceStore.getObjectFromString(
         key = "novel_icon_hints",
@@ -768,6 +782,7 @@ class NovelPreferences(
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())
         private val seenSourcesMapSerializer =
             MapSerializer(String.serializer(), LnSourceIdentity.serializer())
+        private val folderLabelsSerializer = MapSerializer(String.serializer(), String.serializer())
         private val metadataJson = Json { ignoreUnknownKeys = true }
 
         // Public for the restore screen, which reads a backup's copies of these two without storing them,
