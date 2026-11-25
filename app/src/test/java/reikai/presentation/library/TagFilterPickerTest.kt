@@ -4,14 +4,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,7 +30,7 @@ class TagFilterPickerTest {
     val compose = createComposeRule()
 
     private val preferences = ReikaiLibraryPreferences(EmittingPreferenceStore())
-    private val tagFilter = LibraryTagFilter(preferences) {
+    private val tagFilter = LibraryTagFilter(preferences, UnconfinedTestDispatcher()) {
         listOf(listOf("Action", "Drama", "Slice of Life"), listOf("Action"))
     }
 
@@ -42,17 +41,9 @@ class TagFilterPickerTest {
         compose.onNodeWithText("Tags").performClick()
     }
 
-    // The picker and the strip read the library off the main thread, so their text lands a moment later.
-    private fun awaitText(text: String) =
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-
-    private fun awaitTag(key: String) =
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("tag:$key").fetchSemanticsNodes().isNotEmpty() }
-
     @Test
     fun `a first tap on a tag shows only series with it`() {
         showPicker()
-        awaitTag("action")
 
         compose.onNodeWithTag("tag:action").performScrollTo().performClick()
         compose.waitForIdle()
@@ -63,7 +54,6 @@ class TagFilterPickerTest {
     @Test
     fun `a second tap on a tag hides it`() {
         showPicker()
-        awaitTag("action")
 
         compose.onNodeWithTag("tag:action").performScrollTo().performClick()
         compose.onNodeWithTag("tag:action").performScrollTo().performClick()
@@ -76,7 +66,6 @@ class TagFilterPickerTest {
     fun `the picker counts the series the filter keeps`() {
         preferences.filterTagsInclude.set(setOf("drama"))
         showPicker()
-        awaitText("1 of 2 match")
 
         compose.onNodeWithText("1 of 2 match").assertIsDisplayed()
     }
@@ -107,7 +96,6 @@ class TagFilterPickerTest {
     @Test
     fun `a long press on a tag makes it an alias of the tag picked`() {
         showPicker()
-        awaitTag("drama")
 
         compose.onNodeWithTag("tag:drama").performScrollTo().performTouchInput { longClick() }
         compose.onNodeWithTag("target:action").performClick()
@@ -120,7 +108,6 @@ class TagFilterPickerTest {
     fun `the strip shows a hidden tag in the library's spelling`() {
         preferences.filterTagsExclude.set(setOf("slice of life"))
         compose.setContent { ComposeTestHost { TagFilterStrip(tagFilter) } }
-        awaitText("Hiding Slice of Life")
 
         compose.onNodeWithText("Hiding Slice of Life").assertIsDisplayed()
     }

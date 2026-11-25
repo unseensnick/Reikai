@@ -2,6 +2,8 @@ package reikai.presentation.library
 
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.tagFilterFlow
@@ -60,9 +62,11 @@ data class LibraryCategoryFilter(
 /**
  * The tag filter as the sheet edits it: the stored [state], and [seriesTags], every series of the view's
  * content types with its tags, before any filter, so the picker offers and counts tags the filter hides.
+ * The picker folds them on [foldDispatcher], which a test replaces.
  */
 class LibraryTagFilter(
     val preferences: ReikaiLibraryPreferences,
+    val foldDispatcher: CoroutineDispatcher = Dispatchers.Default,
     val seriesTags: () -> List<List<String>>,
 ) {
     val state = preferences.tagFilterFlow()

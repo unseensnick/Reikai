@@ -56,7 +56,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Block
@@ -141,7 +140,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
     // Every series' tags are folded once per opening (and per alias change), off the main thread, so a
     // tap only recounts.
     val library by produceState<PickerLibrary?>(null, aliases) {
-        value = withContext(Dispatchers.Default) {
+        value = withContext(tagFilter.foldDispatcher) {
             tagFilter.seriesTags().map(aliases::resolveAll).let { PickerLibrary(tagChoices(it), it.map(::tagKeys)) }
         }
     }
@@ -170,7 +169,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
             .let { list -> if (byName) list.sortedBy { it.label.lowercase() } else list }
     }
     val matching by produceState<Int?>(null, library, filter) {
-        value = library?.let { lib -> withContext(Dispatchers.Default) { lib.keys.count(filter::matchesKeys) } }
+        value = library?.let { lib -> withContext(tagFilter.foldDispatcher) { lib.keys.count(filter::matchesKeys) } }
     }
 
     AlertDialog(
@@ -534,7 +533,7 @@ fun TagFilterStrip(tagFilter: LibraryTagFilter, modifier: Modifier = Modifier) {
     val aliases = rememberTagAliases(preferences)
     // The stored keys are folded, so the chips show the spelling the library uses where one is found.
     val labels by produceState(emptyMap<String, String>(), filter.include, filter.exclude, aliases) {
-        value = withContext(Dispatchers.Default) {
+        value = withContext(tagFilter.foldDispatcher) {
             tagChoices(tagFilter.seriesTags().map(aliases::resolveAll)).associate { it.key to it.label }
         }
     }
