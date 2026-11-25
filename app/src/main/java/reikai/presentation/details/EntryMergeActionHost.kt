@@ -16,7 +16,6 @@ import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.MergeManager
 import reikai.presentation.components.reportVolumeMove
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
 
@@ -30,7 +29,7 @@ import tachiyomi.i18n.MR
  */
 class EntryMergeActionHost(
     private val scope: CoroutineScope,
-    // Runs what must finish after the screen closes: the undo's restore
+    // Runs every write, so leaving the screen part way never leaves one half done
     private val appScope: CoroutineScope,
     private val snackbarHostState: SnackbarHostState,
     private val context: Context,
@@ -46,9 +45,9 @@ class EntryMergeActionHost(
     /** Persist a manage-sources drag as the group's source order, then re-read the group: a fresh array
      *  re-emits the list, whose stitch the new ranking has made stale, so it is rebuilt on the new trunk. */
     fun reorderSources(orderedIds: List<Long>) {
-        scope.launchIO {
-            mergeManager.setSourceOrder(orderedIds)
-            group.refresh(anchorId())
+        scope.launch {
+            lasting { mergeManager.setSourceOrder(orderedIds) }
+            withIOContext { group.refresh(anchorId()) }
         }
     }
 
@@ -56,9 +55,9 @@ class EntryMergeActionHost(
      *  which rebuilds its stitch on the global ranking. */
     fun resetSourceOrder() {
         dismissDialog()
-        scope.launchIO {
-            mergeManager.clearSourceOrder(anchorId())
-            group.refresh(anchorId())
+        scope.launch {
+            lasting { mergeManager.clearSourceOrder(anchorId()) }
+            withIOContext { group.refresh(anchorId()) }
         }
     }
 
@@ -71,17 +70,18 @@ class EntryMergeActionHost(
         if (targetIds.isEmpty()) return
         val prevRelated = group.relatedIds
         dismissDialog()
-        scope.launchIO {
-            // Read the group BEFORE splitting it: splitting a pair deletes the group row, and with it
-            // the per-group ranking an undo has to put back. Re-merging can only recover the members.
-            val snapshot = mergeManager.captureGroup(anchorId())
-            mergeManager.removeFromGroup(prevRelated, targetIds)
+        scope.launch {
+            val snapshot = lasting {
+                // Read the group BEFORE splitting it: splitting a pair deletes the group row, and with it
+                // the per-group ranking an undo has to put back. Re-merging can only recover the members.
+                mergeManager.captureGroup(anchorId()).also { mergeManager.removeFromGroup(prevRelated, targetIds) }
+            }
             // Re-read rather than publishing what the split returned: it returns the SURVIVORS, which
             // do not include the anchor when the user splits the anchor's own source.
-            group.refresh(anchorId())
+            withIOContext { group.refresh(anchorId()) }
             if (undoRequested(MR.strings.merge_sources_split)) {
-                mergeManager.restoreGroup(snapshot)
-                group.refresh(anchorId())
+                lasting { mergeManager.restoreGroup(snapshot) }
+                withIOContext { group.refresh(anchorId()) }
             }
         }
     }
@@ -95,17 +95,18 @@ class EntryMergeActionHost(
         if (targetIds.isEmpty()) return
         val prevRelated = group.relatedIds
         dismissDialog()
-        scope.launchIO {
-            // Captured before the split, for the same reason as splitSources.
-            val snapshot = mergeManager.captureGroup(anchorId())
-            mergeManager.removeFromGroup(prevRelated, targetIds)
-            // Taken out only AFTER the split, and never in parallel with it: the split hands each member
-            // its own copy of the group's shared tracker binding, and that hand-out skips non-favorites.
-            // Non-cancellable because a half-done removal is worse than a slow one.
-            val joined = withContext(NonCancellable) { removal.takeOut(targetIds) }
+        scope.launch {
+            val (snapshot, joined) = lasting {
+                // Captured before the split, for the same reason as splitSources.
+                val snapshot = mergeManager.captureGroup(anchorId())
+                mergeManager.removeFromGroup(prevRelated, targetIds)
+                // Taken out only AFTER the split, and never in parallel with it: the split hands each member
+                // its own copy of the group's shared tracker binding, and that hand-out skips non-favorites.
+                snapshot to removal.takeOut(targetIds)
+            }
             // Re-read, for the same reason as splitSources: removing the anchor's own source leaves it
             // ungrouped, and the survivors are the entries the user is NOT looking at.
-            group.refresh(anchorId())
+            withIOContext { group.refresh(anchorId()) }
             var undone = false
             try {
                 undone = undoRequested(MR.strings.merge_sources_removed)
@@ -113,11 +114,13 @@ class EntryMergeActionHost(
                 if (!undone) withContext(NonCancellable) { removal.finish(joined.keys.toList()) }
             }
             if (undone) {
-                mergeManager.restoreGroup(snapshot)
-                group.refresh(anchorId())
-                appScope.launch { removal.restore(joined) }
+                lasting {
+                    mergeManager.restoreGroup(snapshot)
+                    removal.restore(joined)
+                }
+                withIOContext { group.refresh(anchorId()) }
             } else {
-                offerToDeleteDownloads(joined.keys.toList())
+                withIOContext { offerToDeleteDownloads(joined.keys.toList()) }
             }
         }
     }
@@ -134,20 +137,20 @@ class EntryMergeActionHost(
             val contentType = removal.entryId(anchor).contentType
             // Dissolving, combining and merging again after a failed combine run as one step on the app scope,
             // so leaving the screen part way never leaves the merge dissolved with nothing combined.
-            val combined = appScope.async {
+            val combined = lasting {
                 val series = volumes.series(contentType, related.toList())
-                val kept = series.firstOrNull { it.id == anchor } ?: return@async null
+                val kept = series.firstOrNull { it.id == anchor } ?: return@lasting null
                 val snapshot = mergeManager.captureGroup(anchor)
                 mergeManager.removeFromGroup(related, related.toList())
                 val move = volumes.combine(contentType, kept, series - kept)
                 if (move.result is LocalMoveResult.Failed) mergeManager.restoreGroup(snapshot)
                 Triple(kept, snapshot, move)
-            }.await() ?: return@launch
+            } ?: return@launch
             val (kept, snapshot, move) = combined
             withIOContext { group.refresh(anchor) }
             val message = context.stringResource(MR.strings.local_volumes_combined, kept.title)
             if (!snackbarHostState.reportVolumeMove(context, move, message) && move.result is LocalMoveResult.Moved) {
-                appScope.async { mergeManager.restoreGroup(snapshot) }.await()
+                lasting { mergeManager.restoreGroup(snapshot) }
                 withIOContext { group.refresh(anchor) }
             }
         }
@@ -155,6 +158,9 @@ class EntryMergeActionHost(
 
     /** Remove the whole merge group from the library at once (Manage Sources "Remove all"). */
     fun removeAllSourcesFromLibrary() = removeSourcesFromLibrary(group.relatedIds.toList())
+
+    // A write a closed screen must not cut off runs on the app scope, and the screen only waits for it.
+    private suspend fun <T> lasting(write: suspend () -> T): T = appScope.async { write() }.await()
 
     private suspend fun undoRequested(message: StringResource): Boolean {
         val result = snackbarHostState.showSnackbar(

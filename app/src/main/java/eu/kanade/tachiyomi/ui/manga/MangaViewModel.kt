@@ -2038,10 +2038,11 @@ class MangaViewModel(
     }
 
     fun setExcludedScanlators(excludedScanlators: Set<String>) {
-        // RK --> written to each source on screen, applying only what the dialog changed
+        // RK --> written to each source on screen, applying only what the dialog changed, on the app scope
+        // so leaving the page part way cannot leave the sources filtered apart
         val shown = successState?.excludedScanlators ?: return
         val targets = mergeGroup.state.value.viewedIds(mangaId)
-        viewModelScope.launchIO {
+        appScope.launchIO {
             val current = targets.associateWith { getExcludedScanlators.await(it) }
             scanlatorWrites(targets, current, shown, excludedScanlators).forEach { (id, excluded) ->
                 setExcludedScanlators.await(id, excluded)

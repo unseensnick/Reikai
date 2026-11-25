@@ -50,12 +50,15 @@ class EntryMergeActionHostTest {
     private val restoredGroup = CompletableDeferred<GroupSnapshot>()
     private val undoStarted = CompletableDeferred<Unit>()
     private val undoGate = CompletableDeferred<Unit>().apply { complete(Unit) }
+    private val writeStarted = CompletableDeferred<Unit>()
 
     private val host = host(scope)
 
     private fun host(
         screen: CoroutineScope,
         undoGate: CompletableDeferred<Unit> = this.undoGate,
+        splitGate: CompletableDeferred<Unit>? = null,
+        restoreGate: CompletableDeferred<Unit>? = null,
     ) = EntryMergeActionHost(
         scope = screen,
         appScope = scope,
@@ -76,8 +79,20 @@ class EntryMergeActionHostTest {
         anchorId = { 3L },
         mergeManager = mockk<MergeManager>(relaxed = true) {
             coEvery { captureGroup(any()) } returns GROUP
-            coEvery { removeFromGroup(any(), any()) } returns longArrayOf(3L)
-            coEvery { restoreGroup(any()) } coAnswers { restoredGroup.complete(firstArg()) }
+            coEvery { removeFromGroup(any(), any()) } coAnswers {
+                splitGate?.let {
+                    writeStarted.complete(Unit)
+                    it.await()
+                }
+                longArrayOf(3L)
+            }
+            coEvery { restoreGroup(any()) } coAnswers {
+                restoreGate?.let {
+                    writeStarted.complete(Unit)
+                    it.await()
+                }
+                restoredGroup.complete(firstArg())
+            }
         },
         dismissDialog = {},
         removal = removal,
@@ -187,6 +202,38 @@ class EntryMergeActionHostTest {
         restoredGroup.await() shouldBe GROUP
     }
 
+    @Test
+    fun `a removal its screen closes on part way still takes the sources out`() = runTest {
+        val screen = CoroutineScope(SupervisorJob())
+        val gate = CompletableDeferred<Unit>()
+        val closing = host(screen, splitGate = gate)
+        restubDefaultDispatcher()
+        closing.removeSourcesFromLibrary(SOURCES)
+        writeStarted.await()
+        screen.coroutineContext.job.cancel()
+        gate.complete(Unit)
+        removal.takenOut.await()
+
+        removal.favoriteAt shouldBe mapOf(1L to null, 2L to null)
+    }
+
+    @Test
+    fun `an undo its screen closes on part way still puts the sources back`() = runTest {
+        val screen = CoroutineScope(SupervisorJob())
+        val gate = CompletableDeferred<Unit>()
+        val closing = host(screen, restoreGate = gate)
+        restubDefaultDispatcher()
+        closing.removeSourcesFromLibrary(SOURCES)
+        snackbarResult.complete(SnackbarResult.ActionPerformed)
+        writeStarted.await()
+        screen.coroutineContext.job.cancel()
+        gate.complete(Unit)
+        removal.restored.await()
+
+        removal.favoriteAt shouldBe
+            mapOf(1L to Instant.fromEpochMilliseconds(100L), 2L to Instant.fromEpochMilliseconds(200L))
+    }
+
     private class MemoryRemoval : EntryLibraryRemoval(mockk(relaxed = true), mockk(relaxed = true), {
         mockk(relaxed = true)
     }) {
@@ -200,6 +247,7 @@ class EntryMergeActionHostTest {
         )
         val coversDropped: MutableList<Long> = Collections.synchronizedList(mutableListOf())
         val restored = CompletableDeferred<Unit>()
+        val takenOut = CompletableDeferred<Unit>()
 
         override fun entryId(id: Long) = EntryId.Manga(id)
 
@@ -208,6 +256,7 @@ class EntryMergeActionHostTest {
         override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean {
             this.favoriteAt.putAll(favoriteAt)
             if (favoriteAt.values.all { it != null }) restored.complete(Unit)
+            if (favoriteAt.values.all { it == null }) takenOut.complete(Unit)
             return true
         }
 
