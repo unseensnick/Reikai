@@ -26,9 +26,7 @@ class NovelDownloadSourceFolderMigration(
     override val version: Float = 208f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        val sources = novelPreferences.seenNovelSources().get().keys
-        provider.renameSourceFolders(sources, from = { it }, to = provider::sourceFolderLabel)
-        provider.mergeSourceFolders(sources, from = { it }, to = provider::sourceFolderLabel)
+        provider.moveIdFolders(novelPreferences.seenNovelSources().get().keys)
         cache.invalidate()
         true
     }

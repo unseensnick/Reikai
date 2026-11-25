@@ -100,6 +100,16 @@ class NovelDownloadProvider(
     }
 
     /**
+     * Moves each of [sources]' folders from its bare id to its label, merging it into a folder of that name already
+     * taken, as an upgrade from id-named folders needs. Under [folderLock], so a label swap cannot land between
+     * reading a source's label and moving its folder there.
+     */
+    fun moveIdFolders(sources: Collection<String>) = synchronized(folderLock) {
+        renameSourceFolders(sources, from = { it }, to = ::sourceFolderLabel)
+        mergeSourceFolders(sources, from = { it }, to = ::sourceFolderLabel)
+    }
+
+    /**
      * Moves each of [sources]' folders from the label [from] gives it to the one [to] gives it, where the old one
      * exists and the new one is free; a taken name leaves the folder where it is, its downloads unread but kept.
      */
