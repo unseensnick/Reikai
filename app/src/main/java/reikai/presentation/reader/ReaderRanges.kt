@@ -39,4 +39,7 @@ object ReaderRanges {
 
     /** The space between a spread's two pages, in percent of a page's width, for manga and novels alike. */
     val spreadGapPercent = 0..20
+
+    /** A stored [spreadGapPercent] step as the share of a page's width both readers draw. */
+    fun spreadGapFraction(percent: Int): Float = percent / PERCENT.toFloat()
 }

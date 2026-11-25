@@ -71,6 +71,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.presentation.reader.LocalPageColorAdjust
+import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.WidePageShape
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
@@ -1067,7 +1068,7 @@ open class WebGpuViewer(
                 onPageSettingsChanged()
             }
             // RK: the library re-lays out its spreads for a new gap, so no page is remade
-            if (old?.spreadGap != new.spreadGap) viewerState.spreadGap = new.spreadGap / 100f
+            if (old?.spreadGap != new.spreadGap) viewerState.spreadGap = ReaderRanges.spreadGapFraction(new.spreadGap)
         }
         if (isContinuous) {
             settingsViewModel.longStrip.collectChanges(scope) { old, _ ->

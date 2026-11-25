@@ -81,7 +81,7 @@ class NovelSpreadHost(
         val density = resources.displayMetrics.density
         val left = (settings.margins.left * density).toInt()
         val right = (settings.margins.right * density).toInt()
-        val gap = settings.spreadGap / 100f
+        val gap = ReaderRanges.spreadGapFraction(settings.spreadGap)
         if (left != outerLeft || right != outerRight || gap != gapFraction) {
             outerLeft = left
             outerRight = right
