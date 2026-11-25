@@ -37,6 +37,23 @@ class VolumeHeaderTest {
             "vol2.jpg"
     }
 
+    // A merged series' header falls back to its members' covers; the volume's cover stands alone.
+    @Test
+    fun `a picked volume's cover heads a merged series' page without the members' covers behind it`() {
+        val merged = series.copy(
+            details = series.details.copy(header = series.details.header.copy(coverFallbacks = listOf("member.jpg"))),
+        )
+
+        val headed = merged.headedBy(VolumeOwnFiles(cover = "vol2.jpg", description = null), notes = "")
+
+        headed.details.header.cover shouldBe "vol2.jpg"
+    }
+
+    @Test
+    fun `a picked volume still loading shows no description`() {
+        series.headedBy(files = null, notes = "").details.description shouldBe null
+    }
+
     @Test
     fun `a picked volume without a cover keeps the series'`() {
         series.headedBy(VolumeOwnFiles(cover = null, description = null), notes = "").details.header shouldBe

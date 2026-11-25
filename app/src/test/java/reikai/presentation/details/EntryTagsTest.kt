@@ -21,6 +21,11 @@ class EntryTagsTest {
     }
 
     @Test
+    fun `a padded new tag is stored trimmed`() {
+        appendTags(emptyList(), listOf(" Action ")) shouldBe listOf("Action")
+    }
+
+    @Test
     fun `a tag differing from another only in surrounding spaces is not added again`() {
         appendTags(listOf("Fantasy"), listOf(" fantasy ")) shouldBe listOf("Fantasy")
     }

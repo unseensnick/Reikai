@@ -8,10 +8,10 @@ import reikai.presentation.library.seriesGenres
 /**
  * Every way the edit-info dialog adds tags (typed, filled from a tracker, collated from a merge's other
  * sources): the tags already there stay, since they may be the user's own, and the new ones are appended.
- * A tag matching another by [tagKey] is the same tag, and the spelling already on the entry wins.
+ * A tag matching another by [tagKey] is the same tag, and the spelling already on the entry wins. Read as
+ * the library reads tags ([seriesGenres]), so a padded one is stored trimmed.
  */
-fun appendTags(current: List<String>, added: List<String>): List<String> =
-    (current + added).filter { it.isNotBlank() }.distinctBy(::tagKey)
+fun appendTags(current: List<String>, added: List<String>): List<String> = seriesGenres(null, listOf(current, added))
 
 /** What the Add tag field holds, as tags: several may be typed at once, separated by commas. */
 fun typedTags(input: String): List<String> = input.split(",").map { it.trim() }.filter { it.isNotEmpty() }
