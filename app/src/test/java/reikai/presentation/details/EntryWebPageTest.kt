@@ -41,8 +41,9 @@ class EntryWebPageTest {
 
     @ParameterizedTest
     @NullSource
-    @ValueSource(strings = ["", "   "])
-    fun `a missing or blank address gives no page, so the web actions hide`(url: String?) {
+    // Share grants the picked app a read of a content address, and WebView would load a file one.
+    @ValueSource(strings = ["", "   ", "content://app.reikai.provider/cache_files/x", "file:///data/x", "intent://x"])
+    fun `a missing, blank or non-web address gives no page, so the web actions hide`(url: String?) {
         EntryWebPage.of(url, SourceKey.Manga(1L), EntryId.Manga(2L)) shouldBe null
     }
 

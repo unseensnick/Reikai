@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.core.navigation.LocalNavigator
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.domain.source.mangaUrlOrNull
@@ -37,7 +38,8 @@ import java.util.concurrent.ConcurrentHashMap
 data class EntryWebPage(val url: String, val source: SourceKey, val viewed: EntryId) {
     companion object {
         fun of(url: String?, source: SourceKey, viewed: EntryId): EntryWebPage? =
-            url?.takeIf { it.isNotBlank() }?.let { EntryWebPage(it, source, viewed) }
+            // Web addresses only: a source sets this, Share grants a read of a content one, WebView loads a file one.
+            url?.takeIf { it.toHttpUrlOrNull() != null }?.let { EntryWebPage(it, source, viewed) }
     }
 }
 
