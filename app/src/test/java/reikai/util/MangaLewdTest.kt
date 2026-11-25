@@ -2,47 +2,20 @@ package reikai.util
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 
 class MangaLewdTest {
 
-    @Test
-    fun `genre with an adult tag is lewd`() {
-        isLewd(genre = listOf("Action", "Hentai"), sourceName = "MangaDex") shouldBe true
+    /** [sourceName] null is a novel, whose rule reads no source names. */
+    class Case(val name: String, val genres: List<String>?, val sourceName: String?, val isAdult: Boolean) {
+        override fun toString() = name
     }
 
-    @Test
-    fun `adult tag match is case-insensitive`() {
-        isLewd(genre = listOf("ADULT"), sourceName = "MangaDex") shouldBe true
-    }
-
-    @Test
-    fun `the 18+ tag is lewd`() {
-        isLewd(genre = listOf("18+"), sourceName = "MangaDex") shouldBe true
-    }
-
-    @Test
-    fun `clean genres on a clean source are not lewd`() {
-        isLewd(genre = listOf("Action", "Romance"), sourceName = "MangaDex") shouldBe false
-    }
-
-    @Test
-    fun `a known adult source is lewd even with no genres`() {
-        isLewd(genre = null, sourceName = "nhentai") shouldBe true
-    }
-
-    @Test
-    fun `the Hitomi source is lewd by its name`() {
-        isLewd(genre = null, sourceName = "Hitomi") shouldBe true
-    }
-
-    @Test
-    fun `a clean source with no genres is not lewd`() {
-        isLewd(genre = null, sourceName = "MangaDex") shouldBe false
-    }
-
-    @Test
-    fun `a null source name with clean genres is not lewd`() {
-        isLewd(genre = listOf("Comedy"), sourceName = null) shouldBe false
+    @ParameterizedTest
+    @MethodSource("cases")
+    fun `the adult rule over genres and source names`(case: Case) {
+        isAdultEntry(adultSource = false, sourceName = case.sourceName, genres = case.genres) shouldBe case.isAdult
     }
 
     @Test
@@ -50,21 +23,22 @@ class MangaLewdTest {
         isAdultEntry(adultSource = true, sourceName = null, genres = listOf("Comedy")) shouldBe true
     }
 
-    @Test
-    fun `a manga tagged only Mature is not adult`() {
-        isLewd(genre = listOf("Action", "Mature"), sourceName = "MangaDex") shouldBe false
+    companion object {
+        @JvmStatic
+        fun cases() = listOf(
+            Case("an adult tag", listOf("Action", "Hentai"), "MangaDex", true),
+            Case("a tag in another case", listOf("ADULT"), "MangaDex", true),
+            Case("the 18+ tag", listOf("18+"), "MangaDex", true),
+            Case("clean genres on a clean source", listOf("Action", "Romance"), "MangaDex", false),
+            Case("a known adult source with no genres", null, "nhentai", true),
+            Case("the Hitomi source by its name", null, "Hitomi", true),
+            Case("a clean source with no genres", null, "MangaDex", false),
+            Case("a novel with clean genres", listOf("Comedy"), null, false),
+            Case("a manga tagged only Mature", listOf("Action", "Mature"), "MangaDex", false),
+            Case("a novel tagged only Mature", listOf("Fantasy", "Mature"), null, false),
+            Case("a novel tagged Smut", listOf("Mature", "Smut"), null, true),
+            Case("a novel tagged Young Adult", listOf("Fantasy", "Young Adult"), null, false),
+            Case("a manga tagged Adult Cast", listOf("Drama", "Adult Cast"), "MangaDex", false),
+        )
     }
-
-    @Test
-    fun `a novel tagged only Mature is not adult`() {
-        isLewd(genre = listOf("Fantasy", "Mature"), sourceName = null) shouldBe false
-    }
-
-    @Test
-    fun `a novel tagged Smut is adult`() {
-        isLewd(genre = listOf("Mature", "Smut"), sourceName = null) shouldBe true
-    }
-
-    private fun isLewd(genre: List<String>?, sourceName: String?) =
-        isAdultEntry(adultSource = false, sourceName = sourceName, genres = genre)
 }

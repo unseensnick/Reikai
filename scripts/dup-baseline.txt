@@ -60,7 +60,6 @@
 # - BulkFavoriteViewModel / NovelBulkFavoriteViewModel: the two per-type facades over the shared
 #   bulk engine; Metro annotations, the app-scope parameter and the overrides the base forces, each
 #   delegating to its own adder. Pinned by BulkAddConformanceTest.
-app/src/main/java/eu/kanade/domain/chapter/interactor/SyncChaptersWithSource.kt	app/src/main/java/reikai/data/novel/NovelChapterSync.kt	a3dbd4a121a97b83
 app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	2bbcb70481ae4872
 app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	38f3f7e648005bc6
 app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/MangaBackupCreator.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	77c2ef3440169b61
@@ -91,10 +90,10 @@ app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/no
 app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
 app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	b6209dcf8a65ef21
 app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
+app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	64ea0f137ea77c7e
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	7c09e819292482f9
-app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	ab7a4a180d52c1ff
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	abfb0aee4c193079
-app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f8fd4931f292a0fc
+app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	d8a45d731bac3777
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f95131f6c1c7530a
 app/src/main/java/mihon/domain/migration/usecases/MigrateMangaUseCase.kt	app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt	0293ae2b95a48ec3
 app/src/main/java/reikai/data/local/CombineLocalVolumes.kt	app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt	045731c0963b2e88
