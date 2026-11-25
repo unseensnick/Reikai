@@ -1,5 +1,6 @@
 package reikai.domain.chapter
 
+import reikai.util.DisjointSet
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import kotlin.math.floor
 
@@ -19,11 +20,7 @@ fun <T> List<T>.chapterCopySets(
     markOf: (T) -> CopyMark? = { null },
 ): List<List<T>> {
     val marks = map(markOf)
-    val root = IntArray(size) { it }
-    fun find(i: Int): Int = if (root[i] == i) i else find(root[i]).also { root[i] = it }
-    fun join(i: Int, j: Int) {
-        root[find(j)] = find(i)
-    }
+    val copies = DisjointSet<Int>()
     indices.filter { marks[it] != CopyMark.NeverSkip }
         .groupBy { ownerOf(this[it]) to chapterNumberKey(numberOf(this[it])) }.values.forEach { sameNumber ->
             val number = numberOf(this[sameNumber.first()])
@@ -31,15 +28,15 @@ fun <T> List<T>.chapterCopySets(
             val written = sameNumber.map { WrittenChapter(nameOf(this[it]), number, originOf(this[it])) }
             for (a in sameNumber.indices) {
                 for (b in a + 1 until sameNumber.size) {
-                    if (written[a].isCopyOf(written[b])) join(sameNumber[a], sameNumber[b])
+                    if (written[a].isCopyOf(written[b])) copies.union(sameNumber[a], sameNumber[b])
                 }
             }
         }
     indices.filter { marks[it] is CopyMark.Group }
         .groupBy { ownerOf(this[it]) to marks[it] }.values
-        .forEach { grouped -> grouped.drop(1).forEach { join(grouped.first(), it) } }
+        .forEach { grouped -> grouped.drop(1).forEach { copies.union(grouped.first(), it) } }
     // Grouping by root in index order keeps each set in list order and the sets in first-member order.
-    return indices.groupBy(::find).values.map { members -> members.map { this[it] } }
+    return indices.groupBy(copies::find).values.map { members -> members.map { this[it] } }
 }
 
 /** What a chapter's name says about the number it is stored under, read once per same-numbered set. */
