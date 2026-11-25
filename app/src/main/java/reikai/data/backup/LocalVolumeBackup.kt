@@ -7,6 +7,7 @@ import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
+import reikai.novel.local.LocalNovelSource.Companion.isChildName
 
 /**
  * Writes each local series' own volume rows (saved order and names, the volumes it lists from other folders, the
@@ -49,5 +50,14 @@ suspend fun BackupLocalVolumeFields.restoreLocalVolumes(
     volumePick?.let { picks.restore(type, url, it) }
 }
 
-/** The owner rows the local series at [url] carried: the volumes it lists from other folders. */
-fun BackupLocalVolumeFields.restoredOwners(url: String): List<VolumeOwner> = volumeOwners.map { it.toOwner(url) }
+/**
+ * The owner rows the local series at [url] carried: the volumes it lists from other folders. A row naming more
+ * than one entry of a folder is dropped, since the backup is outside input and a `..` or a separator would list,
+ * delete or move files outside the local folder.
+ */
+fun BackupLocalVolumeFields.restoredOwners(url: String): List<VolumeOwner> = volumeOwners
+    .filter { isChildName(it.folder) && (it.volume in KEYWORD_VOLUMES || isChildName(it.volume)) }
+    .map { it.toOwner(url) }
+
+// A folder's loose chapters and its whole contents, the two volume names that are no entry of their own.
+private val KEYWORD_VOLUMES = setOf(VolumeOwner.LOOSE, VolumeOwner.WHOLE)
