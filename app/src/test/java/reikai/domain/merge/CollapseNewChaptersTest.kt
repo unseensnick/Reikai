@@ -110,4 +110,13 @@ class CollapseNewChaptersTest {
 
         read shouldBe listOf(7L)
     }
+
+    @Test
+    @DisplayName("a details refresh queues one copy per merged chapter and keeps a chapter the stitch has not placed")
+    fun refreshQueuesOneCopy() {
+        val fetched = listOf(1L to Row(10), 2L to Row(20), 2L to Row(11), 2L to Row(99))
+
+        fetched.onePerMergedChapter(7L, stitch, { it.first }, { it.second.id }).map { it.second.id } shouldBe
+            listOf(10L, 11L, 99L)
+    }
 }

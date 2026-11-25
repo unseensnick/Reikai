@@ -93,6 +93,7 @@ import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.RemovalPrompt
 import reikai.domain.merge.mergeMemberName
+import reikai.domain.merge.onePerMergedChapter
 import reikai.domain.merge.refreshMergeGroup
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
@@ -1066,7 +1067,12 @@ class NovelDetailsViewModel(
                     sourceOf = { siblingSources.value[it.id] },
                     refresh = { novel, src -> runCatchingCancellable { refreshNovel(src, novel, toDownload) } },
                 )
-                if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
+                // Once per merged chapter, as a library update queues them.
+                val queued = mergeManager.groupIdOf(loaded.novel.id)?.let { groupId ->
+                    val stitch = mergedChapterProvider.stitchOf(loaded.novel.id)
+                    toDownload.onePerMergedChapter(groupId, stitch, { it.novelId }, { it.id })
+                } ?: toDownload
+                if (queued.isNotEmpty()) downloadManager.downloadChapters(queued)
                 firstError?.let { e ->
                     // A local series whose folder is gone may have been renamed outside the app, so the folders
                     // holding its files are offered in place of the failure, as the manga details do; a failure

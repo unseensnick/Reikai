@@ -132,6 +132,7 @@ import reikai.domain.merge.MergeScope
 import reikai.domain.merge.RemovalPrompt
 import reikai.domain.merge.gapPresent
 import reikai.domain.merge.mergeMemberName
+import reikai.domain.merge.onePerMergedChapter
 import reikai.domain.merge.refreshMergeGroup
 import reikai.domain.merge.toGapNeighbour
 import reikai.domain.recommendation.PrepareRecommendationAssembly
@@ -1647,9 +1648,15 @@ class MangaViewModel(
         appScope.launch {
             // RK --> a merged group's new chapters are judged against their own member, as novels' are
             val state = successState ?: return@launch
-            val chaptersToDownload = chapters.groupBy { it.mangaId }.flatMap { (mangaId, owned) ->
+            // and queued once per merged chapter, as a library update queues them
+            val eligible = chapters.groupBy { it.mangaId }.flatMap { (mangaId, owned) ->
                 filterChaptersForDownload.await(ownerOf(mangaId, state), owned)
             }
+            val chaptersToDownload = mergeManager.groupIdOf(mangaId)?.let { groupId ->
+                eligible.onePerMergedChapter(groupId, mergedChapterProvider.stitchOf(mangaId), {
+                    it.mangaId
+                }, { it.id })
+            } ?: eligible
             // RK <--
 
             if (chaptersToDownload.isNotEmpty()) {

@@ -252,6 +252,22 @@ suspend fun <T> collapseNewChapters(
 }
 
 /**
+ * [this], chapters one refresh of group [groupId] fetched, with one copy per merged chapter, deduplicated by
+ * [CollapsedArrivals.dedupeKey] as an update run deduplicates its downloads. [stitch] must be current, so read
+ * it through the reconciliation; which copy stays is not decided, since eligibility is per entry.
+ */
+fun <T> List<T>.onePerMergedChapter(
+    groupId: Long,
+    stitch: List<ChapterUnit>,
+    entryOf: (T) -> Long,
+    id: (T) -> Long,
+): List<T> {
+    val byEntry = groupBy(entryOf)
+    val arrivals = collapseNewChapters(byEntry, byEntry.mapValues { groupId }, mapOf(groupId to stitch), id)
+    return distinctBy { arrivals.dedupeKey(id(it)) }
+}
+
+/**
  * Every chapter that is the same merged chapter as one of [chapterIds], the given ones included. What
  * an action taken on the merged list has to reach, so marking a chapter read marks the group's copies
  * of it and not a chapter a few along that happens to share a number.

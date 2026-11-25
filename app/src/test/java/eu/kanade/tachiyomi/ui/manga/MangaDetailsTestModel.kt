@@ -84,6 +84,8 @@ internal fun mangaDetailsModel(
     val mergeManager = mockk<MangaMergeManager> {
         coEvery { computeRelatedIds(any()) } returns group
         every { relatedIdsChanges() } returns flowOf(Unit)
+        // Any id: only a details refresh reads it, to queue one copy per merged chapter of the stitch
+        coEvery { groupIdOf(any()) } returns 1L.takeIf { group.size > 1 }
     }
     val mergedChapterProvider = mockk<MergedChapterProvider> {
         coEvery { stitchOf(any()) } returns stitch
