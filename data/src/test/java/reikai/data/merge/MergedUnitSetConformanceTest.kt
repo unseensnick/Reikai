@@ -76,17 +76,30 @@ class MergedUnitSetConformanceTest {
         answers(type, group) shouldBe Answers(1, setOf(1L, 2L), setOf(1L), setOf(10L))
     }
 
-    // The download read picks one of two queries by cost, so both must leave out the same copies.
+    // The download read picks one of two queries by cost, so both must leave out the same copies, each
+    // asked for the owner whose copy is left out.
     @ParameterizedTest
     @EnumSource(names = ["MANGA", "NOVELS"])
-    fun `the download read through the owner index returns what reading every row does`(type: ContentType) =
-        runTest {
-            stitchedGroup(type, otherCopy = 20L, otherOwner = 2L)
-            val owners = setOf(1L, 3L)
+    fun `both download reads leave out a copy on a member outside the library`(type: ContentType) = runTest {
+        stitchedGroup(type, otherCopy = 30L, otherOwner = 3L)
 
-            units.downloadUnitRows(type, owners, readAll = false) shouldBe
-                units.downloadUnitRows(type, owners, readAll = true)
-        }
+        downloadOwnersByPath(type, setOf(1L, 3L)) shouldBe listOf(setOf(1L), setOf(1L))
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = ["MANGA", "NOVELS"])
+    fun `both download reads leave out a copy an excluded scanlator hides`(type: ContentType) = runTest {
+        assumeTrue(type == ContentType.MANGA, "novels have no scanlators to exclude")
+        stitchedGroup(type, otherCopy = 20L, otherOwner = 2L)
+        driver.execute(null, "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (2, 'hidden')", 0).await()
+
+        downloadOwnersByPath(type, setOf(1L, 2L)) shouldBe listOf(setOf(1L), setOf(1L))
+    }
+
+    /** The owners of the download rows for [owners], through the owner index and then by reading every row. */
+    private suspend fun downloadOwnersByPath(type: ContentType, owners: Set<Long>) = listOf(false, true).map {
+        units.downloadUnitRows(type, owners, readAll = it).mapTo(HashSet()) { row -> row.ownerId }
+    }
 
     private suspend fun answers(type: ContentType, group: Long): Answers {
         val entriesWithUnread = when (type) {
