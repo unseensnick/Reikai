@@ -16,10 +16,10 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mihon.core.metro.AppCoroutineScope
@@ -67,6 +68,7 @@ import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import reikai.presentation.selection.SelectionStore
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.Preference
@@ -550,12 +552,21 @@ class LibraryEngine(
      */
     fun moveInCategory(category: Category, order: List<LibraryItem>) {
         val tiles = order.map { item -> item.memberIds().mapTo(HashSet()) { item.entryId.contentType to it } }
-        val move = appScope.async(Dispatchers.IO) {
-            manualOrderLane.withLock {
-                val previous = manualOrderRepository.getCategory(category.id)
-                manualOrderRepository.replaceCategory(category.id, reorderedPositions(category.id, previous, tiles))
-                previous
+        val move = CompletableDeferred<List<ManualOrderPosition>>()
+        // Launched rather than async, so a failed write reaches the app scope's handler and not only an Undo.
+        appScope.launch(Dispatchers.IO) {
+            runCatching {
+                manualOrderLane.withLock {
+                    val previous = manualOrderRepository.getCategory(category.id)
+                    manualOrderRepository.replaceCategory(category.id, reorderedPositions(category.id, previous, tiles))
+                    previous
+                }
             }
+                .onSuccess(move::complete)
+                .onFailure {
+                    move.completeExceptionally(it)
+                    throw it
+                }
         }
         undoableMove = category.id to move
     }
@@ -565,7 +576,8 @@ class LibraryEngine(
         val (categoryId, move) = undoableMove ?: return
         undoableMove = null
         appScope.launchIO {
-            val previous = move.await()
+            // A failed move changed nothing, and its failure is already reported.
+            val previous = runCatchingCancellable { move.await() }.getOrNull() ?: return@launchIO
             manualOrderLane.withLock { manualOrderRepository.replaceCategory(categoryId, previous) }
         }
     }
