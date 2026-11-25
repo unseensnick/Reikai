@@ -62,8 +62,14 @@ class LibraryEngineTest {
     @RegisterExtension
     val main = MainDispatcherExtension()
 
-    private fun provider(type: ContentType, rows: List<LibraryItem> = emptyList()): LibraryProvider {
+    private fun provider(
+        type: ContentType,
+        rows: List<LibraryItem> = emptyList(),
+        axes: List<LibraryFilterAxis> = emptyList(),
+    ): LibraryProvider {
         val provider = mockk<LibraryProvider>(relaxed = true)
+        every { provider.settings } returns
+            LibraryProviderSettings(MutableStateFlow(axes), MutableStateFlow(emptyList()))
         every { provider.contentType } returns type
         every { provider.rows } returns flowOf(rows)
         every { provider.state } returns MutableStateFlow(screenState)
@@ -214,6 +220,18 @@ class LibraryEngineTest {
         val engine = engineOver(listOf(manga, novels), hides = hides)
 
         engine.settingsFor(ContentType.ALL).tagFilter.seriesTags() shouldBe listOf(listOf("Drama"), listOf("Mystery"))
+    }
+
+    /** The axes differ only by the custom-interval one, which each type shows by its own restrictions. */
+    @Test
+    fun `the All view shows an axis only the novel side shows`() {
+        val shared = LibraryFilterAxis(MR.strings.label_downloaded, mockk())
+        val interval = LibraryFilterAxis(MR.strings.action_filter_interval_custom, mockk())
+        val manga = provider(ContentType.MANGA, axes = listOf(shared))
+        val novels = provider(ContentType.NOVELS, axes = listOf(shared, interval))
+
+        engineOver(listOf(manga, novels)).settingsFor(ContentType.ALL).filterAxes.value shouldBe
+            listOf(shared, interval)
     }
 
     @Test

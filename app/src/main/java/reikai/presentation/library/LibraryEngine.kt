@@ -493,12 +493,17 @@ class LibraryEngine(
     )
 
     /**
-     * Since the filter unification every axis writes a library-wide preference, so the All view is the
-     * manga part (the axis superset: novels only omit the debug interval axis) over every category.
+     * Every axis writes a library-wide preference, so the All view shows each axis either type shows, over
+     * every category. Each type's axes are libraryFilterAxes over its own update restrictions, so they differ
+     * only by the custom-interval axis, and the longer list holds every axis of the other.
      */
     private fun providerSettingsFor(contentType: ContentType): LibraryProviderSettings {
         providersFor(contentType).singleOrNull()?.let { return it.settings }
+        val axes = providers.map { it.settings.filterAxes }
+        fun widest(lists: List<List<LibraryFilterAxis>>) = lists.maxBy { it.size }
         return providersFor(ContentType.MANGA).single().settings.copy(
+            filterAxes = combine(axes) { widest(it.toList()) }
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), widest(axes.map { it.value })),
             categories = categoryRepository.subscribeAllInCategoryOrder(reikaiLibraryPreferences)
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
         )
