@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.Color
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import io.mockk.coVerify
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -31,6 +31,7 @@ import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
 import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
@@ -402,8 +403,14 @@ class NovelDetailsFetchTest {
     /** The last update failed on page 2 and kept the count at one, so page 2 opened since and holds new chapters. */
     @Test
     fun `a page the last update failed on brings new chapters when details fetches it`() = runTest {
-        val filter = mockk<FilterNovelChaptersForDownload>(relaxed = true)
-        NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+        val filtered = CompletableDeferred<List<String>>()
+        val filter = mockk<FilterNovelChaptersForDownload> {
+            coEvery { await(any(), any()) } answers {
+                filtered.complete(secondArg<List<NovelChapter>>().map { it.url })
+                emptyList()
+            }
+        }
+        val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             harness.filterChaptersForDownload = filter
             val source = harness.source("alpha")
             source.pageChapters["2"] = listOf(ChapterItem("Two", "/2"))
@@ -413,9 +420,10 @@ class NovelDetailsFetchTest {
             val model = harness.openDetails(novel)
             model.awaitLoaded { it.pages.size == 3 && it.sourceName == "alpha" }
             model.selectPage(1)
-            withTimeout(10_000) { while ("2" !in source.pagesAsked) delay(20) }
-            coVerify(timeout = 10_000) { filter.await(any(), match { new -> new.map { it.url } == listOf("/2") }) }
+            withTimeout(10_000) { filtered.await() }
         }
+
+        asked shouldBe listOf("/2")
     }
 
     @Test

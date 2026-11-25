@@ -5,7 +5,6 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -66,7 +65,7 @@ class OrganizeUndoHandOverTest {
 
         snackbar.currentSnackbarData?.performAction()
 
-        coVerify(timeout = 5_000) { move.undo() }
+        compose.waitUntil(5_000) { undone }
         verify(exactly = 0) { move.finish() }
     }
 
@@ -85,13 +84,20 @@ class OrganizeUndoHandOverTest {
         compose.waitUntil(5_000) { snackbar.currentSnackbarData != null }
         snackbar.currentSnackbarData?.performAction()
 
-        coVerify(timeout = 5_000) { move.undo() }
+        compose.waitUntil(5_000) { undone }
         verify(exactly = 0) { move.finish() }
     }
 
+    // Set by the fake's undo, which a wait can poll without blocking the frames that run it.
+    @Volatile
+    private var undone = false
+
     private fun movedMove() = mockk<LocalVolumeMove>(relaxed = true) {
         every { result } returns LocalMoveResult.Moved
-        coEvery { undo() } returns LocalMoveResult.Moved
+        coEvery { undo() } answers {
+            undone = true
+            LocalMoveResult.Moved
+        }
     }
 
     /** This screen, opened by [move]'s request to organize, once it shows the move's snackbar. */
