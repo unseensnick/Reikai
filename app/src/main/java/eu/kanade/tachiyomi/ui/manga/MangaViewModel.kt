@@ -619,6 +619,7 @@ class MangaViewModel(
             gapPresent = view.hidden.gapPresent,
             numberHints = view.numberHints,
             resumeChapter = view.hidden.resumeChapter,
+            storedChapters = view.hidden.storedChapters,
             customInfo = merge.customInfo,
             chipCustomInfo = merge.chipCustomInfo,
             seedColor = extras.seedColor,
@@ -1302,6 +1303,7 @@ class MangaViewModel(
         val hiddenChapterIds: Set<Long>,
         val gapPresent: ChapterGap.Present,
         val resumeChapter: Chapter?,
+        val storedChapters: List<Chapter>,
     )
 
     /** Drop hidden chapters from [items] unless the user is temporarily showing them, and compute the
@@ -1328,6 +1330,7 @@ class MangaViewModel(
             hiddenChapterIds,
             gapPresent,
             resumeChapter,
+            items.map { it.chapter },
         )
     }
 
@@ -2120,6 +2123,8 @@ class MangaViewModel(
             val numberHints: Map<Long, ChapterNumberHint.Hint> = emptyMap(),
             // RK: where Resume opens, hidden chapters last (getNextUnread); null when everything is read.
             val resumeChapter: Chapter? = null,
+            // RK: every chapter before hidden rows drop, whose volumes the volume dialogs act on.
+            val storedChapters: List<Chapter> = emptyList(),
             // RK: the manga's custom-info overlay (null = none), applied at the display layer via
             // Manga.withCustomInfo. Never folded into the raw `manga` field above, which stays
             // source-accurate for tracker search, refresh, duplicate detection, downloads, etc.

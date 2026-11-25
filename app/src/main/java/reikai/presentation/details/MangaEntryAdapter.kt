@@ -142,10 +142,9 @@ class MangaEntryAdapter(
                         )
                     }
                 },
+                // Before hiding and filters, as the novel's stored rows, so a volume the list hides keeps its chip.
                 volumes = chapterOwners().let { owners ->
-                    chapters.mapNotNull {
-                        mangaChapterVolume(owners[it.chapter.mangaId], it.chapter.url, it.chapter.name)
-                    }
+                    storedChapters.mapNotNull { mangaChapterVolume(owners[it.mangaId], it.url, it.name) }
                 },
             ),
             capabilities = EntryCapabilities(

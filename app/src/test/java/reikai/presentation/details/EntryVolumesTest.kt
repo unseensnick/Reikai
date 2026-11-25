@@ -3,6 +3,8 @@ package reikai.presentation.details
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.library.ContentType
@@ -12,14 +14,16 @@ import tachiyomi.domain.manga.model.Manga
 /** How a local series' chapter list is grouped under its volumes, for both types' addresses. */
 class EntryVolumesTest {
 
-    // Ticked with another, it stopped the delete before that one too, since it is no one thing to delete.
-    @Test
-    fun `Delete volumes leaves out the loose files shown as Extras`() {
-        val extras = EntryChapterListItem.Volume("Saga", VolumeOwner.LOOSE, VolumeLabel.Loose, listOf(1L), 0)
+    // Ticked with another, it stopped the delete before that one too, since it is no one thing to delete. A folder
+    // combined in keys its loose files under its own name.
+    @ParameterizedTest
+    @ValueSource(strings = [VolumeOwner.LOOSE, "Other/"])
+    fun `Delete volumes leaves out the loose files shown as Extras`(looseKey: String) {
+        val extras = EntryChapterListItem.Volume("Saga", looseKey, VolumeLabel.Loose, listOf(1L), 0)
         val vol1 = EntryChapterListItem.Volume("Saga", "Vol 1", VolumeLabel.Number(1.0), listOf(2L), 0)
         val structural = VolumeView(listOf(extras, vol1), picked = null, items = emptyList())
 
-        volumesToDelete(structural, null, listOf(VolumeOwner.LOOSE, "Vol 1")).map { it.key } shouldBe listOf("Vol 1")
+        volumesToDelete(structural, null, listOf(looseKey, "Vol 1")).map { it.key } shouldBe listOf("Vol 1")
     }
 
     private fun row(id: Long, volume: ChapterVolume?, read: Boolean = false) = EntryChapterListItem.Chapter(
