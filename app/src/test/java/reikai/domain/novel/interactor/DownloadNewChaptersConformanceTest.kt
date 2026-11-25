@@ -66,6 +66,14 @@ class DownloadNewChaptersConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Side::class)
+    fun `an entry in both an included and an excluded category downloads nothing`(side: Side) = runTest {
+        val filter = side.filter(enabled = true, included = setOf(CATEGORY), excluded = setOf(CATEGORY))
+
+        filter.newNumbers(favorite = true, new = listOf(1.0)).shouldContainExactly()
+    }
+
+    @ParameterizedTest
+    @EnumSource(Side::class)
     fun `an entry outside every included category downloads nothing`(side: Side) = runTest {
         val filter = side.filter(enabled = true, included = setOf(CATEGORY + 1))
 
@@ -94,6 +102,15 @@ class DownloadNewChaptersConformanceTest {
         val filter = side.filter(enabled = true, unreadOnly = true, read = listOf(1.0))
 
         filter.newNumbers(favorite = true, new = listOf(1.0, 2.0)) shouldContainExactly listOf(2.0)
+    }
+
+    // An unrecognised number names no chapter, so a read one numbered -1 skips no new one numbered -1.
+    @ParameterizedTest
+    @EnumSource(Side::class)
+    fun `with unread only an unrecognised number skips nothing`(side: Side) = runTest {
+        val filter = side.filter(enabled = true, unreadOnly = true, read = listOf(-1.0))
+
+        filter.newNumbers(favorite = true, new = listOf(-1.0)) shouldContainExactly listOf(-1.0)
     }
 
     fun interface Filter {
