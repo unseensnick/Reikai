@@ -215,11 +215,9 @@ class MangaEntryAdapter(
         return successState()?.chapters.orEmpty().filter { it.id in wanted }.map { it.chapter }
     }
 
-    /** The selection over the filtered rows on screen, never over the full chapter list behind them. */
-    private fun MangaViewModel.State.Success.visibleSelection(): Set<Long> = EntrySelection.selectedAmong(
-        chapters.filter { it.selected }.mapTo(HashSet()) { it.id },
-        processedChapters.map { it.id },
-    )
+    // The model marks only the filtered rows on screen selected, never the full chapter list behind them.
+    private fun MangaViewModel.State.Success.visibleSelection(): Set<Long> =
+        chapters.filter { it.selected }.mapTo(HashSet()) { it.id }
 
     private fun selectedItems(): List<ChapterList.Item> {
         val state = successState() ?: return emptyList()

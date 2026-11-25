@@ -165,7 +165,7 @@ class NovelEntryAdapter(
             selectedSourceId = selectedSourceNovelId,
             hasActiveFilter = chapterFilters.isActive,
             isRefreshing = isRefreshing,
-            selection = EntrySelection.selectedAmong(selection, chapters.map { it.id }),
+            selection = selection,
             resumeChapterId = resumeChapter?.id,
             hasStarted = hasStarted,
             hasViewedDownloads = downloadFolderOwner != null,
@@ -294,8 +294,7 @@ class NovelEntryAdapter(
 
     override fun selectedMarkable(): List<MarkableChapter> {
         val loaded = loadedState() ?: return emptyList()
-        val ids = EntrySelection.selectedAmong(loaded.selection, loaded.chapters.map { it.id })
-        return loaded.chapters.filter { it.id in ids }.map { MarkableChapter(it.novelId, it.url) }
+        return loaded.chapters.filter { it.id in loaded.selection }.map { MarkableChapter(it.novelId, it.url) }
     }
     override fun showEditInfoDialog() {
         model.showEditNovelInfoDialog()
