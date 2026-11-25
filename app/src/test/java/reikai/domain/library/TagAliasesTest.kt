@@ -24,7 +24,7 @@ class TagAliasesTest {
     }
 
     @Test
-    fun `an alias onto an alias points at the end of the chain`() {
+    fun `an alias onto a tag that becomes an alias moves to the new target`() {
         val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
         preferences.addTagAlias("SF", "Sci-fi")
         preferences.addTagAlias("Sci-fi", "Science Fiction")
@@ -44,5 +44,21 @@ class TagAliasesTest {
         preferences.filterTagsInclude.set(setOf("sci fi"))
         preferences.addTagAlias("Sci-fi", "Science Fiction")
         preferences.filterTagsInclude.get() shouldBe setOf("science fiction")
+    }
+
+    @Test
+    fun `an alias onto an existing alias points at the end of the chain`() {
+        val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
+        preferences.addTagAlias("Sci-fi", "Science Fiction")
+        preferences.addTagAlias("SF", "Sci-fi")
+        preferences.currentTagAliases().resolve("SF") shouldBe "Science Fiction"
+    }
+
+    @Test
+    fun `a tag the filter hides moves to the tag it now reads as`() {
+        val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
+        preferences.filterTagsExclude.set(setOf("sci fi"))
+        preferences.addTagAlias("Sci-fi", "Science Fiction")
+        preferences.filterTagsExclude.get() shouldBe setOf("science fiction")
     }
 }
