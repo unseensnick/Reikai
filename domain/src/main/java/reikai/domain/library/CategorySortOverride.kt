@@ -8,8 +8,8 @@ import tachiyomi.domain.library.model.LibrarySort
  * the category keeps its own sort (an override), otherwise it follows the global library sort. It sits
  * below Mihon's sort type/direction bits (2-6) and the Reikai hidden bit (7), so it never collides.
  *
- * Lives in the domain module (not app, like the hidden bit) because the write/reset interactors
- * (`SetSortModeForCategory`, `ResetCategoryFlags`) are Mihon domain interactors that need it.
+ * Lives in the domain module because `SetSortModeForCategory`, a Mihon domain interactor, writes it.
+ * category.sq `clearSortOverrides` clears it as the literal `flags & ~1`, so a move of this bit moves that too.
  */
 const val CATEGORY_SORT_CUSTOMIZED = 0b1L
 

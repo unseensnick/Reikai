@@ -14,8 +14,8 @@ import tachiyomi.domain.manga.model.Manga
  * views, grids, hopper, badges, and selection render novels with no changes. The synthetic [Manga]
  * carries the novel's own real id; identity across content types comes from [EntryId], never from
  * the raw id, since a manga and a novel may share one. `source` is left at the factory default
- * since novels use a String source id (the language badge is fed [sourceLanguage] resolved by the
- * screen model instead).
+ * since novels use a String source id (the language badge is fed [sourceLanguage], which NovelLibraryRows
+ * resolves from the source and a local series' own language).
  */
 fun LibraryNovel.toLibraryItem(
     badgePrefs: LibraryBadgePrefs,

@@ -55,8 +55,8 @@ interface LibraryProvider : LibraryBehavior {
 
     /**
      * Apply this type's display-only custom title/cover overlay to one of its rows. The assembly emits
-     * raw rows (filter, sort and selection must never see an override), so the display read applies the
-     * overlay through this seam, per category and only for what is actually rendered.
+     * raw rows (filter, sort and selection must never see an override); the engine then overlays every
+     * assembled row through this seam on Default, so the main-thread reads only take finished rows.
      */
     fun overlaid(item: LibraryItem): LibraryItem
 
