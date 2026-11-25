@@ -34,9 +34,7 @@ interface CategoryRepository {
     // RK: getCategoriesByNovelId for many novels at once, for a backup built a chunk at a time
     suspend fun getCategoriesByNovelIds(novelIds: List<Long>): Map<Long, List<Category>>
 
-    // RK: contentType picks the manga (default) or novel insert; returns the new row id for the novel
-    // create/restore paths that need it. Manga callers ignore the returned id.
-    suspend fun insert(category: NewCategory): Long
+    suspend fun insert(category: NewCategory)
 
     suspend fun insertAll(categories: List<NewCategory>)
 

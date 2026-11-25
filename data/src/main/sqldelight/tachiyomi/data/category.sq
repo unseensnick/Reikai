@@ -121,6 +121,3 @@ JOIN novels_categories NC
 ON C.id = NC.category_id
 WHERE NC.novel_id IN :novelIds
 ORDER BY NC.novel_id, C.`order`;
-
-selectLastInsertedRowId:
-SELECT last_insert_rowid();

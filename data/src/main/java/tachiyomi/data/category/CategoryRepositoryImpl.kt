@@ -1,7 +1,6 @@
 package tachiyomi.data.category
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
-import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
@@ -106,19 +105,14 @@ class CategoryRepositoryImpl(
             .groupBy({ it.first }, { it.second })
     }
 
-    // RK --> contentType is written straight through, so a universal category (0) is expressible and not
-    // silently demoted to manga. Returns the new row id for the create/restore paths that key off it.
-    override suspend fun insert(category: NewCategory): Long {
-        return database.transactionWithResult {
-            database.categoryQueries.insert(
-                name = category.name,
-                flags = category.flags,
-                contentType = category.contentType,
-            )
-            database.categoryQueries.selectLastInsertedRowId().awaitAsOne()
-        }
+    override suspend fun insert(category: NewCategory) {
+        // RK: contentType is written straight through, so a universal category (0) is not demoted to manga
+        database.categoryQueries.insert(
+            name = category.name,
+            flags = category.flags,
+            contentType = category.contentType,
+        )
     }
-    // RK <--
 
     override suspend fun insertAll(categories: List<NewCategory>) {
         database.transaction {
