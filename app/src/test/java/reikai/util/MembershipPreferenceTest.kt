@@ -1,7 +1,10 @@
 package reikai.util
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -10,9 +13,13 @@ class MembershipPreferenceTest {
 
     @Test
     fun `a write to the set from elsewhere shows on the switch`() = runTest {
-        val set = EmittingPreferenceStore().getStringSet("s", emptySet())
-        set.set(setOf("eh"))
-        set.containing("eh").changes().first() shouldBe true
+        val set = EmittingPreferenceStore().getStringSet("s", setOf("eh"))
+        val seen = async { set.containing("eh").changes().take(2).toList() }
+        runCurrent()
+
+        set.set(setOf("other"))
+
+        seen.await() shouldBe listOf(true, false)
     }
 
     @Test
