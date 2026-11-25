@@ -12,7 +12,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.recommendation.taste.TrackStatus
-import reikai.presentation.library.mixedLibraryItemSortFields
+import reikai.presentation.library.libraryItemSortFields
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.manga.model.CustomMangaInfo
@@ -87,7 +87,7 @@ class StatsSeriesListTest {
             LibrarySort.Type.Alphabetical.toSortMode(),
             true,
             0L,
-            mixedLibraryItemSortFields { -1.0 },
+            libraryItemSortFields { -1.0 },
         )
         rows.sortedForDisplay(alphabetical, custom).map { it.libraryManga.manga.title } shouldBe
             listOf("Zeta", "Gamma")

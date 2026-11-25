@@ -70,7 +70,7 @@ class LibraryAssemblyTest {
         categorySortOrder = categorySortOrder,
     )
 
-    private val fields = mixedLibraryItemSortFields { -1.0 }
+    private val fields = libraryItemSortFields { -1.0 }
 
     // assembleLibrary is the real-category path, so every bucket it answers is a Real one.
     private val LibraryBucket.categoryId: Long
@@ -213,7 +213,7 @@ class LibraryAssemblyTest {
             ),
             categories = listOf(category(10)),
             inputs = inputs(sort = LibrarySort(LibrarySort.Type.TrackerMean, LibrarySort.Direction.Ascending)),
-            fields = mixedLibraryItemSortFields { means[it.id] },
+            fields = libraryItemSortFields { means[it.id] },
         )
         titlesByCategory(result) shouldBe listOf(10L to listOf("B", "A"))
     }

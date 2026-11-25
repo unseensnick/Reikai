@@ -44,8 +44,8 @@ import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.LibraryGridState
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.isHiddenFromLibrary
+import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.meansOf
-import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionStore
@@ -174,7 +174,7 @@ internal fun hiddenRowsInOrder(
 ): List<LibraryItem> {
     val shown = rows.filter { isHiddenFromLibrary(it, hidden) }
     val means = tracks?.meansOf(shown).orEmpty()
-    val fields = mixedLibraryItemSortFields { means[it.entryId] }
+    val fields = libraryItemSortFields { means[it.entryId] }
     val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, seed, fields)
     return shown.sortedForDisplay(comparator, customInfo)
 }

@@ -36,8 +36,8 @@ import reikai.presentation.library.EntryTracks
 import reikai.presentation.library.LibraryGridState
 import reikai.presentation.library.LibraryResume
 import reikai.presentation.library.MangaLibraryRows
+import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.meansOf
-import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
 import reikai.presentation.stats.ReadState
 import reikai.presentation.stats.StatsGroupKey
@@ -119,7 +119,7 @@ class StatsSeriesViewModel(
             EntryTracks(loaded.library.mangaTracks, loaded.library.novelTracks, loaded.library.loggedInTrackers)
                 .meansOf(loaded.rows)
         }
-        val fields = mixedLibraryItemSortFields { item -> means.value[item.entryId] }
+        val fields = libraryItemSortFields { item -> means.value[item.entryId] }
         val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, seed.toLong(), fields)
         StatsSeriesState(
             summary = loaded.summary,

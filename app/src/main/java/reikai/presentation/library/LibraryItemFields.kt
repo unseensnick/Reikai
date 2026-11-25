@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.seriesAltTitles
+import reikai.domain.entry.signedKey
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.TagAliases
@@ -167,12 +168,14 @@ fun LibraryItem.withCustomInfo(custom: EntryCustomInfo?): LibraryItem {
 /**
  * The sort counterpart of [libraryItemFilterFields]. Every key reads the row, so the only seam is the tracker
  * mean, which each content type precomputes over its own track table (deduped per tracker, unrated
- * scores dropped) and hands in keyed by the row's own id, null for a series with no score.
+ * scores dropped) and hands in keyed by the row's own id, null for a series with no score. The id key is
+ * type-unique ([signedKey]), since the Random rank is the comparator's only id use and a manga and a novel
+ * sharing a raw id would rank together; it perturbs only that rank, never an identity.
  */
 fun libraryItemSortFields(
     trackerMean: (LibraryItem) -> Double?,
 ) = LibrarySortFields<LibraryItem>(
-    id = { it.id },
+    id = { it.entryId.signedKey() },
     title = { it.libraryManga.manga.title },
     lastRead = { it.libraryManga.lastRead },
     lastUpdate = { it.libraryManga.manga.lastUpdate },
