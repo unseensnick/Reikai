@@ -54,15 +54,20 @@ class NovelMetadataRefresh(
         }
     }
 
+    // Under a local series' hold, at the address it has then, as refreshNovelFromSource parses: an organize or relink
+    // since the run read the library may have moved it.
     private suspend fun refresh(novel: Novel, sources: RunSources) {
         val source = sources.get(novel.source) ?: return
-        storeRefreshedNovel(
-            novel,
-            source.parseNovel(novel.url).toNovel(sourceId = source.id, favorite = novel.favorite).withoutPageCount(),
-            novelRepository,
-            libraryPreferences,
-            novelDownloadManager(),
-            coverCache,
-        )
+        source.seriesLocked(novel, novelRepository) { current ->
+            storeRefreshedNovel(
+                current,
+                source.parseNovel(current.url).toNovel(sourceId = source.id, favorite = current.favorite)
+                    .withoutPageCount(),
+                novelRepository,
+                libraryPreferences,
+                novelDownloadManager(),
+                coverCache,
+            )
+        }
     }
 }

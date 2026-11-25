@@ -135,7 +135,7 @@ class RemovedChapterQueueConformanceTest {
                         "VALUES ($OWNER, 'src', 'u', 'T', 0, 0, 0, 0)",
                     0,
                 ).await()
-                sync(database, listOf(KEPT, DROPPED), null)
+                sync(database, listOf(KEPT, DROPPED), mockk(relaxed = true))
                 return NovelChapterRepositoryImpl(database).getByNovelId(OWNER).single { it.url == DROPPED }.id
             }
 
@@ -148,7 +148,7 @@ class RemovedChapterQueueConformanceTest {
                 return cancelled
             }
 
-            private suspend fun sync(database: Database, urls: List<String>, downloads: NovelDownloadManager?) {
+            private suspend fun sync(database: Database, urls: List<String>, downloads: NovelDownloadManager) {
                 syncChaptersWithNovelSource(
                     urls.mapIndexed { i, url ->
                         ChapterItem(name = "Chapter $url", path = url, chapterNumber = i + 1.0)

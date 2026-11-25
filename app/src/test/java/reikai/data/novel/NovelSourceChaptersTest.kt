@@ -7,8 +7,8 @@ import reikai.novel.host.ChapterItem
 /** A plugin's chapter list as the sync stores it, which the migration count peek counts too. */
 class NovelSourceChaptersTest {
 
-    private fun chapters(vararg items: ChapterItem, page: String? = null) =
-        items.toList().toSourceChapters(novelId = 1L, novelTitle = "Title", page = page)
+    private fun chapters(vararg items: ChapterItem) =
+        items.toList().toSourceChapters(novelId = 1L, novelTitle = "Title")
 
     @Test
     fun `a path the plugin lists twice is one chapter`() {
@@ -27,12 +27,7 @@ class NovelSourceChaptersTest {
     }
 
     @Test
-    fun `a paged sync stamps its page on every chapter`() {
-        chapters(ChapterItem("One", "/a", page = "v1"), page = "3").single().page shouldBe "3"
-    }
-
-    @Test
-    fun `an unpaged sync keeps the plugin's own page label`() {
+    fun `a list keeps the plugin's own page label`() {
         chapters(ChapterItem("One", "/a", page = "v1")).single().page shouldBe "v1"
     }
 }

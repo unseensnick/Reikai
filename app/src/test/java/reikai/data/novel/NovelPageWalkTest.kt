@@ -40,6 +40,7 @@ class NovelPageWalkTest {
                     InMemoryChapterCopyMarks(),
                     NoChapterTombstones,
                 ),
+                novelDownloadManager = mockk(relaxed = true),
             )
         }
 
@@ -66,6 +67,7 @@ class NovelPageWalkTest {
                     InMemoryChapterCopyMarks(),
                     NoChapterTombstones,
                 ),
+                novelDownloadManager = mockk(relaxed = true),
             )
         }
 
@@ -88,6 +90,7 @@ class NovelPageWalkTest {
                 InMemoryChapterCopyMarks(),
                 NoChapterTombstones,
             ),
+            novelDownloadManager = mockk(relaxed = true),
         )
 
         walk.walkedThrough shouldBe 1L

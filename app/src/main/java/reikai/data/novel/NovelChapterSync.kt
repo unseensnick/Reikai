@@ -31,12 +31,12 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 
 /**
- * Novel-side parallel of the manga `syncChaptersWithSource`, in one transaction. A re-added chapter
- * inherits the read/bookmark state and `dateFetch` of the one it replaces, so it is not new. A [page]
- * sync matches against the whole novel, so a chapter that moved pages is re-tagged in place, and drops only
- * the rows past [dropPagesAbove], the source's last page, once every page below it synced: one page cannot
- * tell a removed chapter from one that moved. Null syncs the whole novel and drops what the source no longer
- * lists; [pageOpened], that the page opened since the last walk. Predicting the next update is the caller's.
+ * Novel-side parallel of the manga `syncChaptersWithSource`, in one transaction. A re-added chapter inherits the
+ * read/bookmark state and `dateFetch` of the one it replaces. A [page] sync matches against the whole novel, so a
+ * chapter that moved pages is re-tagged in place, and drops only the rows past [dropPagesAbove], the source's last
+ * page, once every page below it synced: one page cannot tell a removed chapter from one that moved. Null syncs the
+ * whole novel and drops what the source no longer lists; [pageOpened], that the page opened since the last walk.
+ * The caller predicts the next update; [novelDownloadManager] moves a re-titled download and unqueues a dropped one.
  */
 suspend fun syncChaptersWithNovelSource(
     rawSourceChapters: List<ChapterItem>,
@@ -47,7 +47,7 @@ suspend fun syncChaptersWithNovelSource(
     syncRules: NovelChapterSyncRules,
     page: String? = null,
     pageOpened: Boolean = false,
-    novelDownloadManager: NovelDownloadManager? = null,
+    novelDownloadManager: NovelDownloadManager,
     dropPagesAbove: Long? = null,
 ): NovelChapterSyncResult =
     // One sync of a novel at a time: each renumbers every stored page from the list it read, so a details page
@@ -70,7 +70,7 @@ private suspend fun syncUnlocked(
     syncRules: NovelChapterSyncRules,
     page: String?,
     pageOpened: Boolean,
-    novelDownloadManager: NovelDownloadManager?,
+    novelDownloadManager: NovelDownloadManager,
     dropPagesAbove: Long?,
 ): NovelChapterSyncResult {
     if (rawSourceChapters.isEmpty()) throw NoChaptersException()
@@ -214,11 +214,11 @@ private suspend fun syncUnlocked(
     // After the commit, not before it as manga does: a chapter a lane saves before the commit lands under the old
     // name, and this moves it. Not cancellable, since a later sync sees no change of name and would strand the file.
     withContext(NonCancellable) {
-        downloadRenames.forEach { (old, new) -> novelDownloadManager?.renameChapter(novel, old, new) }
+        downloadRenames.forEach { (old, new) -> novelDownloadManager.renameChapter(novel, old, new) }
     }
     // The source no longer lists these, so their queued downloads could only fail, as the manga sync
     // cancels them too (RemovedChapterQueueConformanceTest).
-    novelDownloadManager?.cancelDownloads(toDelete.map { it.id })
+    novelDownloadManager.cancelDownloads(toDelete.map { it.id })
 
     // A page is compared with what that page held: chapters filling a page never stored are the back
     // catalogue, whatever other pages the novel has.
@@ -248,8 +248,8 @@ private suspend fun syncUnlocked(
  * counts this, so its numbers match what a commit stores. [novelId] may be -1 for rows that are only
  * counted.
  */
-fun List<ChapterItem>.toSourceChapters(novelId: Long, novelTitle: String, page: String? = null): List<NovelChapter> =
-    numbered(novelTitle, toDrafts(novelId, novelTitle, page))
+fun List<ChapterItem>.toSourceChapters(novelId: Long, novelTitle: String): List<NovelChapter> =
+    numbered(novelTitle, toDrafts(novelId, novelTitle, page = null))
 
 /** The rows a plugin's list becomes before numbering, each holding the number recognition starts from. */
 private fun List<ChapterItem>.toDrafts(novelId: Long, novelTitle: String, page: String?): List<NovelChapter> =

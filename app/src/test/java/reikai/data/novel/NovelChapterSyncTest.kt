@@ -79,7 +79,7 @@ class NovelChapterSyncTest {
     private suspend fun sync(
         db: List<NovelChapter>,
         source: List<ChapterItem>,
-        downloadManager: NovelDownloadManager? = null,
+        downloadManager: NovelDownloadManager = mockk(relaxed = true),
         markDuplicates: Set<String> = setOf(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW),
     ): Synced {
         val inserted = mutableListOf<InsertedRow>()
@@ -285,9 +285,10 @@ class NovelChapterSyncTest {
     }
 
     @Test
-    fun `an unchanged chapter title does not trigger a download rename`() = runTest {
+    fun `a changed chapter that keeps its title does not trigger a download rename`() = runTest {
         val old = dbChapter("/c/5", number = 5.0) // name = "name"
-        val source = listOf(srcItem("/c/5", number = 5.0)) // same name
+        // Same name, a new group, so the row changes and reaches the rename check
+        val source = listOf(srcItem("/c/5", number = 5.0, scanlator = "Group"))
         val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
 
         sync(listOf(old), source, downloadManager)

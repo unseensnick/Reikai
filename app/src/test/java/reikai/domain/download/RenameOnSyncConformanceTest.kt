@@ -166,7 +166,7 @@ class RenameOnSyncConformanceTest {
                         "VALUES ($OWNER, 'src', 'u', 'T', 0, 0, 0, 0)",
                     0,
                 ).await()
-                sync(database, "Chapter 5", null)
+                sync(database, "Chapter 5", mockk(relaxed = true))
             }
 
             override suspend fun renamesOnSync(
@@ -219,7 +219,7 @@ class RenameOnSyncConformanceTest {
                 sourceContacts = realTimeSourceContacts(),
             )
 
-            private suspend fun sync(database: Database, name: String, downloads: NovelDownloadManager?) {
+            private suspend fun sync(database: Database, name: String, downloads: NovelDownloadManager) {
                 syncChaptersWithNovelSource(
                     listOf(ChapterItem(name = name, path = URL, chapterNumber = 5.0)),
                     NovelRepositoryImpl(database).getById(OWNER)!!,

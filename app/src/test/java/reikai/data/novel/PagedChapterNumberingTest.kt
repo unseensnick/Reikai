@@ -2,6 +2,7 @@ package reikai.data.novel
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -80,6 +81,13 @@ class PagedChapterNumberingTest {
         numbers(PAGED)["/calm"] shouldBe 7.0
     }
 
+    @Test
+    fun `a paged sync stamps its page on every chapter it stores`() = runTest {
+        sync(PAGED, listOf(ChapterItem(name = "One", path = "/a", page = "v1")), page = "3")
+
+        NovelChapterRepositoryImpl(database).getByNovelId(PAGED).single().page shouldBe "3"
+    }
+
     private val overrides get() = ChapterNumberOverrideRepositoryImpl(database)
 
     private suspend fun sync(novelId: Long, items: List<ChapterItem>, page: String?) {
@@ -91,6 +99,7 @@ class PagedChapterNumberingTest {
             LibraryPreferences(InMemoryPreferenceStore()),
             NovelChapterSyncRules(overrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
             page = page,
+            novelDownloadManager = mockk(relaxed = true),
         )
     }
 

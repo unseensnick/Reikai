@@ -423,6 +423,7 @@ class LocalImport(
                         novelChapterRepository,
                         libraryPreferences,
                         syncRules,
+                        novelDownloadManager(),
                     )
                     inserted to NovelItem(parsed.name ?: path, path, parsed.cover)
                 }

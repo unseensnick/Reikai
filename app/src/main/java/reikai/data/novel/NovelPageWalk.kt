@@ -28,7 +28,7 @@ suspend fun walkNovelPages(
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
     syncRules: NovelChapterSyncRules,
-    novelDownloadManager: NovelDownloadManager? = null,
+    novelDownloadManager: NovelDownloadManager,
     alsoPage: Long? = null,
     dropsPagesPastLast: Boolean = false,
 ): NovelPageWalk {

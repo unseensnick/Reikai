@@ -82,7 +82,7 @@ suspend fun storeRefreshedNovel(
     parsed: Novel,
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
-    novelDownloadManager: NovelDownloadManager?,
+    novelDownloadManager: NovelDownloadManager,
     coverCache: CoverCache,
     manualFetch: Boolean = false,
     details: StoredDetails = StoredDetails.KEPT,
@@ -116,8 +116,7 @@ suspend fun storeRefreshedNovel(
         )
     }
     // A new title is stored together with the folder move, so no chapter saved between them strands its downloads.
-    val downloads = novelDownloadManager
-    if (newTitle != null && downloads != null) downloads.renameNovel(existing, newTitle, write) else write()
+    if (newTitle != null) novelDownloadManager.renameNovel(existing, newTitle, write) else write()
     return coverLastModified?.let { merged.copy(coverLastModified = it) } ?: merged
 }
 
@@ -126,7 +125,7 @@ suspend fun storeRefreshedNovel(
  * the hold is taken (an organize or relink it waited behind may have moved it), else at once. Only the address is
  * read again: a caller may pass a novel it changed on purpose, such as [withoutPageCount].
  */
-private suspend fun <T> NovelSource.seriesLocked(
+internal suspend fun <T> NovelSource.seriesLocked(
     novel: Novel,
     novelRepository: NovelRepository,
     block: suspend (Novel) -> T,
@@ -260,7 +259,7 @@ suspend fun insertOpenedNovel(
     novelChapterRepository: NovelChapterRepository,
     libraryPreferences: LibraryPreferences,
     syncRules: NovelChapterSyncRules,
-    novelDownloadManager: NovelDownloadManager? = null,
+    novelDownloadManager: NovelDownloadManager,
 ): Novel? {
     val target = novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = sourceId, favorite = false))
         ?: return null
@@ -287,7 +286,7 @@ suspend fun syncOpenedChapters(
     novelChapterRepository: NovelChapterRepository,
     libraryPreferences: LibraryPreferences,
     syncRules: NovelChapterSyncRules,
-    novelDownloadManager: NovelDownloadManager? = null,
+    novelDownloadManager: NovelDownloadManager,
 ) {
     val synced = syncFirstPage(
         sourceNovel,
@@ -324,7 +323,7 @@ private suspend fun syncFirstPage(
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
     syncRules: NovelChapterSyncRules,
-    novelDownloadManager: NovelDownloadManager?,
+    novelDownloadManager: NovelDownloadManager,
     pages: Long,
 ): NovelChapterSyncResult? {
     val chapters = sourceNovel.chapters?.takeIf { it.isNotEmpty() } ?: return null

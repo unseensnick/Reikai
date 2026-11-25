@@ -165,6 +165,7 @@ class UploadDateSyncConformanceTest {
                         InMemoryChapterCopyMarks(),
                         NoChapterTombstones,
                     ),
+                    novelDownloadManager = mockk(relaxed = true),
                 )
             }
 

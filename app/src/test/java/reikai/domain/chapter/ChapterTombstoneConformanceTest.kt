@@ -438,6 +438,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
                         InMemoryChapterCopyMarks(),
                         tombstones,
                     ),
+                    novelDownloadManager = mockk(relaxed = true),
                 )
                 return Synced(result.foundRelease, result.newChapters.map { it.url })
             }

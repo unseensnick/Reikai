@@ -239,6 +239,7 @@ class ChapterSyncConformanceTest {
                         copyMarks,
                         NoChapterTombstones,
                     ),
+                    novelDownloadManager = mockk(relaxed = true),
                 )
                 return Synced(result.foundRelease, result.newChapters.map { it.url })
             }

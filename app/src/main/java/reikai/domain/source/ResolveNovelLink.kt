@@ -105,6 +105,7 @@ class ResolveNovelLink(
             novelChapterRepository,
             libraryPreferences,
             syncRules,
+            novelDownloadManager(),
         ) ?: return null
         return NovelLinkTarget.Novel(stored.id)
     }
@@ -162,5 +163,6 @@ class ResolveNovelLink(
             novelChapterRepository,
             libraryPreferences,
             syncRules,
+            novelDownloadManager(),
         )
 }

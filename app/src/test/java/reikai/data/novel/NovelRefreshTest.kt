@@ -406,6 +406,7 @@ class NovelRefreshTest {
         libraryPreferences,
         NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
         page = page,
+        novelDownloadManager = mockk(relaxed = true),
     )
 
     @Test
@@ -445,6 +446,7 @@ class NovelRefreshTest {
             chapters,
             libraryPreferences,
             NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
+            novelDownloadManager = mockk(relaxed = true),
         )!!
 
     /** A three-page novel stored through its last page, with one chapter per page. */

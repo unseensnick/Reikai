@@ -183,6 +183,7 @@ class ChapterNumberRecognitionConformanceTest {
                         InMemoryChapterCopyMarks(),
                         NoChapterTombstones,
                     ),
+                    novelDownloadManager = mockk(relaxed = true),
                 )
             }
 

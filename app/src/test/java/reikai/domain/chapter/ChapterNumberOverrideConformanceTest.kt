@@ -198,6 +198,7 @@ class ChapterNumberOverrideConformanceTest {
                         InMemoryChapterCopyMarks(),
                         NoChapterTombstones,
                     ),
+                    novelDownloadManager = mockk(relaxed = true),
                 ).changed
 
             override suspend fun number(database: Database, url: String) =
