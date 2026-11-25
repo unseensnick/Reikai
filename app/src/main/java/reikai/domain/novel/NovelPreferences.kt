@@ -21,7 +21,6 @@ import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.CONTRAST_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
-import reikai.domain.reader.FLASH_PAGE_INTERVAL_DEFAULT
 import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.domain.source.NovelIconHints
@@ -211,22 +210,35 @@ class NovelPreferences(
     /** Whether a chapter scrolls or turns a page at a time, and which way its pages turn. */
     fun readerPageLayout() = preferenceStore.getEnum("ln_reader_page_layout", NovelPageLayout.SCROLL)
 
+    // The reader defaults novels share with manga are read off Mihon's declarations, as the download and
+    // update defaults below are, so an upstream change reaches both readers. Only defaultValue() is read.
+    private val mangaReaderDefaults by lazy { ReaderPreferences(preferenceStore) }
+
     /** Two pages side by side while paged, by manga's dual page view rule, kept apart from manga's setting. */
     fun readerDualPageView() =
-        preferenceStore.getEnum("ln_reader_dual_page_view", ReaderPreferences.DualPageView.NEVER)
+        preferenceStore.getEnum("ln_reader_dual_page_view", mangaReaderDefaults.dualPageView.defaultValue())
 
     /** The space a spread adds between its two pages' inner margins, in percent of a page's width. */
-    fun readerSpreadGap() = preferenceStore.getInt("ln_reader_spread_gap", 0)
+    fun readerSpreadGap() = preferenceStore.getInt("ln_reader_spread_gap", mangaReaderDefaults.spreadGap.defaultValue())
 
     /** The e-ink flash after a page turn, kept apart from the manga reader's so each type has its own. */
-    fun readerFlashOnPageChange() = preferenceStore.getBoolean("ln_reader_flash", false)
+    fun readerFlashOnPageChange() = preferenceStore.getBoolean(
+        "ln_reader_flash",
+        mangaReaderDefaults.flashOnPageChange.defaultValue(),
+    )
 
     fun readerFlashDurationMillis() =
-        preferenceStore.getInt("ln_reader_flash_duration", ReaderPreferences.MILLI_CONVERSION)
+        preferenceStore.getInt("ln_reader_flash_duration", mangaReaderDefaults.flashDurationMillis.defaultValue())
 
-    fun readerFlashPageInterval() = preferenceStore.getInt("ln_reader_flash_interval", FLASH_PAGE_INTERVAL_DEFAULT)
+    fun readerFlashPageInterval() = preferenceStore.getInt(
+        "ln_reader_flash_interval",
+        mangaReaderDefaults.flashPageInterval.defaultValue(),
+    )
 
-    fun readerFlashColor() = preferenceStore.getEnum("ln_reader_flash_mode", ReaderPreferences.FlashColor.BLACK)
+    fun readerFlashColor() = preferenceStore.getEnum(
+        "ln_reader_flash_mode",
+        mangaReaderDefaults.flashColor.defaultValue(),
+    )
 
     /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
     fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
@@ -249,13 +261,19 @@ class NovelPreferences(
     fun readerSkipDuplicateChapters() = preferenceStore.getBoolean("ln_reader_skip_duplicate_chapters", false)
 
     /**
-     * Forward-only skips, twin of the manga reader's `skipRead` / `skipFiltered`, type only. Their own
-     * keys rather than the manga ones, so a reader can skip read chapters in one library and not the
-     * other; the defaults match manga's so the two behave alike until someone changes one.
+     * Forward-only skips, twin of the manga reader's `skipRead` / `skipFiltered`, pinned by reading their
+     * defaults. Their own keys rather than the manga ones, so a reader can skip read chapters in one
+     * library and not the other.
      */
-    fun readerSkipRead() = preferenceStore.getBoolean("ln_reader_skip_read", false)
+    fun readerSkipRead() = preferenceStore.getBoolean(
+        "ln_reader_skip_read",
+        mangaReaderDefaults.skipRead.defaultValue(),
+    )
 
-    fun readerSkipFiltered() = preferenceStore.getBoolean("ln_reader_skip_filtered", true)
+    fun readerSkipFiltered() = preferenceStore.getBoolean(
+        "ln_reader_skip_filtered",
+        mangaReaderDefaults.skipFiltered.defaultValue(),
+    )
 
     /**
      * The progress rail's side and height. Unlike the manga reader's pair these are never gated on a
@@ -263,25 +281,40 @@ class NovelPreferences(
      * switched on, which used to leave a novel reader's rail configured by settings the user could not
      * see. Defaults match the manga ones.
      */
-    fun readerRailOnLeft() = preferenceStore.getBoolean("ln_reader_rail_on_left", false)
+    fun readerRailOnLeft() = preferenceStore.getBoolean(
+        "ln_reader_rail_on_left",
+        mangaReaderDefaults.verticalNavigatorOnLeft.defaultValue(),
+    )
 
     /** The vertical rail on the page's edge, or off for the horizontal slider above the bar's buttons. */
     fun readerUseRail() = preferenceStore.getBoolean("ln_reader_use_rail", true)
 
     /** Off hides the rail and the slider both, moving the chapter buttons into the bar. The manga twin is
      *  `ReaderPreferences.showNavigator`, and both answer the host through `ReaderNavigatorShape`. */
-    fun readerShowNavigator() = preferenceStore.getBoolean("ln_reader_show_navigator", true)
+    fun readerShowNavigator() = preferenceStore.getBoolean(
+        "ln_reader_show_navigator",
+        mangaReaderDefaults.showNavigator.defaultValue(),
+    )
 
     /**
      * Whether a novel session hides the system bars and draws under the cutout. Its own pair for the
      * same reason the rail's is: the manga screen's switches are where a novel reader cannot find
      * them, and the two readers are configured from different screens. Defaults match manga's.
      */
-    fun readerFullscreen() = preferenceStore.getBoolean("ln_reader_fullscreen", true)
+    fun readerFullscreen() = preferenceStore.getBoolean(
+        "ln_reader_fullscreen",
+        mangaReaderDefaults.fullscreen.defaultValue(),
+    )
 
-    fun readerDrawUnderCutout() = preferenceStore.getBoolean("ln_reader_cutout_short", true)
+    fun readerDrawUnderCutout() = preferenceStore.getBoolean(
+        "ln_reader_cutout_short",
+        mangaReaderDefaults.drawUnderCutout.defaultValue(),
+    )
 
-    fun readerRailHeight() = preferenceStore.getInt("ln_reader_rail_height", 65)
+    fun readerRailHeight() = preferenceStore.getInt(
+        "ln_reader_rail_height",
+        mangaReaderDefaults.verticalNavigatorHeight.defaultValue(),
+    )
 
     /** When on, tapping "next" marks the chapter you skipped away from as read (forward only), the novel
      *  twin of the manga reader's mark-read-on-skip, pinned by MarkReadOnSkipConformanceTest. Opt-in. */
@@ -390,7 +423,10 @@ class NovelPreferences(
 
     /** Show the tap zones when a novel opens, the twin of the manga reader's `showNavigationOverlayOnStart`,
      *  pinned by `ReaderNavigationOverlayState.setNavigation`, which both readers hand it to. */
-    fun readerShowTapZonesOnStart() = preferenceStore.getBoolean("ln_reader_show_navigation_overlay_on_start", false)
+    fun readerShowTapZonesOnStart() = preferenceStore.getBoolean(
+        "ln_reader_show_navigation_overlay_on_start",
+        mangaReaderDefaults.showNavigationOverlayOnStart.defaultValue(),
+    )
 
     fun readerTapInvert(paged: Boolean) =
         preferenceStore.getEnum(
@@ -420,7 +456,10 @@ class NovelPreferences(
     }
 
     /** Slide a paged turn as manga's pager does; off turns at once, which an e-ink screen wants. */
-    fun readerPageTransitions() = preferenceStore.getBoolean("ln_reader_page_transitions", true)
+    fun readerPageTransitions() = preferenceStore.getBoolean(
+        "ln_reader_page_transitions",
+        mangaReaderDefaults.pageTransitions.defaultValue(),
+    )
 
     /** Swipe left / right to go to the next / previous chapter. */
     fun readerSwipeGestures() = preferenceStore.getBoolean("ln_reader_swipe_gestures", false)
@@ -464,7 +503,10 @@ class NovelPreferences(
     /** How far a finger scroll must move before the menu hides, the novel twin of the manga reader's
      *  `readerHideThreshold`, pinned by MenuHideOnScroll, which every renderer hides the menu through.
      *  Both read the distance off the shared [ReaderHideThreshold]. */
-    fun readerHideThreshold() = preferenceStore.getEnum("ln_reader_hide_threshold", ReaderHideThreshold.LOW)
+    fun readerHideThreshold() = preferenceStore.getEnum(
+        "ln_reader_hide_threshold",
+        mangaReaderDefaults.readerHideThreshold.defaultValue(),
+    )
 
     /** Reopen a read chapter where it was left rather than at its start, as the manga reader's
      *  [ReaderPreferences.preserveReadingPosition]. */
@@ -539,7 +581,10 @@ class NovelPreferences(
      *  keeps its own settings. Off draws the marker between two chapters only where chapters are missing;
      *  the marker after the last chapter shows either way. */
     fun readerAlwaysShowChapterTransition() =
-        preferenceStore.getBoolean("ln_reader_always_show_chapter_transition", true)
+        preferenceStore.getBoolean(
+            "ln_reader_always_show_chapter_transition",
+            mangaReaderDefaults.alwaysShowChapterTransition.defaultValue(),
+        )
 
     /** Insert paragraph breaks into chapters that arrive as one unbroken block of text. */
     fun readerAutoSplitText() = preferenceStore.getBoolean("ln_reader_auto_split_text", false)
