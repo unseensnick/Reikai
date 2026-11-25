@@ -1,5 +1,6 @@
 package reikai.util
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -9,9 +10,11 @@ import kotlinx.coroutines.cancel
 /**
  * Stands in for the graph's `@AppCoroutineScope` in a test that builds an app-scoped class by hand. It leaves out
  * the release builds' exception handler, so an uncaught failure still reaches the test runner. [AppScopeSettler]
- * ends it with the test that made it.
+ * ends it with the test that made it. [dispatcher] is read when this is called, so a class built before a test
+ * stubs IO passes its test dispatcher here to keep its launches in virtual time.
  */
-fun testAppScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also(AppScopeSettler::track)
+fun testAppScope(dispatcher: CoroutineDispatcher = Dispatchers.IO): CoroutineScope =
+    CoroutineScope(SupervisorJob() + dispatcher).also(AppScopeSettler::track)
 
 /**
  * A scope that never runs what is launched on it, for a class whose launch is a background warm-up the test does not

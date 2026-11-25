@@ -86,7 +86,6 @@ class DownloaderSourceJobTest {
 
     @AfterEach
     fun tearDown() {
-        blockingFetch.complete(Unit)
         Dispatchers.resetMain()
         unmockkStatic(Dispatchers::class)
     }
@@ -103,6 +102,8 @@ class DownloaderSourceJobTest {
         testScheduler.advanceUntilIdle()
 
         mostFetchingAtOnce shouldBe 1
+        // Released here, since the test's app scope must end with its body and this fetch ignores the cancel.
+        blockingFetch.complete(Unit)
     }
 
     @Test
@@ -161,6 +162,7 @@ class DownloaderSourceJobTest {
         testScheduler.advanceUntilIdle()
 
         fetched shouldBe listOf(first.url)
+        blockingFetch.complete(Unit)
     }
 
     private fun TestScope.downloader(): Downloader {

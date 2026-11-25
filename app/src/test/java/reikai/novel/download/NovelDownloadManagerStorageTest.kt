@@ -32,7 +32,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
-import reikai.util.realTimeSourceContacts
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -71,8 +71,11 @@ class NovelDownloadManagerStorageTest {
     }
     private val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source }
 
+    // The drain runs on IO and retries with a real backoff, so IO is put on the scheduler runTest drives.
+    private val scheduler = TestCoroutineScheduler()
+
     private val manager = NovelDownloadManager(
-        scope = testAppScope(),
+        scope = testAppScope(StandardTestDispatcher(scheduler)),
         context = context,
         provider = mockk { every { availableSpace() } returns 1024L },
         cache = mockk { every { downloadedChapterIds(novel, any()) } returns emptySet() },
@@ -94,11 +97,8 @@ class NovelDownloadManagerStorageTest {
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
         sourceTitles = mockk(),
         getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
-        sourceContacts = realTimeSourceContacts(),
+        sourceContacts = scheduler.sourceContacts(),
     )
-
-    // The drain runs on IO and retries with a real backoff, so IO is put on the scheduler runTest drives.
-    private val scheduler = TestCoroutineScheduler()
 
     @BeforeEach
     fun setUp() {

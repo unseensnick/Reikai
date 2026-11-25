@@ -39,7 +39,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.byIdsFromById
 import reikai.util.mockIoDispatcher
-import reikai.util.realTimeSourceContacts
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -172,7 +172,7 @@ class NovelDownloadManagerFailureTest {
                 coEvery { await(EntryId.Novel(2L)) } returns null
                 coEvery { await(EntryId.Novel(3L)) } returns null
             },
-            sourceContacts = realTimeSourceContacts(),
+            sourceContacts = scheduler.sourceContacts(),
         )
     }
 
