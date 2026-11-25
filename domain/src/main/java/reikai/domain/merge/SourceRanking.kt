@@ -67,9 +67,9 @@ class GroupRanking<C, S>(private val chapterCount: (List<C>) -> Long) {
     /** The members in [trunkOrder], which the manage-sources dialog shows: see [stitchOrder]. */
     fun rank(
         chaptersByMember: Map<Long, List<C>>,
-        sourceIdByMember: Map<Long, S> = emptyMap(),
-        preferredSourceIds: List<S> = emptyList(),
-        memberRanking: List<Long> = emptyList(),
+        sourceIdByMember: Map<Long, S>,
+        preferredSourceIds: List<S>,
+        memberRanking: List<Long>,
     ): List<RankedGroupMember<C>> = chaptersByMember.entries
         .map { (memberId, chapters) ->
             val priority = sourcePriority(memberId, sourceIdByMember[memberId], preferredSourceIds, memberRanking)

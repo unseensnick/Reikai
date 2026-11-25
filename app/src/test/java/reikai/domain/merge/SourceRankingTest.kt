@@ -23,7 +23,7 @@ class SourceRankingTest {
         val chapters = mapOf(1L to emptyList(), 2L to listOf("a"))
         val sources = mapOf(1L to 100L, 2L to 200L)
 
-        val ranked = ranking.rank(chapters, sources, listOf(100L))
+        val ranked = ranking.rank(chapters, sources, listOf(100L), emptyList())
         val walked = ranking.walkOrder(chapters, sources, listOf(100L), emptyList())
 
         ranked.first().memberId to walked.first().memberId shouldBe (1L to 2L)
