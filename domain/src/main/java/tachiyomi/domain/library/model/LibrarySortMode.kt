@@ -32,7 +32,7 @@ data class LibrarySort(
         data object DateAdded : Type(0b00011100)
         data object TrackerMean : Type(0b00100000)
 
-        // RK --> download-count sort (parity with the novel library's Downloaded sort)
+        // RK --> the download-count sort (the novel library's Downloaded sort) and the Manual sort
         data object Downloaded : Type(0b00100100)
 
         // RK: a category's own drag order (reikai.domain.library.LibraryManualOrderRepository)
@@ -86,7 +86,7 @@ data class LibrarySort(
                 Type.ChapterFetchDate,
                 Type.DateAdded,
                 Type.TrackerMean,
-                // RK --> download-count sort
+                // RK --> the download-count and Manual sorts
                 Type.Downloaded,
                 Type.Manual,
                 // RK <--
@@ -118,7 +118,7 @@ data class LibrarySort(
                     "CHAPTER_FETCH_DATE" -> Type.ChapterFetchDate
                     "DATE_ADDED" -> Type.DateAdded
                     "TRACKER_MEAN" -> Type.TrackerMean
-                    // RK --> download-count sort
+                    // RK --> the download-count and Manual sorts
                     "DOWNLOADED" -> Type.Downloaded
                     "MANUAL" -> Type.Manual
                     // RK <--
@@ -144,7 +144,7 @@ data class LibrarySort(
             Type.ChapterFetchDate -> "CHAPTER_FETCH_DATE"
             Type.DateAdded -> "DATE_ADDED"
             Type.TrackerMean -> "TRACKER_MEAN"
-            // RK --> download-count sort
+            // RK --> the download-count and Manual sorts
             Type.Downloaded -> "DOWNLOADED"
             Type.Manual -> "MANUAL"
             // RK <--

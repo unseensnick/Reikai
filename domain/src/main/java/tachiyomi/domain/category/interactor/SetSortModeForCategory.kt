@@ -30,8 +30,8 @@ class SetSortModeForCategory(
             val flags = (category.flags + type + direction) or CATEGORY_SORT_CUSTOMIZED
             categoryRepository.updateFlags(categoryId = category.id, flags = flags)
         } else {
-            // RK: global sort. Non-overridden categories follow it dynamically via sortForCategory, so
-            // we no longer brute-force updateAllFlags (which wiped per-category overrides + the hidden bit).
+            // RK: global sort, which non-overridden categories follow through sortForCategory. No category's
+            // flags are written, so their overrides and hidden bits stay.
             preferences.sortingMode.set(LibrarySort(type, direction))
         }
     }
