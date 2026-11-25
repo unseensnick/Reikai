@@ -112,34 +112,21 @@ class LibraryUpdateNotifier(
      */
     // RK: suspends for the adult verdict, which keeps adult titles out of the progress text too
     suspend fun showProgressNotification(manga: List<Manga>, current: Int, total: Int) {
-        // RK: upstream's @Synchronized cannot hold across the suspension, so the throttle is an atomic kernel
-        if (!progressThrottle.tryPass(isFinal = current >= total)) return
-        progressNotificationBuilder
-            .setContentTitle(
-                context.stringResource(
-                    MR.strings.notification_updating_progress,
-                    updateProgressPercent(current, total), // RK
-                ),
-            )
-
-        if (!securityPreferences.hideNotificationContent.get()) {
-            // RK -->
-            val hidden = hiddenContentIds(manga)
-            val titles = manga.filterNot { it.id in hidden }.shown().map { it.title }
-            progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(updatingText(titles)))
-            // RK <--
-        }
-
-        context.notify(
-            Notifications.ID_LIBRARY_PROGRESS,
-            progressNotificationBuilder
-                .setProgress(total, current, false)
-                .build(),
+        // RK --> one notice body for this and Refresh library covers' novel pass; hidden content names nobody
+        showProgressTitles(
+            {
+                val hidden = hiddenContentIds(manga)
+                manga.filterNot { it.id in hidden }.shown().map { it.title }
+            },
+            current,
+            total,
         )
+        // RK <--
     }
 
     // RK --> Refresh library covers' novel pass, reporting on this notice, whose Cancel stops the whole worker.
-    // The titles are looked up only for a tick the throttle lets through.
+    // The titles are looked up only for a tick the throttle lets through. Upstream's @Synchronized cannot hold
+    // across the suspension, so the throttle is an atomic kernel.
     suspend fun showProgressTitles(titles: suspend () -> List<String>, current: Int, total: Int) {
         if (!progressThrottle.tryPass(isFinal = current >= total)) return
         progressNotificationBuilder
@@ -151,7 +138,7 @@ class LibraryUpdateNotifier(
             )
         val shown = titles()
         progressNotificationBuilder.setStyle(
-            NotificationCompat.BigTextStyle().bigText(updatingText(shown)).takeIf { shown.isNotEmpty() },
+            shown.takeIf { it.isNotEmpty() }?.let { NotificationCompat.BigTextStyle().bigText(updatingText(it)) },
         )
         context.notify(
             Notifications.ID_LIBRARY_PROGRESS,
