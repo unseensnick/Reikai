@@ -365,7 +365,7 @@
     <string name="loose_files_none">No volume</string>
     <string name="volume_order_hint">Chapters sorted by source are read in this order</string>
     <string name="volume_read_count">%1$d/%2$d read</string>
-    <string name="local_novel_volume_chapter">Vol. %1$s - %2$s</string>
+    <string name="local_novel_volume">Vol. %1$s</string>
     <string name="local_import_title">Import files</string>
     <string name="local_import_choose">Choose files</string>
     <string name="local_import_formats">EPUB books, or CBZ, ZIP, RAR, 7Z and TAR comics</string>

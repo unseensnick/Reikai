@@ -28,6 +28,20 @@ fun isLocalVolumeExtras(url: String): Boolean = localVolumeChapter(url)?.file?.i
 /** The chapter file [url] names, empty for a volume's Extras chapter. */
 fun localChapterFile(url: String): String = localVolumeChapter(url)?.file ?: url.substringAfter('/')
 
+/**
+ * A local chapter's [name] led by the [volume] or folder it sits in, as both local sources list it. The details
+ * screen reads the volume back with [localVolumeOf], so the format lives only here.
+ */
+fun localVolumeChapterName(volume: String, name: String): String = localVolumePrefix(volume) + name
+
+/** What a [localVolumeChapterName] in [volume] starts with. */
+fun localVolumePrefix(volume: String): String = "$volume$VOLUME_SEPARATOR"
+
+/** The volume a [localVolumeChapterName] leads with, or null for a name led by none. */
+fun localVolumeOf(name: String): String? = name.substringBefore(VOLUME_SEPARATOR, "").ifEmpty { null }
+
+private const val VOLUME_SEPARATOR = " - "
+
 /** [url] as a chapter inside a volume folder, or null for a chapter that sits in the series folder itself. */
 fun localVolumeChapter(url: String): LocalVolumeChapter? =
     url.split('/').takeIf { it.size == 3 }?.let { (series, volume, file) -> LocalVolumeChapter(series, volume, file) }

@@ -42,6 +42,7 @@ import reikai.source.local.isLocalVolumeExtras
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localChapterUnit
 import reikai.source.local.localChapterUrl
+import reikai.source.local.localVolumeChapterName
 import reikai.source.local.volumeExtras
 import reikai.storage.listOrNull
 import reikai.storage.localCover
@@ -377,7 +378,7 @@ class LocalSource(
                     // RK --> after the metadata, which may name the chapter, so the volume order survives the sort;
                     // a loose chapter of another folder in a group is led by that folder, as a volume's is by it
                     if (isExtras) name = context.stringResource(MR.strings.local_volume_extras)
-                    (volume?.name ?: folder.takeIf { it != manga.url })?.let { name = "$it - $name" }
+                    (volume?.name ?: folder.takeIf { it != manga.url })?.let { name = localVolumeChapterName(it, name) }
                     // RK <--
                 }
             }

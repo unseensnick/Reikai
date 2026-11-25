@@ -43,6 +43,7 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.presentation.library.seriesGenres
+import reikai.source.local.localVolumeChapterName
 import reikai.storage.FolderUnreadableException
 import reikai.storage.list
 import reikai.storage.localCover
@@ -283,8 +284,10 @@ class LocalNovelSource(
         }
     }
 
-    private fun volumeTitle(index: Int, book: EpubBook, ref: EpubChapterRef): String =
-        context.stringResource(MR.strings.local_novel_volume_chapter, volumeLabel(index, book.metadata), ref.title)
+    private fun volumeTitle(index: Int, book: EpubBook, ref: EpubChapterRef): String {
+        val volume = context.stringResource(MR.strings.local_novel_volume, volumeLabel(index, book.metadata))
+        return localVolumeChapterName(volume, ref.title)
+    }
 
     private fun Series.toItem(): NovelItem {
         val first = volumes.firstNotNullOfOrNull { file -> runCatching { book(file) }.getOrNull()?.let { file to it } }

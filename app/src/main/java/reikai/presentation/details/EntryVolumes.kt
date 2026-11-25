@@ -38,6 +38,8 @@ import reikai.domain.local.localShownVolumeKey
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localChapterFile
 import reikai.source.local.localChapterUnit
+import reikai.source.local.localVolumeOf
+import reikai.source.local.localVolumePrefix
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
@@ -109,13 +111,13 @@ internal fun mangaChapterVolume(owner: Manga?, url: String, name: String): Chapt
     val (folder, volume) = localChapterUnit(url)
     val key = localGroupKey(owner.url, folder, volume)
     if (volume == VolumeOwner.LOOSE) {
-        val prefix = if (folder == owner.url) "" else "$folder - "
+        val prefix = if (folder == owner.url) "" else localVolumePrefix(folder)
         val file = localChapterFile(url)
         val label = if (folder == owner.url) VolumeLabel.Loose else VolumeLabel.Name(folder)
         return ChapterVolume(owner.url, key, label, prefix, LooseChapter(file, name.removePrefix(prefix)))
     }
     val shown = if (folder == owner.url) organizedLabel(volume, owner.title, owner.url) else volume
-    return ChapterVolume(owner.url, key, labelOf(shown), "$volume - ")
+    return ChapterVolume(owner.url, key, labelOf(shown), localVolumePrefix(volume))
 }
 
 /** A local novel chapter's volume in series [owner]: the EPUB its address names, labelled as the source names it. */
@@ -123,8 +125,8 @@ internal fun novelChapterVolume(owner: String?, url: String, name: String): Chap
     val (folder, book) = LocalNovelSource.parseChapterPath(url) ?: return null
     val series = owner ?: folder
     val key = localGroupKey(series, folder, book)
-    val named = name.substringBefore(" - ", "")
-    return ChapterVolume(series, key, labelOf(named.ifEmpty { book }), if (named.isEmpty()) "" else "$named - ")
+    val named = localVolumeOf(name)
+    return ChapterVolume(series, key, labelOf(named ?: book), named?.let(::localVolumePrefix).orEmpty())
 }
 
 private fun labelOf(name: String) = volumeNumberIn(name)?.let(VolumeLabel::Number) ?: VolumeLabel.Name(name)

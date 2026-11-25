@@ -34,4 +34,9 @@ class LocalVolumeChapterTest {
     fun `a moved chapter writes back the same address shape`() {
         localVolumeChapter("Saga/Vol 01/Ch 1.cbz")!!.copy(series = "New").url shouldBe "New/Vol 01/Ch 1.cbz"
     }
+
+    @Test
+    fun `a chapter name led by its volume reads back that volume, whatever the title holds`() {
+        localVolumeOf(localVolumeChapterName("Vol. 2", "Prologue - Part 1")) shouldBe "Vol. 2"
+    }
 }
