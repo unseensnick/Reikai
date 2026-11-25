@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
-import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.deleteCategoryAndCleanup
@@ -58,9 +57,9 @@ class CategoryActions(
         deleteCategoryAndCleanup(
             categoryRepository = categoryRepository,
             categoryId = category.id,
-            defaultCategoryPreferences = categoryIdPreferences.defaultsFor(category.contentType),
-            categorySetPreferences = categoryIdPreferences.setsFor(category.contentType),
-            categoryListPreferences = categoryIdPreferences.listsFor(category.contentType),
+            defaultCategoryPreferences = categoryIdPreferences.allDefaults,
+            categorySetPreferences = categoryIdPreferences.allSets,
+            categoryListPreferences = categoryIdPreferences.allLists,
         )
         true
     } catch (e: Exception) {
@@ -109,25 +108,4 @@ class CategoryActions(
         logcat(LogPriority.ERROR, e) { "Failed to update categories" }
         false
     }
-}
-
-/** The default-category preferences a row of this content type is referenced by. */
-private fun CategoryIdPreferences.defaultsFor(contentType: Long) = when (contentType) {
-    CategoryContentType.MANGA -> listOf(mangaDefault)
-    CategoryContentType.NOVEL -> listOf(novelDefault)
-    else -> listOf(mangaDefault, novelDefault)
-}
-
-/** The category-id set preferences a row of this content type is referenced by. The shared sets can
- *  hold ids of either type, so every arm scrubs them. */
-private fun CategoryIdPreferences.setsFor(contentType: Long) = when (contentType) {
-    CategoryContentType.MANGA -> mangaSets + sharedSets
-    CategoryContentType.NOVEL -> novelSets + sharedSets
-    else -> mangaSets + novelSets + sharedSets
-}
-
-/** The lists are the manga Upcoming calendar's, so a novel-only category is never in one. */
-private fun CategoryIdPreferences.listsFor(contentType: Long) = when (contentType) {
-    CategoryContentType.NOVEL -> emptyList()
-    else -> mangaLists
 }

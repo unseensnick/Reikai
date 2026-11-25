@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -17,7 +18,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
@@ -124,6 +124,35 @@ class CategoryViewModelTest {
         val state = model().state.first { it is CategoryScreenState.Success } as CategoryScreenState.Success
 
         state.allNames shouldBe listOf("A", "B", "C", "N")
+    }
+
+    /** Undo brings the row back without asking, so a name it frees would come back twice. */
+    @Test
+    fun `a category pending delete keeps its name taken`() = runTest {
+        val model = model()
+
+        model.deleteCategory(a)
+
+        (model.state.value as CategoryScreenState.Success).allNames shouldBe listOf("A", "B", "C")
+    }
+
+    /** The drag waits for the pending delete to land, and pressing back in that wait must not drop it. */
+    @Test
+    fun `a drag made just before leaving the screen is still stored`() = runTest {
+        mixedTable()
+        val deleteLands = CompletableDeferred<Unit>()
+        coEvery { repository.delete(any()) } coAnswers {
+            deleteLands.await()
+            table.update { rows -> rows.filterNot { it.id == firstArg<Long>() } }
+        }
+        val model = model()
+        model.deleteCategory(universal)
+        model.changeOrder(b, 0)
+
+        ViewModelStore().apply { put("categories", model) }.clear()
+        deleteLands.complete(Unit)
+
+        storedIds() shouldBe listOf(b.id, a.id, novel.id)
     }
 
     /** The screen only masks picks the chip hides, so kept ones came back on the next flip. */
@@ -235,12 +264,10 @@ class CategoryViewModelTest {
         model.undoBatches() shouldBe emptyList()
     }
 
+    /** Category ids are one space across both libraries, so no row's type leaves its id anywhere. */
     @ParameterizedTest
-    @MethodSource("ownTypePreferences")
-    fun `committing a delete scrubs the id from its own type's preferences only`(
-        contentType: Long,
-        kept: Set<String>,
-    ) = runTest {
+    @MethodSource("contentTypes")
+    fun `committing a delete scrubs the id from every preference whatever its type`(contentType: Long) = runTest {
         val row = novel.copy(contentType = contentType)
         table.value += row
         referenceEverywhere(row.id)
@@ -249,7 +276,7 @@ class CategoryViewModelTest {
 
         model.commitPendingDelete(model.undoBatches().single())
 
-        preferencesHolding(row.id) shouldBe kept
+        preferencesHolding(row.id) shouldBe emptySet()
     }
 
     private fun referenceEverywhere(id: Long) {
@@ -257,6 +284,7 @@ class CategoryViewModelTest {
         libraryPreferences.defaultCategory.set(id.toInt())
         novelPreferences.novelUpdateCategories().set(setOf(id.toString()))
         novelPreferences.defaultNovelCategory().set(id.toInt())
+        reikaiLibraryPreferences.collapsedCategories.set(setOf(id.toString()))
     }
 
     private fun preferencesHolding(id: Long) = mapOf(
@@ -264,6 +292,7 @@ class CategoryViewModelTest {
         MANGA_DEFAULT to (libraryPreferences.defaultCategory.get() == id.toInt()),
         NOVEL_SET to (id.toString() in novelPreferences.novelUpdateCategories().get()),
         NOVEL_DEFAULT to (novelPreferences.defaultNovelCategory().get() == id.toInt()),
+        SHARED_SET to (id.toString() in reikaiLibraryPreferences.collapsedCategories.get()),
     ).filterValues { it }.keys
 
     private val universal =
@@ -324,12 +353,9 @@ class CategoryViewModelTest {
         const val MANGA_DEFAULT = "manga default category"
         const val NOVEL_SET = "novel update categories"
         const val NOVEL_DEFAULT = "novel default category"
+        const val SHARED_SET = "collapsed categories"
 
-        /** A deleted row's type to the preferences that must still name its id: the other type's. */
         @JvmStatic
-        fun ownTypePreferences() = listOf(
-            Arguments.of(CategoryContentType.MANGA, setOf(NOVEL_SET, NOVEL_DEFAULT)),
-            Arguments.of(CategoryContentType.NOVEL, setOf(MANGA_SET, MANGA_DEFAULT)),
-        )
+        fun contentTypes() = listOf(CategoryContentType.MANGA, CategoryContentType.NOVEL, CategoryContentType.UNIVERSAL)
     }
 }

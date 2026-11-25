@@ -14,9 +14,9 @@ import tachiyomi.domain.upcoming.service.UpcomingPreferences
 
 /**
  * The one list of every preference that stores a category id, split by content type. A category delete
- * and a backup restore read every list here, so a new category-id preference is declared once and both
- * pick it up for the right content type. The one-time cleanup migration scrubs the defaults and sets only,
- * since the Upcoming lists arrived after it shipped.
+ * scrubs every list here and a backup restore translates each for its content type, so a new
+ * category-id preference is declared once and both pick it up. The one-time cleanup migration scrubs
+ * the defaults and sets only, since the Upcoming lists arrived after it shipped.
  *
  * Excluded on purpose: manga's `lastUsedCategory` is a library tab index (app-state), not a category id.
  */
@@ -78,6 +78,11 @@ class CategoryIdPreferences(
         novelPreferences.novelUpdateCategories(),
         novelPreferences.novelUpdateCategoriesExclude(),
     )
+
+    // Category ids are one table-wide space, so a delete scrubs every group whatever the row's type.
+    val allDefaults: List<Preference<Int>> get() = listOf(mangaDefault, novelDefault)
+    val allSets: List<Preference<Set<String>>> get() = mangaSets + novelSets + sharedSets
+    val allLists: List<Preference<List<Long>>> get() = mangaLists
 }
 
 /**

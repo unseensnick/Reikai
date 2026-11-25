@@ -6,8 +6,8 @@ import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
  * Delete a category, renumber every remaining row, and scrub the deleted id from the category-id
- * preferences the caller passes (defaults, sets and lists): both libraries' for a universal category, or
- * the id is left stranded. Renumbering covers the whole table, since both libraries read universal rows
+ * preferences the caller passes (defaults, sets and lists): every one that may hold it, or the id is
+ * left stranded. Renumbering covers the whole table, since both libraries read universal rows
  * and renumbering one alone would reorder them against the other's positions. Throws on a DB failure,
  * for the caller to map.
  */

@@ -11,6 +11,7 @@ import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,15 +98,15 @@ class CategoryViewModel(
         contentTypes,
     ) { categories, sortOrder, selected, pending, (contentType, reachable) ->
         val pendingIds = pending.values.flatMap { it.categories }.mapTo(HashSet()) { it.id }
-        val visible = categories
-            .filterNot(Category::isSystemCategory)
-            .filterNot { it.id in pendingIds }
+        val stored = categories.filterNot(Category::isSystemCategory)
+        val visible = stored.filterNot { it.id in pendingIds }
         val shown = categoriesForContentType(visible, contentType)
         CategoryScreenState.Success(
             categories = reikaiSortCategories(shown, sortOrder),
             // RK: every name a flip of the chip can reach, so it cannot let a duplicate through the
-            // create and rename dialogs' check. A name only Show hides stays free.
-            allNames = categoriesForContentType(visible, reachable).map { it.name },
+            // create and rename dialogs' check. A name only Show hides stays free. A row pending delete
+            // keeps its name taken, since Undo brings it back without asking.
+            allNames = categoriesForContentType(stored, reachable).map { it.name },
             categorySortOrder = sortOrder,
             selection = selected.intersect(shown.mapTo(HashSet()) { it.id }),
             contentType = contentType,
@@ -130,11 +131,7 @@ class CategoryViewModel(
     }
 
     // RK: created in the chosen library, through CategoryActions
-    fun createCategory(name: String, contentType: Long) {
-        viewModelScope.launch {
-            if (!actions.create(name, contentType)) _events.emit(CategoryEvent.InternalError)
-        }
-    }
+    fun createCategory(name: String, contentType: Long) = write { actions.create(name, contentType) }
 
     // RK: a single row delete defers like the bulk path so it's undoable too; commit is shared.
     fun deleteCategory(category: Category) {
@@ -229,32 +226,30 @@ class CategoryViewModel(
 
     fun moveToEnd(category: Category, newIndex: Int) = reorder(category, newIndex, ContentType.ALL)
 
-    private fun reorder(category: Category, newIndex: Int, contentType: ContentType) {
-        viewModelScope.launch {
-            // The drag index comes from the visible list, which hides rows pending delete, while the
-            // reorder reads the stored table; flush the pending delete first so the two lists agree
-            // (dragging while the undo snackbar is up also reads as moving on from the undo, and the flush
-            // takes the undo off screen).
-            commitPendingDeletes(pendingDelete.value.keys)
-            pendingDelete.value.values.mapNotNull { it.commit }.joinAll()
-            if (!actions.reorder(category, newIndex, contentType)) _events.emit(CategoryEvent.InternalError)
+    private fun reorder(category: Category, newIndex: Int, contentType: ContentType) = write {
+        // The drag index comes from the visible list, which hides rows pending delete, while the
+        // reorder reads the stored table; flush the pending delete first so the two lists agree
+        // (dragging while the undo snackbar is up also reads as moving on from the undo, and the flush
+        // takes the undo off screen).
+        commitPendingDeletes(pendingDelete.value.keys)
+        pendingDelete.value.values.mapNotNull { it.commit }.joinAll()
+        actions.reorder(category, newIndex, contentType)
+    }
+
+    // A write the user saw land must survive leaving the screen, so it runs on the app scope. Main.immediate
+    // keeps writes in the order they were made, as two quick drags need.
+    private fun write(block: suspend () -> Boolean) {
+        appScope.launch(Dispatchers.Main.immediate) {
+            if (!block()) _events.emit(CategoryEvent.InternalError)
         }
     }
     // RK <--
 
-    fun renameCategory(category: Category, name: String) {
-        viewModelScope.launch {
-            // RK: through CategoryActions, which dispatches on the row's content type
-            if (!actions.rename(category, name)) _events.emit(CategoryEvent.InternalError)
-        }
-    }
+    // RK: through CategoryActions, which dispatches on the row's content type
+    fun renameCategory(category: Category, name: String) = write { actions.rename(category, name) }
 
     // RK: flip the hidden flag bit so the category drops out of (or returns to) the library
-    fun toggleHidden(category: Category) {
-        viewModelScope.launch {
-            if (!actions.toggleHidden(category)) _events.emit(CategoryEvent.InternalError)
-        }
-    }
+    fun toggleHidden(category: Category) = write { actions.toggleHidden(category) }
 
     fun showDialog(dialog: CategoryDialog) {
         this.dialog.update { dialog }
