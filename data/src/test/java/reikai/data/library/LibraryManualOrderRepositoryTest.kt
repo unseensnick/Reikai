@@ -65,7 +65,7 @@ class LibraryManualOrderRepositoryTest {
     fun `a manga and a novel with one id keep separate places`() = runTest {
         repository.upsert(listOf(place(ContentType.MANGA, 1, 0), place(ContentType.NOVELS, 1, 1)))
 
-        repository.getForEntries(ContentType.NOVELS, listOf(1)) shouldBe listOf(place(ContentType.NOVELS, 1, 1))
+        repository.getForEntries(ContentType.MANGA, listOf(1)) shouldBe listOf(place(ContentType.MANGA, 1, 0))
     }
 
     @Test
