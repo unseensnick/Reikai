@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup
 
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -12,6 +13,8 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -169,15 +172,22 @@ class CategorizedDisplayRestoreTest {
         ) - "Novels" shouldBe mapOf("A" to true, "B" to false)
     }
 
-    // Nightlies wrote the merge-groups marker before the sort one, and a manga-only backup has no other Reikai field.
-    @Test
-    fun `a Reikai backup known only by its merge-groups marker is trusted with the bit`() = runTest {
+    // A manga-only backup may carry one Reikai field and nothing else: 0.3.x wrote custom info before any
+    // marker, and nightlies wrote the merge-groups marker before the sort one.
+    @ParameterizedTest
+    @EnumSource(OnlyReikaiField::class)
+    fun `a Reikai backup known by one Reikai-only field is trusted with the bit`(field: OnlyReikaiField) = runTest {
         overrides(
             backup(
                 BackupCategory("A", 1, 1, lastReadAsc.flag or CATEGORY_SORT_CUSTOMIZED),
                 BackupCategory("B", 2, 2, totalDesc.flag),
-            ).apply { backupMergeGroupsStored = BackupMergeGroupsStored() },
+            ).apply(field.add),
         ) shouldBe mapOf("A" to true, "B" to false)
+    }
+
+    enum class OnlyReikaiField(val add: Backup.() -> Unit) {
+        MergeGroupsMarker({ backupMergeGroupsStored = BackupMergeGroupsStored() }),
+        CustomMangaInfo({ backupCustomMangaInfo = listOf(BackupCustomMangaInfo(1L, "/m/1", title = "Edited")) }),
     }
 
     /** Mihon kept a category's display mode in bits 0 and 1 and retired it without clearing them. */

@@ -27,4 +27,12 @@ object BackupFields {
     const val SORT_OVERRIDES_STORED: Int = 719
     const val KITSU_NATIVE_SCALE: Int = 720
     const val NOVEL_FONTS: Int = 721
+
+    // Fields no other fork writes (Komikku and TachiyomiSY keep theirs at 600 to 610), so any one marks a
+    // file Reikai wrote; a manga-only backup may carry a single one and nothing else.
+    val REIKAI_ONLY: Set<Int> = setOf(
+        NOVELS, NOVEL_CATEGORIES, NOVEL_MERGES, NOVEL_UNMERGES, EXTENSIONS, MANGA_MERGES, MANGA_UNMERGES,
+        CUSTOM_MANGA_INFO, CUSTOM_NOVEL_INFO, SAVED_SEARCHES, FEED_ROWS, NOVEL_SOURCES, MERGE_GROUPS_STORED,
+        SORT_OVERRIDES_STORED, KITSU_NATIVE_SCALE, NOVEL_FONTS,
+    )
 }

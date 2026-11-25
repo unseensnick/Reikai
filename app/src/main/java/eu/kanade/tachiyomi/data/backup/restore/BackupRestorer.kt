@@ -304,12 +304,14 @@ class BackupRestorer(
         var mergeGroupsStored = false
         var sortOverridesStored = false
         var kitsuNativeScale = false
+        var fromReikai = false
         val trackScores = mutableListOf<Pair<Long, Double>>()
         val foreignMerges = ForeignMergeReader()
         var mangaCount = 0
         var novelCount = 0
 
         BackupProtoReader(context).read(uri) { fieldNumber, data ->
+            if (fieldNumber in BackupFields.REIKAI_ONLY) fromReikai = true
             when (fieldNumber) {
                 BackupFields.MANGA -> {
                     mangaCount++
@@ -377,11 +379,7 @@ class BackupRestorer(
             novelSourceNames = novelSourceNames,
             mergeGroupsStored = mergeGroupsStored,
             sortOverridesStored = sortOverridesStored,
-            // Any field only Reikai writes, its format markers included: a manga-only backup may carry nothing else.
-            fromReikai = novelCount > 0 || backupNovelCategories.isNotEmpty() || novelSourceNames.isNotEmpty() ||
-                backupExtensions.isNotEmpty() || backupMangaMerges.isNotEmpty() || backupNovelMerges.isNotEmpty() ||
-                backupMangaUnmerges.isNotEmpty() || backupNovelUnmerges.isNotEmpty() || mergeGroupsStored ||
-                kitsuNativeScale,
+            fromReikai = fromReikai,
             novelDisplayBitStored = sortOverridesStored || novelSourceNames.isNotEmpty(),
             kitsuScoreScale = kitsuScoreScale,
             backupMangaUnmerges = backupMangaUnmerges,

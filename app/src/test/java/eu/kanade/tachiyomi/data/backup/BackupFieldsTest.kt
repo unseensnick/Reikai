@@ -44,4 +44,21 @@ class BackupFieldsTest {
             "backupNovelFonts" to BackupFields.NOVEL_FONTS,
         )
     }
+
+    // A new root field has to be sorted into one side, or a backup carrying only it reads as foreign.
+    @Test
+    fun `every field outside Mihon's own is Reikai-only`() {
+        val descriptor = Backup.serializer().descriptor
+        val declared = (0 until descriptor.elementsCount).map { index ->
+            descriptor.getElementAnnotations(index).filterIsInstance<ProtoNumber>().single().number
+        }
+        declared.toSet() - BackupFields.REIKAI_ONLY shouldBe setOf(
+            BackupFields.MANGA,
+            BackupFields.CATEGORIES,
+            BackupFields.SOURCES,
+            BackupFields.PREFERENCES,
+            BackupFields.SOURCE_PREFERENCES,
+            BackupFields.EXTENSION_STORES,
+        )
+    }
 }
