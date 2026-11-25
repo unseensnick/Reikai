@@ -22,8 +22,9 @@ import kotlin.time.Instant
 
 /**
  * SQLite tells a query only that its table was written, so a write to one novel re-runs every other
- * novel's query. The details page restarts its chapter pipeline on each emission of these flows, so
- * they emit only when the value they carry changed. MangaMergedFlowDedupTest pins the manga half.
+ * novel's query. The details page restarts its chapter pipeline on each emission of its row by id and its
+ * chapters, and the cover reads the row by address, so these flows emit only when the value they carry
+ * changed. MangaMergedFlowDedupTest pins the manga half.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NovelFlowDedupTest {
@@ -94,12 +95,16 @@ class NovelFlowDedupTest {
         private val addChapter: suspend (NovelRepositoryImpl, NovelChapterRepositoryImpl, Long) -> Unit =
             { _, chapters, id -> chapters.insert(chapter(novelId = id, url = "added-$id")) }
 
+        private val renameNovel: suspend (NovelRepositoryImpl, NovelChapterRepositoryImpl, Long) -> Unit =
+            { novels, _, id -> novels.update(NovelUpdate(id) { title = "renamed $id" }) }
+
         @JvmStatic
         fun probes() = listOf(
+            FlowProbe("novel row by id", { novels, _, id -> novels.getByIdAsFlow(id) }, renameNovel),
             FlowProbe(
-                "novel row",
+                "novel row by address",
                 { novels, _, id -> novels.getByUrlAndSourceAsFlow("n-$id", "src") },
-                { novels, _, id -> novels.update(NovelUpdate(id) { title = "renamed $id" }) },
+                renameNovel,
             ),
             FlowProbe("chapter list", { _, chapters, id -> chapters.getByNovelIdAsFlow(id) }, addChapter),
             FlowProbe(
