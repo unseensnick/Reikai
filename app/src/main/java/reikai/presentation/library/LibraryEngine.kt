@@ -110,6 +110,7 @@ class LibraryEngine(
     @AppCoroutineScope private val appScope: CoroutineScope,
     private val combineLocalVolumes: CombineLocalVolumes,
     private val hideSeries: HideSeries,
+    private val libraryResume: LibraryResume,
 ) : ViewModel() {
 
     /** The library's snackbar and its local volume moves, kept with the engine so a rotation keeps an Undo. */
@@ -700,6 +701,9 @@ class LibraryEngine(
     /** The providers owning part of [entries] with no local entry in it, which has nothing to download. */
     private fun List<LibraryProvider>.downloading(entries: Set<EntryId>): List<LibraryProvider> =
         owning(entries).filterNot { it.containsLocal(entries) }
+
+    /** The reader at [item]'s next chapter for its Continue reading button; null when there is none. */
+    suspend fun resumeIntent(item: LibraryItem) = libraryResume.intent(context, item)
 
     /** Hides the selection's series from the library view, on the app scope as every library write is. */
     fun hideSelection() {

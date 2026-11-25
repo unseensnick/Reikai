@@ -93,8 +93,14 @@ class MergedResumeDownloadedConformanceTest {
                     firstArg<List<Chapter>>().map { it.id }.filterTo(HashSet()) { it in inFolder }
                 }
             }
-            // As LibraryViewModel.getNextUnreadChapter calls it.
-            group.chapters.getNextUnread(manga = leading, downloadedOnly = false, downloadManager, group)?.id
+            // As MangaLibraryRows.nextUnreadChapter calls it.
+            group.chapters.getNextUnread(
+                manga = leading,
+                downloadedOnly = false,
+                downloadManager,
+                group,
+                emptySet(),
+            )?.id
         }
 
         private val novel = ResumeCase("novel") { _, _ ->

@@ -370,8 +370,7 @@ class LibraryViewModel(
 
     // RK: getTrackingFiltersFlow moved into libraryFilterSettingsFlow (LibraryFilterSettings.trackers).
 
-    // RK: resolved by MangaLibraryRows, which a Statistics row's series list resumes through as well
-    suspend fun getNextUnreadChapter(manga: Manga): Chapter? = mangaLibraryRows.nextUnreadChapter(manga) // RK
+    // RK: getNextUnreadChapter moved to LibraryResume, which the library and Statistics both resume through.
 
     /**
      * Queues the amount specified of unread chapters from the list of selected manga

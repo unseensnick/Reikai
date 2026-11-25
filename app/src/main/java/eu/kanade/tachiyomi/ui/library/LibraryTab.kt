@@ -53,7 +53,6 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.home.ShowBottomNavEvent
 import eu.kanade.tachiyomi.ui.home.TopLevelRoute
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -101,12 +100,8 @@ import reikai.presentation.library.updateerror.UpdateErrorsRoute
 import reikai.presentation.library.visualLabel
 import reikai.presentation.local.LocalImportRoute
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickRoute
-import reikai.presentation.reader.novelResumeIntent
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -373,40 +368,18 @@ fun LibraryTab() {
         }
     }
 
-    // RK: shared manga continue-reading handler, used by both the pager and the single-list view.
-    val onMangaContinueReading: (LibraryManga) -> Unit = { item ->
+    // RK: continue reading for both views, each row resumed in its own type's reader (LibraryResume)
+    val continueReading: (LibraryItem) -> Unit = { item ->
         scope.launch {
-            val chapter = viewModel.getNextUnreadChapter(item.manga)
-            if (chapter != null) {
-                context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id))
+            val intent = engine.resumeIntent(item)
+            if (intent != null) {
+                context.startActivity(intent)
             } else {
                 snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
             }
         }
     }
-    // RK: novel continue-reading (both views). Resume opens the next unread chapter from its own
-    // source in group scope, so the reader's prev/next spans the whole merge group (the reader
-    // resolves it itself).
-    val onNovelContinueReading: (LibraryManga) -> Unit = { item ->
-        scope.launchIO {
-            val resume = novelModel.getResume(item.manga.id)
-            if (resume != null) {
-                withUIContext {
-                    context.startActivity(novelResumeIntent(context, resume.novelId, resume.id))
-                }
-            } else {
-                snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
-            }
-        }
-    }
-    // RK: the resume handler is per-type navigation, dispatched on the ROW's own content type rather
-    // than the active chip, so a mixed list resumes each row in its own reader. The gate is neutral.
-    val onContinueReading: ((LibraryItem) -> Unit)? = { item: LibraryItem ->
-        when (item.entryId) {
-            is EntryId.Novel -> onNovelContinueReading(item.libraryManga)
-            is EntryId.Manga -> onMangaContinueReading(item.libraryManga)
-        }
-    }.takeIf { libState.showContinueButton }
+    val onContinueReading = continueReading.takeIf { libState.showContinueButton }
 
     Scaffold(
         topBar = { scrollBehavior ->

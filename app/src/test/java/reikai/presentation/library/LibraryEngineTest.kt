@@ -136,6 +136,7 @@ class LibraryEngineTest {
                 appScope = testAppScope(),
                 combineLocalVolumes = mockk(relaxed = true),
                 hideSeries = HideSeries(hides, soloGroups(), soloGroups()),
+                libraryResume = mockk(relaxed = true),
             ),
         )
     }

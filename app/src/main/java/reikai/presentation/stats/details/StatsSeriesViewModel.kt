@@ -14,7 +14,6 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,13 +33,13 @@ import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.presentation.library.EntryTracks
+import reikai.presentation.library.LibraryResume
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.gridColumns
 import reikai.presentation.library.gridDisplayMode
 import reikai.presentation.library.meansOf
 import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
-import reikai.presentation.reader.novelResumeIntent
 import reikai.presentation.stats.ReadState
 import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsLibrary
@@ -75,6 +74,7 @@ class StatsSeriesViewModel(
     private val loader: StatsLibrarySource,
     private val mangaLibraryRows: MangaLibraryRows,
     private val novelLibraryRows: NovelLibraryRows,
+    private val libraryResume: LibraryResume,
     getEntryCustomInfo: GetEntryCustomInfo,
     private val libraryPreferences: LibraryPreferences,
 ) : ViewModel() {
@@ -150,12 +150,7 @@ class StatsSeriesViewModel(
         libraryPreferences.gridColumns(viewModelScope, isLandscape)
 
     /** The reader at the row's next chapter, as the library's continue-reading opens it; null when none. */
-    suspend fun resumeIntent(context: Context, item: LibraryItem): Intent? = when (item.entryId) {
-        is EntryId.Manga -> mangaLibraryRows.nextUnreadChapter(item.libraryManga.manga)
-            ?.let { ReaderActivity.newIntent(context, it.mangaId, it.id) }
-        is EntryId.Novel -> novelLibraryRows.resumeChapter(item.id)
-            ?.let { novelResumeIntent(context, it.novelId, it.id) }
-    }
+    suspend fun resumeIntent(context: Context, item: LibraryItem): Intent? = libraryResume.intent(context, item)
 
     private class Loaded(
         val library: StatsLibrary,

@@ -72,7 +72,7 @@ class GetNextNovelChapterTest {
         }?.id
 
     // The group half: what a collapsed recents row and the library's continue button both resolve
-    // through. Manga twin: LibraryViewModel.getNextUnreadChapter over MergedChapterProvider.
+    // through. Manga twin: MangaLibraryRows.nextUnreadChapter over MergedChapterProvider.
 
     /** A two-source group whose stored stitch is [stitch]; the real render and source-order restamp run
      *  over it, so what the interactor sees is what a screen would see. */
