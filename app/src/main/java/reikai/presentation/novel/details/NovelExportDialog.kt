@@ -88,8 +88,11 @@ fun NovelExportDialog(
                             onClick = { wholeBook = false },
                             label = {
                                 Text(
-                                    stringResource(MR.strings.export_epub_from) + " - " +
+                                    stringResource(
+                                        MR.strings.export_epub_range,
+                                        stringResource(MR.strings.export_epub_from),
                                         stringResource(MR.strings.export_epub_to),
+                                    ),
                                 )
                             },
                         )

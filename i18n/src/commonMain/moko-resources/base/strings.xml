@@ -400,6 +400,7 @@
     <string name="export_epub_range_all">All on this device</string>
     <string name="export_epub_from">From</string>
     <string name="export_epub_to">To</string>
+    <string name="export_epub_range">%1$s - %2$s</string>
     <string name="export_epub_progress">Exporting %1$s</string>
     <string name="export_epub_failed">Could not export %1$s</string>
     <string name="export_epub_running">Exporting as EPUB</string>
