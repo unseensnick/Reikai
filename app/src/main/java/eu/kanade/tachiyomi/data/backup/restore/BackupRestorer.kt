@@ -13,8 +13,11 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupFields
+import eu.kanade.tachiyomi.data.backup.models.BackupLocalVolumeFields
+import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
+import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelFont
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
@@ -238,20 +241,15 @@ class BackupRestorer(
                     restoreNovelFonts(uri)
                 }
             }
-            if (options.libraryEntries) {
-                restoreMangaStream(
-                    uri,
-                    if (options.categories) summary.backupCategories else emptyList(),
-                    summary, // RK: the merge groups, older custom info and pref-era grouping inputs
-                )
-            }
+            // RK: both types' libraries run the one sequence, see restoreLibraryStream
+            if (options.libraryEntries) launch { restoreLibraryStream(uri, mangaLibrary(summary, options)) }
             // RK -->
             if (options.savedSearches) {
                 restoreIsolated("saved searches") {
                     feedRestorer(summary.backupSavedSearches, summary.backupFeedRows)
                 }
             }
-            restoreNovelsStream(uri, summary, options)
+            if (options.libraryEntries) launch { restoreLibraryStream(uri, novelLibrary(summary, options)) }
             // RK <--
             // RK: restoreExtensionStores moved to restoreExtensions below, which adds only the stores the user trusted
 
@@ -445,60 +443,42 @@ class BackupRestorer(
         }
     }
 
-    // RK: restore the light-novel library, streamed: each novel in bounded batches, then the merge
-    // groups (re-keyed from {url,source}). Its categories restored with the manga ones, up front.
-    private fun CoroutineScope.restoreNovelsStream(
-        uri: Uri,
+    // RK: the light-novel library's half of restoreLibraryStream. Its categories restored with the manga ones, up front.
+    private fun novelLibrary(
         summary: BackupSummary,
         options: RestoreOptions,
-    ) = launch {
-        // Mirrors the manga stream's gate: with Categories off, novels must not be assigned to
-        // same-named pre-existing categories either. Pinned by RestoreCategoryGateConformanceTest.
+    ): LibraryRestore<BackupNovel, String, BackupNovelSourceRef> {
+        // With Categories off, novels are not assigned to same-named pre-existing categories either, as manga's
+        // are not. Pinned by RestoreCategoryGateConformanceTest.
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
-        if (options.libraryEntries) {
-            val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
-            val owners = mutableListOf<VolumeOwner>()
-            val localSeries = mutableListOf<String>()
-            val hiddenRefs = mutableListOf<Pair<String, String>>()
-            val deviceHidden = restoreHiddenEntries.deviceHidden(ContentType.NOVELS)
-            val kitsuScale = summary.kitsuScoreScale
-            restoreEntryStream(
-                uri,
-                fieldNumber = BackupFields.NOVELS,
-                kind = "Novel",
-                decode = {
-                    summary.legacyCustomInfo.decodeNovel(parser, it).rescaleKitsu(kitsuScale).apply {
-                        if (!summary.novelDisplayBitStored) chapterFlags = withDisplayBitFromSort(chapterFlags)
-                    }.also { novel ->
-                        owners += novel.restoredOwners(novel.url)
-                        if (LocalNovelSource.isLocal(novel.source)) localSeries += novel.url
-                        if (novel.libraryHidden) hiddenRefs += novel.source to novel.url
-                        if (!summary.mergeGroupsStored && novel.favorite) {
-                            favorites += PrefEraGrouping.Favorite(
-                                BackupNovelSourceRef(novel.url, novel.source),
-                                novel.title,
-                                novel.author,
-                            )
-                        }
-                    }
-                },
-                restore = { novelRestorer.restore(it, membershipCategories) },
-                title = { it.title },
-                sourceName = { summary.novelSourceNames.backedUpSourceName(it.source) },
-                isAdult = { adultContentChecker.adultNovelIdsAmong(listOf(it.toNovelImpl())).isNotEmpty() },
-            )
-            restoreIsolated("novel custom info") {
+        return LibraryRestore(
+            type = ContentType.NOVELS,
+            fieldNumber = BackupFields.NOVELS,
+            kind = "Novel",
+            nouns = "novel" to "novels",
+            mergeGroupsStored = summary.mergeGroupsStored,
+            decode = {
+                summary.legacyCustomInfo.decodeNovel(parser, it).rescaleKitsu(summary.kitsuScoreScale).apply {
+                    if (!summary.novelDisplayBitStored) chapterFlags = withDisplayBitFromSort(chapterFlags)
+                }
+            },
+            ref = { it.source to it.url },
+            isLocal = { LocalNovelSource.isLocal(it.source) },
+            libraryHidden = { it.libraryHidden },
+            favorite = { novel ->
+                PrefEraGrouping.Favorite(BackupNovelSourceRef(novel.url, novel.source), novel.title, novel.author)
+                    .takeIf { novel.favorite }
+            },
+            restore = { novelRestorer.restore(it, membershipCategories) },
+            title = { it.title },
+            sourceName = { summary.novelSourceNames.backedUpSourceName(it.source) },
+            isAdult = { adultContentChecker.adultNovelIdsAmong(listOf(it.toNovelImpl())).isNotEmpty() },
+            unclaimedCustomInfo = {
                 summary.legacyCustomInfo.unclaimedNovels().forEach { (ref, info) ->
                     novelRestorer.restoreCustomInfo(ref.first, ref.second, info)
                 }
-            }
-            restoreIsolated("local novel volumes") {
-                combineLocalVolumes.restoreOwners(ContentType.NOVELS, owners, localSeries)
-            }
-
-            // Isolated as the manga twin is: a failure here must not cancel the sibling stream or
-            // escape before the error log is written.
-            restoreIsolated("novel merges") {
+            },
+            merges = { favorites ->
                 novelRestorer.restoreMerges(
                     summary.backupNovelMerges,
                     summary.prefEra(
@@ -508,18 +488,9 @@ class BackupRestorer(
                         summary.backupNovelUnmerges.map { it.refs },
                     ),
                 )
-                // Entries were filed one at a time from the backup, so a group can come back disagreeing.
-                alignGroupCategories.align(ContentType.NOVELS)
-                // A backup made before the upgrade that gathered them carries each member's own reader flags.
-                gatherGroupViewerFlags.gather(ContentType.NOVELS)
-            }
-            // After the merges, never per entry: see RestoreHiddenEntries.
-            restoreIsolated("hidden novels") {
-                restoreHiddenEntries.restore(ContentType.NOVELS, deviceHidden, hiddenRefs) { (source, url) ->
-                    novelRestorer.restoredId(source, url)
-                }
-            }
-        }
+            },
+            restoredId = { (source, url) -> novelRestorer.restoredId(source, url) },
+        )
     }
 
     // Without a stub, a source that isn't installed has no name for the next backup to write
@@ -563,77 +534,128 @@ class BackupRestorer(
         )
     }
 
-    // RK: pass 2 for manga. Streams field 1, restoring bounded batches inside a DB transaction (each
-    // restore also opens its own, harmlessly nested), then materializes the merge groups once every
-    // manga has a fresh id. Entries restore in file order, as upstream's now do too.
-    private fun CoroutineScope.restoreMangaStream(
-        uri: Uri,
-        backupCategories: List<BackupCategory>,
+    // RK: the manga library's half of restoreLibraryStream: field 1 restored in bounded batches inside a DB
+    // transaction (each restore also opens its own, harmlessly nested), in file order, as upstream's now are too.
+    private fun mangaLibrary(
         summary: BackupSummary,
-    ) = launch {
-        val legacyCustomInfo = summary.legacyCustomInfo
-        val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupMangaSourceRef>>()
-        val owners = mutableListOf<VolumeOwner>() // RK: applied once every series is back
-        val localSeries = mutableListOf<String>() // RK: settled against the device's grouping then
-        val hiddenRefs = mutableListOf<Pair<Long, String>>() // RK: applied after the merges
-        val deviceHidden = restoreHiddenEntries.deviceHidden(ContentType.MANGA) // RK: before a re-add clears one
-        restoreEntryStream(
-            uri,
+        options: RestoreOptions,
+    ): LibraryRestore<BackupManga, Long, BackupMangaSourceRef> {
+        val backupCategories = if (options.categories) summary.backupCategories else emptyList()
+        return LibraryRestore(
+            type = ContentType.MANGA,
             fieldNumber = BackupFields.MANGA,
             kind = "Manga",
+            nouns = "manga" to "manga",
+            mergeGroupsStored = summary.mergeGroupsStored,
             decode = {
-                legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale)
-                    .let(summary.foreignMerges::applyTo).also { manga ->
-                        owners += manga.restoredOwners(manga.url) // RK
-                        if (manga.source == LocalSource.ID) localSeries += manga.url // RK
-                        if (manga.libraryHidden) hiddenRefs += manga.source to manga.url // RK
-                        if (!summary.mergeGroupsStored && manga.favorite && !manga.isForeignMergedRow) {
-                            favorites += PrefEraGrouping.Favorite(
-                                BackupMangaSourceRef(manga.url, manga.source),
-                                manga.title,
-                                manga.author,
-                            )
-                        }
-                    }
+                summary.legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale)
+                    .let(summary.foreignMerges::applyTo)
+            },
+            ref = { it.source to it.url },
+            isLocal = { it.source == LocalSource.ID },
+            libraryHidden = { it.libraryHidden },
+            favorite = { manga ->
+                PrefEraGrouping.Favorite(BackupMangaSourceRef(manga.url, manga.source), manga.title, manga.author)
+                    .takeIf { manga.favorite && !manga.isForeignMergedRow }
             },
             restore = { if (!it.isForeignMergedRow) mangaRestorer.restore(listOf(it), backupCategories) },
             title = { it.title },
             sourceName = { sourceMapping.backedUpSourceName(it.source) },
             isAdult = { adultContentChecker.adultIdsAmong(listOf(it.getMangaImpl())).isNotEmpty() },
+            unclaimedCustomInfo = {
+                summary.legacyCustomInfo.unclaimedManga().forEach { (ref, info) ->
+                    mangaRestorer.restoreCustomInfo(ref.first, ref.second, info)
+                }
+            },
+            merges = { favorites ->
+                mangaRestorer.restoreMerges(
+                    summary.backupMangaMerges,
+                    summary.prefEra(
+                        ContentType.MANGA,
+                        reikaiLibraryPreferences,
+                        favorites,
+                        summary.backupMangaUnmerges.map { it.refs },
+                    ),
+                    summary.foreignMerges.groups,
+                )
+            },
+            restoredId = { (source, url) -> mangaRestorer.restoredId(source, url) },
         )
-        restoreIsolated("manga custom info") {
-            legacyCustomInfo.unclaimedManga().forEach { (ref, info) ->
-                mangaRestorer.restoreCustomInfo(ref.first, ref.second, info)
-            }
-        }
-        // RK: a local series' volumes from other folders regroup chapters across series, so once all are back
-        restoreIsolated("local volumes") { combineLocalVolumes.restoreOwners(ContentType.MANGA, owners, localSeries) }
+    }
 
-        // RK: with every manga restored (fresh IDs), materialize the backup's merge groups. Isolated
-        // like the entry loop above: a failure here would otherwise cancel the novel stream mid-batch
-        // and escape before the error log is written, leaving a half-restored library and no report.
-        ensureActive()
-        restoreIsolated("merges") {
-            mangaRestorer.restoreMerges(
-                summary.backupMangaMerges,
-                summary.prefEra(
-                    ContentType.MANGA,
-                    reikaiLibraryPreferences,
-                    favorites,
-                    summary.backupMangaUnmerges.map { it.refs },
-                ),
-                summary.foreignMerges.groups,
-            )
-            // RK: entries were filed one at a time from the backup, so a group can come back disagreeing
-            alignGroupCategories.align(ContentType.MANGA)
-            // RK: a backup made before the upgrade that gathered them carries each member's own reader flags
-            gatherGroupViewerFlags.gather(ContentType.MANGA)
+    // RK: what one content type's library restore spells its own way. The steps and their order are
+    // restoreLibraryStream's alone, so a step added there reaches both types.
+    private class LibraryRestore<B : BackupLocalVolumeFields, S, R>(
+        val type: ContentType,
+        val fieldNumber: Int,
+        val kind: String,
+        /** The type's singular and plural in the error log. */
+        val nouns: Pair<String, String>,
+        /** Whether the backup carries its merge groups; an older one has them rebuilt from its favorites. */
+        val mergeGroupsStored: Boolean,
+        val decode: (ByteArray) -> B,
+        /** The source and url a restored entry is found by again. */
+        val ref: (B) -> Pair<S, String>,
+        val isLocal: (B) -> Boolean,
+        val libraryHidden: (B) -> Boolean,
+        /** The entry as an older backup's grouping reads it, or null when that grouping leaves it out. */
+        val favorite: (B) -> PrefEraGrouping.Favorite<R>?,
+        val restore: suspend (B) -> Unit,
+        val title: (B) -> String,
+        val sourceName: (B) -> String,
+        val isAdult: suspend (B) -> Boolean,
+        val unclaimedCustomInfo: suspend () -> Unit,
+        val merges: suspend (favorites: List<PrefEraGrouping.Favorite<R>>) -> Unit,
+        val restoredId: suspend (Pair<S, String>) -> Long?,
+    )
+
+    // RK: one content type's library: its entries streamed, then, once every entry has a fresh id, the steps
+    // that read across entries. The order is load-bearing: local volumes regroup chapters across series, merges
+    // need every member back, and hidden is applied after the merges (see RestoreHiddenEntries).
+    private suspend fun <B : BackupLocalVolumeFields, S, R> restoreLibraryStream(
+        uri: Uri,
+        library: LibraryRestore<B, S, R>,
+    ) {
+        val (noun, nouns) = library.nouns
+        val favorites = mutableListOf<PrefEraGrouping.Favorite<R>>()
+        val owners = mutableListOf<VolumeOwner>()
+        val localSeries = mutableListOf<String>()
+        val hiddenRefs = mutableListOf<Pair<S, String>>()
+        // Before a re-add clears one.
+        val deviceHidden = restoreHiddenEntries.deviceHidden(library.type)
+        restoreEntryStream(
+            uri,
+            fieldNumber = library.fieldNumber,
+            kind = library.kind,
+            decode = {
+                library.decode(it).also { entry ->
+                    val ref = library.ref(entry)
+                    owners += entry.restoredOwners(ref.second)
+                    if (library.isLocal(entry)) localSeries += ref.second
+                    if (library.libraryHidden(entry)) hiddenRefs += ref
+                    if (!library.mergeGroupsStored) library.favorite(entry)?.let(favorites::add)
+                }
+            },
+            restore = library.restore,
+            title = library.title,
+            sourceName = library.sourceName,
+            isAdult = library.isAdult,
+        )
+        // Each step isolated: a failure is recorded and must not cancel the other type's stream mid-batch.
+        restoreIsolated("$noun custom info") { library.unclaimedCustomInfo() }
+        restoreIsolated("local $noun volumes") {
+            combineLocalVolumes.restoreOwners(library.type, owners, localSeries)
         }
-        // RK: after the merges, never per entry: see RestoreHiddenEntries
-        restoreIsolated("hidden manga") {
-            restoreHiddenEntries.restore(ContentType.MANGA, deviceHidden, hiddenRefs) { (source, url) ->
-                mangaRestorer.restoredId(source, url)
-            }
+        currentCoroutineContext().ensureActive()
+        restoreIsolated("$noun merges") {
+            library.merges(favorites)
+            // Entries were filed one at a time from the backup, so a group can come back disagreeing.
+            alignGroupCategories.align(library.type)
+            // A backup made before the upgrade that gathered them carries each member's own reader flags.
+            gatherGroupViewerFlags.gather(library.type)
+        }
+        restoreIsolated("hidden $nouns") {
+            restoreHiddenEntries.restore(library.type, deviceHidden, hiddenRefs) { library.restoredId(it) }
         }
     }
 
