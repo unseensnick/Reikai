@@ -206,4 +206,15 @@ class GetNextNovelChapter(
     /** Where [novelId]'s series keeps its reader flags ([GroupViewerFlags]). */
     suspend fun viewerFlags(novelId: Long): GroupViewerFlags =
         GroupViewerFlags.of(novelId, mergeManager.computeRelatedIds(novelId).asList())
+
+    /** [novelId]'s own row and its series' flags owner's, read once for a reader or read aloud opening it. */
+    suspend fun ownReaderRows(novelId: Long): OwnReaderRows {
+        val flags = viewerFlags(novelId)
+        val opened = novelRepository.getById(novelId)
+        val owner = if (flags.ownerId == novelId) opened else novelRepository.getById(flags.ownerId)
+        return OwnReaderRows(flags, opened, owner)
+    }
 }
+
+/** What [GetNextNovelChapter.ownReaderRows] reads: the [opened] novel, and the [owner] whose viewer flags it reads by. */
+data class OwnReaderRows(val flags: GroupViewerFlags, val opened: Novel?, val owner: Novel?)

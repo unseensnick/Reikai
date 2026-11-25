@@ -570,7 +570,7 @@ internal data class NovelViewportSettings(
             ownLayout: NovelPageLayout? = null,
         ) = NovelViewportSettings(
             renderingMode = NovelRenderingMode.resolve(own, preferences),
-            pageLayout = ownLayout ?: preferences.readerPageLayout().get(),
+            pageLayout = NovelPageLayout.resolve(ownLayout, preferences),
             dualPageView = preferences.readerDualPageView().get(),
             textSelectable = preferences.readerTextSelectable().get(),
             useOriginalFonts = preferences.readerUseOriginalFonts().get(),

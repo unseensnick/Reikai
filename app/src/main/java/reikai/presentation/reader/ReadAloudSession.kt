@@ -343,10 +343,8 @@ class ReadAloudSession(
             controller.state.onEach(::record).launchIn(scope)
             scope.launchIO {
                 val novel = try {
-                    val owner = getNextNovelChapter.viewerFlags(series.novelId).ownerId
-                    val novel = novelRepo.getById(series.novelId)
-                    val ownerRow = if (owner == series.novelId) novel else novelRepo.getById(owner)
-                    ownMode.complete(ownerRow?.let { NovelRenderingMode.ofFlags(it.viewerFlags) })
+                    val (_, novel, owner) = getNextNovelChapter.ownReaderRows(series.novelId)
+                    ownMode.complete(owner?.let { NovelRenderingMode.ofFlags(it.viewerFlags) })
                     novel
                 } finally {
                     // Also on a failed read, which follows the setting, so a load never waits on it for good.

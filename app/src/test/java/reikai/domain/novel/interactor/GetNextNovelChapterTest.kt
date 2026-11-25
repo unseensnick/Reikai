@@ -181,4 +181,15 @@ class GetNextNovelChapterTest {
 
         resume(downloadedOnly = true, downloaded = setOf(11L)) shouldBe 11L
     }
+
+    /** Opened through a member that does not own the series' flags, the reader and read aloud read the owner's. */
+    @Test
+    fun `a merged member opens by its owner's reader flags`() = runTest {
+        coEvery { mergeManager.computeRelatedIds(2L) } returns longArrayOf(1L, 2L)
+        coEvery { novelRepository.getById(any()) } answers { Novel.create().copy(id = firstArg()) }
+
+        val rows = interactor.ownReaderRows(2L)
+
+        (rows.opened?.id to rows.owner?.id) shouldBe (2L to 1L)
+    }
 }

@@ -102,7 +102,7 @@ data class NovelReaderSettings(
                 ttsHighlightTextColor = readerTtsHighlightTextColor().get(),
                 ttsKeepInView = readerTtsKeepInView().get(),
                 bionicReading = readerBionicReading().get(),
-                tapZones = (pageLayout ?: readerPageLayout().get()).isPaged.let { paged ->
+                tapZones = NovelPageLayout.resolve(pageLayout, this).isPaged.let { paged ->
                     NovelTapZones(
                         readerTapLayout(paged).get(),
                         readerTapInvert(paged).get(),

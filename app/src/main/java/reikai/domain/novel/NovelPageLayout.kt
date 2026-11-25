@@ -31,6 +31,10 @@ enum class NovelPageLayout(val titleRes: StringResource) {
             else -> null
         }
 
+        /** The layout a novel reads in: its [own] choice, else the setting. Every reader of the layout asks this. */
+        fun resolve(own: NovelPageLayout?, preferences: NovelPreferences): NovelPageLayout =
+            own ?: preferences.readerPageLayout().get()
+
         fun flagOf(layout: NovelPageLayout?): Long = when (layout) {
             SCROLL -> 0x100L
             PAGED_LTR -> 0x200L

@@ -399,8 +399,8 @@ class NovelReaderViewModel(
     val effectivePageLayout: StateFlow<NovelPageLayout> = combine(
         pageLayout,
         novelPreferences.readerPageLayout().changes(),
-    ) { own, setting -> own ?: setting }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, novelPreferences.readerPageLayout().get())
+    ) { own, _ -> NovelPageLayout.resolve(own, novelPreferences) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, NovelPageLayout.resolve(null, novelPreferences))
 
     /** The reading mode the viewport had when a sheet setting rebuilt it, which the next build reads once: the
      *  Activity does not survive the rebuild, so the provider cannot hold it. */
@@ -828,9 +828,8 @@ class NovelReaderViewModel(
         progressSlot.persisted.onEach { (id, at) -> keepPlace(id, at) }.launchIn(viewModelScope)
         viewModelScope.launchIO {
             val novel = try {
-                val ownerId = getNextNovelChapter.viewerFlags(novelId).also(viewerFlags::complete).ownerId
-                val opened = novelRepo.getById(novelId)
-                val owner = if (ownerId == novelId) opened else novelRepo.getById(ownerId)
+                val (flags, opened, owner) = getNextNovelChapter.ownReaderRows(novelId)
+                viewerFlags.complete(flags)
                 owner?.let {
                     NovelRenderingMode.ofFlags(it.viewerFlags)?.let { mode ->
                         renderingMode.value = mode
