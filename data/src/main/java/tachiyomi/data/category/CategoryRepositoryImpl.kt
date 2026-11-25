@@ -8,6 +8,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
+import reikai.data.readInChunks
 import reikai.domain.category.CategoryContentType
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -74,12 +75,15 @@ class CategoryRepositoryImpl(
     }
 
     override suspend fun getCategoriesByMangaIds(mangaIds: List<Long>): Map<Long, List<Category>> {
-        return database.categoryQueries
-            // RK: the row carries its content type
-            .getCategoriesByMangaIds(mangaIds) { mangaId, id, name, order, flags, contentType ->
-                mangaId to mapCategory(id, name, order, flags, contentType) // RK
-            }
-            .awaitAsList()
+        // RK: read in chunks, since the library's selection can pass more ids than one statement binds
+        return readInChunks(mangaIds) { chunk ->
+            database.categoryQueries
+                // RK: the row carries its content type
+                .getCategoriesByMangaIds(chunk) { mangaId, id, name, order, flags, contentType ->
+                    mangaId to mapCategory(id, name, order, flags, contentType) // RK
+                }
+                .awaitAsList()
+        } // RK
             .groupBy({ it.first }, { it.second })
     }
 
@@ -92,11 +96,13 @@ class CategoryRepositoryImpl(
 
     // RK: getCategoriesByNovelId for many novels at once
     override suspend fun getCategoriesByNovelIds(novelIds: List<Long>): Map<Long, List<Category>> {
-        return database.categoryQueries
-            .getNovelCategoriesByNovelIds(novelIds) { novelId, id, name, order, flags, contentType ->
-                novelId to mapCategory(id, name, order, flags, contentType)
-            }
-            .awaitAsList()
+        return readInChunks(novelIds) { chunk ->
+            database.categoryQueries
+                .getNovelCategoriesByNovelIds(chunk) { novelId, id, name, order, flags, contentType ->
+                    novelId to mapCategory(id, name, order, flags, contentType)
+                }
+                .awaitAsList()
+        }
             .groupBy({ it.first }, { it.second })
     }
 

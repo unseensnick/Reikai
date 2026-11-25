@@ -24,6 +24,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.groupedSourceIdsOf
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceManager
@@ -41,6 +42,7 @@ class MangaLibraryAdapter(
     // Assisted: the model belongs to the tab that is composing, so only the call site has it.
     @Assisted private val model: LibraryViewModel,
     private val getCategories: GetCategories,
+    private val categoryRepository: CategoryRepository,
     private val context: Context,
     private val libraryPreferences: LibraryPreferences,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
@@ -197,7 +199,9 @@ class MangaLibraryAdapter(
     override suspend fun assignableCategories() =
         getCategories.await().filterNot { it.isSystemCategory }
 
-    override suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>> =
-        model.state.value.memberIdsFor(entries.ownIds())
-            .map { id -> getCategories.await(id).mapTo(mutableSetOf()) { it.id } }
+    override suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>> {
+        val ids = model.state.value.memberIdsFor(entries.ownIds())
+        val byId = categoryRepository.getCategoriesByMangaIds(ids)
+        return ids.map { id -> byId[id].orEmpty().mapTo(mutableSetOf()) { it.id } }
+    }
 }

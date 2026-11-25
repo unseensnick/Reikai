@@ -26,6 +26,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import kotlin.time.Duration.Companion.seconds
 
@@ -40,6 +41,7 @@ class NovelLibraryAdapter(
     // Assisted: the model belongs to the tab that is composing, so only the call site has it.
     @Assisted private val model: NovelLibraryViewModel,
     private val getNovelCategories: GetNovelCategories,
+    private val categoryRepository: CategoryRepository,
     private val context: Context,
     private val libraryPreferences: LibraryPreferences,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
@@ -182,7 +184,9 @@ class NovelLibraryAdapter(
     override suspend fun assignableCategories() =
         getNovelCategories.await().filterNot { it.isSystemCategory }
 
-    override suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>> =
-        model.state.value.memberIdsFor(entries.ownIds())
-            .map { id -> getNovelCategories.awaitByNovelId(id).mapTo(mutableSetOf()) { it.id } }
+    override suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>> {
+        val ids = model.state.value.memberIdsFor(entries.ownIds())
+        val byId = categoryRepository.getCategoriesByNovelIds(ids)
+        return ids.map { id -> byId[id].orEmpty().mapTo(mutableSetOf()) { it.id } }
+    }
 }
