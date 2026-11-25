@@ -80,10 +80,8 @@ import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
-import tachiyomi.domain.chapter.interactor.GetBookmarkedChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
-import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -114,8 +112,7 @@ class LibraryViewModel(
     private val getSearchTags: GetSearchTags,
     private val getSearchTitles: GetSearchTitles,
     private val getTracksPerManga: GetTracksPerManga,
-    private val getNextChapters: GetNextChapters,
-    private val getBookmarkedChaptersByMangaId: GetBookmarkedChaptersByMangaId,
+    // RK: getNextChapters and getBookmarkedChaptersByMangaId gave way to MergedChapterProvider.load, below
     private val setReadStatus: SetReadStatus,
     // RK: updateManga moved to RemoveMangaFromLibrary, which removeMangas takes out through
     private val setMangaCategories: SetMangaCategories,
@@ -385,12 +382,10 @@ class LibraryViewModel(
         appScope.launch {
             val hidden = mangaPreferences.hiddenChapters().get()
             mangas.forEach { manga ->
-                val group = mergedGroupOf(manga)
-                val chapters = group?.chapters?.inReadingOrder(group.chapterSettingsOf(manga)) ?: when (action) {
-                    DownloadAction.BOOKMARKED_CHAPTERS -> getBookmarkedChaptersByMangaId.await(manga.id)
-                    else -> getNextChapters.await(manga.id)
-                }
-                enqueueDownloads(group, manga, chapters, action, hidden)
+                // A lone entry's list is its own, scanlator-filtered as the details page reads it
+                val group = mergedChapterProvider.load(manga)
+                val chapters = group.chapters.inReadingOrder(group.chapterSettingsOf(manga))
+                enqueueDownloads(group.takeIf { it.isMerged }, manga, chapters, action, hidden)
             }
         }
         // RK <--
@@ -399,18 +394,13 @@ class LibraryViewModel(
     // RK --> a merged cover is one selected row standing for its whole group, so a bulk action has to
     // act on every member, not just the collapsed primary. The members are collapsed out of the
     // library state, so they resolve from the DB by id. Ids are captured by the caller before the
-    // selection clears (LibraryTab clears it as soon as the action returns), never inside the
+    // selection clears (LibraryEngine.dispatchAndClear clears it once the action returns), never inside the
     // coroutine, which would race that and come back empty.
     private suspend fun resolveSelectedGroupManga(memberIds: List<Long>): List<Manga> =
         memberIds.mapNotNull { getManga.await(it) }
     // RK <--
 
     // RK -->
-
-    /** The resolved merge group, or null when the entry stands alone. Resolving one loads every
-     *  member's chapters, which an entry with no members has no use for. */
-    private suspend fun mergedGroupOf(manga: Manga): MergedChapterProvider.Group? =
-        if (mergeManager.computeRelatedIds(manga.id).size > 1) mergedChapterProvider.load(manga) else null
 
     /** Queue what [action] picks from [chapters], each from the source it came from, skipping what the
      *  group already holds: a chapter downloaded on any member is on disk, whichever copy the stitch
@@ -478,7 +468,7 @@ class LibraryViewModel(
         deleteChapters: Boolean,
         // RK: expand merged covers to every grouped source, so the whole series leaves the library
         //     instead of just the primary. Scopes both the library removal and the download deletion.
-        removeGroupedSources: Boolean = false,
+        removeGroupedSources: Boolean,
     ) {
         // RK: resolve the group member ids now, on the caller thread, from the manga being removed.
         val memberIds = if (removeGroupedSources) state.value.memberIdsFor(mangas.map { it.id }) else emptyList()
@@ -486,7 +476,7 @@ class LibraryViewModel(
             // RK: the merged-away group members are collapsed out of the library state, so resolve
             //     them from the DB by id; falls back to the passed-in mangas when not expanding.
             val targets = if (removeGroupedSources) {
-                memberIds.mapNotNull { getManga.await(it) }
+                resolveSelectedGroupManga(memberIds)
             } else {
                 mangas
             }
