@@ -19,13 +19,14 @@ class EntryCheckTest {
         stillInLibrary: Boolean = true,
         trackErrors: Boolean = true,
         clearError: suspend () -> Unit = { cleared += Unit },
+        recordError: suspend (String) -> Unit = { recorded += it },
         check: suspend () -> Unit = { checked += Unit },
     ): EntryCheck = checkUpdateEntry(
         stillInLibrary = { stillInLibrary },
         progress = { it() },
         trackErrors = trackErrors,
         clearError = clearError,
-        recordError = { recorded += it },
+        recordError = recordError,
         failureMessage = { it.message ?: "Unknown" },
         check = check,
     )
@@ -99,5 +100,11 @@ class EntryCheckTest {
     @Test
     fun `a failing clear does not fail the entry`() = runTest {
         step(clearError = { error("database closed") }) shouldBe EntryCheck.Checked
+    }
+
+    @Test
+    fun `a failing record still reports the entry's own failure`() = runTest {
+        step(recordError = { error("database closed") }, check = { error("Timeout") }) shouldBe
+            EntryCheck.Failed("Timeout")
     }
 }
