@@ -1,5 +1,6 @@
 package reikai.presentation.novel.details
 
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockkStatic
@@ -64,18 +65,21 @@ class NovelDetailsViewModelSubscriptionTest {
             NovelReaderViewModelHarness.create(testScheduler).use { harness ->
                 val leading = harness.novel(harness.source("alpha"))
                 val other = harness.novel(harness.source("beta"))
-                harness.chapter(leading, 1.0)
-                harness.chapter(other, 1.0)
+                val hidden = harness.chapter(leading, 1.0).id
+                harness.chapter(leading, 2.0)
+                harness.chapter(other, 3.0)
                 harness.merge(leading, other)
-                val model = harness.openDetails(leading, shown = false)
-                backgroundScope.launch { model.state.collect {} }
+                val model = harness.openDetails(leading)
+                advanceUntilIdle()
+                model.toggleSelection(hidden, fromLongPress = false, shown = listOf(hidden))
+                model.hideSelected()
                 advanceUntilIdle()
                 val opened = harness.chapterQueryStarts.get()
 
                 model.toggleShowHidden()
                 advanceUntilIdle()
 
-                (model.state.value as NovelDetailsState.Loaded).showHidden shouldBe true
+                (model.state.value as NovelDetailsState.Loaded).chapters.map { it.id } shouldContain hidden
                 harness.chapterQueryStarts.get() shouldBe opened
             }
         }
