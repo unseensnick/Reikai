@@ -1,6 +1,9 @@
 package reikai.presentation.library
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -63,6 +66,16 @@ class TagFilterPickerTest {
     }
 
     @Test
+    fun `a tag reads out its state, which only its colour shows`() {
+        showPicker()
+
+        compose.onNodeWithTag("tag:action").performScrollTo().performClick()
+
+        compose.onNodeWithTag("tag:action")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Shown"))
+    }
+
+    @Test
     fun `the picker counts the series the filter keeps`() {
         preferences.filterTagsInclude.set(setOf("drama"))
         showPicker()
@@ -121,5 +134,22 @@ class TagFilterPickerTest {
         compose.waitForIdle()
 
         preferences.filterTagsInclude.get() shouldBe emptySet()
+    }
+
+    /** A count of library reads, since each one folds every series' tags. */
+    @Test
+    fun `a tap on a strip chip does not fold the library again`() {
+        var folds = 0
+        val counted = LibraryTagFilter(preferences, UnconfinedTestDispatcher()) {
+            folds++
+            listOf(listOf("Action", "Drama"))
+        }
+        preferences.filterTagsInclude.set(setOf("action", "drama"))
+        compose.setContent { ComposeTestHost { TagFilterStrip(counted) } }
+
+        compose.onNodeWithText("Action").performClick()
+        compose.waitForIdle()
+
+        folds shouldBe 1
     }
 }

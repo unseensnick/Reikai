@@ -2178,6 +2178,8 @@
     <string name="tag_filter_chip_hidden">Hiding %1$s</string>
     <string name="tag_filter_chip_untagged">Untagged only</string>
     <string name="tag_filter_chip_tagged">Tagged only</string>
+    <string name="tag_filter_state_shown">Shown</string>
+    <string name="tag_filter_state_hidden">Hidden</string>
     <string name="action_show_only_tag">Show only this tag</string>
     <string name="action_hide_tag">Hide this tag</string>
 </resources>

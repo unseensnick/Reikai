@@ -54,6 +54,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.withContext
@@ -138,7 +140,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
     // tap only recounts.
     val library by produceState<PickerLibrary?>(null, aliases) {
         value = withContext(tagFilter.foldDispatcher) {
-            tagFilter.seriesTags().map(aliases::resolveAll).let { PickerLibrary(tagChoices(it), it.map(::tagKeys)) }
+            tagFilter.resolvedSeriesTags(aliases).let { PickerLibrary(tagChoices(it), it.map(::tagKeys)) }
         }
     }
     val choices = library?.choices.orEmpty()
@@ -486,6 +488,14 @@ private fun TriStateChip(
         TriState.ENABLED_NOT -> colors.errorContainer to colors.onErrorContainer
         TriState.DISABLED -> Color.Transparent to colors.onSurfaceVariant
     }
+    // Read aloud, since the colour and the unlabelled icon carry the state on screen.
+    val stateText = stringResource(
+        when (state) {
+            TriState.ENABLED_IS -> MR.strings.tag_filter_state_shown
+            TriState.ENABLED_NOT -> MR.strings.tag_filter_state_hidden
+            TriState.DISABLED -> MR.strings.off
+        },
+    )
     Surface(
         shape = MaterialTheme.shapes.small,
         color = container,
@@ -494,7 +504,8 @@ private fun TriStateChip(
         modifier = modifier
             .padding(vertical = 8.dp)
             .clip(MaterialTheme.shapes.small)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .semantics { stateDescription = stateText },
     ) {
         Row(
             modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
@@ -528,10 +539,11 @@ fun TagFilterStrip(tagFilter: LibraryTagFilter, modifier: Modifier = Modifier) {
     val filter by rememberTagFilter(tagFilter)
     if (!filter.isActive) return
     val aliases = rememberTagAliases(preferences)
-    // The stored keys are folded, so the chips show the spelling the library uses where one is found.
-    val labels by produceState(emptyMap<String, String>(), filter.include, filter.exclude, aliases) {
+    // The stored keys are folded, so the chips show the spelling the library uses where one is found. Folded
+    // once per showing and per alias change, as the picker folds, so a tap on a chip only drops a key.
+    val labels by produceState(emptyMap<String, String>(), aliases) {
         value = withContext(tagFilter.foldDispatcher) {
-            tagChoices(tagFilter.seriesTags().map(aliases::resolveAll)).associate { it.key to it.label }
+            tagChoices(tagFilter.resolvedSeriesTags(aliases)).associate { it.key to it.label }
         }
     }
 
@@ -582,6 +594,9 @@ private fun rememberTagAliases(preferences: ReikaiLibraryPreferences): TagAliase
     val entries by preferences.tagAliases.collectAsState()
     return remember(entries) { TagAliases(entries) }
 }
+
+/** Every series' tags read through [aliases], for the picker and the strip to fold. */
+private fun LibraryTagFilter.resolvedSeriesTags(aliases: TagAliases) = seriesTags().map(aliases::resolveAll)
 
 private class PickerLibrary(val choices: List<TagChoice>, val keys: List<Set<String>>)
 
