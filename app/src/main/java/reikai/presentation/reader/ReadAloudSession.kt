@@ -626,7 +626,8 @@ class ReadAloudSession(
                 deleteChaptersBehindReader.deletePending()
             }
         }
-        session.finishHold.close()
+        // Behind the flushed write on the lane, as the reader closes its hold
+        progressSlot.launch { session.finishHold.close() }
         session.controller.shutdown()
         session.scope.cancel()
         moves.value = null

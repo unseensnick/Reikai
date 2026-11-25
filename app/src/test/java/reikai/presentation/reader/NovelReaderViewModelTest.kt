@@ -346,6 +346,29 @@ class NovelReaderViewModelTest {
         harness.isRead(opened) shouldBe true
     }
 
+    /** A finish still landing as the reader closes must not stay claimed into the next session. */
+    @Test
+    fun `a chapter finished as the reader closes is finished again in the next session`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        harness.chapter(novel, 2.0)
+        val first = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        first.rendererLanded(first.window.value.generation)
+        first.saveProgress(opened.id, ChapterProgress.Percent.END)
+        harness.leave()
+        advanceUntilIdle()
+        harness.markRead(opened, read = false)
+
+        val second = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        second.rendererLanded(second.window.value.generation)
+        second.saveProgress(opened.id, ChapterProgress.Percent.END)
+        advanceUntilIdle()
+
+        harness.isRead(opened) shouldBe true
+    }
+
     /** Incognito keeps the position out of the database, so it reopens from the host's state, as manga's page does. */
     @Test
     fun `an incognito chapter reopens after a process kill where it was`() = readerTest { harness ->

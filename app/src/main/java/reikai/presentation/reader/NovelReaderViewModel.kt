@@ -1651,7 +1651,8 @@ class NovelReaderViewModel(
     override fun onCleared() {
         // As a held write did when it was this model's: the reader closing writes it now.
         flushProgress()
-        finishHold.close()
+        // Behind that write on the lane, so a finish it makes is claimed while the hold still stands
+        progressSlot.launch { finishHold.close() }
         // Read aloud goes on without the reader, which only stops lending it a surface.
         readAloudSession.unregister(readAloud)
     }
