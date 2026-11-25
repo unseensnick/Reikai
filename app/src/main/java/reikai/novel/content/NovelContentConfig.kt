@@ -39,10 +39,8 @@ data class NovelContentConfig(
         ): NovelContentConfig = NovelContentConfig(
             chapterUrl = chapterUrl,
             chapterName = chapterName,
-            target = when (renderingMode) {
-                NovelRenderingMode.NATIVE -> RenderTarget.TEXT_VIEW
-                else -> RenderTarget.WEB_VIEW
-            },
+            // The mode's own answer to whether markup reaches the page, which the settings screens read too
+            target = if (renderingMode.rendersMarkup) RenderTarget.WEB_VIEW else RenderTarget.TEXT_VIEW,
             hideTitle = preferences.readerHideChapterTitle().get(),
             forceLowercase = preferences.readerForceLowercase().get(),
             blockMedia = preferences.readerBlockMedia().get(),
