@@ -3,6 +3,9 @@ package reikai.presentation.components
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -30,9 +33,10 @@ class LibraryUpdatePullRefreshTest {
     val compose = createComposeRule()
 
     private var refreshes = 0
+    private var updating by mutableStateOf(false)
     private val spinner = hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)
 
-    private fun showLibrary(updating: Boolean = false, startsUpdate: Boolean = true) = compose.setContent {
+    private fun showLibrary(startsUpdate: Boolean = true) = compose.setContent {
         ComposeTestHost {
             LibraryUpdatePullRefresh(
                 updating = updating,
@@ -66,7 +70,7 @@ class LibraryUpdatePullRefreshTest {
     }
 
     @Test
-    fun `the spinner holds until the update reports running`() {
+    fun `the spinner holds after a pull before the update reports running`() {
         showLibrary()
 
         pull()
@@ -85,13 +89,43 @@ class LibraryUpdatePullRefreshTest {
 
     @Test
     fun `an update already running shows the spinner`() {
-        showLibrary(updating = true)
+        updating = true
+        showLibrary()
 
         compose.onNode(spinner).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the spinner lets go a second after a pull the update never reports`() {
+        showLibrary()
+        pull()
+
+        compose.mainClock.advanceTimeBy(HOLD_AND_RETRACT)
+
+        compose.onNode(spinner).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the spinner follows the update once it has reported running`() {
+        showLibrary()
+        pull()
+        updating = true
+        compose.mainClock.advanceTimeBy(FRAME)
+
+        updating = false
+        compose.mainClock.advanceTimeBy(RETRACT)
+
+        compose.onNode(spinner).assertDoesNotExist()
     }
 
     private companion object {
         const val LIST = "list"
         const val FRAMES_AFTER_RELEASE = 300L
+
+        const val FRAME = 16L
+
+        // With the pull, still inside the second it is held for, so only the job reporting running lets it go.
+        const val RETRACT = 400L
+        const val HOLD_AND_RETRACT = 2_000L
     }
 }
