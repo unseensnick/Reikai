@@ -18,6 +18,7 @@ import reikai.data.toDbValue
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
+import reikai.domain.chapter.orderEnd
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
 import tachiyomi.data.Database
@@ -94,7 +95,7 @@ class LocalVolumeRepositoryImpl(
         database.transaction {
             // The device's ordered volumes the backup does not name, ones added since it was taken, move after
             // its order in their own, or a position they share with a restored volume ties.
-            val restoredEnd = volumes.mapNotNull { it.position }.maxOrNull()?.plus(1)
+            val restoredEnd = volumes.orderEnd()
             if (restoredEnd != null) {
                 val named = volumes.mapTo(HashSet()) { it.key }
                 queries.positionsOf(type.toDbValue(), series).awaitAsList()

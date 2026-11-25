@@ -20,6 +20,7 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.orderEnd
 import reikai.domain.chapter.savedVolume
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.SetEntryTitle
@@ -406,7 +407,7 @@ class CombineLocalVolumes(
         val (folder, volume) = localGroupUnit(from, row.key)
         val key = localGroupKey(to, folder, volume)
         val there = saved.savedVolume(to, key)
-        val end = saved[to]?.mapNotNull { it.position }?.maxOrNull()?.plus(1)
+        val end = saved[to]?.orderEnd()
         val position = there?.position ?: row.position?.let { p -> end?.plus(p) }
         val (won, lost) = if (backupAtTarget) there to row else row to there
         FoldedRow(
@@ -1038,13 +1039,13 @@ class CombineLocalVolumes(
         val moves = mutableListOf<VolumeRowPair>()
         private var from = kept
         private var base: Long? = 0L
-        private var next: Long? = saved[kept]?.mapNotNull { it.position }?.maxOrNull()?.plus(1)
+        private var next: Long? = saved[kept]?.orderEnd()
 
         /** Starts on [series]' volumes, placed after those before it. */
         fun next(series: String) {
             from = series
             base = next
-            val span = saved[series]?.mapNotNull { it.position }?.maxOrNull()?.plus(1) ?: 0L
+            val span = saved[series]?.orderEnd() ?: 0L
             next = next?.plus(span)
         }
 

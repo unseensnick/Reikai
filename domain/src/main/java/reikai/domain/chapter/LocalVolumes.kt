@@ -61,6 +61,9 @@ interface LocalVolumeRepository : LocalVolumeOwnerRepository {
     suspend fun setLooseFiles(series: String, mode: LooseFiles)
 }
 
+/** Where an order of [this] ends: the position after the last placed volume, or null when none is placed. */
+fun List<LocalVolume>.orderEnd(): Long? = mapNotNull { it.position }.maxOrNull()?.plus(1)
+
 /** [this] volumes in the user's order: the ones [saved] places, by position, then the rest as they came. */
 fun <V> List<V>.inUserOrder(keyOf: (V) -> String, saved: List<LocalVolume>?): List<V> {
     val positions = saved.orEmpty().mapNotNull { volume -> volume.position?.let { volume.key to it } }.toMap()
