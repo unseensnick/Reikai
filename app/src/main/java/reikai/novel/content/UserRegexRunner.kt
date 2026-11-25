@@ -21,7 +21,18 @@ import kotlin.time.TimeSource
  * engine reads through [CancellableCharSequence], so there the thread stops too. The rule is in
  * docs/dev/subsystems/novel-reader-rendering.md.
  */
-internal class UserRegexRunner(private val threads: Executor) {
+internal class UserRegexRunner(
+    private val threads: Executor,
+    private val clock: TimeSource = TimeSource.Monotonic,
+    // Blocks up to one poll for the run to end; a test's own clock steps here instead of real time passing.
+    private val waitFor: (CompletableFuture<*>, Duration) -> Unit = { run, poll ->
+        try {
+            run.get(poll.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+        } catch (_: TimeoutException) {
+        } catch (_: ExecutionException) {
+        }
+    },
+) {
 
     private val poll = 50.milliseconds
 
@@ -52,22 +63,24 @@ internal class UserRegexRunner(private val threads: Executor) {
                 if (state.getAndSet(FINISHED) == LEFT) release(key)
             }
         }
-        val started = TimeSource.Monotonic.markNow()
+        val started = clock.markNow()
         while (true) {
             if (!isActive()) {
                 leave(key, state)
                 throw CancellationException("Regex scan cancelled")
             }
-            try {
-                return answer.get(poll.inWholeMilliseconds, TimeUnit.MILLISECONDS)
-            } catch (_: TimeoutException) {
-                if (started.elapsedNow() >= budget) {
-                    leave(key, state)
-                    return null
+            if (answer.isDone) {
+                return try {
+                    answer.get()
+                } catch (e: ExecutionException) {
+                    throw e.cause ?: e
                 }
-            } catch (e: ExecutionException) {
-                throw e.cause ?: e
             }
+            if (started.elapsedNow() >= budget) {
+                leave(key, state)
+                return null
+            }
+            waitFor(answer, poll)
         }
     }
 
