@@ -837,7 +837,7 @@ class LibraryEngine(
     /** Whether Combine as volumes takes the selection: two or more local series of one type, none merged. */
     fun canCombineSelection(contentType: ContentType): Boolean {
         val entries = selection.value
-        entries.map { it.contentType }.distinct().singleOrNull() ?: return false
+        singleContentType(entries.map { it.contentType }) ?: return false
         return entries.size >= 2 && !selectionContainsMerged(contentType) && selectionAllLocal(contentType)
     }
 
@@ -850,7 +850,7 @@ class LibraryEngine(
 
     fun openCombineDialog() {
         val entries = selection.value
-        val type = entries.map { it.contentType }.distinct().singleOrNull() ?: return
+        val type = singleContentType(entries.map { it.contentType }) ?: return
         appScope.launchIO {
             val series = combineLocalVolumes.series(type, entries.map { it.rawId })
             val canOrganize = series.all { combineLocalVolumes.canOrganize(type, it) }
@@ -916,11 +916,5 @@ internal data class ActiveAssemblyInputs(val chip: ContentType, val perProvider:
 
 private fun manualPositionsByCategory(positions: List<ManualOrderPosition>): Map<Long, Map<EntryId, Long>> =
     positions.groupBy { it.categoryId }.mapValues { (_, rows) ->
-        rows.associate { row ->
-            val id = when (row.contentType) {
-                ContentType.MANGA -> EntryId.Manga(row.entryId)
-                else -> EntryId.Novel(row.entryId)
-            }
-            id to row.position
-        }
+        rows.associate { row -> EntryId.of(row.contentType, row.entryId) to row.position }
     }
