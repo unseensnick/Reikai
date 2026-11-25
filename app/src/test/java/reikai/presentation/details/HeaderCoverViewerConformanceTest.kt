@@ -30,7 +30,7 @@ import tachiyomi.domain.manga.model.Manga
 /**
  * On a merged series' source chip, the header and the cover viewer draw the same cover: the chip's own,
  * with the cover address of its own custom-info row. The header side is the shownManga / shownNovel
- * kernel fed the chip's row by hand; which row each details model feeds it is not pinned here.
+ * kernel fed the chip's row by hand; which row each details model feeds it is DetailsSeriesTagsConformanceTest's.
  */
 class HeaderCoverViewerConformanceTest {
 

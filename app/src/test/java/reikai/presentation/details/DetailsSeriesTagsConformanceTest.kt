@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.model.CustomNovelInfo
+import reikai.domain.novel.model.NovelCover
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import reikai.util.resetVirtualDispatchers
 import reikai.util.virtualDispatchers
@@ -46,7 +47,8 @@ import tachiyomi.domain.source.service.SourceManager
 
 /**
  * A merged series' details page under All shows the series' tags as the library reads them, for both types,
- * and its header's other titles are the raw titles of the sources the view stands for.
+ * and its header's other titles are the raw titles of the sources the view stands for. A source chip's header
+ * reads that source's own custom info.
  */
 class DetailsSeriesTagsConformanceTest {
 
@@ -57,6 +59,8 @@ class DetailsSeriesTagsConformanceTest {
         val customTags: List<String>? = null,
         val customTitle: String? = null,
         val merged: Boolean = true,
+        // The sibling's own Edit info cover, which its chip shows in the header
+        val siblingCustomCover: String? = null,
     )
 
     class Opened(
@@ -147,6 +151,19 @@ class DetailsSeriesTagsConformanceTest {
         } shouldBe listOf(ANCHOR_TITLE)
     }
 
+    /** The chip's own custom info reaches the header: the cover viewer opens the same row (HeaderCoverViewerConformanceTest). */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a source chip shows that source's Edit info cover in the header`(probe: Probe) = runTest {
+        probe.opened(this, Series(siblingCustomCover = "sibling-custom")) {
+            when (val cover = it.settled(it.sibling, it.selectSibling).details.header.coverModel) {
+                is Manga -> cover.thumbnailUrl
+                is NovelCover -> cover.url
+                else -> error("no cover")
+            }
+        } shouldBe "sibling-custom"
+    }
+
     @Test
     fun `a gallery anchor keeps its grouped chips and shows the other sources' tags in a row of their own`() =
         runTest {
@@ -207,10 +224,11 @@ class DetailsSeriesTagsConformanceTest {
                 ChapterRepositoryImpl(database),
                 if (series.merged) longArrayOf(ANCHOR, SIBLING) else longArrayOf(ANCHOR),
                 sourceManager = sources,
-                customInfo = if (series.customTags == null && series.customTitle == null) {
-                    emptyMap()
-                } else {
-                    mapOf(ANCHOR to CustomMangaInfo(ANCHOR, title = series.customTitle, genre = series.customTags))
+                customInfo = buildMap {
+                    if (series.customTags != null || series.customTitle != null) {
+                        put(ANCHOR, CustomMangaInfo(ANCHOR, title = series.customTitle, genre = series.customTags))
+                    }
+                    series.siblingCustomCover?.let { put(SIBLING, CustomMangaInfo(SIBLING, thumbnailUrl = it)) }
                 },
             ).also { store.put("manga", it) }
             return try {
@@ -277,6 +295,10 @@ class DetailsSeriesTagsConformanceTest {
                 if (series.customTags != null || series.customTitle != null) {
                     harness.customInfo[anchor] =
                         CustomNovelInfo(anchor, title = series.customTitle, genre = series.customTags)
+                }
+                series.siblingCustomCover?.let {
+                    harness.customInfo[sibling] =
+                        CustomNovelInfo(sibling, thumbnailUrl = it)
                 }
                 if (series.merged) harness.merge(anchor, sibling)
                 val model = harness.openDetails(anchor)
