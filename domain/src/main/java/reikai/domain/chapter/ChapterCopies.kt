@@ -17,7 +17,7 @@ fun <T> List<T>.chapterCopySets(
     nameOf: (T) -> String,
     originOf: (T) -> String?,
     ownerOf: (T) -> Long,
-    markOf: (T) -> CopyMark? = { null },
+    markOf: (T) -> CopyMark?,
 ): List<List<T>> {
     val marks = map(markOf)
     val copies = DisjointSet<Int>()
@@ -49,7 +49,7 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
 
     init {
         val lower = name.lowercase()
-        volume = ChapterRecognition.volume.find(lower)?.groupValues?.get(1)?.toDoubleOrNull() ?: leadingVolume(lower)
+        volume = volumeNumberIn(lower) ?: leadingVolume(lower)
         val text = ChapterRecognition.volume.replace(lower, " ")
         val whole = floor(number).toLong()
         // The stored number as the name writes it, decimals and a sub-chapter letter included.

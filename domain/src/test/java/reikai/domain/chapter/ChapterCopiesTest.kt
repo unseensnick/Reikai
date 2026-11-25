@@ -27,7 +27,7 @@ class ChapterCopiesTest {
             numberOf = { it.number },
             withNumber = { chapter, number -> chapter.copy(number = number) },
         )
-        val sets = numbered.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L })
+        val sets = numbered.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }, { null })
 
         // The shared number is part of the expectation, so a case cannot pass by the recognizer splitting it.
         (numbered.map { it.number }.distinct().size to (sets.size == 1)) shouldBe (1 to case.copies)
@@ -38,7 +38,7 @@ class ChapterCopiesTest {
     fun `chapters of two volumes named by bare numbers are apart`() {
         val chapters = listOf(Ch(1, "01 - Ch 001", null, 1.0), Ch(2, "03 - Ch 001", null, 1.0))
 
-        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 2
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }, { null }).size shouldBe 2
     }
 
     /** Folders `01/` and `02/` each holding `001.cbz`, numbered from the chapter name alone. */
@@ -46,7 +46,7 @@ class ChapterCopiesTest {
     fun `bare-numbered chapters of two bare-numbered volumes are apart`() {
         val chapters = listOf(Ch(1, "01 - 001", null, 1.0), Ch(2, "02 - 001", null, 1.0))
 
-        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 2
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }, { null }).size shouldBe 2
     }
 
     /** A source reports a float, which arrives widened, where a number parsed from the name is a double. */
@@ -54,14 +54,14 @@ class ChapterCopiesTest {
     fun `a source-reported number and the same number parsed from the name are one chapter`() {
         val chapters = listOf(Ch(1, "Chapter 10.1", "A", 10.1f.toDouble()), Ch(2, "Chapter 10.1", "B", 10.1))
 
-        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 1
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }, { null }).size shouldBe 1
     }
 
     @Test
     fun `one bare-numbered chapter of one volume from two scanlators is a copy`() {
         val chapters = listOf(Ch(1, "01 - 001", "A", 1.0), Ch(2, "01 - 001", "B", 1.0))
 
-        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 1
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }, { null }).size shouldBe 1
     }
 
     @Test
