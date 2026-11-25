@@ -53,10 +53,14 @@ internal class DetailsContentHost(
         onOpenFilterSettings = {},
     ),
 ) {
+    // Built with the host, as a screen keeps its settings with the model, so a recomposition keeps them.
+    private val settings = InMemoryPreferenceStore().let { store ->
+        DetailsSettings(UiPreferences(store), ReikaiLibraryPreferences(store), CoroutineScope(Dispatchers.Unconfined))
+    }
+
     @Composable
     fun Content() {
         val loaded by behavior.state.collectAsState()
-        val store = InMemoryPreferenceStore()
         EntryDetailsContent(
             behavior = behavior,
             state = loaded as EntryDetailsScreenState.Loaded,
@@ -65,11 +69,7 @@ internal class DetailsContentHost(
             chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Disabled,
             chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Disabled,
             nav = nav,
-            settings = DetailsSettings(
-                UiPreferences(store),
-                ReikaiLibraryPreferences(store),
-                CoroutineScope(Dispatchers.Unconfined),
-            ),
+            settings = settings,
             volumeMoves = volumeMoves,
         )
     }

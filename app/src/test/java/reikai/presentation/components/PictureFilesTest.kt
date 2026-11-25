@@ -46,9 +46,20 @@ class PictureFilesTest {
         saved.captured.location shouldBe Location.Pictures.create("Saga")
     }
 
+    /** Share hands the app a cache copy, so nothing lands in the user's Pictures folder. */
+    @Test
+    fun `a picture written to share goes to the cache, not Pictures`() = runTest {
+        val saved = slot<Image>()
+        val imageSaver = mockk<ImageSaver> { every { save(capture(saved)) } returns Uri.EMPTY }
+
+        savePicture(context, imageSaver, Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888), "Page", "Saga", true)
+
+        saved.captured.location shouldBe Location.Cache
+    }
+
     @Test
     fun `a series folder is the series' title only with separate folders on`() {
-        listOf(savedPictureFolder("Saga", perSeries = true), savedPictureFolder("Saga", perSeries = false)) shouldBe
-            listOf("Saga", "")
+        savedPictureFolder("Saga", perSeries = true) shouldBe "Saga"
+        savedPictureFolder("Saga", perSeries = false) shouldBe ""
     }
 }

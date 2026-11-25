@@ -146,12 +146,30 @@ class RepairNovelDetailsTest {
         repaired(VICTIM, titles = mapOf(DONOR to "Donor", VICTIM to "No Title Found")).author shouldBe "Donor author"
     }
 
+    // The donor can be a row Browse stored outside the library, which only a scan of every row finds.
+    @Test
+    fun `a library novel wearing a Browse row's details is repaired`() = runTest {
+        repaired(VICTIM, donorInLibrary = false).title shouldBe "Victim"
+    }
+
+    // Its source would rename it, so a refresh of a row outside the library would show.
+    @Test
+    fun `a Browse row a library novel copied is not refreshed`() = runTest {
+        val titles = mapOf(DONOR to "Donor renamed", VICTIM to "Victim")
+
+        repaired(DONOR, titles, donorInLibrary = false).title shouldBe "Donor"
+    }
+
     /**
-     * Two library novels on one source wearing the donor's details, repaired against a source that names each by
+     * A library novel wearing a donor's details, the donor in the library unless not [donorInLibrary], repaired against a source that names each by
      * [titles] and sends no author or description, as the plugin behind the reported case does. Returns the novel
      * stored at [url] afterwards.
      */
-    private suspend fun repaired(url: String, titles: Map<String, String> = TITLES): Novel {
+    private suspend fun repaired(
+        url: String,
+        titles: Map<String, String> = TITLES,
+        donorInLibrary: Boolean = true,
+    ): Novel {
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
         val novels = NovelRepositoryImpl(database)
@@ -161,10 +179,10 @@ class RepairNovelDetailsTest {
             title = "Donor",
             author = "Donor author",
             description = "Donor synopsis",
-            favoriteAt = Instant.fromEpochMilliseconds(0L),
+            favoriteAt = Instant.fromEpochMilliseconds(0L).takeIf { donorInLibrary },
         )
         novels.insert(donor)
-        novels.insert(donor.copy(url = VICTIM))
+        novels.insert(donor.copy(url = VICTIM, favoriteAt = Instant.fromEpochMilliseconds(0L)))
         val source = mockk<NovelSource> {
             every { id } returns "src"
             coEvery { parseNovel(any()) } answers {
