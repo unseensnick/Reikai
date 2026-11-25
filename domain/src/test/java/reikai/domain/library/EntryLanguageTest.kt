@@ -21,6 +21,8 @@ class EntryLanguageTest {
         "zh-CN, zh-Hans",
         "zh-Hant, zh-Hant",
         "zh-TW, zh-Hant",
+        "zh-Hant-CN, zh-Hant",
+        "zh-Hans-TW, zh-Hans",
         "zh, zh",
         "jpn, ja",
         "fre, fr",

@@ -19,9 +19,12 @@ fun localLanguage(tag: String?): String? {
         "mul" -> MULTI_LANGUAGE
         "pt" -> if (locale.country == "BR") "pt-BR" else "pt"
         "es" -> if (locale.country == "419") "es-419" else "es"
+        // A script names the writing outright, so it decides over a region (zh-Hant-CN is Traditional).
         "zh" -> when {
-            locale.script == "Hans" || locale.country in setOf("CN", "SG") -> "zh-Hans"
-            locale.script == "Hant" || locale.country in setOf("TW", "HK", "MO") -> "zh-Hant"
+            locale.script == "Hans" -> "zh-Hans"
+            locale.script == "Hant" -> "zh-Hant"
+            locale.country in setOf("CN", "SG") -> "zh-Hans"
+            locale.country in setOf("TW", "HK", "MO") -> "zh-Hant"
             else -> "zh"
         }
         else -> language
