@@ -24,6 +24,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
@@ -40,13 +41,14 @@ import tachiyomi.domain.manga.model.Manga
 /**
  * A remove from library started on a details page finishes when the page closes mid-write, as the library
  * screen's does: the removal is several writes (tracker hand-out, favourite, source account, covers), and a
- * cut between them leaves a member half removed. Pinned once over both types.
+ * cut between them leaves a member half removed, while a cut before its re-check leaves it in the library.
+ * Pinned once over both types.
  */
 class DetailsRemovalScopeConformanceTest {
 
     interface Probe {
-        /** Starts a remove, closes the page while the removal is still writing, and says whether it finished. */
-        suspend fun removalFinishesAfterClose(scope: TestScope): Boolean
+        /** Starts a remove, closes the page as [close] says, and says whether the removal finished. */
+        suspend fun removalFinishesAfterClose(scope: TestScope, close: Close): Boolean
     }
 
     @BeforeEach
@@ -65,10 +67,13 @@ class DetailsRemovalScopeConformanceTest {
         resetVirtualDispatchers()
     }
 
-    @ParameterizedTest(name = "{0}")
+    /** When the page closes: right after the confirm, before the removal's re-check has run, or mid-write. */
+    enum class Close { AtConfirm, MidWrite }
+
+    @ParameterizedTest(name = "{0} {1}")
     @MethodSource("probes")
-    fun `a remove from library survives the page closing mid-write`(probe: Probe) = runTest {
-        probe.removalFinishesAfterClose(this) shouldBe true
+    fun `a remove from library survives the page closing`(probe: Probe, close: Close) = runTest {
+        probe.removalFinishesAfterClose(this, close) shouldBe true
     }
 
     /** A removal that holds at [gate] once [started], and completes [finished] once let through. */
@@ -84,9 +89,9 @@ class DetailsRemovalScopeConformanceTest {
             return ids
         }
 
-        /** Waits for the write to start, cancels the page's scope, lets the write go, then waits for it. */
-        suspend fun closeMidWrite(cancelPage: () -> Unit): Boolean {
-            withTimeoutOrNull(WAIT_MS) { started.await() } ?: return false
+        /** Cancels the page's scope at [close], lets the write go, then waits for it. */
+        suspend fun closeAt(close: Close, cancelPage: () -> Unit): Boolean {
+            if (close == Close.MidWrite) withTimeoutOrNull(WAIT_MS) { started.await() } ?: return false
             cancelPage()
             gate.complete(Unit)
             return withTimeoutOrNull(WAIT_MS) { finished.await() } != null
@@ -98,13 +103,15 @@ class DetailsRemovalScopeConformanceTest {
         private const val WAIT_MS = 5_000L
 
         @JvmStatic
-        fun probes() = listOf(MangaProbe(), NovelProbe())
+        fun probes() = listOf(MangaProbe(), NovelProbe()).flatMap { probe ->
+            Close.entries.map { Arguments.of(probe, it) }
+        }
     }
 
     class MangaProbe : Probe {
         override fun toString() = "manga"
 
-        override suspend fun removalFinishesAfterClose(scope: TestScope): Boolean {
+        override suspend fun removalFinishesAfterClose(scope: TestScope, close: Close): Boolean {
             val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
             Database.Schema.create(driver).await()
             val database = DatabaseBindings.providesDatabase(driver)
@@ -122,7 +129,7 @@ class DetailsRemovalScopeConformanceTest {
             ).also { store.put("manga", it) }
             return try {
                 model.removeFromLibrary(listOf(MANGA_ID))
-                held.closeMidWrite { model.viewModelScope.cancel() }
+                held.closeAt(close) { model.viewModelScope.cancel() }
             } finally {
                 held.gate.complete(Unit)
                 val job = model.viewModelScope.coroutineContext.job
@@ -140,7 +147,7 @@ class DetailsRemovalScopeConformanceTest {
     class NovelProbe : Probe {
         override fun toString() = "novel"
 
-        override suspend fun removalFinishesAfterClose(scope: TestScope): Boolean =
+        override suspend fun removalFinishesAfterClose(scope: TestScope, close: Close): Boolean =
             NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
                 val held = HeldRemoval()
                 harness.removeNovelsFromLibrary = mockk<RemoveNovelsFromLibrary> {
@@ -150,7 +157,7 @@ class DetailsRemovalScopeConformanceTest {
                 val model = harness.openDetails(novel, shown = false)
                 try {
                     model.removeFromLibrary(listOf(novel))
-                    held.closeMidWrite { model.viewModelScope.cancel() }
+                    held.closeAt(close) { model.viewModelScope.cancel() }
                 } finally {
                     held.gate.complete(Unit)
                 }

@@ -113,6 +113,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Downloading a novel chapter from its row or the Download menu now ends the chapter selection, as it does for manga, and a selected novel chapter can no longer be bookmarked or marked twice by a quick second tap.**
 - **A gallery's page previews now fill their loading ring as each thumbnail loads, instead of showing it full from the start.**
 - **The More info link on a gallery's details page is now easier to tap, and TalkBack announces it as a button.**
+- **Removing a manga from the library on its page now finishes even when you leave the page right after confirming, as a novel's does.**
 - **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
 - **A novel whose plugin failed to load now gives the real reason when you refresh its details page, open a chapter or run a library update, instead of not installed.**

@@ -827,13 +827,14 @@ class MangaViewModel(
     // RK --> the heart's confirmed remove. Which entries leave is the details removal rule novels share
     //        (DetailsRemoval); the downloads prompt sees exactly those.
     fun removeFromLibrary(mangaIds: List<Long>) {
-        viewModelScope.launchIO {
+        // On the app scope from the confirm on, the re-check included: the removal is several writes, and a page
+        // closed before or between them leaves the entry in the library or a member half removed. Only the
+        // downloads prompt needs the page.
+        appScope.launchIO {
             // A confirm left open while the entry left the library elsewhere does nothing.
             val targets = mangaIds.map { getMangaAndChapters.awaitManga(it) }.filter { it.favorite }
             if (targets.isEmpty()) return@launchIO
-            // On the app scope: the removal is several writes, and a page closed between them leaves a member
-            // half removed. Only the downloads prompt needs the page.
-            appScope.launch { removeNow(targets) }
+            removeNow(targets)
         }
     }
 
