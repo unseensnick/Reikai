@@ -12,12 +12,8 @@ import tachiyomi.domain.library.model.LibrarySort
 import kotlin.time.Instant
 
 /**
- * Characterisation tests for the novel library sort comparator, now a thin adapter over the shared
- * [reikai.domain.library.librarySortComparator]. What were three known divergences from the manga library
- * (the reversed tiebreak, zero-unread ordering, and the Random form) are reconciled: the tiebreak stays
- * A to Z under a descending sort and zero-unread entries sort last regardless of direction, both matching
- * the manga form. The shared comparator itself is pinned in `LibrarySortComparatorTest`; these cases keep
- * the novel adapter honest.
+ * The novel row's binding onto the shared sort kernel: each mode reads the novel field it names. The
+ * kernel's own rules (direction, tiebreak, zero-unread, Random) are pinned in `LibrarySortComparatorTest`.
  */
 class NovelLibrarySortComparatorTest {
 
@@ -54,16 +50,13 @@ class NovelLibrarySortComparatorTest {
     private fun sortedIds(
         novels: List<LibraryNovel>,
         type: LibrarySort.Type,
-        ascending: Boolean = true,
-        randomSeed: Long = 0L,
         trackerMeanScores: Map<Long, Double> = emptyMap(),
     ): List<Long> {
-        val direction = if (ascending) LibrarySort.Direction.Ascending else LibrarySort.Direction.Descending
-        val sort = LibrarySort(type, direction)
+        val sort = LibrarySort(type, LibrarySort.Direction.Ascending)
         val comparator = librarySortComparator(
             mode = sort.type.toSortMode(),
             isAscending = sort.isAscending,
-            randomSeed = randomSeed,
+            randomSeed = 0L,
             fields = libraryItemSortFields { trackerMeanScores[it.id] },
         )
         return novels
@@ -84,13 +77,6 @@ class NovelLibrarySortComparatorTest {
         val novels = listOf(libNovel(1, "beta"), libNovel(2, "Alpha"), libNovel(3, "gamma"))
 
         sortedIds(novels, LibrarySort.Type.Alphabetical) shouldBe listOf(2L, 1L, 3L)
-    }
-
-    @Test
-    fun `descending reverses the sort`() {
-        val novels = listOf(libNovel(1, "beta"), libNovel(2, "Alpha"), libNovel(3, "gamma"))
-
-        sortedIds(novels, LibrarySort.Type.Alphabetical, ascending = false) shouldBe listOf(3L, 1L, 2L)
     }
 
     @Test
@@ -161,67 +147,5 @@ class NovelLibrarySortComparatorTest {
         val scores = mapOf(1L to 8.0, 2L to 3.0, 3L to 6.0)
 
         sortedIds(novels, LibrarySort.Type.TrackerMean, trackerMeanScores = scores) shouldBe listOf(2L, 3L, 1L)
-    }
-
-    @Test
-    fun `tracker mean puts unscored novels below every scored one when ascending`() {
-        val novels = listOf(libNovel(1), libNovel(2))
-        val scores = mapOf(1L to 0.5)
-
-        sortedIds(novels, LibrarySort.Type.TrackerMean, trackerMeanScores = scores) shouldBe listOf(2L, 1L)
-    }
-
-    @Test
-    fun `title breaks ties for every sort`() {
-        val novels = listOf(
-            libNovel(1, title = "zeta", totalChapters = 5),
-            libNovel(2, title = "alpha", totalChapters = 5),
-        )
-
-        sortedIds(novels, LibrarySort.Type.TotalChapters) shouldBe listOf(2L, 1L)
-    }
-
-    @Test
-    fun `descending keeps the title tiebreak A to Z`() {
-        // Reconciled to the manga form: the tiebreak is appended after the reversal, so equal-chapter
-        // entries still run A to Z even under a descending sort.
-        val novels = listOf(
-            libNovel(1, title = "alpha", totalChapters = 5),
-            libNovel(2, title = "zeta", totalChapters = 5),
-        )
-
-        sortedIds(novels, LibrarySort.Type.TotalChapters, ascending = false) shouldBe listOf(1L, 2L)
-    }
-
-    @Test
-    fun `unread count sinks a fully-read novel last when ascending`() {
-        // Reconciled to the manga form: a zero-unread (fully-read) novel sorts last regardless of
-        // direction, so unread content always leads.
-        val novels = listOf(
-            libNovel(1, title = "a", totalChapters = 10, readCount = 4),
-            libNovel(2, title = "b", totalChapters = 10, readCount = 10),
-        )
-
-        sortedIds(novels, LibrarySort.Type.UnreadCount) shouldBe listOf(1L, 2L)
-    }
-
-    @Test
-    fun `random is stable for a given seed`() {
-        val novels = (1L..8L).map { libNovel(it) }
-
-        val first = sortedIds(novels, LibrarySort.Type.Random, randomSeed = 42L)
-        val second = sortedIds(novels.shuffled(), LibrarySort.Type.Random, randomSeed = 42L)
-
-        first shouldBe second
-    }
-
-    @Test
-    fun `random reorders when the seed changes`() {
-        val novels = (1L..20L).map { libNovel(it) }
-
-        val seedA = sortedIds(novels, LibrarySort.Type.Random, randomSeed = 1L)
-        val seedB = sortedIds(novels, LibrarySort.Type.Random, randomSeed = 2L)
-
-        (seedA == seedB) shouldBe false
     }
 }

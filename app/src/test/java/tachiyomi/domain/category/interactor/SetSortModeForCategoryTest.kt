@@ -5,6 +5,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.library.sortForCategory
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.model.Category
@@ -44,5 +45,14 @@ class SetSortModeForCategoryTest {
         setSort.await(7L, chosen.type, chosen.direction)
 
         sortForCategory(stored.getValue(7L), LibrarySort.default) shouldBe chosen
+    }
+
+    @Test
+    fun `sorting a hidden category keeps it hidden`() = runTest {
+        stored[7L] = stored.getValue(7L).copy(flags = CATEGORY_HIDDEN_MASK)
+
+        setSort.await(7L, chosen.type, chosen.direction)
+
+        stored.getValue(7L).flags and CATEGORY_HIDDEN_MASK shouldBe CATEGORY_HIDDEN_MASK
     }
 }
