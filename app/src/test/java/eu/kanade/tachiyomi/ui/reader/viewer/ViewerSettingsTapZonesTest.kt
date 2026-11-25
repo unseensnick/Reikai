@@ -27,7 +27,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import reikai.presentation.reader.navigation.MangaTapLayouts
 import reikai.presentation.reader.navigation.actionAt
 import reikai.presentation.recents.EmittingPreferenceStore
 
@@ -183,6 +182,6 @@ class ViewerSettingsTapZonesTest {
 
     private companion object {
         const val BOTTOM = 9
-        const val DISABLED = MangaTapLayouts.DISABLED
+        const val DISABLED = 5
     }
 }

@@ -2,9 +2,20 @@ package reikai.presentation.reader.navigation
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
+import eu.kanade.tachiyomi.ui.reader.viewer.NavigationSettings
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.navigation.DisabledNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.navigation.EdgeNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.navigation.KindlishNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.navigation.LNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.navigation.RightAndLeftNavigation
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.NovelTapLayout
+import tachiyomi.i18n.MR
 
 /** Manga's stored tap-layout index: Mihon's six keep their meaning, and the added ones follow the novel's rules. */
 class MangaTapLayoutsTest {
@@ -64,5 +75,38 @@ class MangaTapLayoutsTest {
     @Test
     fun `one of Mihon's zoned layouts offers every inversion`() {
         MangaTapLayouts.invertModes(1) shouldBe TappingInvertMode.entries
+    }
+
+    /** The viewer draws what the sheet names, so a reordered table cannot draw one layout under another's name. */
+    @ParameterizedTest
+    @MethodSource("stored")
+    fun `a stored index draws the layout the settings sheet names`(index: Int, name: Any, drawn: ViewerNavigation) {
+        val zones = NavigationSettings(index, TappingInvertMode.NONE, 30).navigator(false, ::ViewerDefault)
+
+        MangaTapLayouts.names[index] shouldBe name
+        zones shouldBe drawn
+    }
+
+    private class ViewerDefault(invertMode: TappingInvertMode, isReversed: Boolean) :
+        ViewerNavigation(invertMode, isReversed) {
+        override val regionList: List<Region> = emptyList()
+    }
+
+    companion object {
+        private val none = TappingInvertMode.NONE
+
+        @JvmStatic
+        fun stored() = listOf(
+            Arguments.of(0, MR.strings.label_default, ViewerDefault(none, false)),
+            Arguments.of(1, MR.strings.l_nav, LNavigation(none, false)),
+            Arguments.of(2, MR.strings.kindlish_nav, KindlishNavigation(none, false)),
+            Arguments.of(3, MR.strings.edge_nav, EdgeNavigation(none, false)),
+            Arguments.of(4, MR.strings.right_and_left_nav, RightAndLeftNavigation(none, false)),
+            Arguments.of(5, MR.strings.disabled_nav, DisabledNavigation(none, false)),
+            Arguments.of(6, MR.strings.nav_thirds, ThirdsNavigation(none, false)),
+            Arguments.of(7, MR.strings.zoom_start_center, CenterNavigation(large = false, none, false)),
+            Arguments.of(8, MR.strings.nav_center_large, CenterNavigation(large = true, none, false)),
+            Arguments.of(9, MR.strings.nav_bottom, BottomNavigation(0.3f, none, false)),
+        )
     }
 }

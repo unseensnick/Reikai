@@ -2,11 +2,6 @@ package eu.kanade.tachiyomi.ui.reader.viewer
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView.ZoomStartPosition
-import eu.kanade.tachiyomi.ui.reader.viewer.navigation.DisabledNavigation
-import eu.kanade.tachiyomi.ui.reader.viewer.navigation.EdgeNavigation
-import eu.kanade.tachiyomi.ui.reader.viewer.navigation.KindlishNavigation
-import eu.kanade.tachiyomi.ui.reader.viewer.navigation.LNavigation
-import eu.kanade.tachiyomi.ui.reader.viewer.navigation.RightAndLeftNavigation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -28,15 +23,11 @@ data class NavigationSettings(
         isReversed: Boolean,
         default: (ReaderPreferences.TappingInvertMode, Boolean) -> ViewerNavigation,
     ): ViewerNavigation {
-        return MangaTapLayouts.navigation(mode, bottomZoneHeight, inverted, isReversed) // RK
-            ?: when (mode) {
-                1 -> LNavigation(inverted, isReversed)
-                2 -> KindlishNavigation(inverted, isReversed)
-                3 -> EdgeNavigation(inverted, isReversed)
-                4 -> RightAndLeftNavigation(inverted, isReversed)
-                MangaTapLayouts.DISABLED -> DisabledNavigation(inverted, isReversed) // RK
-                else -> default(inverted, isReversed)
-            }
+        // RK --> every layout but Default comes from the one table the settings sheet names, so Mihon's own follow
+        // the novel reader's rules too.
+        return MangaTapLayouts.navigation(mode, bottomZoneHeight, inverted, isReversed)
+            ?: default(inverted, isReversed)
+        // RK <--
     }
 }
 

@@ -20,7 +20,7 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * Either reader's tap layout, its inversion where it has something to invert, and the Bottom layout's zone height.
- * [layout] is the novel layout the [selected] one is, null for one the novel reader lacks, and decides which
+ * [layout] is the novel layout the [selected] one is, null for Default, and decides which
  * inversions are offered.
  */
 @Composable
