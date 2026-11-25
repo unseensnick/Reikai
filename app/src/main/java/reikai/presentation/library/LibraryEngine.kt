@@ -201,11 +201,13 @@ class LibraryEngine(
                 categorySortOrder = list.categorySortOrder,
                 showCounts = list.showCounts,
                 groupBy = group.groupBy,
-                collapsedDynamic = group.collapsedDynamic,
+                // The grouping reads collapse only to move collapsed groups down, so a tap without that
+                // setting leaves the assembly alone.
+                collapsedDynamic = if (group.collapsedDynamicAtBottom) group.collapsedDynamic else emptySet(),
                 collapsedDynamicAtBottom = group.collapsedDynamicAtBottom,
                 tagAliases = group.tagAliases,
             )
-        }
+        }.distinctUntilChanged()
         val manualFlow = combine(
             manualOrderRepository.subscribeAll(),
             manualOrderRepository.subscribeBases(),
@@ -379,11 +381,11 @@ class LibraryEngine(
     )
 
     /** Grid shape, the other half of the display config. Both are library-wide, not per content type. */
-    fun displayMode(): PreferenceMutableState<LibraryDisplayMode> =
-        libraryPreferences.gridDisplayMode(viewModelScope)
+    private val grid by lazy { LibraryGridState(libraryPreferences, viewModelScope) }
 
-    fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
-        libraryPreferences.gridColumns(viewModelScope, isLandscape)
+    fun displayMode(): PreferenceMutableState<LibraryDisplayMode> = grid.displayMode
+
+    fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> = grid.columns(isLandscape)
 
     private val selectionStore = SelectionStore<EntryId>()
     val selection: StateFlow<Set<EntryId>> = selectionStore.selection

@@ -33,10 +33,9 @@ import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.presentation.library.EntryTracks
+import reikai.presentation.library.LibraryGridState
 import reikai.presentation.library.LibraryResume
 import reikai.presentation.library.MangaLibraryRows
-import reikai.presentation.library.gridColumns
-import reikai.presentation.library.gridDisplayMode
 import reikai.presentation.library.meansOf
 import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
@@ -143,11 +142,11 @@ class StatsSeriesViewModel(
     val showContinueReading: StateFlow<Boolean> = libraryPreferences.showContinueReadingButton.changes()
         .stateIn(viewModelScope, SharingStarted.Eagerly, libraryPreferences.showContinueReadingButton.get())
 
-    fun displayMode(): PreferenceMutableState<LibraryDisplayMode> =
-        libraryPreferences.gridDisplayMode(viewModelScope)
+    private val grid = LibraryGridState(libraryPreferences, viewModelScope)
 
-    fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
-        libraryPreferences.gridColumns(viewModelScope, isLandscape)
+    fun displayMode(): PreferenceMutableState<LibraryDisplayMode> = grid.displayMode
+
+    fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> = grid.columns(isLandscape)
 
     /** The reader at the row's next chapter, as the library's continue-reading opens it; null when none. */
     suspend fun resumeIntent(context: Context, item: LibraryItem): Intent? = libraryResume.intent(context, item)

@@ -41,9 +41,8 @@ import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.track.toUiTrack
 import reikai.presentation.library.EntryTracks
+import reikai.presentation.library.LibraryGridState
 import reikai.presentation.library.MangaLibraryRows
-import reikai.presentation.library.gridColumns
-import reikai.presentation.library.gridDisplayMode
 import reikai.presentation.library.isHiddenFromLibrary
 import reikai.presentation.library.meansOf
 import reikai.presentation.library.mixedLibraryItemSortFields
@@ -157,10 +156,11 @@ class HiddenEntriesViewModel(
         if (ids.isNotEmpty()) appScope.launchIO { hideSeries.unhide(ids) }
     }
 
-    fun displayMode(): PreferenceMutableState<LibraryDisplayMode> = libraryPreferences.gridDisplayMode(viewModelScope)
+    private val grid = LibraryGridState(libraryPreferences, viewModelScope)
 
-    fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
-        libraryPreferences.gridColumns(viewModelScope, isLandscape)
+    fun displayMode(): PreferenceMutableState<LibraryDisplayMode> = grid.displayMode
+
+    fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> = grid.columns(isLandscape)
 }
 
 /** The hidden rows of [rows] in the library's global sort; [tracks] is null unless the sort scores by tracker. */
