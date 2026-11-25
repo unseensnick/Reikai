@@ -43,6 +43,11 @@ class LibraryToolbarTitleRuleTest {
     }
 
     @Test
+    fun `the tabbed view names the tab with its own count when always show current category is on`() {
+        title(showCategoryTabs = true, showCategoryInTitle = true) shouldBe LibraryToolbarTitle("Default", 44)
+    }
+
+    @Test
     fun `counts off leaves the title without a number`() {
         title(showAllCategories = true, showItemCounts = false) shouldBe LibraryToolbarTitle("Library", null)
     }
