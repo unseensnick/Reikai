@@ -11,6 +11,10 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.Source
 import kotlin.time.Instant
 
+/**
+ * The manga library collapse. The ranking order is SourceRankingTest's; these pin what the collapse hands it
+ * (recognized counts, the override, the preferred list) and what it builds from the trunk.
+ */
 class MangaMergeCollapseTest {
 
     private val resolveSource: (Long) -> Source = { id ->
@@ -134,21 +138,6 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `a per-group override picks the primary over chapter count`() = runTest {
-        // The override orders members [2, 1] (member 2 is the trunk) even though member 1 has more
-        // chapters, so the library row leads on the same source the details chapter list trunks on.
-        val result = collapse(
-            listOf(
-                item(1, source = 100L, totalChapters = 10),
-                item(2, source = 200L, totalChapters = 3),
-            ),
-            membership = mapOf(1L to 7L, 2L to 7L),
-            overrideRankings = mapOf(7L to listOf(2L, 1L)),
-        )
-        result.single().id shouldBe 2L // override trunk wins despite fewer chapters
-    }
-
-    @Test
     fun `the global preferred-source list picks the primary when no override is set`() = runTest {
         // Source 200 outranks source 100 in the global list, so its member is the primary even with fewer
         // chapters. The override map is empty, so this is the fallback ranking.
@@ -207,20 +196,5 @@ class MangaMergeCollapseTest {
         ).single()
         val fields = libraryItemQueryFields(sourceKey = { it.libraryManga.manga.source.toString() })
         libraryQueryMatches(QueryNode.from(sourceKeyQuery("100")), merged, fields) shouldBe true
-    }
-
-    @Test
-    fun `the lowest id wins the primary when counts tie and no ranking is set`() = runTest {
-        // Same chapters, no override, no preferred list: the tiebreak is the lowest id (the stitch's own
-        // tiebreak). Member 2 is listed first and added earlier, so neither input order nor date_added
-        // can pass this in the id rule's place.
-        val result = collapse(
-            listOf(
-                item(2, totalChapters = 5, dateAdded = 100),
-                item(1, totalChapters = 5, dateAdded = 200),
-            ),
-            membership = mapOf(1L to 7L, 2L to 7L),
-        )
-        result.single().id shouldBe 1L // lowest id wins the tiebreak, regardless of date_added
     }
 }

@@ -7,6 +7,10 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import kotlin.time.Instant
 
+/**
+ * The novel library collapse. The ranking order is SourceRankingTest's; these pin what the collapse hands it
+ * (each novel's chapter total, the override, the preferred list) and the group it builds.
+ */
 class NovelMergeCollapseTest {
 
     private fun libNovel(
@@ -63,43 +67,20 @@ class NovelMergeCollapseTest {
     }
 
     @Test
-    fun `a per-group override picks the representative over chapter count`() {
-        // The override orders members [2, 1] (member 2 is the trunk) even though member 1 has more
-        // chapters, so the library row leads on the same source the details chapter list trunks on.
-        val result = collapse(
-            listOf(libNovel(1, "A", chapters = 5), libNovel(2, "B", chapters = 3)),
-            membership = mapOf(1L to 7L, 2L to 7L),
-            overrideRankings = mapOf(7L to listOf(2L, 1L)),
-        )
-        result.single().representative.novel.id shouldBe 2L // override trunk wins despite fewer chapters
-    }
-
-    @Test
-    fun `the lowest id wins the representative when counts tie and no ranking is set`() {
-        // Novel 2 is listed first and added earlier, so neither input order nor date_added can pass this
-        // in the id rule's place.
-        val result = collapse(
-            listOf(
-                libNovel(2, "B", chapters = 5, dateAdded = 100),
-                libNovel(1, "A", chapters = 5, dateAdded = 200),
-            ),
-            membership = mapOf(1L to 7L, 2L to 7L),
-        )
-        result.single().representative.novel.id shouldBe 1L
-    }
-
-    @Test
-    fun `the global preferred-source list picks the representative when no override is set`() {
-        // Source "b" outranks "a" in the global list, so its member is the representative even with fewer
-        // chapters. The override map is empty, so this is the fallback ranking.
+    fun `the collapse hands the ranking each group's override and the preferred-source list`() {
+        // Group 7's override names novel 2, against both its chapter count and the preferred list; group 8
+        // has no override, so the preferred list names novel 3, against its chapter count.
         val result = collapse(
             listOf(
                 libNovel(1, "A", source = "a", chapters = 5),
                 libNovel(2, "B", source = "b", chapters = 3),
+                libNovel(3, "C", source = "a", chapters = 3),
+                libNovel(4, "D", source = "b", chapters = 5),
             ),
-            membership = mapOf(1L to 7L, 2L to 7L),
-            preferredSourceIds = listOf("b", "a"),
+            membership = mapOf(1L to 7L, 2L to 7L, 3L to 8L, 4L to 8L),
+            overrideRankings = mapOf(7L to listOf(2L, 1L)),
+            preferredSourceIds = listOf("a", "b"),
         )
-        result.single().representative.novel.id shouldBe 2L // preferred source wins despite fewer chapters
+        result.mapTo(HashSet()) { it.representative.novel.id } shouldBe setOf(2L, 3L)
     }
 }
