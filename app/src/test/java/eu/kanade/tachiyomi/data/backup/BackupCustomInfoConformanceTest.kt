@@ -205,7 +205,7 @@ class BackupCustomInfoConformanceTest {
                     getFavorites = mockk {
                         coEvery { await() } returns listOf(Manga.create().copy(id = 7, url = "/7", source = 1L))
                     },
-                    getManga = mockk(),
+                    getManga = mockk { coEvery { awaitAll(any()) } returns emptyList() },
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
@@ -222,6 +222,7 @@ class BackupCustomInfoConformanceTest {
                     tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk {
+                        byIdsFromById()
                         coEvery { getFavorites() } returns
                             listOf(
                                 Novel.create().copy(
