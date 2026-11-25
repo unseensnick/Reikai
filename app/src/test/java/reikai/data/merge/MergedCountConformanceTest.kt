@@ -63,15 +63,13 @@ class MergedCountConformanceTest {
         driver.close()
     }
 
-    @Test
-    @DisplayName("novels: a title both sources carry is one chapter to the badge and to the list")
-    fun novelTitleMatchAgrees() = runTest {
-        val rows = listOf(
-            Row(id = 10, owner = 1, name = "Chapter 1: Ever His Humble Servant", number = 1.0),
-            Row(id = 20, owner = 2, name = "Chapter 8: Ever His Humble Servant", number = 8.0),
-        )
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    @DisplayName("a chapter both sources carry is one chapter to the badge and to the list")
+    fun sharedChapterAgrees(type: ContentType) = runTest {
+        val rows = sharedChapter(type)
 
-        novelBadgeCount(rows) shouldBe novelListCount(rows)
+        badgeCount(type, rows) shouldBe listCount(type, rows)
     }
 
     @Test
@@ -94,15 +92,13 @@ class MergedCountConformanceTest {
         novelBadgeCount(rows) shouldBe novelListCount(rows)
     }
 
-    @Test
-    @DisplayName("novels: a chapter read on one source is not unread on the group")
-    fun novelReadOnOneSourceAgrees() = runTest {
-        val rows = listOf(
-            Row(id = 10, owner = 1, name = "Chapter 1: Ever His Humble Servant", number = 1.0),
-            Row(id = 20, owner = 2, name = "Chapter 8: Ever His Humble Servant", number = 8.0, read = true),
-        )
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    @DisplayName("a chapter read on one source is not unread on the group")
+    fun readOnOneSourceAgrees(type: ContentType) = runTest {
+        val rows = sharedChapter(type, siblingRead = true)
 
-        novelBadgeCount(rows) shouldBe novelListCount(rows)
+        badgeCount(type, rows) shouldBe listCount(type, rows)
     }
 
     @ParameterizedTest
@@ -133,28 +129,6 @@ class MergedCountConformanceTest {
     }
 
     @Test
-    @DisplayName("manga: a chapter both sources carry is one chapter to the badge and to the list")
-    fun mangaNumberMatchAgrees() = runTest {
-        val rows = listOf(
-            Row(id = 10, owner = 1, name = "Chapter 1", number = 1.0),
-            Row(id = 20, owner = 2, name = "Chapter 1", number = 1.0),
-        )
-
-        mangaBadgeCount(rows) shouldBe mangaListCount(rows)
-    }
-
-    @Test
-    @DisplayName("manga: a chapter read on one source is not unread on the group")
-    fun mangaReadOnOneSourceAgrees() = runTest {
-        val rows = listOf(
-            Row(id = 10, owner = 1, name = "Chapter 1", number = 1.0),
-            Row(id = 20, owner = 2, name = "Chapter 1", number = 1.0, read = true),
-        )
-
-        mangaBadgeCount(rows) shouldBe mangaListCount(rows)
-    }
-
-    @Test
     @DisplayName("manga: a sibling's unnumbered chapter is counted the way the list treats it")
     fun mangaUnrecognizedSiblingAgrees() = runTest {
         // Only the leading source's unnumbered chapters reach the list, since nothing can place a
@@ -181,28 +155,54 @@ class MergedCountConformanceTest {
         mangaBadgeCount(rows) shouldBe mangaListCount(rows)
     }
 
-    @Test
-    @DisplayName("manga: a chapter read and bookmarked only on a sibling counts as read and bookmarked")
-    fun mangaGroupCountsReadAnyCopy() = runTest {
-        val rows = listOf(
-            Row(id = 10, owner = 1, name = "Chapter 1", number = 1.0),
-            Row(id = 11, owner = 1, name = "Chapter 2", number = 2.0),
-            Row(id = 20, owner = 2, name = "Chapter 1", number = 1.0, read = true, bookmark = true),
-        )
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    @DisplayName("a chapter read and bookmarked only on a sibling counts as read and bookmarked")
+    fun groupCountsReadAnyCopy(type: ContentType) = runTest {
+        val rows = sharedChapter(type, siblingRead = true, siblingBookmarked = true, ownSecond = true)
 
-        mangaGroupCounts(rows) shouldBe MergedGroupCounts(total = 2, read = 1, bookmarked = 1)
+        groupCounts(type, rows) shouldBe MergedGroupCounts(total = 2, read = 1, bookmarked = 1)
     }
 
-    @Test
-    @DisplayName("novels: a chapter read and bookmarked only on a sibling counts as read and bookmarked")
-    fun novelGroupCountsReadAnyCopy() = runTest {
-        val rows = listOf(
-            Row(id = 10, owner = 1, name = "Chapter 1: Anchor", number = 1.0),
-            Row(id = 11, owner = 1, name = "Chapter 2: Second", number = 2.0),
-            Row(id = 20, owner = 2, name = "Chapter 8: Anchor", number = 8.0, read = true, bookmark = true),
+    /**
+     * One chapter both sources carry, as each type pairs copies: a manga copy by its number, a novel copy
+     * by its title under another number. [ownSecond] adds a second chapter only the first source has.
+     */
+    private fun sharedChapter(
+        type: ContentType,
+        siblingRead: Boolean = false,
+        siblingBookmarked: Boolean = false,
+        ownSecond: Boolean = false,
+    ): List<Row> {
+        val novel = type == ContentType.NOVELS
+        return listOfNotNull(
+            Row(
+                id = 10,
+                owner = 1,
+                name = if (novel) "Chapter 1: Ever His Humble Servant" else "Chapter 1",
+                number = 1.0,
+            ),
+            Row(id = 11, owner = 1, name = if (novel) "Chapter 2: Second" else "Chapter 2", number = 2.0)
+                .takeIf { ownSecond },
+            Row(
+                id = 20,
+                owner = 2,
+                name = if (novel) "Chapter 8: Ever His Humble Servant" else "Chapter 1",
+                number = if (novel) 8.0 else 1.0,
+                read = siblingRead,
+                bookmark = siblingBookmarked,
+            ),
         )
+    }
 
-        novelGroupCounts(rows) shouldBe MergedGroupCounts(total = 2, read = 1, bookmarked = 1)
+    private suspend fun badgeCount(type: ContentType, rows: List<Row>): Int = when (type) {
+        ContentType.NOVELS -> novelBadgeCount(rows)
+        else -> mangaBadgeCount(rows)
+    }
+
+    private fun listCount(type: ContentType, rows: List<Row>): Int = when (type) {
+        ContentType.NOVELS -> novelListCount(rows)
+        else -> mangaListCount(rows)
     }
 
     // The list's answer: one row per chapter the merged list shows, dropping those a member source
