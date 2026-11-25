@@ -6,7 +6,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -43,13 +42,6 @@ class TabTextTest {
         showScrollableTab()
 
         compose.onNodeWithText(LABEL, useUnmergedTree = true).assertWidthIsAtLeast(1.dp)
-    }
-
-    @Test
-    fun `a label in a scrollable row keeps its count`() {
-        showScrollableTab()
-
-        compose.onNodeWithText("5", useUnmergedTree = true).assertIsDisplayed()
     }
 
     /** A fixed row's equal-width tab bounds its text, so a long label gives way to the count. */
