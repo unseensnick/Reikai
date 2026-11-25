@@ -93,7 +93,9 @@ import tachiyomi.presentation.core.util.collectAsState
 @Composable
 fun ColumnScope.TagsFilterRow(tagFilter: LibraryTagFilter) {
     var showDialog by rememberSaveable { mutableStateOf(false) }
-    val filter by rememberTagFilter(tagFilter)
+    val stored by rememberTagFilter(tagFilter)
+    val aliases = rememberTagAliases(tagFilter.preferences)
+    val filter = remember(stored, aliases) { stored.through(aliases) }
 
     if (showDialog) TagFilterDialog(tagFilter, onDismiss = { showDialog = false })
 
@@ -131,12 +133,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
     val stored by rememberTagFilter(tagFilter)
     val aliases = rememberTagAliases(preferences)
     // The stored keys as the picker lists them: a tag chosen before it became an alias shows on its target.
-    val filter = remember(stored, aliases) {
-        stored.copy(
-            include = stored.include.mapTo(HashSet(), aliases::resolveKey),
-            exclude = stored.exclude.mapTo(HashSet(), aliases::resolveKey),
-        )
-    }
+    val filter = remember(stored, aliases) { stored.through(aliases) }
     // Every series' tags are folded once per opening (and per alias change), off the main thread, so a
     // tap only recounts.
     val library by produceState<PickerLibrary?>(null, aliases) {
@@ -216,7 +213,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
                         preferences.filterTagsExcludeAll.set(!filter.excludeAll)
                     }
                 }
-                SavedTagFilters(preferences, filter)
+                SavedTagFilters(preferences, filter, aliases)
                 TagAliasChips(preferences, aliases)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
@@ -255,7 +252,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SavedTagFilters(preferences: ReikaiLibraryPreferences, filter: TagFilter) {
+private fun SavedTagFilters(preferences: ReikaiLibraryPreferences, filter: TagFilter, aliases: TagAliases) {
     val saved by preferences.savedTagFilters.collectAsState()
     var naming by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<String?>(null) }
@@ -295,7 +292,7 @@ private fun SavedTagFilters(preferences: ReikaiLibraryPreferences, filter: TagFi
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         saved.forEach { entry ->
             TriStateChip(
-                state = if (entry.filter == filter) TriState.ENABLED_IS else TriState.DISABLED,
+                state = if (entry.filter.through(aliases) == filter) TriState.ENABLED_IS else TriState.DISABLED,
                 onClick = { preferences.applyTagFilter(entry.filter) },
                 onLongClick = { removing = entry.name },
                 modifier = Modifier.testTag("saved:${entry.name}"),

@@ -116,10 +116,24 @@ class TagFilterTest {
         val saved = listOf(
             SavedTagFilter(
                 "Mine",
-                TagFilter(setOf("action"), setOf("gore"), includeAll = true, noTags = TriState.ENABLED_NOT),
+                TagFilter(
+                    setOf("action"),
+                    setOf("gore"),
+                    includeAll = true,
+                    excludeAll = true,
+                    noTags = TriState.ENABLED_NOT,
+                ),
             ),
         )
         decodeJsonList<SavedTagFilter>(encodeJsonList(saved)) shouldBe saved
+    }
+
+    @Test
+    fun `a filter naming a tag that became an alias reads as its target`() {
+        val aliases = TagAliases(listOf(TagAlias("Shounen", "Shonen")))
+
+        TagFilter(include = setOf("shounen"), exclude = setOf("shounen ai")).through(aliases) shouldBe
+            TagFilter(include = setOf("shonen"), exclude = setOf("shounen ai"))
     }
 
     @Test

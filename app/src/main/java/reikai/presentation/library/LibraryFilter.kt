@@ -70,11 +70,7 @@ data class LibraryFilterSettings(
         categoriesActive = categoriesActive,
         categoriesInclude = categoriesInclude,
         categoriesExclude = categoriesExclude,
-        // A tag chosen before it became an alias still means the tag it now reads as.
-        tags = tags.copy(
-            include = tags.include.mapTo(HashSet(), tagAliases::resolveKey),
-            exclude = tags.exclude.mapTo(HashSet(), tagAliases::resolveKey),
-        ),
+        tags = tags.through(tagAliases),
         tagAliases = tagAliases,
     )
 }

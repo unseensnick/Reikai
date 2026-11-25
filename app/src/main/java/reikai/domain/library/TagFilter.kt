@@ -31,6 +31,12 @@ data class TagFilter(
         if (excluded) return false
         return include.isEmpty() || if (includeAll) keys.containsAll(include) else include.any { it in keys }
     }
+
+    /** This filter as the library reads it: a tag chosen before it became an alias means the tag it now reads as. */
+    fun through(aliases: TagAliases): TagFilter = copy(
+        include = include.mapTo(HashSet(), aliases::resolveKey),
+        exclude = exclude.mapTo(HashSet(), aliases::resolveKey),
+    )
 }
 
 /** The stored tag filter, read by both libraries' filters and by everything that edits it. */
@@ -108,11 +114,8 @@ private fun ReikaiLibraryPreferences.editTags(
     edit: (tag: String, include: Set<String>, exclude: Set<String>) -> Pair<Set<String>, Set<String>>,
 ) {
     val aliases = currentTagAliases()
-    val (include, exclude) = edit(
-        aliases.resolveKey(key),
-        filterTagsInclude.get().mapTo(HashSet(), aliases::resolveKey),
-        filterTagsExclude.get().mapTo(HashSet(), aliases::resolveKey),
-    )
+    val stored = currentTagFilter().through(aliases)
+    val (include, exclude) = edit(aliases.resolveKey(key), stored.include, stored.exclude)
     filterTagsInclude.set(include)
     filterTagsExclude.set(exclude)
 }
