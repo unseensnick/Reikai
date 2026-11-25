@@ -2,6 +2,7 @@ package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.entry.restoredAltTitles
+import reikai.domain.entry.saveOrClear
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 
@@ -15,7 +16,7 @@ class SetCustomNovelInfo(
      * lands; the observing flow then re-emits and the screen updates on its own.
      */
     suspend fun set(info: CustomNovelInfo) {
-        if (info.isEmpty) repository.delete(info.novelId) else repository.set(info)
+        info.saveOrClear(write = { repository.set(info) }, clear = { repository.delete(info.novelId) })
     }
 
     /** A backup's row over the device's, by [restoredAltTitles], pinned by BackupCustomInfoConformanceTest. */

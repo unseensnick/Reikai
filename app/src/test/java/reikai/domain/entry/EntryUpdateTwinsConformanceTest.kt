@@ -8,9 +8,10 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.library.ContentType
@@ -36,34 +37,51 @@ class EntryUpdateTwinsConformanceTest {
         novel.expectedNextUpdate() shouldBe manga.expectedNextUpdate
     }
 
-    @Test
-    fun `an entry never predicted is never due, on either type`() {
-        val novel = Novel.create().copy(nextUpdate = null)
-        val manga = Manga.create().copy(nextUpdate = null)
-
-        (novel.expectedNextUpdate() to manga.expectedNextUpdate) shouldBe (null to null)
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `an entry never predicted is never due`(kind: Kind) {
+        kind.expectedNextUpdate(null) shouldBe null
     }
 
-    @ParameterizedTest(name = "favorite {0}")
-    @ValueSource(booleans = [true, false])
-    fun `adding and removing stamp the join date and tell the source's tracker alike`(favorite: Boolean) = runTest {
-        val told = mutableListOf<Pair<EntryId, Boolean>>()
-        val tracker = mockk<SourceTrackerDispatcher> {
-            every { favoriteChanged(any(), any()) } answers { told += firstArg<EntryId>() to secondArg() }
+    @ParameterizedTest(name = "{0} favorite {1}")
+    @MethodSource("kindsAndFavorites")
+    fun `adding and removing stamp the join date and tell the source's tracker`(kind: Kind, favorite: Boolean) =
+        runTest {
+            val told = mutableListOf<Boolean>()
+            val tracker = mockk<SourceTrackerDispatcher> {
+                every { favoriteChanged(any(), any()) } answers { told += secondArg<Boolean>() }
+            }
+
+            val (stamped, joined) = kind.writeFavorite(favorite, tracker)
+
+            stamped shouldBe true
+            (joined != null) shouldBe favorite
+            told shouldBe listOf(favorite)
         }
-        val mangaWrite = slot<MangaUpdate>()
-        val novelWrite = slot<NovelUpdate>()
-        val mangaRepository = mockk<MangaRepository> { coEvery { update(capture(mangaWrite)) } returns true }
-        val novelRepository = mockk<NovelRepository> { coEvery { update(capture(novelWrite)) } returns true }
 
-        UpdateManga(mangaRepository, mockk(), tracker).awaitUpdateFavorite(ID, favorite)
-        UpdateNovel(novelRepository, tracker).awaitUpdateFavorite(ID, favorite)
-
-        listOf(
-            mangaWrite.captured.isSet(MangaUpdate::favoriteAt) to (mangaWrite.captured.favoriteAt != null),
-            novelWrite.captured.isSet(NovelUpdate::favoriteAt) to (novelWrite.captured.favoriteAt != null),
-            told.single { it.first is EntryId.Novel }.second to told.single { it.first is EntryId.Manga }.second,
-        ) shouldBe listOf(true to favorite, true to favorite, favorite to favorite)
+    /** Each type's favourite write, as (whether it sets the join date, the date it sets). */
+    enum class Kind(
+        val expectedNextUpdate: (Instant?) -> Instant?,
+        val writeFavorite: suspend (Boolean, SourceTrackerDispatcher) -> Pair<Boolean, Instant?>,
+    ) {
+        MANGA(
+            { Manga.create().copy(nextUpdate = it).expectedNextUpdate },
+            { favorite, tracker ->
+                val write = slot<MangaUpdate>()
+                val repository = mockk<MangaRepository> { coEvery { update(capture(write)) } returns true }
+                UpdateManga(repository, mockk(), tracker).awaitUpdateFavorite(ID, favorite)
+                write.captured.isSet(MangaUpdate::favoriteAt) to write.captured.favoriteAt
+            },
+        ),
+        NOVEL(
+            { Novel.create().copy(nextUpdate = it).expectedNextUpdate() },
+            { favorite, tracker ->
+                val write = slot<NovelUpdate>()
+                val repository = mockk<NovelRepository> { coEvery { update(capture(write)) } returns true }
+                UpdateNovel(repository, tracker).awaitUpdateFavorite(ID, favorite)
+                write.captured.isSet(NovelUpdate::favoriteAt) to write.captured.favoriteAt
+            },
+        ),
     }
 
     /** No cover load need follow an add, so the add itself moves the colour out from under the browse cap. */
@@ -99,10 +117,13 @@ class EntryUpdateTwinsConformanceTest {
         CoverColors.clear()
     }
 
-    private companion object {
-        const val COLOR = 0x123456
-        const val BROWSE_BASE = 10_000L
-        const val ID = 7L
-        val NEXT_UPDATE = Instant.fromEpochMilliseconds(1_000_000L)
+    companion object {
+        @JvmStatic
+        fun kindsAndFavorites() = Kind.entries.flatMap { kind -> listOf(true, false).map { Arguments.of(kind, it) } }
+
+        private const val COLOR = 0x123456
+        private const val BROWSE_BASE = 10_000L
+        private const val ID = 7L
+        private val NEXT_UPDATE = Instant.fromEpochMilliseconds(1_000_000L)
     }
 }

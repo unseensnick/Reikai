@@ -10,12 +10,9 @@ import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
-import kotlinx.serialization.protobuf.ProtoNumber
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.CustomNovelInfoRepositoryImpl
@@ -29,7 +26,10 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.model.CustomMangaInfo
 
-/** Alternative titles through every custom info writer, on a real database, for both types. */
+/**
+ * Alternative titles through every custom info writer, on a real database, for both types. A restore's are
+ * BackupCustomInfoConformanceTest's, through the real restorers.
+ */
 class CustomInfoAltTitlesTest {
 
     private lateinit var driver: JdbcSqliteDriver
@@ -72,111 +72,71 @@ class CustomInfoAltTitlesTest {
     @ParameterizedTest
     @EnumSource(Kind::class)
     fun `alternative titles alone round-trip, commas included`(kind: Kind) = runTest {
-        kind.writeAltsOnly(this@CustomInfoAltTitlesTest)
+        kind.write(this@CustomInfoAltTitlesTest, null)
 
-        kind.readAlts(this@CustomInfoAltTitlesTest) shouldBe ALTS
+        kind.read(this@CustomInfoAltTitlesTest)?.altTitles shouldBe ALTS
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `renaming an entry keeps its alternative titles`(kind: Kind) = runTest {
+        kind.write(this@CustomInfoAltTitlesTest, "T")
+
+        SetEntryTitle(getManga, setManga, getNovel, setNovel).await(kind.entry, "T2")
+
+        kind.read(this@CustomInfoAltTitlesTest)?.altTitles shouldBe ALTS
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `reset clears the alternative titles with the rest`(kind: Kind) = runTest {
+        kind.write(this@CustomInfoAltTitlesTest, "T")
+
+        ResetEntryInfo(setManga, setNovel, mockk(relaxed = true)).await(kind.entry)
+
+        kind.read(this@CustomInfoAltTitlesTest) shouldBe null
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `field 806 round-trips through the backup model`(kind: Kind) {
+        kind.backupRoundTrip() shouldBe ALTS
     }
 
     enum class Kind(
-        val writeAltsOnly: suspend CustomInfoAltTitlesTest.() -> Unit,
-        val readAlts: suspend CustomInfoAltTitlesTest.() -> List<String>?,
+        val entry: EntryId,
+        val write: suspend CustomInfoAltTitlesTest.(title: String?) -> Unit,
+        val read: suspend CustomInfoAltTitlesTest.() -> EntryCustomInfo?,
+        val backupRoundTrip: () -> List<String>?,
     ) {
-        MANGA({ setManga.set(CustomMangaInfo(ID, altTitles = ALTS)) }, { manga()?.altTitles }),
-        NOVEL({ setNovel.set(CustomNovelInfo(ID, altTitles = ALTS)) }, { novel()?.altTitles }),
-    }
-
-    @Test
-    fun `renaming an entry keeps its alternative titles, both types`() = runTest {
-        setManga.set(CustomMangaInfo(ID, title = "T", altTitles = ALTS))
-        setNovel.set(CustomNovelInfo(ID, title = "T", altTitles = ALTS))
-        val rename = SetEntryTitle(getManga, setManga, getNovel, setNovel)
-
-        rename.await(EntryId.Manga(ID), "T2")
-        rename.await(EntryId.Novel(ID), "T2")
-
-        listOf(manga()?.altTitles, novel()?.altTitles) shouldBe listOf(ALTS, ALTS)
-    }
-
-    @Test
-    fun `reset clears the alternative titles with the rest, both types`() = runTest {
-        setManga.set(CustomMangaInfo(ID, title = "T", altTitles = ALTS))
-        setNovel.set(CustomNovelInfo(ID, title = "T", altTitles = ALTS))
-        val reset = ResetEntryInfo(setManga, setNovel, mockk(relaxed = true))
-
-        reset.await(EntryId.Manga(ID))
-        reset.await(EntryId.Novel(ID))
-
-        listOf(manga(), novel()) shouldBe listOf(null, null)
-    }
-
-    /** An older backup's entry: custom author only, no field 806. */
-    @Serializable
-    class OldManga(
-        @ProtoNumber(1) val source: Long,
-        @ProtoNumber(2) val url: String,
-        @ProtoNumber(802) val customAuthor: String? = null,
-    )
-
-    @Serializable
-    class OldNovel(
-        @ProtoNumber(1) val source: String,
-        @ProtoNumber(2) val url: String,
-        @ProtoNumber(802) val customAuthor: String? = null,
-    )
-
-    // The restore's own steps: MangaRestorer reads customInfo, RestoreRepositoryImpl writes it through restore.
-    private suspend fun restoreManga(bytes: ByteArray) {
-        ProtoBuf.decodeFromByteArray(BackupManga.serializer(), bytes).customInfo
-            ?.let { setManga.restore(it.toCustomMangaInfo(ID)) }
-    }
-
-    private suspend fun restoreNovel(bytes: ByteArray) {
-        ProtoBuf.decodeFromByteArray(BackupNovel.serializer(), bytes).customInfo
-            ?.let { setNovel.restore(it.toCustomNovelInfo(ID)) }
-    }
-
-    @Test
-    fun `an older backup replaces the device row but keeps its alternative titles, both types`() = runTest {
-        setManga.set(CustomMangaInfo(ID, title = "Device title", altTitles = ALTS))
-        setNovel.set(CustomNovelInfo(ID, title = "Device title", altTitles = ALTS))
-
-        restoreManga(ProtoBuf.encodeToByteArray(OldManga.serializer(), OldManga(1L, "/m", customAuthor = "A")))
-        restoreNovel(ProtoBuf.encodeToByteArray(OldNovel.serializer(), OldNovel("src", "/n", customAuthor = "A")))
-
-        listOf(manga()?.title, manga()?.altTitles, novel()?.title, novel()?.altTitles) shouldBe
-            listOf(null, ALTS, null, ALTS)
-    }
-
-    @Test
-    fun `an older backup with no custom info leaves the device's row alone`() = runTest {
-        setManga.set(CustomMangaInfo(ID, title = "Device title", altTitles = ALTS))
-
-        restoreManga(ProtoBuf.encodeToByteArray(OldManga.serializer(), OldManga(1L, "/m")))
-
-        manga()?.altTitles shouldBe ALTS
-    }
-
-    @Test
-    fun `field 806 round-trips through both backup models`() {
-        val manga = BackupManga(source = 1L, url = "/m").apply {
-            customInfo =
-                CustomMangaInfo(ID, altTitles = ALTS).toBackupCustomInfo()
-        }
-        val novel = BackupNovel(source = "s", url = "/n").apply {
-            customInfo =
-                CustomNovelInfo(ID, altTitles = ALTS).toBackupCustomInfo()
-        }
-
-        val m = ProtoBuf.decodeFromByteArray(
-            BackupManga.serializer(),
-            ProtoBuf.encodeToByteArray(BackupManga.serializer(), manga),
-        )
-        val n = ProtoBuf.decodeFromByteArray(
-            BackupNovel.serializer(),
-            ProtoBuf.encodeToByteArray(BackupNovel.serializer(), novel),
-        )
-
-        listOf(m.customInfo?.altTitles, n.customInfo?.altTitles) shouldBe listOf(ALTS, ALTS)
+        MANGA(
+            EntryId.Manga(ID),
+            { setManga.set(CustomMangaInfo(ID, title = it, altTitles = ALTS)) },
+            { manga() },
+            {
+                val backup = BackupManga(source = 1L, url = "/m").apply {
+                    customInfo = CustomMangaInfo(ID, altTitles = ALTS).toBackupCustomInfo()
+                }
+                ProtoBuf.decodeFromByteArray(
+                    BackupManga.serializer(),
+                    ProtoBuf.encodeToByteArray(BackupManga.serializer(), backup),
+                ).customInfo?.altTitles
+            },
+        ),
+        NOVEL(
+            EntryId.Novel(ID),
+            { setNovel.set(CustomNovelInfo(ID, title = it, altTitles = ALTS)) },
+            { novel() },
+            {
+                val backup = BackupNovel(source = "s", url = "/n").apply {
+                    customInfo = CustomNovelInfo(ID, altTitles = ALTS).toBackupCustomInfo()
+                }
+                ProtoBuf.decodeFromByteArray(
+                    BackupNovel.serializer(),
+                    ProtoBuf.encodeToByteArray(BackupNovel.serializer(), backup),
+                ).customInfo?.altTitles
+            },
+        ),
     }
 
     private companion object {

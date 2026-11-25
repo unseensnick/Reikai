@@ -35,6 +35,14 @@ interface EntryCustomInfo {
 }
 
 /**
+ * Writes these overrides through [write], or clears the row through [clear] when nothing is set (Reset to
+ * source), so a cleared edit leaves no empty row. Both content types' SetCustom*Info save through here.
+ */
+suspend fun EntryCustomInfo.saveOrClear(write: suspend () -> Unit, clear: suspend () -> Unit) {
+    if (isEmpty) clear() else write()
+}
+
+/**
  * The alternative titles a restore writes over [device]'s row. A backup made before they were backed up,
  * or by another app, carries none and cannot say so, so an empty list keeps the device's own; every other
  * field is replaced as before.
