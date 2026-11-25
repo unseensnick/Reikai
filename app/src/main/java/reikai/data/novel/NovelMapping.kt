@@ -9,7 +9,6 @@ import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 /**
  * Status codes used by the `novels.status` column. Mirrors the lnreader NovelStatus enum the
@@ -72,7 +71,6 @@ val SourceNovel.sentName: String?
 fun SourceNovel.toNovel(
     sourceId: String,
     favorite: Boolean = true,
-    now: Instant = Clock.System.now(),
 ): Novel = Novel(
     id = -1L,
     source = sourceId,
@@ -81,16 +79,16 @@ fun SourceNovel.toNovel(
     author = author,
     artist = artist,
     description = summary,
-    genre = genres?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() },
+    genre = genres?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.distinct(),
     status = NovelStatusCode.fromString(status).toLong(),
     thumbnailUrl = cover,
-    favoriteAt = now.takeIf { favorite },
+    favoriteAt = Clock.System.now().takeIf { favorite },
     lastUpdate = null,
     initialized = true,
     chapterFlags = 0L,
     updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
     coverLastModified = null,
-    totalPages = totalPages.toLong().coerceAtMost(Novel.MAX_PAGES),
+    totalPages = Novel.heldPages(totalPages.toLong()),
     notes = "",
     viewerFlags = 0L,
 )
@@ -112,21 +110,23 @@ fun NovelItem.toNovel(sourceId: String): Novel =
 fun ChapterItem.toNovelChapter(
     novelId: Long,
     sourceOrder: Long = 0L,
-    now: Instant = Clock.System.now(),
-): NovelChapter = NovelChapter(
-    id = -1L,
-    novelId = novelId,
-    url = path,
-    name = NovelTextSanitizer.stripInvalidChars(name),
-    read = false,
-    bookmark = false,
-    lastTextProgress = 0L,
-    chapterNumber = chapterNumber ?: 0.0,
-    sourceOrder = sourceOrder,
-    dateFetch = now,
-    // A date the plugin gives none for, or one it cannot be read from, is unknown, as manga's source API 0 is
-    dateUpload = NovelDateParser.parse(releaseTime, now.toEpochMilliseconds()).toInstantOrNull(),
-    page = page.orEmpty(),
-    // Manga's rule (copyFromSChapter): trimmed, and blank means none.
-    scanlator = scanlator?.let(NovelTextSanitizer::stripInvalidChars)?.trim()?.ifEmpty { null },
-)
+): NovelChapter {
+    val now = Clock.System.now()
+    return NovelChapter(
+        id = -1L,
+        novelId = novelId,
+        url = path,
+        name = NovelTextSanitizer.stripInvalidChars(name),
+        read = false,
+        bookmark = false,
+        lastTextProgress = 0L,
+        chapterNumber = chapterNumber ?: 0.0,
+        sourceOrder = sourceOrder,
+        dateFetch = now,
+        // A date the plugin gives none for, or one it cannot be read from, is unknown, as manga's source API 0 is
+        dateUpload = NovelDateParser.parse(releaseTime, now.toEpochMilliseconds()).toInstantOrNull(),
+        page = page.orEmpty(),
+        // Manga's rule (copyFromSChapter): trimmed, and blank means none.
+        scanlator = scanlator?.let(NovelTextSanitizer::stripInvalidChars)?.trim()?.ifEmpty { null },
+    )
+}

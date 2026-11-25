@@ -9,7 +9,7 @@ import kotlin.time.Instant
 /**
  * Domain mirror of the `novels` SQLDelight table. Held disjoint from [tachiyomi.domain.manga.model.Manga]
  * because the source-id space differs (lnreader plugin.id is a [String], not a [Long]) and the
- * content is text rather than images, so manga-only fields (scanlators) don't apply.
+ * content is text rather than images.
  * [viewerFlags] carries the per-novel reader orientation, rendering mode and reading mode.
  */
 @Immutable
@@ -58,6 +58,9 @@ data class Novel(
     companion object {
         /** Past it a page count from outside the app (a source, a backup) is held, as the details page lists every page. */
         const val MAX_PAGES = 100_000L
+
+        /** A page count from outside the app as stored: none below 0, and held at [MAX_PAGES]. */
+        fun heldPages(count: Long): Long = count.coerceIn(0L, MAX_PAGES)
 
         fun create() = Novel(
             id = -1L,

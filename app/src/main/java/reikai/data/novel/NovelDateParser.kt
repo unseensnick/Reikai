@@ -33,25 +33,28 @@ object NovelDateParser {
         val trimmed = dateStr?.trim().orEmpty()
         if (trimmed.isEmpty()) return 0L
 
-        // ISO-8601 instant (carries a time component).
+        // ISO-8601 instant (carries a time component). Anything else with a T, a capitalised month or a
+        // zone-less datetime, falls through to the formats, which read its date.
         if (trimmed.contains("T")) {
-            return runCatching { Instant.parse(trimmed).toEpochMilli() }.getOrDefault(0L)
+            runCatching { Instant.parse(trimmed).toEpochMilli() }.getOrNull()?.let { return it }
         }
 
         // Relative phrase ("X <unit>s ago"), measured back from now.
         RELATIVE.find(trimmed)?.let { match ->
             val amount = match.groupValues[1].toLongOrNull() ?: return 0L
-            val millis = when (match.groupValues[2].lowercase()) {
-                "second" -> amount * 1_000L
-                "minute" -> amount * 60_000L
-                "hour" -> amount * 3_600_000L
-                "day" -> amount * 86_400_000L
-                "week" -> amount * 604_800_000L
-                "month" -> amount * 2_592_000_000L // ~30 days
-                "year" -> amount * 31_536_000_000L // ~365 days
+            val unit = when (match.groupValues[2].lowercase()) {
+                "second" -> 1_000L
+                "minute" -> 60_000L
+                "hour" -> 3_600_000L
+                "day" -> 86_400_000L
+                "week" -> 604_800_000L
+                "month" -> 2_592_000_000L // ~30 days
+                "year" -> 31_536_000_000L // ~365 days
                 else -> return 0L
             }
-            return now - millis
+            // A count reaching before the epoch, or past what a Long holds, is no date a plugin means
+            val millis = runCatching { Math.multiplyExact(amount, unit) }.getOrNull() ?: return 0L
+            return (now - millis).takeIf { it >= 0L } ?: 0L
         }
 
         // Common absolute date formats (day-precision, device-local midnight). Strict, so a month or day

@@ -104,6 +104,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A novel chapter dated in capitals or with a time but no time zone now shows its upload date.** A relative date too far back to hold is left undated instead of reading as one far in the future.
+- **A novel genre its source lists twice now shows once.**
 - **Searching a novel's downloaded chapters again, or changing a search option, no longer reads every chapter from storage again.**
 - **TalkBack now says which page a paged novel's page picker is showing.**
 - **Chapters a novel's page brings in from the in-app browser are now downloaded when Download new chapters is on.**

@@ -90,7 +90,7 @@ class BackupNovel(
             chapterFlags = this@BackupNovel.chapterFlags,
             updateStrategy = this@BackupNovel.updateStrategy,
             coverLastModified = this@BackupNovel.coverLastModified.toInstantOrNull(),
-            totalPages = this@BackupNovel.totalPages.coerceIn(0L, Novel.MAX_PAGES),
+            totalPages = Novel.heldPages(this@BackupNovel.totalPages),
             notes = this@BackupNovel.notes,
             viewerFlags = this@BackupNovel.viewerFlags,
             nextUpdate = this@BackupNovel.nextUpdate.toInstantOrNull(),
