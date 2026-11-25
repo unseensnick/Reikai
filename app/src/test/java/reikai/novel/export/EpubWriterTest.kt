@@ -8,6 +8,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.novel.toNovel
 import reikai.novel.host.SourceNovel
 import reikai.novel.local.LocalNovelPicture
@@ -93,6 +95,31 @@ class EpubWriterTest {
     @Test
     fun `a web picture is dropped, since the book cannot fetch it`() = runTest {
         written().chapter(2).toString(Charsets.UTF_8) shouldNotContain_ "example.com"
+    }
+
+    // A reader opening the book would fetch each one, telling the site the book was opened.
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "<picture><source srcset=\"https://track.example/x.png 1x\"><img src=\"DATA\"></picture>",
+            "<video src=\"https://track.example/v.mp4\" poster=\"https://track.example/p.png\"></video>",
+            "<video><source src=\"https://track.example/v.mp4\"><track src=\"https://track.example/t.vtt\"></video>",
+            "<audio src=\"//track.example/a.mp3\"></audio>",
+            "<p style=\"background:url('https://track.example/b.png') no-repeat\">x</p>",
+            "<p style=\"background-image: URL( //track.example/c.png )\">x</p>",
+            "<table background=\"https://track.example/t.png\"><tr><td>x</td></tr></table>",
+            "<style>p { background: url(https://track.example/s.png) }</style><p>x</p>",
+        ],
+    )
+    fun `a chapter keeps no web address a reader would load`(html: String) = runTest {
+        firstChapter(html.replace("DATA", dataPng)) shouldNotContain_ "track.example"
+    }
+
+    @Test
+    fun `an inline or in-book address in a style stays`() = runTest {
+        val style = "background:url(data:image/png;base64,AAAA), url(#grad), url(../images/a.png)"
+
+        firstChapter("<p style=\"$style\">x</p>") shouldContain style
     }
 
     @Test

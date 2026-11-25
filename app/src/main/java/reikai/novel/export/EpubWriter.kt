@@ -52,8 +52,8 @@ data class ExportPicture(val bytes: ByteArray, val mime: String)
 /**
  * Writes an EPUB 3 with an EPUB 2 table of contents beside it, so older readers find the chapters too.
  * Each chapter becomes well-formed XHTML: pictures carried as `data:` or local book addresses become files
- * of their own (one per distinct picture), web pictures are dropped since a book on disk cannot fetch them,
- * and nothing that runs is kept. [includePictures] false drops every picture.
+ * of their own (one per distinct picture), web pictures and other web media are dropped since a book on disk
+ * cannot fetch them, and nothing that runs is kept. [includePictures] false drops every picture.
  * Design: docs/dev/subsystems/local-novels.md.
  */
 class EpubWriter(private val includePictures: Boolean = true) {
@@ -154,6 +154,20 @@ class EpubWriter(private val includePictures: Boolean = true) {
             img.attributes().asList().map { it.key }.filter { it != "alt" }.forEach(img::removeAttr)
             img.attr("src", "../$path").attr("alt", img.attr("alt"))
         }
+        // Nor any other address a reader would load as the page opens, which would tell the site it was opened.
+        for (element in body.getAllElements()) {
+            LOADED_ADDRESSES.filter { webAddressIn(element.attr(it), it == "srcset") }.forEach(element::removeAttr)
+            if (element.hasAttr("style")) {
+                element.attr(
+                    "style",
+                    CSS_URL.replace(element.attr("style")) {
+                        if (webAddressIn(it.groupValues[2])) "none" else it.value
+                    },
+                )
+            }
+        }
+        body.select("source, track").filter { !it.hasAttr("src") && !it.hasAttr("srcset") }
+            .forEach { it.keepingId().remove() }
 
         val document = Document.createShell("")
         document.outputSettings()
@@ -356,6 +370,22 @@ $points
             "h1, h2, h3 { text-align: center; }\n"
     }
 }
+
+/**
+ * Whether [value] names an address on the web rather than inline `data:` or one inside the book. A scheme-less
+ * `//host` counts, since a reading system served over http resolves it to the web; a [srcset] is a candidate list.
+ */
+private fun webAddressIn(value: String, srcset: Boolean = false): Boolean {
+    val addresses = if (srcset) SRCSET_ADDRESS.findAll(value).map { it.groupValues[1] } else sequenceOf(value.trim())
+    return addresses.any { address ->
+        !NovelChapterAddress.isDataAddress(address) && (address.startsWith("//") || SCHEME.containsMatchIn(address))
+    }
+}
+
+private val LOADED_ADDRESSES = listOf("src", "srcset", "poster", "background")
+private val CSS_URL = Regex("""url\(\s*(['"]?)(.*?)\1\s*\)""", RegexOption.IGNORE_CASE)
+private val SRCSET_ADDRESS = Regex("""(?:^|,)\s*(\S+)""")
+private val SCHEME = Regex("^[a-z][a-z0-9+.-]*:", RegexOption.IGNORE_CASE)
 
 /** [this], its id left on an empty span in its place, so a link to it still lands once it is gone. */
 private fun Element.keepingId(): Element = apply { if (id().isNotEmpty()) before(Element("span").attr("id", id())) }
