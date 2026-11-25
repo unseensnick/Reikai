@@ -1702,15 +1702,25 @@ class NovelDetailsViewModel(
     // The chapters on the device as the Export dialog counted them, which its positions index.
     private var exportCounted: List<Long> = emptyList()
 
-    /** Writes the novel to [target]; [from] and [to] pick chapters on the device by position, 0 for all. */
+    /**
+     * Writes the novel to [target]; [from] and [to] pick chapters on the device by position, 0 for all. The
+     * picker's answer can reach a model rebuilt after the process died, before it loads and with nothing
+     * counted, so this reads neither the page nor the dialog and counts again when it must.
+     */
     fun exportEpub(target: Uri, includePictures: Boolean, from: Int, to: Int) {
-        val loaded = state.value as? NovelDetailsState.Loaded ?: return
         dismissDialog()
-        // By id: the export can run much later, after a download or delete has moved what a position names.
-        val run = exportCounted.getOrNull(from - 1)?.let { first ->
-            EpubRun(from, first, exportCounted.getOrNull(to - 1) ?: exportCounted.last())
+        appScope.launchIO {
+            val counted = if (from < 1) {
+                emptyList()
+            } else {
+                exportCounted.ifEmpty { downloadedTexts.chaptersOf(novelId, sourceScoped = false).onDisk.map { it.id } }
+            }
+            // By id: the export can run much later, after a download or delete has moved what a position names.
+            val run = counted.getOrNull(from - 1)?.let { first ->
+                EpubRun(from, first, counted.getOrNull(to - 1) ?: counted.last())
+            }
+            NovelEpubExportWorker.start(context, listOf(novelId), target, toFolder = false, includePictures, run)
         }
-        NovelEpubExportWorker.start(context, listOf(loaded.novel.id), target, toFolder = false, includePictures, run)
     }
 
     /**

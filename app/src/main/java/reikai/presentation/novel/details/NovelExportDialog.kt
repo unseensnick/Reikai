@@ -1,8 +1,5 @@
 package reikai.presentation.novel.details
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,21 +22,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import reikai.novel.export.epubFileName
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Export as EPUB: how many chapters are on the device, a way to download the rest, whether to keep the
- * pictures, and which run of chapters to write. Export asks where to save, under the novel's title.
+ * pictures, and which run of chapters to write. [onExport] asks where to save; the screen holds that
+ * launcher, since this dialog is gone when the process comes back from the system picker.
  */
 @Composable
 fun NovelExportDialog(
     dialog: NovelDetailsDialog.ExportEpub,
-    fileName: String,
     onDownloadMissing: () -> Unit,
-    onExport: (target: Uri, includePictures: Boolean, from: Int, to: Int) -> Unit,
+    onExport: (includePictures: Boolean, from: Int, to: Int) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     var pictures by rememberSaveable { mutableStateOf(true) }
@@ -49,12 +46,6 @@ fun NovelExportDialog(
     val onDevice = dialog.onDevice
     val range = (from.toIntOrNull() ?: 0) to (to.toIntOrNull() ?: 0)
     val rangeValid = wholeBook || (onDevice != null && range.first in 1..range.second && range.second <= onDevice)
-    val saver =
-        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/epub+zip")) { uri ->
-            if (uri != null) {
-                if (wholeBook) onExport(uri, pictures, 0, 0) else onExport(uri, pictures, range.first, range.second)
-            }
-        }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -64,7 +55,9 @@ fun NovelExportDialog(
                 when {
                     onDevice == null -> LinearProgressIndicator(Modifier.fillMaxWidth())
                     onDevice == 0 -> Text(stringResource(MR.strings.export_epub_none))
-                    else -> Text(stringResource(MR.strings.export_epub_available, onDevice, dialog.total))
+                    else -> Text(
+                        pluralStringResource(MR.plurals.export_epub_available, dialog.total, onDevice, dialog.total),
+                    )
                 }
                 if (dialog.missing.isNotEmpty()) {
                     OutlinedButton(onClick = onDownloadMissing) {
@@ -108,7 +101,10 @@ fun NovelExportDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { saver.launch(epubFileName(fileName)) },
+                onClick = {
+                    val (first, last) = if (wholeBook) 0 to 0 else range
+                    onExport(pictures, first, last)
+                },
                 enabled = onDevice != null && onDevice > 0 && rangeValid,
             ) {
                 Text(stringResource(MR.strings.export))

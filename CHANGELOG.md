@@ -129,6 +129,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel opened from Browse now shows it is loading while its chapters are fetched, and a pull to refresh then waits for that fetch.**
 - **A page preview on a merged gallery's details page now opens the gallery's own chapter, as More previews does.**
 - **A pull to refresh made just as a novel's first load stops spinning is no longer ignored.**
+- **A novel's word count and chapter search now read "1 of 1 chapter" rather than "1 of 1 chapters".**
 
 ### Merged series
 

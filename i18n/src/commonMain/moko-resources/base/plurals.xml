@@ -17,6 +17,26 @@
         <item quantity="one">%d file is already in that series</item>
         <item quantity="other">%d files are already in that series</item>
     </plurals>
+    <plurals name="export_epub_available">
+        <item quantity="one">%1$d of %2$d chapter on this device</item>
+        <item quantity="other">%1$d of %2$d chapters on this device</item>
+    </plurals>
+    <plurals name="novel_text_search_progress">
+        <item quantity="one">Searched %1$d of %2$d chapter</item>
+        <item quantity="other">Searched %1$d of %2$d chapters</item>
+    </plurals>
+    <plurals name="word_count_progress">
+        <item quantity="one">Counting %1$d of %2$d chapter</item>
+        <item quantity="other">Counting %1$d of %2$d chapters</item>
+    </plurals>
+    <plurals name="word_count_not_downloaded">
+        <item quantity="one">%1$s of %2$s chapter not downloaded</item>
+        <item quantity="other">%1$s of %2$s chapters not downloaded</item>
+    </plurals>
+    <plurals name="word_count_unreadable_some">
+        <item quantity="one">%1$s of %2$s chapter could not be read</item>
+        <item quantity="other">%1$s of %2$s chapters could not be read</item>
+    </plurals>
     <plurals name="export_epub_done">
         <item quantity="one">Exported %d novel</item>
         <item quantity="other">Exported %d novels</item>

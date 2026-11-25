@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import reikai.novel.content.NovelWordDensity
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import java.text.NumberFormat
 
@@ -70,7 +71,7 @@ private fun CountingProgress(checked: Int, toCount: Int?) {
         if (toCount == null) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
-            Text(text = stringResource(MR.strings.word_count_progress, checked, toCount))
+            Text(text = pluralStringResource(MR.plurals.word_count_progress, toCount, checked, toCount))
             LinearProgressIndicator(progress = { checked.toFloat() / toCount }, modifier = Modifier.fillMaxWidth())
         }
     }
@@ -92,8 +93,9 @@ private fun WordCountResult(result: NovelWordDensity) {
         )
         if (result.notDownloadedChapters > 0) {
             CoverageNote(
-                stringResource(
-                    MR.strings.word_count_not_downloaded,
+                pluralStringResource(
+                    MR.plurals.word_count_not_downloaded,
+                    result.totalChapters,
                     numberFormat.format(result.notDownloadedChapters),
                     numberFormat.format(result.totalChapters),
                 ),
@@ -101,8 +103,9 @@ private fun WordCountResult(result: NovelWordDensity) {
         }
         if (result.unreadableChapters > 0) {
             CoverageNote(
-                stringResource(
-                    MR.strings.word_count_unreadable_some,
+                pluralStringResource(
+                    MR.plurals.word_count_unreadable_some,
+                    result.totalChapters,
                     numberFormat.format(result.unreadableChapters),
                     numberFormat.format(result.totalChapters),
                 ),

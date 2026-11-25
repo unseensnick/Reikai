@@ -171,8 +171,9 @@ private fun SearchSummary(
     totalChapters: Int,
 ) {
     val text = when {
-        state.isSearching -> stringResource(
-            MR.strings.novel_text_search_progress,
+        state.isSearching -> pluralStringResource(
+            MR.plurals.novel_text_search_progress,
+            totalChapters,
             state.searchedCount,
             totalChapters,
         )

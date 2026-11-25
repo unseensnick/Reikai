@@ -1,11 +1,16 @@
 package reikai.presentation.novel.details
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -20,6 +25,7 @@ import mihon.core.navigation.CategoryRoute
 import mihon.core.navigation.LocalAssistUrl
 import mihon.core.navigation.LocalNavigator
 import mihon.presentation.core.util.isTabletUi
+import reikai.data.local.LocalImport
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -29,6 +35,7 @@ import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.source.SourceKey
+import reikai.novel.export.epubFileName
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -96,6 +103,14 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
     }
     val settings = remember(viewModel) { viewModel.detailsSettings(context.appGraph) }
     val neutralState by adapter.state.collectAsStateWithLifecycle()
+    // Registered before the page loads and with the choice saved, since the process can die behind the system
+    // picker and the answer then reaches a rebuilt page whose Export dialog is gone. Pictures, from, to.
+    var exportChoice by rememberSaveable { mutableStateOf(intArrayOf()) }
+    val saveEpub = remember { ActivityResultContracts.CreateDocument(LocalImport.EPUB_TYPE) }
+    val epubSaver = rememberLauncherForActivityResult(saveEpub) { uri ->
+        val choice = exportChoice
+        if (uri != null && choice.size == 3) viewModel.exportEpub(uri, choice[0] == 1, choice[1], choice[2])
+    }
 
     // Decided by the neutral state alone, as on manga's page: it is mapped from the model's, so a loaded one means
     // the model's is Loaded too.
@@ -180,14 +195,21 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
             adapter,
             viewModel::dismissDialog,
         )
-        NovelDetailsDialogs(s, viewModel)
+        NovelDetailsDialogs(s, viewModel) { pictures, from, to ->
+            exportChoice = intArrayOf(if (pictures) 1 else 0, from, to)
+            epubSaver.launch(epubFileName(s.novel.title))
+        }
     }
 }
 
 /** The novel dialogs that stay per-type (their data genuinely diverges); the shared ones go through
  *  [EntryDetailsDialogHost]. */
 @Composable
-private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: NovelDetailsViewModel) {
+private fun NovelDetailsDialogs(
+    state: NovelDetailsState.Loaded,
+    viewModel: NovelDetailsViewModel,
+    onExport: (includePictures: Boolean, from: Int, to: Int) -> Unit,
+) {
     val navigator = LocalNavigator.current
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> ChangeCategoryDialog(
@@ -232,9 +254,8 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewModel: Nove
         is NovelDetailsDialog.WordCount -> NovelWordCountDialog(dialog, onDismissRequest = viewModel::dismissDialog)
         is NovelDetailsDialog.ExportEpub -> NovelExportDialog(
             dialog = dialog,
-            fileName = state.novel.title,
             onDownloadMissing = { viewModel.downloadMissingForExport(dialog.missing) },
-            onExport = viewModel::exportEpub,
+            onExport = onExport,
             onDismissRequest = viewModel::dismissDialog,
         )
         NovelDetailsDialog.PageSelector -> NovelPageSelectorSheet(
