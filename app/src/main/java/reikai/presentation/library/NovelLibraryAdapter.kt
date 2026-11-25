@@ -92,7 +92,7 @@ class NovelLibraryAdapter(
         model.state.loadedRows({ it.isLoading }) { it.favorites }
 
     override val trackKey: Flow<Any?> =
-        model.state.map { it.trackerMeans to it.tracksByRep }.distinctUntilChanged()
+        model.state.map { Triple(it.trackerMeans, it.tracksByRep, it.loggedInTrackerIds) }.distinctUntilChanged()
 
     override val updating: Flow<Boolean> = NovelUpdateWorker.isRunningFlow(context)
 
@@ -115,7 +115,7 @@ class NovelLibraryAdapter(
                 key.takeUnless { it.isEmpty() }?.let { names.getOrPut(it) { novelSourceManager.nameOf(it) } to it }
             },
             groupTracks = { row -> state.tracksByRep[row.id].orEmpty() },
-            loggedInTrackerIds = trackerManager.loggedInTrackers().mapTo(mutableSetOf()) { it.id },
+            loggedInTrackerIds = state.loggedInTrackerIds,
             trackerManager = trackerManager,
             context = context,
         )

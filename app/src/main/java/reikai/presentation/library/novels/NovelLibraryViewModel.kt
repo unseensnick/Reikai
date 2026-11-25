@@ -303,6 +303,7 @@ class NovelLibraryViewModel(
             trackerMeans = trackerMeanScores,
             novelById = novelById,
             tracksByRep = tracksByRep,
+            loggedInTrackerIds = loggedInTrackerIds,
             favoritesById = byId,
             customInfo = overlay,
             showContinueButton = showContinue,
@@ -436,6 +437,8 @@ class NovelLibraryViewModel(
          *  feed seam (LibraryProvider.dynamicGroupingFeed), which resolves metadata the row cannot carry. */
         val novelById: Map<Long, LibraryNovel> = emptyMap(),
         val tracksByRep: Map<Long, List<Track>> = emptyMap(),
+        /** The logged-in trackers every track read above was judged by, so a login or logout re-runs the grouping. */
+        val loggedInTrackerIds: Set<Long> = emptySet(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */
         private val customInfo: Map<Long, CustomNovelInfo> = emptyMap(),
