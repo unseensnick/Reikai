@@ -107,6 +107,30 @@ class WebGpuRetryRulesTest {
         previewAfterError(preview, shown = Any()) shouldBe preview
     }
 
+    /** The last tap retried [lastTap]; a centre tap ([onlyNew]) on a failure it already retried opens the menu. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("tapRetries")
+    fun `a tap retries the failures on screen only when one is new to a centre tap`(
+        @Suppress("UNUSED_PARAMETER") name: String,
+        lastTap: Set<String>,
+        onScreen: Set<String>,
+        onlyNew: Boolean,
+        retried: Set<String>,
+    ) {
+        val retries = TapRetries<String>().apply { take(lastTap, onlyNew = false) }
+
+        retries.take(onScreen, onlyNew) shouldBe retried
+    }
+
+    @Test
+    fun `a failure that cleared before a tap is new when it fails again`() {
+        val retries = TapRetries<String>()
+        retries.take(setOf("next"), onlyNew = true)
+        retries.take(emptySet(), onlyNew = true)
+
+        retries.take(setOf("next"), onlyNew = true) shouldBe setOf("next")
+    }
+
     private class RecordingLoader : PageLoader() {
         override var isLocal = false
         var streamAtRetry: DownloadStream? = null
@@ -131,6 +155,33 @@ class WebGpuRetryRulesTest {
             Arguments.of("a page whose refetch is loading waits", false, Page.State.LoadPage, true),
             Arguments.of("a page whose image is downloading waits", false, Page.State.DownloadImage, true),
             Arguments.of("a page that failed decoding waits though its file is there", true, Page.State.Ready, true),
+        )
+
+        @JvmStatic
+        fun tapRetries() = listOf(
+            Arguments.of("a first failure is retried", emptySet<String>(), setOf("next"), true, setOf("next")),
+            Arguments.of(
+                "one the last tap retried opens the menu",
+                setOf("next"),
+                setOf("next"),
+                true,
+                emptySet<String>(),
+            ),
+            Arguments.of(
+                "a new one retries every one",
+                setOf("next"),
+                setOf("next", "page"),
+                true,
+                setOf("next", "page"),
+            ),
+            Arguments.of("a tap outside every zone retries again", setOf("next"), setOf("next"), false, setOf("next")),
+            Arguments.of(
+                "nothing failed retries nothing",
+                emptySet<String>(),
+                emptySet<String>(),
+                true,
+                emptySet<String>(),
+            ),
         )
     }
 }

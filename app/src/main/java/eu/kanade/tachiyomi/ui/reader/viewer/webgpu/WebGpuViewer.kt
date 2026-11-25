@@ -72,6 +72,7 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.presentation.reader.LocalPageColorAdjust
 import reikai.presentation.reader.ReaderRanges
+import reikai.presentation.reader.TapRetries
 import reikai.presentation.reader.WidePageShape
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
@@ -183,6 +184,9 @@ open class WebGpuViewer(
 
     // RK --> guarded by [lock] too. Chapters that failed to load, left alone until a page turn or a Retry tap.
     private val failedChapterPreloads = HashSet<Long?>()
+
+    // What the last tap retried, so a centre tap on a failure it already retried opens the menu instead.
+    private val tapRetries = TapRetries<Any?>()
     // RK <--
 
     /**
@@ -692,15 +696,18 @@ open class WebGpuViewer(
 
     /**
      * Retries every failed page and chapter on screen, as a tap on their Retry would in the other
-     * viewers. False when nothing on screen failed, so the tap does what it otherwise does.
+     * viewers, or none when [onlyNew] and the last tap already retried each. False when nothing was retried, so
+     * the tap does what it otherwise does.
      */
-    private fun retryFailuresOnScreen(): Boolean {
+    private fun retryFailuresOnScreen(onlyNew: Boolean): Boolean {
         val (pages, chapters) = synchronized(lock) {
             val onScreen = pageCache.values.filter { it.imagePage.isOnScreen }
             val pages = onScreen.filterIsInstance<ViewerReaderPage>().filter { it.imagePage is ErrorPage }
             val chapters = onScreen.filterIsInstance<ViewerTransitionPage>()
                 .mapNotNull { chapterToRetry(it.prevChapter, it.nextChapter) }
                 .distinct()
+            val keys: Set<Any?> = pages.map { it.page }.toSet() + chapters.map { it.chapter.id }
+            if (tapRetries.take(keys, onlyNew).isEmpty()) return false
             pages to chapters
         }
         pages.forEach(::retryLoad)
@@ -1040,8 +1047,8 @@ open class WebGpuViewer(
             onTap = { offset ->
                 // RK --> a zone-only layout leaves the rest to the page, where a failure's Retry still answers
                 when (activity.tapAction(offset)) {
-                    null -> retryFailuresOnScreen()
-                    ViewerNavigation.Action.MENU -> if (!retryFailuresOnScreen()) activity.toggleMenu()
+                    null -> retryFailuresOnScreen(onlyNew = false)
+                    ViewerNavigation.Action.MENU -> if (!retryFailuresOnScreen(onlyNew = true)) activity.toggleMenu()
                     ViewerNavigation.Action.FORWARD -> moveForward()
                     ViewerNavigation.Action.BACKWARD -> moveBackward()
                 }

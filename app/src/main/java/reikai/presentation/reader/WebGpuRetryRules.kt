@@ -46,3 +46,19 @@ internal fun holdsForRetry(failedDecoding: Boolean, status: Page.State): Boolean
  * the image the error page replaces and frees, so it goes with it.
  */
 internal fun <T : Any> previewAfterError(preview: T?, shown: T): T? = preview.takeUnless { it === shown }
+
+/**
+ * What a tap retries, by a key per failure on screen. A centre tap retries them all once any is new since the
+ * last tap's, else none, so it opens the menu: one the last tap retried that failed again is not new, or the
+ * menu would never open while a neighbour stays offline. Not thread-safe; the viewer calls it under its lock.
+ */
+internal class TapRetries<K> {
+    private var lastTapped: Set<K> = emptySet()
+
+    /** The failures to retry from [onScreen]; [onlyNew] for a tap that otherwise opens the menu. */
+    fun take(onScreen: Set<K>, onlyNew: Boolean): Set<K> {
+        val retries = onScreen.takeIf { !onlyNew || it.any { key -> key !in lastTapped } }.orEmpty()
+        lastTapped = onScreen
+        return retries
+    }
+}

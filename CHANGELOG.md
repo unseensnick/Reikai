@@ -216,6 +216,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Scrolling a long strip with the high quality renderer no longer jumps back or forward when a page just above finishes loading.**
+- **With the high quality renderer, a tap in the middle of the page now opens the manga reader menu while a chapter keeps failing to load.** A new failure on screen is still retried by that tap.
 - **With TalkBack, a keyboard or a D-pad, activating a novel paragraph now opens the reader menu instead of turning the page.**
 - **In incognito, changing the manga reader's reading mode or rotation no longer sends you back to the page you opened at.**
 - **Selecting text in a novel now offers your installed apps' text actions too, such as a dictionary or a translator, and Web search.** This needs Settings -> Novel reader -> Select text by long press.
