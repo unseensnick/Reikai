@@ -25,4 +25,4 @@ fun NovelDownloadCache.isOnDevice(source: String, novelTitle: String, chapterNam
 
 /** [isOnDevice] for [chapter] under its own [owner]. */
 fun NovelDownloadCache.isOnDevice(owner: Novel, chapter: NovelChapter): Boolean =
-    isOnDevice(owner.source, owner.title, chapter.name, chapter.url)
+    isOwnedOnDevice(LocalNovelSource.isLocal(owner.source)) { isChapterDownloaded(owner, chapter) }
