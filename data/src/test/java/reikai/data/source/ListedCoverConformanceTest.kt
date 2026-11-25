@@ -65,6 +65,21 @@ class ListedCoverConformanceTest {
         type.store(database, COVER) shouldBe COVER
     }
 
+    /** A cover the write refused is not handed back, or the caller shows one the next read loses. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a cover that failed to store is not handed back`(type: Type) = runTest {
+        type.seedFavorite(database, PLACEHOLDER)
+        driver.execute(
+            null,
+            "CREATE TRIGGER refuse BEFORE UPDATE ON ${type.table} WHEN NEW.${type.coverColumn} = '$COVER' " +
+                "BEGIN SELECT RAISE(ABORT, 'refused'); END",
+            0,
+        ).await()
+
+        type.store(database, COVER) shouldBe PLACEHOLDER
+    }
+
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a library entry with a real cover keeps it`(type: Type) = runTest {
@@ -75,8 +90,8 @@ class ListedCoverConformanceTest {
         type.storedCover(database) shouldBe COVER
     }
 
-    enum class Type {
-        MANGA {
+    enum class Type(val table: String, val coverColumn: String) {
+        MANGA("manga", "remote_cover") {
             override suspend fun seedFavorite(database: Database, cover: String) {
                 MangaRepositoryImpl(
                     database,
@@ -92,7 +107,7 @@ class ListedCoverConformanceTest {
             private fun manga(cover: String) =
                 Manga.create().copy(source = 1L, url = URL, title = "M", thumbnailUrl = cover)
         },
-        NOVEL {
+        NOVEL("novels", "thumbnail_url") {
             override suspend fun seedFavorite(database: Database, cover: String) {
                 NovelRepositoryImpl(database).insert(novel(cover).copy(favoriteAt = Instant.fromEpochMilliseconds(1L)))
             }

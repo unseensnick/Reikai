@@ -275,6 +275,16 @@ class MangaRepositoryImpl(
         }
     }
 
+    // RK -->
+    override suspend fun updateRemoteCover(id: Long, cover: String): Boolean = try {
+        database.mangaQueries.updateRemoteCover(remoteCover = cover, id = id)
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e)
+        false
+    }
+    // RK <--
+
     private suspend fun partialUpdate(vararg mangaUpdates: MangaUpdate) {
         database.transaction {
             mangaUpdates.forEach { value ->

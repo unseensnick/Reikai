@@ -291,6 +291,10 @@ UPDATE manga SET
     state_initialized = :stateInitialized
 WHERE id = :id;
 
+-- RK: the cover alone, so healing one from a listing cannot undo a refresh written since the row was read.
+updateRemoteCover:
+UPDATE manga SET remote_cover = :remoteCover WHERE id = :id;
+
 insertNetworkManga {
     -- A new entry is inserted as the source reported it. An existing one takes the fresh details
     -- only while it is outside the library, so a library entry keeps what the user already has.

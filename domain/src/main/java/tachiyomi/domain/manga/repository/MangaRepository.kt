@@ -62,6 +62,9 @@ interface MangaRepository {
 
     suspend fun updateRemote(update: MangaRemoteUpdate): Boolean
 
+    // RK: the source cover alone; false when the write failed.
+    suspend fun updateRemoteCover(id: Long, cover: String): Boolean
+
     suspend fun updateAll(mangaUpdates: List<MangaUpdate>): Boolean
 
     suspend fun insertNetworkManga(manga: List<Manga>): List<Manga>
