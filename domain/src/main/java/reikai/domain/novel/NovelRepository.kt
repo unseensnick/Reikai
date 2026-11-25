@@ -106,7 +106,7 @@ interface NovelRepository {
      */
     suspend fun insertOrGet(novel: Novel): Novel?
 
-    /** Full-row update, for the writers that set columns back to null (restore and edit-info). */
+    /** Full-row update, for restore, which sets columns back to null; leaves [Novel.nextUpdate] and [Novel.fetchInterval]. */
     suspend fun update(novel: Novel): Boolean
 
     /** Surgical partial update: writes only the fields [update] sets, the novel twin of

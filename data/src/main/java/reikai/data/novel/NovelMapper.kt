@@ -67,7 +67,8 @@ fun mapNovel(
  * Maps a `novelLibraryView` row to [LibraryNovel]. The leading args are the `novels` columns (same
  * order as [mapNovel]); the trailing 7 are the view's aggregates. `sum(...)` columns arrive as
  * `Double` (SQLDelight bypasses the Boolean adapter for aggregates), so they are narrowed to `Long`.
- * The download count is not in the view: it comes from NovelDownloadCache (disk), filled in the model.
+ * The download count is not in the view: NovelLibraryRows fills it from NovelDownloadCache (disk), so any
+ * other reader of the view sees 0.
  */
 fun mapLibraryNovel(
     id: Long,
@@ -126,7 +127,7 @@ fun mapLibraryNovel(
     totalChapters = totalCount,
     readCount = readCount.toLong(),
     bookmarkCount = bookmarkCount.toLong(),
-    // placeholder; NovelLibraryViewModel fills this from NovelDownloadCache
+    // NovelLibraryRows fills this from NovelDownloadCache
     downloadCount = 0,
     latestUpload = latestUpload,
     chapterFetchedAt = chapterFetchedAt,

@@ -225,8 +225,6 @@ class NovelRepositoryImpl(
 
     private suspend fun write(update: NovelUpdate) = with(update) {
         database.novelsQueries.partialUpdate(
-            source = source,
-            url = url,
             title = title,
             authorSet = isSet(::author),
             author = author,

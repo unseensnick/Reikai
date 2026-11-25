@@ -173,8 +173,9 @@ VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, 
 ON CONFLICT(source, url) DO NOTHING
 RETURNING _id;
 
--- Full-row update for the paths that legitimately write a complete Novel: restore and edit-info
--- (which set columns back to null, something `coalesce` can't express). Surgical single/few-column
+-- Full-row update for restore, which writes a complete Novel and sets columns back to null, something
+-- `coalesce` can't express. It leaves next_update and calculate_interval, which the restore writes through
+-- `partialUpdate`. Surgical single/few-column
 -- writes go through `partialUpdate` below. Keeping these columns adapter-typed (no coalesce) means the
 -- `genre` / `update_strategy` adapters survive, so the call site passes the typed values directly.
 update:
@@ -201,7 +202,7 @@ WHERE _id = :novelId;
 
 -- Partial update (the novel twin of manga.sq's coalesce update): each column `coalesce(:x, x)`s, so a
 -- NovelUpdate patch writes only the fields it sets (null = leave unchanged). Used for surgical edits
--- (e.g. notes); the full-row `update` above stays for restore / edit-info, which need to write nulls.
+-- (e.g. notes); the full-row `update` above stays for restore, which needs to write nulls.
 -- The source-owned text columns and favorite_at are the exception: a null set there is written, since a
 -- repair clears a detail the source no longer gives (RepairNovelDetails).
 -- NOTE: `genre` (List<String>) and `update_strategy` (UpdateStrategy) are omitted: SQLDelight does not
@@ -209,8 +210,6 @@ WHERE _id = :novelId;
 -- `genre` is patched through `setGenre` below; `update_strategy` through the full-row `update`.
 partialUpdate:
 UPDATE novels SET
-    source = coalesce(:source, source),
-    url = coalesce(:url, url),
     title = coalesce(:title, title),
     author = CASE WHEN :authorSet THEN :author ELSE author END,
     artist = CASE WHEN :artistSet THEN :artist ELSE artist END,

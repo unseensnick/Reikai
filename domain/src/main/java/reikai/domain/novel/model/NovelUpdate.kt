@@ -6,13 +6,11 @@ import kotlin.time.Instant
 /**
  * Partial-update patch for the `novels` table, built like its manga twin
  * [tachiyomi.domain.manga.model.MangaUpdate]: only the fields assigned in [block] are written. The
- * full-row `update(Novel)` stays for the restore and edit-info paths. SQLDelight loses the
+ * full-row `update(Novel)` stays for restore. SQLDelight loses the
  * `updateStrategy` and [genre] column adapters through the partial update, so `updateStrategy` is absent
  * (patch it in full) and the repository writes [genre] on its own.
  */
 class NovelUpdate(val id: Long, block: NovelUpdate.() -> Unit) : PartialUpdate() {
-    var source: String? by field(null)
-    var url: String? by field(null)
     var title: String? by field(null)
     var author: String? by field(null)
     var artist: String? by field(null)
