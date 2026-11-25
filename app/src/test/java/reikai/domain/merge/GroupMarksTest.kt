@@ -45,4 +45,11 @@ class GroupMarksTest {
     fun `reading another source does not bookmark the chapter`() {
         marks(Row(2L, read = true)).isBookmarked(1L, ownBookmark = false) shouldBe false
     }
+
+    @Test
+    fun `a chapter read on its own copy is not marked as read elsewhere`() {
+        val read = listOf(Row(1L, read = true), Row(2L, read = true))
+
+        GroupMarks.of(read, read.take(1), stitch, { it.id }, { it.read }, { it.bookmark }) shouldBe GroupMarks.NONE
+    }
 }

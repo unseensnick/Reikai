@@ -29,14 +29,13 @@ class GroupChapterFlagsTest {
             bookmark = { it.bookmark },
         ) { onDisk }
 
+    // The rule is GroupMarks'; this pins that each question reaches its own half of it.
     @Test
-    fun `a chapter another source has read reads as read`() {
-        flags(Row(2L, read = true)).isRead(Row(1L)) shouldBe true
-    }
+    fun `read and bookmarked are answered by the group's marks`() {
+        val flags = flags(Row(2L, read = true))
 
-    @Test
-    fun `a chapter another source has bookmarked reads as bookmarked`() {
-        flags(Row(2L, bookmark = true)).isBookmarked(Row(1L)) shouldBe true
+        flags.isRead(Row(1L)) shouldBe true
+        flags.isBookmarked(Row(1L)) shouldBe false
     }
 
     @Test
@@ -50,28 +49,8 @@ class GroupChapterFlagsTest {
     }
 
     @Test
-    fun `the read-elsewhere set leaves out a row read on its own copy`() {
-        val flags = GroupChapterFlags(
-            scope = MergeScope.Group,
-            pooled = listOf(Row(1L, read = true), Row(2L, read = true)),
-            shown = listOf(Row(1L, read = true)),
-            stitch = stitch,
-            id = { it.id },
-            read = { it.read },
-            bookmark = { it.bookmark },
-        ) { emptySet() }
-
-        flags.marks shouldBe GroupMarks.NONE
-    }
-
-    @Test
     fun `in source scope a chapter whose only copy on disk is another source's is not downloaded`() {
         flags(Row(2L), onDisk = setOf(2L), scope = MergeScope.Source).isDownloaded(Row(1L)) shouldBe false
-    }
-
-    @Test
-    fun `in source scope a chapter another source has read still reads as read`() {
-        flags(Row(2L, read = true), scope = MergeScope.Source).isRead(Row(1L)) shouldBe true
     }
 
     @Test
@@ -91,11 +70,6 @@ class GroupChapterFlagsTest {
         flags.downloadedIds
 
         probes shouldBe 1
-    }
-
-    @Test
-    fun `an ungrouped chapter answers for itself`() {
-        flags(Row(2L, read = true), stitch = emptyList()).isRead(Row(1L)) shouldBe false
     }
 
     @Test
