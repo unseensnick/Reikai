@@ -77,7 +77,7 @@ class NovelRegexRulesViewModel(
     private companion object {
         val PREVIEW_SETTLE = 250.milliseconds
 
-        /** A short budget, not the reader's, and a memo of its own so a preview never skips a reader rule. */
+        /** A short budget, not the reader's. */
         val previewRun = NovelRegexReplacements.BudgetedRun(500.milliseconds)
     }
 }

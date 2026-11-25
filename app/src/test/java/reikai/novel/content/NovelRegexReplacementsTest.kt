@@ -141,14 +141,4 @@ class NovelRegexReplacementsTest {
 
         NovelRegexReplacements.apply("a", rules) shouldBe "c"
     }
-
-    /** Its thread may still be matching, so running the pattern again would start another. */
-    @Test
-    fun `a pattern that ran past its budget is not run again`() {
-        val run = NovelRegexReplacements.BudgetedRun(50.milliseconds)
-        val slow = NovelRegexReplacements.compile(rule("(.*e){12}f"))
-        run.applyOrNull(slow, "e".repeat(40), isActive = { true })
-
-        run.applyOrNull(slow, "", isActive = { true }) shouldBe null
-    }
 }

@@ -4,7 +4,6 @@ import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import java.util.Collections
 import java.util.LinkedHashMap
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -64,29 +63,24 @@ object NovelRegexReplacements {
         return Regex(bounded, options)
     }
 
-    /**
-     * Runs compiled rules for at most [budget] each. A pattern that once ran past it is skipped from then on:
-     * its thread may still be matching, and running it again would start another that cannot be stopped.
-     */
+    /** Runs compiled rules for at most [budget] each, through [UserRegexRunner]. */
     class BudgetedRun(private val budget: Duration) {
-        private val tooSlow: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-        /** [rule] over [input], or null when it ran past the budget, now or before. */
-        fun applyOrNull(rule: Compiled, input: String, isActive: () -> Boolean): String? {
-            if (rule.regex.pattern in tooSlow) return null
-            return UserRegexRunner.run(budget, isActive) { wrap -> rule.applyTo(wrap(input)) }
+        /** [rule] over [input], or null when it ran past the budget or a run of it left earlier still goes on. */
+        fun applyOrNull(rule: Compiled, input: String, isActive: () -> Boolean): String? =
+            UserRegexRunner.shared.run(rule.regex, budget, isActive) { wrap -> rule.applyTo(wrap(input)) }
                 ?: null.also {
-                    tooSlow += rule.regex.pattern
-                    logcat(LogPriority.WARN) { "Regex rule /${rule.regex.pattern}/ ran past $budget, now skipped" }
+                    logcat(LogPriority.WARN) {
+                        "Regex rule /${rule.regex.pattern}/ ran past $budget or is still running"
+                    }
                 }
-        }
     }
 
     private val reading = BudgetedRun(2.seconds)
 
     /**
      * Throws [CancellationException] once [isActive] turns false, even inside a slow match. A rule that
-     * runs past its budget leaves the text as it found it and is skipped from then on.
+     * runs past its budget leaves the text as it found it.
      */
     fun apply(content: String, rulesJson: String, isActive: () -> Boolean = { true }): String {
         if (rulesJson.isBlank() || rulesJson == "[]") return content

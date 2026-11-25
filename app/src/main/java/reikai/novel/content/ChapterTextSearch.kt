@@ -30,7 +30,7 @@ object ChapterTextSearch {
 
     /**
      * Counts every non-empty match of [regex] in [text] and keeps excerpts for the first few, or null when
-     * the scan runs past its budget. Once [isActive] turns false it throws [CancellationException], even
+     * the scan runs past its budget or a scan of [regex] left earlier still runs. Once [isActive] turns false it throws [CancellationException], even
      * inside a slow match.
      */
     fun findMatches(
@@ -39,7 +39,7 @@ object ChapterTextSearch {
         isActive: () -> Boolean = { true },
     ): ChapterTextMatches? {
         if (text.isEmpty()) return ChapterTextMatches(0, emptyList())
-        return UserRegexRunner.run(BUDGET, isActive) { wrap ->
+        return UserRegexRunner.shared.run(regex, BUDGET, isActive) { wrap ->
             var count = 0
             val snippets = mutableListOf<ChapterSearchSnippet>()
             regex.forEachMatch(wrap(text)) { start, end ->
