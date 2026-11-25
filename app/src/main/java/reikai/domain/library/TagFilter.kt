@@ -129,10 +129,26 @@ fun ReikaiLibraryPreferences.clearTagFilter() {
 /** A series' tags as [TagFilter.matchesKeys] reads them, blank ones dropped. */
 fun tagKeys(tags: Collection<String>): Set<String> = tags.mapNotNullTo(HashSet()) { tagKey(it).ifEmpty { null } }
 
-/** A tag as the library compares it: case, and runs of dashes, underscores and spaces, folded. */
-fun tagKey(tag: String): String = tag.lowercase().replace(TAG_SEPARATORS, " ").trim()
+/**
+ * A tag as the library compares it: case, and runs of dashes, underscores and ASCII whitespace, folded to
+ * one space. Walked by hand, since every filter, search and grouping pass keys each row's tags.
+ */
+fun tagKey(tag: String): String {
+    val key = StringBuilder(tag.length)
+    var separated = false
+    for (char in tag.lowercase()) {
+        if (char in TAG_SEPARATORS) {
+            separated = key.isNotEmpty()
+        } else {
+            if (separated) key.append(' ')
+            separated = false
+            key.append(char)
+        }
+    }
+    return key.toString().trim()
+}
 
-private val TAG_SEPARATORS = Regex("[-_\\s]+")
+private const val TAG_SEPARATORS = "-_ \t\n\u000B\u000C\r"
 
 /** A tag as the picker shows it: a source's ALL CAPS spelling is shown capitalised, "ACTION" as "Action". */
 private fun tagLabel(tag: String): String {

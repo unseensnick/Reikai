@@ -2,11 +2,20 @@ package reikai.domain.library
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.presentation.library.normalizeDynamicKey
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.TriState
 
 class TagFilterTest {
+
+    /** Keyed by hand, so it is held to the regex it replaced: case and `[-_\s]+` runs folded, then trimmed. */
+    @ParameterizedTest
+    @ValueSource(strings = ["Slice_of--Life", "  Action ", "a\t\nb", "a b", "  a", "a  ", "", "-_-", "ÜBER Tag"])
+    fun `a tag key folds case and separator runs`(tag: String) {
+        tagKey(tag) shouldBe tag.lowercase().replace(Regex("[-_\\s]+"), " ").trim()
+    }
 
     @Test
     fun `an inactive filter keeps every series`() {
