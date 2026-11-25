@@ -147,7 +147,7 @@ fun PagePreview(
                         CircularProgressIndicator()
                     } else {
                         CircularProgressIndicator(
-                            progress = { progress / 0.01F },
+                            progress = { progress * 0.01F },
                         )
                     }
                 }

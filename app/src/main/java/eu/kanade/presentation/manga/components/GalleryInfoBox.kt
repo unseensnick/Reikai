@@ -13,6 +13,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -61,8 +63,11 @@ fun GalleryInfoBox(
     val context = LocalContext.current
     // Skip the block when a source has nothing curated and no non-URL info pairs to list; its
     // namespaced tags still render as chips in the description block regardless.
-    val hasInfo = metadata is EHentaiSearchMetadata || metadata is MangaDexSearchMetadata ||
-        remember(metadata) { metadata.getExtraInfoPairs(context).any { !it.second.startsWith("http") } }
+    // URL-valued fields (thumbnail / token links) are dropped so the inline box stays readable.
+    val pairs = remember(metadata) {
+        metadata.getExtraInfoPairs(context).filterNot { it.second.startsWith("http") }
+    }
+    val hasInfo = metadata is EHentaiSearchMetadata || metadata is MangaDexSearchMetadata || pairs.isNotEmpty()
     if (!hasInfo) return
 
     Column(
@@ -73,7 +78,7 @@ fun GalleryInfoBox(
             is EHentaiSearchMetadata -> EHentaiGalleryInfo(metadata, onMoreInfoClick)
             is MangaDexSearchMetadata -> MangaDexGalleryInfo(metadata, onMoreInfoClick)
             else -> {
-                GenericGalleryInfo(metadata)
+                pairs.forEach { (label, value) -> InfoRow(label, value) }
                 onMoreInfoClick?.let { MoreInfoLink(it, Modifier.align(Alignment.End)) }
             }
         }
@@ -140,16 +145,6 @@ private fun MangaDexGalleryInfo(metadata: MangaDexSearchMetadata, onMoreInfoClic
     }
 }
 
-@Composable
-private fun GenericGalleryInfo(metadata: RaisedSearchMetadata) {
-    val context = LocalContext.current
-    // Drop URL-valued fields (thumbnail / token links) so the inline box stays readable.
-    val pairs = remember(metadata) {
-        metadata.getExtraInfoPairs(context).filterNot { it.second.startsWith("http") }
-    }
-    pairs.forEach { (label, value) -> InfoRow(label, value) }
-}
-
 /** Stars + "score - descriptor" (e.g. "9.19 - Amazing"), the curated rating shown on both cards. */
 @Composable
 private fun RatingRow(
@@ -196,7 +191,8 @@ private fun IconLabel(icon: ImageVector, text: String) {
 @Composable
 private fun MoreInfoLink(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = modifier.clickable(onClick = onClick),
+        // A link at the end of a dense row, so its target is grown to the touch minimum.
+        modifier = modifier.minimumInteractiveComponentSize().clickable(role = Role.Button, onClick = onClick),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
