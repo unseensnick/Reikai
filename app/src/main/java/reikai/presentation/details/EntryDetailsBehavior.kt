@@ -13,9 +13,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import mihon.app.di.AppGraph
 import reikai.domain.chapter.ChapterNumberEdit
+import reikai.domain.library.ContentType
 import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.VolumeMoves
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
@@ -47,9 +50,27 @@ private class KeptForScreen<T>(val value: T) : AutoCloseable {
     override fun close() = Unit
 }
 
-/** The keys both details screens keep their adapter and settings under. */
+/** The key both details screens keep their adapter under. */
 internal const val DETAILS_ADAPTER_KEY = "reikai.details.adapter"
-internal const val DETAILS_SETTINGS_KEY = "reikai.details.settings"
+
+/** The settings of this model's details screen, kept with the model, as both screens build them. */
+internal fun ViewModel.detailsSettings(graph: AppGraph): DetailsSettings = keptForScreen("reikai.details.settings") {
+    DetailsSettings(graph.uiPreferences, graph.reikaiLibraryPreferences, viewModelScope)
+}
+
+/** The duplicate marking of this model's [type] details screen, over that type's reader switch [skipDuplicates]. */
+internal fun ViewModel.detailsDuplicateMarking(
+    graph: AppGraph,
+    type: ContentType,
+    skipDuplicates: Preference<Boolean>,
+): DuplicateMarking = DuplicateMarking(
+    type,
+    graph.chapterCopyMarks,
+    graph.reikaiLibraryPreferences.showSkippedDuplicates,
+    skipDuplicates,
+    viewModelScope,
+    graph.appCoroutineScope,
+)
 
 /** The volume moves of this model's details screen, kept with the model so a rotation keeps their Undo. */
 internal fun ViewModel.detailsVolumeMoves(snackbarHostState: SnackbarHostState): VolumeMoves =

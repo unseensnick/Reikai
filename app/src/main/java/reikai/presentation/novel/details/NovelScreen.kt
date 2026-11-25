@@ -8,7 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import androidx.navigation3.runtime.NavKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
@@ -36,10 +35,7 @@ import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.source.preferencesRoute
 import reikai.presentation.details.DETAILS_ADAPTER_KEY
-import reikai.presentation.details.DETAILS_SETTINGS_KEY
-import reikai.presentation.details.DetailsSettings
 import reikai.presentation.details.DetailsViewedSource
-import reikai.presentation.details.DuplicateMarking
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -49,7 +45,9 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.details.chapterToOpen
+import reikai.presentation.details.detailsDuplicateMarking
 import reikai.presentation.details.detailsRoute
+import reikai.presentation.details.detailsSettings
 import reikai.presentation.details.detailsVolumeMoves
 import reikai.presentation.details.editInfoDialog
 import reikai.presentation.details.keptForScreen
@@ -88,22 +86,15 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
     val adapter = remember(viewModel) {
         viewModel.keptForScreen(DETAILS_ADAPTER_KEY) {
             val graph = context.appGraph
-            val duplicates = DuplicateMarking(
+            val duplicates = viewModel.detailsDuplicateMarking(
+                graph,
                 ContentType.NOVELS,
-                graph.chapterCopyMarks,
-                graph.reikaiLibraryPreferences.showSkippedDuplicates,
                 graph.novelPreferences.readerSkipDuplicateChapters(),
-                viewModel.viewModelScope,
-                graph.appCoroutineScope,
             )
             NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
         }
     }
-    val settings = remember(viewModel) {
-        viewModel.keptForScreen(DETAILS_SETTINGS_KEY) {
-            context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
-        }
-    }
+    val settings = remember(viewModel) { viewModel.detailsSettings(context.appGraph) }
     val neutralState by adapter.state.collectAsStateWithLifecycle()
 
     // Decided by the neutral state alone, as on manga's page: it is mapped from the model's, so a loaded one means
