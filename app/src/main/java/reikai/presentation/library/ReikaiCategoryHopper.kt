@@ -20,11 +20,13 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Label
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Floating category jump control for the single-list library: previous category / scroll to
- * top / next category. The center button also fires a configurable [onCenterLongClick] on long
- * press (hopper long-press action).
+ * Floating category jump control for the single-list library: previous category / jump to a category
+ * / next category. The center button also fires a configurable [onCenterLongClick] on long press
+ * (hopper long-press action).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -45,7 +47,10 @@ fun ReikaiCategoryHopper(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onUpClick) {
-                Icon(imageVector = MaterialSymbols.Rounded.KeyboardArrowUp, contentDescription = null)
+                Icon(
+                    imageVector = MaterialSymbols.Rounded.KeyboardArrowUp,
+                    contentDescription = stringResource(MR.strings.previous_category),
+                )
             }
             // Raw combinedClickable (not IconButton) since IconButton has no long-press slot.
             Box(
@@ -55,10 +60,16 @@ fun ReikaiCategoryHopper(
                     .combinedClickable(onClick = onCenterClick, onLongClick = onCenterLongClick),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(imageVector = MaterialSymbols.AutoMirroredRounded.Label, contentDescription = null)
+                Icon(
+                    imageVector = MaterialSymbols.AutoMirroredRounded.Label,
+                    contentDescription = stringResource(MR.strings.jump_to_category),
+                )
             }
             IconButton(onClick = onDownClick) {
-                Icon(imageVector = MaterialSymbols.Rounded.KeyboardArrowDown, contentDescription = null)
+                Icon(
+                    imageVector = MaterialSymbols.Rounded.KeyboardArrowDown,
+                    contentDescription = stringResource(MR.strings.next_category),
+                )
             }
         }
     }
