@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
+import reikai.data.HeldRows
 import reikai.data.local.localSeriesId
 import reikai.data.toContentType
 import reikai.data.toDbValue
@@ -30,14 +31,17 @@ class VolumePickRepositoryImpl(
     private val queries = database.local_volume_pickQueries
 
     // Held from app start so a details screen opens on its volume rather than flashing every volume first.
-    private val all = queries.getAll { type, entryId, key -> Triple(type.toContentType(), entryId, key) }.asFlow()
-        .map { query ->
-            query.awaitAsList().groupBy({ it.first }, { it.second to it.third }).mapValues { it.value.toMap() }
-        }
-        .stateIn(scope, SharingStarted.Eagerly, emptyMap())
+    private val all = HeldRows(
+        queries.getAll { type, entryId, key -> Triple(type.toContentType(), entryId, key) }.asFlow()
+            .map { query ->
+                query.awaitAsList().groupBy({ it.first }, { it.second to it.third }).mapValues { it.value.toMap() }
+            },
+        scope,
+        emptyMap(),
+    )
 
     private val byType = ContentType.entries.associateWith { type ->
-        all.map { it[type].orEmpty() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
+        all.held.map { it[type].orEmpty() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
     }
 
     override fun picks(type: ContentType): StateFlow<Map<Long, String>> = byType.getValue(type)
@@ -50,9 +54,7 @@ class VolumePickRepositoryImpl(
         }
     }
 
-    override suspend fun loadedPicks(type: ContentType): Map<Long, String> =
-        queries.getAll { dbType, entryId, key -> Triple(dbType, entryId, key) }.awaitAsList()
-            .filter { it.first == type.toDbValue() }.associate { it.second to it.third }
+    override suspend fun loadedPicks(type: ContentType): Map<Long, String> = all.loaded()[type].orEmpty()
 
     override suspend fun restore(type: ContentType, series: String, key: String) {
         // By the series' address, since the restore gave it a new id.
