@@ -30,6 +30,7 @@ import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
+import reikai.presentation.details.mangaDetailsIntent
 import reikai.presentation.details.novelDetailsIntent
 import reikai.util.MainActivityTarget
 import tachiyomi.core.common.Constants
@@ -448,9 +449,8 @@ class NotificationReceiver : BroadcastReceiver() {
          */
         internal fun openChapterPendingActivity(context: Context, manga: Manga, groupId: Int): PendingIntent {
             val newIntent =
-                Intent(context, MainActivityTarget::class.java).setAction(Constants.SHORTCUT_MANGA) // RK
+                mangaDetailsIntent(context, manga.id) // RK: the one details intent, target and id
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    .putExtra(Constants.MANGA_EXTRA, manga.id)
                     .putExtra("notificationId", manga.id.hashCode())
                     .putExtra("groupId", groupId)
             return PendingIntent.getActivity(
@@ -522,9 +522,8 @@ class NotificationReceiver : BroadcastReceiver() {
          * @param mangaId id of the entry to open
          */
         internal fun openEntryPendingActivity(context: Context, mangaId: Long): PendingIntent {
-            val newIntent = Intent(context, MainActivityTarget::class.java).setAction(Constants.SHORTCUT_MANGA) // RK
+            val newIntent = mangaDetailsIntent(context, mangaId) // RK: the one details intent, target and id
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                .putExtra(Constants.MANGA_EXTRA, mangaId)
                 .putExtra("notificationId", mangaId.hashCode())
 
             return PendingIntent.getActivity(
