@@ -3,6 +3,7 @@ package reikai.domain.merge
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -28,37 +29,48 @@ class ReconcileMergedChapters(
 
     private val rebuildLock = Mutex()
 
-    /** Rebuild every stale group of every content type. */
+    /**
+     * Rebuild every stale group of every content type. A group that fails is logged and keeps its claim
+     * for the next run, so one bad group holds up neither the rest of its type nor the other type.
+     */
     suspend fun await() {
         stitchers.forEach { stitcher ->
-            val rankings = stitcher.rankings()
-            val stored = repository.getRankings()
-            // Only this type's groups are compared: the stored stamps cover both types, and a group
-            // checked against the other type's stitcher would be cleared by it.
-            val reranked = rankings.filter { (groupId, ranking) -> stored[groupId] != ranking }.keys
-            (repository.claimPendingGroups(stitcher.contentType) + reranked).distinct().forEach { groupId ->
-                rebuildIfStale(stitcher, groupId, rankings[groupId])
+            loggingFailure({ "${stitcher.contentType} merged groups were not reconciled" }) {
+                val rankings = stitcher.rankings()
+                val stored = repository.getRankings()
+                // Only this type's groups are compared: the stored stamps cover both types, and a group
+                // checked against the other type's stitcher would be cleared by it.
+                val reranked = rankings.filter { (groupId, ranking) -> stored[groupId] != ranking }.keys
+                (repository.claimPendingGroups(stitcher.contentType) + reranked).distinct().forEach { groupId ->
+                    loggingFailure({ "Merged group $groupId was not restitched" }) {
+                        rebuildIfStale(stitcher, groupId, rankings[groupId])
+                    }
+                }
             }
+        }
+    }
+
+    private suspend inline fun loggingFailure(message: () -> String, block: () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e, message)
         }
     }
 
     /**
      * Runs [pass], a run of chapter writes, then [await]s however it ended. A renumbered or renamed
      * chapter leaves a stitch as stale as a new one does, and a pass that failed or was cancelled
-     * midway has already written everything before that point. A failed reconcile is logged rather
-     * than thrown, so it neither fails a pass whose writes landed nor hides the pass's own error.
+     * midway has already written everything before that point. [await] logs a failed reconcile rather
+     * than throwing it, so it neither fails a pass whose writes landed nor hides the pass's own error.
      */
     suspend fun <T> afterPass(pass: suspend () -> T): T =
         try {
             pass()
         } finally {
-            withContext(NonCancellable) {
-                try {
-                    await()
-                } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Merged chapters were not reconciled after a pass" }
-                }
-            }
+            withContext(NonCancellable) { await() }
         }
 
     /**
