@@ -221,10 +221,10 @@ class EntrySelectionTest {
                 state(5L, 6L, 7L, anchor = 7L),
             ),
             case(
-                "a long press on a fully selected group drops it",
+                "a long press on the only selected group drops it and the anchor",
                 state(5L, 6L, 7L, anchor = 5L),
                 { EntrySelection.rangeOrToggleBlock(it, group, rows) },
-                state(anchor = 7L),
+                state(),
             ),
             case(
                 "a partly selected group is completed rather than dropped",

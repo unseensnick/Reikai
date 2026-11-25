@@ -69,7 +69,8 @@ object EntrySelection {
     fun <T> rangeOrToggleBlock(state: SelectionState<T>, block: List<T>, ordered: List<T>): SelectionState<T> {
         if (block.isEmpty()) return state
         if (block.all { it in state.selection }) {
-            return SelectionState(state.selection - block.toSet(), block.last())
+            val selection = state.selection - block.toSet()
+            return SelectionState(selection, block.last().takeIf { selection.isNotEmpty() })
         }
         val anchorAt = state.anchor?.let(ordered::indexOf) ?: -1
         val firstAt = ordered.indexOf(block.first())

@@ -50,6 +50,17 @@ class ChapterSelectionOffersTest {
         offers().removeBookmark shouldBe false
     }
 
+    /** Bookmark and Mark as read ask whether any row lacks the mark, Remove bookmark whether every row has it. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("markSelections")
+    fun `a selection offers each mark by what its rows carry`(case: String, rows: List<ChapterMarks>, marks: Marks) {
+        val offers = chapterSelectionOffers(rows, emptyList())
+
+        Marks(offers.bookmark, offers.removeBookmark, offers.markRead, offers.markUnread) shouldBe marks
+    }
+
+    data class Marks(val bookmark: Boolean, val removeBookmark: Boolean, val markRead: Boolean, val markUnread: Boolean)
+
     /** Each row's own control downloads a finished chapter, and so does upstream's Updates bar. */
     @ParameterizedTest(name = "{0}: download {1}, delete {2}")
     @MethodSource("downloadStates")
@@ -76,6 +87,22 @@ class ChapterSelectionOffersTest {
             Arguments.of(Download.State.NOT_DOWNLOADED, true, false),
             Arguments.of(Download.State.DOWNLOADED, false, true),
             Arguments.of(null, false, false),
+        )
+
+        private val unopened = ChapterProgress.Pages(0, pageCount = 38)
+
+        @JvmStatic
+        fun markSelections() = listOf(
+            Arguments.of(
+                "every row read and bookmarked",
+                listOf(chapterState(true, bookmark = true, unopened), chapterState(true, bookmark = true, unopened)),
+                Marks(bookmark = false, removeBookmark = true, markRead = false, markUnread = true),
+            ),
+            Arguments.of(
+                "one row read and bookmarked, one neither",
+                listOf(chapterState(true, bookmark = true, unopened), chapterState(false, bookmark = false, unopened)),
+                Marks(bookmark = true, removeBookmark = false, markRead = true, markUnread = true),
+            ),
         )
 
         @JvmStatic
