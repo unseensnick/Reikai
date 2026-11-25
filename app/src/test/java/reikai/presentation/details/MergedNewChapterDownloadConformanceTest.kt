@@ -16,15 +16,14 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.domain.source.models.RemoteMangaUpdate
@@ -100,11 +99,9 @@ class MergedNewChapterDownloadConformanceTest {
 
     private enum class Member { ANCHOR, SIBLING }
 
-    /** Entry the filter was asked about, to the entries owning the chapters it was handed, once both arrive. */
-    private suspend fun judgedOnce(calls: Map<Long, Set<Long>>, roleOf: (Long) -> Member): Map<Member, Set<Member>> {
-        withTimeoutOrNull(10_000) { while (calls.values.flatten().toSet().size < 2) delay(20) }
-        // Anything else a wrong rule would ask lands in the same pass.
-        delay(200)
+    /** Entry the filter was asked about, to the entries owning the chapters it was handed, once all has run. */
+    private fun TestScope.judgedOnce(calls: Map<Long, Set<Long>>, roleOf: (Long) -> Member): Map<Member, Set<Member>> {
+        advanceUntilIdle()
         return calls.entries.associate { (owner, chapters) -> roleOf(owner) to chapters.mapTo(HashSet(), roleOf) }
     }
 

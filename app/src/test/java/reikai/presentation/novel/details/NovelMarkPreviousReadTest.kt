@@ -1,13 +1,12 @@
 package reikai.presentation.novel.details
 
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -72,8 +71,7 @@ class NovelMarkPreviousReadTest {
             model.toggleSelection(pointer.id, fromLongPress = false, shown = listOf(pointer.id))
             model.markPreviousRead()
         }
-        withTimeoutOrNull(5_000) { while (earlier.none { harness.isRead(it) == true }) delay(20) }
-        delay(200)
+        advanceUntilIdle()
         earlier.map { harness.isRead(it) == true }
     }
 

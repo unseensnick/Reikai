@@ -4,12 +4,12 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
@@ -84,9 +84,8 @@ class NovelDetailsDownloadStateTest {
                         .missing
                 }
                 model.downloadMissingForExport(missing)
-                withTimeout(10_000) { while (queued.isEmpty()) delay(20) }
-                // Anything else a wrong rule would queue lands in the same pass.
-                delay(200)
+                // Everything a wrong rule would queue, however late, has run by then.
+                advanceUntilIdle()
 
                 queued shouldBe setOf(installedOpening.id)
             }

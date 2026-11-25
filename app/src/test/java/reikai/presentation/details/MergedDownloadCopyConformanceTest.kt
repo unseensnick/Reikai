@@ -22,15 +22,14 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -141,7 +140,8 @@ class MergedDownloadCopyConformanceTest {
         private val loaded: EntryDetailsScreenState.Loaded,
         private val ids: Map<Copy, Long>,
         private val queued: Set<Long>,
-        private val cancelled: Set<Long> = emptySet(),
+        private val cancelled: Set<Long>,
+        private val scheduler: TestCoroutineScheduler,
     ) {
         private val roleOf = ids.entries.associate { (role, id) -> id to role }
         private val rows = loaded.chapters.items.filterIsInstance<EntryChapterListItem.Chapter>()
@@ -158,16 +158,14 @@ class MergedDownloadCopyConformanceTest {
 
         suspend fun cancel(copy: Copy): Set<Copy> {
             behavior.onChapterDownloadAction(ids.getValue(copy), ChapterDownloadAction.CANCEL)
-            withTimeoutOrNull(10_000) { while (cancelled.isEmpty()) delay(20) }
-            delay(200)
+            scheduler.advanceUntilIdle()
             return cancelled.mapTo(HashSet()) { roleOf.getValue(it) }
         }
 
         private suspend fun queuedAfter(start: () -> Unit): Set<Copy> {
             start()
-            withTimeoutOrNull(10_000) { while (queued.isEmpty()) delay(20) }
-            // Anything else a wrong rule would queue lands in the same pass.
-            delay(200)
+            // Everything a wrong rule would queue, however late, has run by then.
+            scheduler.advanceUntilIdle()
             return queued.mapTo(HashSet()) { roleOf.getValue(it) }
         }
     }
@@ -178,11 +176,16 @@ class MergedDownloadCopyConformanceTest {
         cancellable: Set<Copy> = emptySet(),
         probe: suspend (Group) -> T,
     ): T = when (type) {
-        ContentType.MANGA -> mangaGroup(alreadyQueued, cancellable, probe)
+        ContentType.MANGA -> mangaGroup(alreadyQueued, cancellable, testScheduler, probe)
         else -> novelGroup(alreadyQueued, cancellable, probe)
     }
 
-    private suspend fun <T> mangaGroup(alreadyQueued: Copy?, cancellable: Set<Copy>, probe: suspend (Group) -> T): T {
+    private suspend fun <T> mangaGroup(
+        alreadyQueued: Copy?,
+        cancellable: Set<Copy>,
+        scheduler: TestCoroutineScheduler,
+        probe: suspend (Group) -> T,
+    ): T {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
@@ -242,7 +245,7 @@ class MergedDownloadCopyConformanceTest {
         ).also { store.put("manga", it) }
         try {
             val behavior = MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
-            return probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled))
+            return probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled, scheduler))
         } finally {
             // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
@@ -289,7 +292,7 @@ class MergedDownloadCopyConformanceTest {
                     noDuplicateMarking(),
                     noVolumePicking(),
                 )
-            probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled))
+            probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled, testScheduler))
         }
 
     /** The merged page once the installed member serves it and every row of the stitch is listed. */

@@ -15,7 +15,6 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
@@ -89,9 +88,6 @@ class DetailsRemovalConfirmConformanceTest {
         private const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
         private const val WAIT_MS = 10_000L
 
-        // Time for a removal launched on another dispatcher to have reached the interactor.
-        private const val SETTLE_MS = 300L
-
         @JvmStatic
         fun probes() = listOf(MangaProbe(), NovelProbe())
 
@@ -107,10 +103,12 @@ class DetailsRemovalConfirmConformanceTest {
         override suspend fun heartOnLibraryEntry(scope: TestScope): Pair<Boolean, List<Long>> =
             withModel(favorite = true) { model, removed ->
                 val success = model.state.filterIsInstance<MangaViewModel.State.Success>()
-                success.first()
-                model.toggleFavorite()
-                success.first { it.dialog is MangaViewModel.Dialog.RemoveFromLibrary }
-                delay(SETTLE_MS)
+                withTimeout(WAIT_MS) {
+                    success.first()
+                    model.toggleFavorite()
+                    success.first { it.dialog is MangaViewModel.Dialog.RemoveFromLibrary }
+                }
+                scope.testScheduler.advanceUntilIdle()
                 true to removed.toList()
             }
 
@@ -119,7 +117,7 @@ class DetailsRemovalConfirmConformanceTest {
                 removed,
             ->
             model.removeFromLibrary(listOf(MANGA_ID))
-            delay(SETTLE_MS)
+            scope.testScheduler.advanceUntilIdle()
             removed.toList()
         }
 
@@ -145,7 +143,7 @@ class DetailsRemovalConfirmConformanceTest {
                 },
             ).also { store.put("manga", it) }
             return try {
-                withTimeout(WAIT_MS) { block(model, removed) }
+                block(model, removed)
             } finally {
                 // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
@@ -174,8 +172,8 @@ class DetailsRemovalConfirmConformanceTest {
                     model.state.first {
                         (it as? NovelDetailsState.Loaded)?.dialog is NovelDetailsDialog.RemoveFromLibrary
                     }
-                    delay(SETTLE_MS)
                 }
+                scope.testScheduler.advanceUntilIdle()
                 true to removed.toList()
             }
 
@@ -186,7 +184,7 @@ class DetailsRemovalConfirmConformanceTest {
                 val novel = harness.novel(harness.source("alpha"), inLibrary = false)
                 val model = harness.openDetails(novel, shown = false)
                 model.removeFromLibrary(listOf(novel))
-                delay(SETTLE_MS)
+                scope.testScheduler.advanceUntilIdle()
                 removed.toList()
             }
 

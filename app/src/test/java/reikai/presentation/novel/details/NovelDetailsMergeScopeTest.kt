@@ -3,12 +3,10 @@ package reikai.presentation.novel.details
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import io.kotest.matchers.shouldBe
 import io.mockk.every
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -76,7 +74,10 @@ class NovelDetailsMergeScopeTest {
                     it.selectedSourceNovelId == leading.takeIf { chip }
             } as NovelDetailsState.Loaded
         }
-        probe(Scenario(harness, model, mapOf(leadingCopy.id to LEADING_COPY, otherCopy.id to OTHER_COPY)), loaded)
+        probe(
+            Scenario(harness, model, mapOf(leadingCopy.id to LEADING_COPY, otherCopy.id to OTHER_COPY), testScheduler),
+            loaded,
+        )
     }
 
     /** One opened details screen, with each seeded chapter's id named for the assertions. */
@@ -84,6 +85,7 @@ class NovelDetailsMergeScopeTest {
         private val harness: NovelReaderViewModelHarness,
         private val model: NovelDetailsViewModel,
         private val names: Map<Long, String>,
+        private val scheduler: kotlinx.coroutines.test.TestCoroutineScheduler,
     ) {
         /** The copies a delete of [chapter]'s download from this screen reaches, by name. */
         suspend fun deletedBy(chapter: NovelChapter): Set<String> {
@@ -92,8 +94,7 @@ class NovelDetailsMergeScopeTest {
                 deleted += firstArg<List<NovelChapter>>().map { it.id }
             }
             model.onChapterDownloadAction(chapter, ChapterDownloadAction.DELETE)
-            withTimeoutOrNull(5_000) { while (deleted.isEmpty()) delay(20) }
-            delay(200)
+            scheduler.advanceUntilIdle()
             return deleted.mapNotNullTo(HashSet()) { names[it] }
         }
     }

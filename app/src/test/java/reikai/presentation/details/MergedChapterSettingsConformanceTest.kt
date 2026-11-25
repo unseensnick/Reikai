@@ -16,14 +16,13 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -106,7 +105,7 @@ class MergedChapterSettingsConformanceTest {
                 filterUnread()
             }
             open(OWNER).settled { it.showChapterNumberOnly }.showChapterNumberOnly to
-                ownerFiltersOnceSettled(expected = 1)
+                ownerFiltersOnceSettled(testScheduler)
         } shouldBe (true to setOf(UNREAD))
     }
 
@@ -119,7 +118,7 @@ class MergedChapterSettingsConformanceTest {
                 filterUnread()
                 filterBookmarked()
             }
-            ownerFiltersOnceSettled(expected = 2)
+            ownerFiltersOnceSettled(testScheduler)
         } shouldBe setOf(UNREAD, BOOKMARKED)
     }
 
@@ -154,10 +153,9 @@ class MergedChapterSettingsConformanceTest {
         suspend fun ownerFilters(): Set<String>
     }
 
-    /** [Group.ownerFilters] once two quick picks have had time to land; the writes run on the app scope. */
-    private suspend fun Group.ownerFiltersOnceSettled(expected: Int): Set<String> {
-        withTimeoutOrNull(SETTLE_MS) { while (ownerFilters().size < expected) delay(20) }
-        delay(SETTLE_GRACE_MS)
+    /** [Group.ownerFilters] once every write the picks started on the app scope has run. */
+    private suspend fun Group.ownerFiltersOnceSettled(scheduler: TestCoroutineScheduler): Set<String> {
+        scheduler.advanceUntilIdle()
         return ownerFilters()
     }
 
@@ -279,10 +277,7 @@ class MergedChapterSettingsConformanceTest {
         const val SIBLING = 2L
         const val UNREAD = "unread"
         const val BOOKMARKED = "bookmarked"
-        const val SETTLE_MS = 5_000L
 
-        // Long enough for a second write to land after the first, had it been going to undo it.
-        const val SETTLE_GRACE_MS = 300L
         const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
         const val SOURCE_EXTENSIONS_FILE = "eu.kanade.tachiyomi.source.SourceExtensionsKt"
     }
