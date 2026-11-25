@@ -1314,6 +1314,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **An expired or revoked AniList sign-in now asks you to sign in again under Settings -> Tracking, instead of failing with an error (partly from Mihon).** Upstream: mihonapp/mihon#3888.
 - **AniList tracking now stays under the service's request limit, so a burst of updates is no longer rejected (from Mihon).** Upstream: mihonapp/mihon#3942.
 - **Marking a chapter read now updates the tracker status shown on the entry straight away, on manga and novels.**
+- **An open manga or novel page now follows Settings -> Tracking -> Share trackers across merged sources as soon as you change it.**
 - **A tracker's start date is now filled in when the first chapter you read is not chapter 1, on manga and novels.** A date already on the tracker is never replaced.
 - **Removing a tracker with "Also remove from" now keeps it bound when the service refuses, so you can retry.**
 - **Binding or changing the status of a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.**

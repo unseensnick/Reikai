@@ -21,7 +21,7 @@ class GetNovelTracks(
     // The group read is shared with the manga side (reikai.domain.manga.GetTracksInGroup); only the
     // novel repository reads below it are novel-specific.
     private val groupReader = GroupTrackReader(
-        sharingEnabled = { preferences.syncTrackerLinksGrouped.get() },
+        sharing = preferences.syncTrackerLinksGrouped,
         relatedIds = { mergeManager.relatedIdsList(it) },
         groupChanges = mergeManager.relatedIdsChanges(),
         readOne = { await(it) },

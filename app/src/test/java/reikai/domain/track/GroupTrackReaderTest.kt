@@ -2,12 +2,20 @@ package reikai.domain.track
 
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import tachiyomi.core.common.preference.Preference
 
 class GroupTrackReaderTest {
 
@@ -44,7 +52,7 @@ class GroupTrackReaderTest {
     @Test
     fun `the span is the entry alone when sharing is off`() = runTest {
         val reader = GroupTrackReader<Row>(
-            sharingEnabled = { false },
+            sharing = Switch(false),
             relatedIds = { listOf(it, 2L) },
             groupChanges = emptyFlow<Unit>(),
             readOne = { emptyList() },
@@ -60,7 +68,7 @@ class GroupTrackReaderTest {
     fun `subscribe emits the entry's own tracks before the group resolves`() = runTest {
         val tracks = mapOf(1L to listOf(Row(1L, 10L, 0.0)), 2L to listOf(Row(2L, 20L, 0.0)))
         val reader = GroupTrackReader(
-            sharingEnabled = { true },
+            sharing = Switch(true),
             // The membership lookup hits the database, which is why the first emission skips it.
             relatedIds = {
                 delay(10)
@@ -73,10 +81,48 @@ class GroupTrackReaderTest {
             lastChapterRead = Row::lastChapterRead,
         )
 
-        val emissions = reader.subscribe(1L).toList()
+        val emissions = reader.subscribe(1L).take(2).toList()
 
         emissions.first().map { it.trackerId } shouldContainExactly listOf(10L)
         emissions.last().map { it.trackerId } shouldContainExactly listOf(10L, 20L)
+    }
+
+    @Test
+    fun `an open subscription follows the sharing switch`() = runTest {
+        val tracks = mapOf(1L to listOf(Row(1L, 10L, 0.0)), 2L to listOf(Row(2L, 20L, 0.0)))
+        val sharing = Switch(true)
+        val reader = GroupTrackReader(
+            sharing = sharing,
+            relatedIds = { listOf(1L, 2L) },
+            groupChanges = flowOf(Unit),
+            readOne = { emptyList() },
+            observeOne = { flowOf(tracks.getValue(it)) },
+            trackerId = Row::trackerId,
+            lastChapterRead = Row::lastChapterRead,
+        )
+        val emissions = mutableListOf<List<Long>>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            reader.subscribe(1L).collect { rows -> emissions += rows.map { it.trackerId } }
+        }
+
+        sharing.set(false)
+
+        emissions.last() shouldContainExactly listOf(10L)
+    }
+
+    /** The sharing switch, emitting the value it holds and each one set after. */
+    private class Switch(initial: Boolean) : Preference<Boolean> {
+        private val value = MutableStateFlow(initial)
+        override fun key() = "sync_tracker_links_grouped"
+        override fun get() = value.value
+        override fun set(value: Boolean) {
+            this.value.value = value
+        }
+        override fun isSet() = true
+        override fun delete() = Unit
+        override fun defaultValue() = true
+        override fun changes(): Flow<Boolean> = value
+        override fun stateIn(scope: CoroutineScope): StateFlow<Boolean> = value
     }
 
     @Test

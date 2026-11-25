@@ -4,9 +4,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import tachiyomi.core.common.preference.Preference
 
 /**
  * Reads the trackers bound anywhere in an entry's merge group, one row per tracker, for either content
@@ -17,7 +20,8 @@ import kotlinx.coroutines.flow.onStart
  * come in as lambdas: the group resolver, the single-entry read, and the two fields the shared rule needs.
  */
 class GroupTrackReader<T>(
-    private val sharingEnabled: () -> Boolean,
+    // Settings -> Tracking's sharing switch, which an open page follows as it follows a merge.
+    private val sharing: Preference<Boolean>,
     private val relatedIds: suspend (Long) -> List<Long>,
     private val groupChanges: Flow<*>,
     private val readOne: suspend (Long) -> List<T>,
@@ -27,19 +31,20 @@ class GroupTrackReader<T>(
 ) {
 
     /** The entries a tracker operation on [entryId] reaches, per [trackGroupIds]. */
-    suspend fun groupIds(entryId: Long): List<Long> = trackGroupIds(entryId, sharingEnabled, relatedIds)
+    suspend fun groupIds(entryId: Long): List<Long> = trackGroupIds(entryId, sharing::get, relatedIds)
 
     suspend fun await(entryId: Long): List<T> = canonical(groupIds(entryId).flatMap { readOne(it) })
 
     /**
      * Reactive [await]. Emits the entry's own tracks first, so a tracking icon shows without waiting on
      * the group lookup (which loads the membership table), then refines to the whole group. The group
-     * is looked up again on every [groupChanges] emission, the first on collection: a details page
-     * stays subscribed across a merge, and a one-time lookup left its Tracking button on the old group.
+     * is looked up again on every [groupChanges] emission, the first on collection, and on every flip of
+     * [sharing]: a details page stays subscribed across both, and a one-time lookup left its Tracking
+     * button on the old group.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun subscribe(entryId: Long): Flow<List<T>> =
-        groupChanges.map { groupIds(entryId) }
+        merge(groupChanges, sharing.changes().drop(1)).map { groupIds(entryId) }
             .onStart { emit(listOf(entryId)) }
             .distinctUntilChanged()
             .flatMapLatest { groupIds ->
