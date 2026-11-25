@@ -400,6 +400,21 @@ class ReadAloudSessionTest {
         restored.chapter.value?.chapterId shouldBe reading.chapters[1].id
     }
 
+    /** The Activity rebuilt while the process lived: read aloud is still on, past the snapshot's chapter. */
+    @Test
+    fun `a reader rebuilt behind read aloud leaves it playing`() = sessionTest { harness ->
+        val savedState = SavedStateHandle()
+        val reading = reading(harness, savedState = savedState)
+        val snapshot = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) })
+        closeReader(harness, reading)
+        repeat(2) { finishParagraph(harness) }
+
+        harness.open(reading.novel, reading.chapters[0].id, savedState = snapshot)
+        advanceUntilIdle()
+
+        harness.readAloudSession.state.value.speech.playback shouldBe TtsPlayback.Playing
+    }
+
     /** In incognito nothing is written, so the place speech holds is the only one there is. */
     @Test
     fun `a reader reopened in incognito to follow read aloud lands on the spoken place`() = sessionTest { harness ->

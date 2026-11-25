@@ -657,14 +657,15 @@ class NovelReaderViewModel(
                 ?.get(1)
 
     /** The chapter on screen, which a merged session moves across sources. Every bar verb acts on this
-     *  one, so it advances only once a chapter has actually rendered. Saved on the way, so a process
-     *  kill mid-session reopens here rather than at [initialChapterId]. */
+     *  one, so it advances only once a chapter has actually rendered. */
     @Volatile
     private var currentChapterId: Long = openingChapterId
-        set(value) {
-            savedState[SAVED_CHAPTER_ID] = value
-            field = value
-        }
+
+    /** Saves [chapterId] as the one to reopen after a process kill, once it has rendered: saved before, a kill
+     *  during a slow first load reopened History's newest chapter rather than the one the launch named. */
+    private fun keepChapter(chapterId: Long) {
+        savedState[SAVED_CHAPTER_ID] = chapterId
+    }
 
     /** The chapter a load is aiming at, which is what a retry repeats. Separate from [currentChapterId]
      *  because a load that fails leaves the reader showing what it had. */
@@ -801,13 +802,16 @@ class NovelReaderViewModel(
         // rather than following it, is the reader choosing to read there.
         // Asked of any scope: a chapter opened from one source of the series is no less the reader's own pick,
         // and the series in another view of it (a merged one by source) is one whatever the chapter.
+        // A restore reopens a snapshot read aloud may have spoken past, and [followReadAloud] takes the reader on
+        // to read aloud's chapter, so that is the one asked about.
+        val opening = if (restoringAfterKill) spokenChapter() ?: openingChapterId else openingChapterId
         readAloudSession.state.value.let { session ->
             val spoken = readAloudSession.moves.value?.chapterId
             val series = session.series
             val conflicts = series != null && series.touches(novelId) &&
                 (
                     !series.includes(novelId, sourceScoped) ||
-                        (spoken != null && !readAloudSession.isSpoken(openingChapterId))
+                        (spoken != null && !readAloudSession.isSpoken(opening))
                     )
             if (!followSession && conflicts) readAloudSession.stop()
         }
@@ -979,6 +983,7 @@ class NovelReaderViewModel(
         flushProgress()
         updateHistory()
         currentChapterId = target
+        keepChapter(target)
         currentNovelId = owner
         startReadSession()
         this.bookmarked.value = bookmarked
@@ -1116,6 +1121,7 @@ class NovelReaderViewModel(
         val reloading = row.id == currentChapterId && chapter.value != null
         startReadSession(resume = reloading)
         currentChapterId = row.id
+        keepChapter(row.id)
         currentNovelId = row.novelId
         this.bookmarked.value = bookmarked
         chapter.value = opened

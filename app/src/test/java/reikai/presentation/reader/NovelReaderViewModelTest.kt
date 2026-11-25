@@ -405,6 +405,33 @@ class NovelReaderViewModelTest {
         reopened.chapter.value?.chapterId shouldBe first.id
     }
 
+    /** A chapter that never rendered was not being read, so History's newest must not replace it on a restore. */
+    @Test
+    fun `a kill before the first chapter renders reopens on the chapter the launch named`() =
+        readTimeTest { harness, clock ->
+            val source = harness.source("src")
+            val novel = harness.novel(source)
+            val first = harness.chapter(novel, 1.0)
+            val named = harness.chapter(novel, 2.0)
+            // Failing from the start, or the first reader's warm would have it ready.
+            source.failing += named.url
+            val model = harness.open(novel, first.id)
+            model.awaitIdleOn(first)
+            clock.advance(10.minutes)
+            model.saveHistory()
+            advanceUntilIdle()
+            harness.leave()
+            val savedState = SavedStateHandle()
+            harness.open(novel, named.id, savedState = savedState)
+            advanceUntilIdle()
+            source.failing -= named.url
+
+            val restored = harness.open(novel, named.id, savedState = savedState)
+            restored.loadState.first { it == ReaderLoadState.Idle }
+
+            restored.chapter.value?.chapterId shouldBe named.id
+        }
+
     /** Incognito stamps no History, so the snapshot is the only record of the chapter being read. */
     @Test
     fun `an incognito novel reopens after a process kill on the snapshot's chapter`() =
