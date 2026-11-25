@@ -10,7 +10,7 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import logcat.LogPriority
-import reikai.data.merge.MAX_SQL_IDS_PER_QUERY
+import reikai.data.readInChunks
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.util.system.logcat
@@ -30,8 +30,7 @@ class NovelChapterRepositoryImpl(
 
     // Chunked: a select-all over a big library passes more ids than older SQLite binds in one statement.
     override suspend fun getByNovelIds(novelIds: List<Long>): Map<Long, List<NovelChapter>> =
-        novelIds.chunked(MAX_SQL_IDS_PER_QUERY)
-            .flatMap { database.novel_chaptersQueries.getByNovelIds(it, ::mapNovelChapter).awaitAsList() }
+        readInChunks(novelIds) { database.novel_chaptersQueries.getByNovelIds(it, ::mapNovelChapter).awaitAsList() }
             .groupBy { it.novelId }
 
     override fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>> =

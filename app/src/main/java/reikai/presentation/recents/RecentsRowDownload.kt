@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transform
-import reikai.data.merge.MAX_SQL_IDS_PER_QUERY
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.entry.EntryId
@@ -168,14 +167,7 @@ internal class RecentsRowCopiesIndex {
         query: (List<Long>) -> Flow<Map<Long, List<ChapterCopyRow>>>,
     ): Flow<RecentsLaneRows> = combine(rows, membership, ::Pair).flatMapLatest { (lane, groups) ->
         val ids = lane.items.filter { it.entryId in groups }.mapNotNull { it.lane.chapterRef?.chapterId }
-        // Chunked, since SQLite caps the number of bound variables in one IN list.
-        val copies: Flow<Map<Long, List<ChapterCopyRow>>> = if (ids.isEmpty()) {
-            flowOf(emptyMap())
-        } else {
-            combine(ids.chunked(MAX_SQL_IDS_PER_QUERY).map(query)) { maps ->
-                maps.fold(emptyMap<Long, List<ChapterCopyRow>>()) { a, b -> a + b }
-            }
-        }
+        val copies: Flow<Map<Long, List<ChapterCopyRow>>> = if (ids.isEmpty()) flowOf(emptyMap()) else query(ids)
         copies.transform { byId ->
             byChapter = byId
             changes.tryEmit(Unit)

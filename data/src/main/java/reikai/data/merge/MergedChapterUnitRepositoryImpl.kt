@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import reikai.data.MAX_SQL_IDS_PER_QUERY
+import reikai.data.readInChunks
 import reikai.data.toDbValue
 import reikai.domain.library.ContentType
 import reikai.domain.manga.ChapterAggregation
@@ -107,7 +109,7 @@ class MergedChapterUnitRepositoryImpl(
         if (readAll) {
             downloadUnitsQuery(contentType, null).awaitAsList().filter { it.ownerId in ownerIds }
         } else {
-            ownerIds.chunked(MAX_SQL_IDS_PER_QUERY).flatMap { downloadUnitsQuery(contentType, it).awaitAsList() }
+            readInChunks(ownerIds) { downloadUnitsQuery(contentType, it).awaitAsList() }
         }
 
     private fun downloadUnitsQuery(contentType: ContentType, ownerIds: Collection<Long>?) =
@@ -142,6 +144,18 @@ class MergedChapterUnitRepositoryImpl(
         queries.storedRankings().asFlow().pausedWhileUnsubscribed().map { }
 
     override fun getCopiesAsFlow(
+        contentType: ContentType,
+        chapterIds: Collection<Long>,
+    ): Flow<Map<Long, List<ChapterCopyRow>>> =
+        if (chapterIds.size <= MAX_SQL_IDS_PER_QUERY) {
+            copiesOf(contentType, chapterIds)
+        } else {
+            combine(chapterIds.chunked(MAX_SQL_IDS_PER_QUERY).map { copiesOf(contentType, it) }) { chunks ->
+                chunks.fold(emptyMap()) { all, chunk -> all + chunk }
+            }
+        }
+
+    private fun copiesOf(
         contentType: ContentType,
         chapterIds: Collection<Long>,
     ): Flow<Map<Long, List<ChapterCopyRow>>> =
@@ -253,8 +267,5 @@ class MergedChapterUnitRepositoryImpl(
         const val READ_ALL_SHARE = 0.3
     }
 }
-
-/** How many ids one IN list binds, under SQLite's 999-variable limit on older Android versions. */
-const val MAX_SQL_IDS_PER_QUERY = 500
 
 private const val ALL_UNSUPPORTED = "ContentType.ALL is not a merged-stitch type"

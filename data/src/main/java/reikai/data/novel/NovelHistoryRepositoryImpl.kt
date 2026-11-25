@@ -9,6 +9,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
+import reikai.data.readInChunks
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.model.NovelHistory
@@ -96,9 +97,11 @@ class NovelHistoryRepositoryImpl(
         }.awaitAsList()
 
     override suspend fun getUrlKeyedHistoryByNovelIds(novelIds: List<Long>): Map<Long, List<RestoredChapterHistory>> =
-        database.novel_historyQueries.getUrlKeyedHistoryByNovelIds(novelIds) { novelId, url, readAt, readDuration ->
-            novelId to RestoredChapterHistory(url, readAt, readDuration)
-        }.awaitAsList().groupBy({ it.first }, { it.second })
+        readInChunks(novelIds) { chunk ->
+            database.novel_historyQueries.getUrlKeyedHistoryByNovelIds(chunk) { novelId, url, readAt, readDuration ->
+                novelId to RestoredChapterHistory(url, readAt, readDuration)
+            }.awaitAsList()
+        }.groupBy({ it.first }, { it.second })
 
     override suspend fun restoreHistory(chapterId: Long, readAt: Instant?, readDuration: Long) {
         database.novel_historyQueries.restoreUpsert(chapterId, readAt, readDuration)

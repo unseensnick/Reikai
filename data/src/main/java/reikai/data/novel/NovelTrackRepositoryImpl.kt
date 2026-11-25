@@ -8,6 +8,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
+import reikai.data.readInChunks
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.NovelTrack
 import tachiyomi.core.common.util.system.logcat
@@ -29,7 +30,8 @@ class NovelTrackRepositoryImpl(
         database.novel_tracksQueries.getTracksByNovelId(novelId, ::mapNovelTrack).awaitAsList()
 
     override suspend fun getTracksByNovelIds(novelIds: List<Long>): Map<Long, List<NovelTrack>> =
-        database.novel_tracksQueries.getTracksByNovelIds(novelIds, ::mapNovelTrack).awaitAsList().groupBy { it.novelId }
+        readInChunks(novelIds) { database.novel_tracksQueries.getTracksByNovelIds(it, ::mapNovelTrack).awaitAsList() }
+            .groupBy { it.novelId }
 
     override fun getTracksByNovelIdAsFlow(novelId: Long): Flow<List<NovelTrack>> =
         database.novel_tracksQueries.getTracksByNovelId(novelId, ::mapNovelTrack).subscribeToList()

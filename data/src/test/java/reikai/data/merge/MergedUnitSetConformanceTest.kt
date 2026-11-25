@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.MAX_SQL_IDS_PER_QUERY
 import reikai.data.recents.RecentsUnreadRepositoryImpl
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergedChapterUnitRepository.GroupStitch
@@ -94,6 +95,16 @@ class MergedUnitSetConformanceTest {
         driver.execute(null, "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (2, 'hidden')", 0).await()
 
         downloadOwnersByPath(type, setOf(1L, 2L)) shouldBe listOf(setOf(1L), setOf(1L))
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = ["MANGA", "NOVELS"])
+    fun `a chapter past one statement's worth of ids still has its copies`(type: ContentType) = runTest {
+        stitchedGroup(type, otherCopy = 20L, otherOwner = 2L)
+        val ids = (1_000L until 1_000L + MAX_SQL_IDS_PER_QUERY) + 10L
+
+        units.getCopiesAsFlow(type, ids).first()[10L].orEmpty().mapTo(HashSet()) { it.copy.chapterId } shouldBe
+            setOf(10L, 20L)
     }
 
     /** The owners of the download rows for [owners], through the owner index and then by reading every row. */
