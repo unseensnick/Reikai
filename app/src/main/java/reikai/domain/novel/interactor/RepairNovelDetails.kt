@@ -15,6 +15,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -30,7 +31,7 @@ class RepairNovelDetails(
     private val novelRepository: NovelRepository,
     private val novelChapterRepository: NovelChapterRepository,
     private val sourceManager: NovelSourceManager,
-    // A Provider, not the manager: constructing it restores the persisted queue and can start the
+    // Deferred, not the manager: constructing it restores the persisted queue and can start the
     // download worker, and a repair run must not do that just by existing.
     private val downloadManager: () -> NovelDownloadManager,
     private val libraryPreferences: LibraryPreferences,
@@ -51,7 +52,7 @@ class RepairNovelDetails(
         reconcileMergedChapters.afterPass {
             suspects.forEach { novel ->
                 val source = sourceManager.get(novel.source) ?: return@forEach
-                runCatching {
+                runCatchingCancellable {
                     refreshNovelFromSource(
                         novel,
                         source,
