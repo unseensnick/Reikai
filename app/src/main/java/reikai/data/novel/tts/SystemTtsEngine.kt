@@ -14,7 +14,7 @@ import java.util.Locale
  * [NovelTtsEngine] backed by Android's [TextToSpeech]. Initialization is asynchronous, so callers
  * must wait for [onInit] before [speak]; [onInit] reports failure too, since an
  * engine that never starts would otherwise leave the caller waiting. One paragraph (queued as several
- * utterances) is in flight at a time, each [speak] flushing the last, so one pending callback slot is enough.
+ * utterances) is in flight at a time, each [speak] flushing the last, so one [SpokenSlot] is enough.
  * [TextToSpeech] fires its progress callbacks on a binder thread, and the caller marshals to the main
  * thread itself before touching the renderer.
  */
@@ -27,12 +27,8 @@ class SystemTtsEngine(
     @Volatile
     private var isReady: Boolean = false
 
-    @Volatile
-    private var pendingDone: (() -> Unit)? = null
-
     /** The paragraph being spoken, so a piece's start can be told where it sits. Replaced by every speak. */
-    @Volatile
-    private var spoken: SpokenParagraph? = null
+    private val spoken = SpokenSlot()
 
     /** Raised by every speak, so a callback from pieces already flushed names a paragraph no longer spoken. */
     private var generation = 0
@@ -52,15 +48,15 @@ class SystemTtsEngine(
     ).apply {
         setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
-                val current = spoken ?: return
+                val current = spoken.value ?: return
                 val index = current.indexOf(utteranceId) ?: return
                 current.onPieceStart(index)
             }
 
             // A paragraph can be several utterances, so only the last one finishes the caller's.
             override fun onDone(utteranceId: String?) {
-                val current = spoken ?: return
-                if (current.indexOf(utteranceId) == current.pieces.lastIndex) fireDone()
+                val current = spoken.value ?: return
+                if (current.indexOf(utteranceId) == current.pieces.lastIndex && spoken.claim(current)) current.onDone()
             }
 
             // Checked as onStart and onDone are, or an error from a piece the last speak flushed would end
@@ -72,25 +68,16 @@ class SystemTtsEngine(
     }
 
     private fun abortIfCurrent(utteranceId: String?) {
-        if (spoken?.indexOf(utteranceId) != null) abort()
-    }
-
-    private fun fireDone() {
-        val cb = pendingDone
-        pendingDone = null
-        spoken = null
-        cb?.invoke()
+        val current = spoken.value ?: return
+        if (current.indexOf(utteranceId) != null) abort(current)
     }
 
     /** Ends the paragraph early. Whichever piece failed, the rest are dropped rather than read out of
      *  context, and the caller is told so it moves on instead of waiting for a callback never coming.
-     *  The slot is cleared first, so the stop's own callbacks cannot come back around. */
-    private fun abort() {
-        val cb = pendingDone ?: return
-        pendingDone = null
-        spoken = null
-        runCatching { tts.stop() }
-        cb()
+     *  The slot is cleared first, so the stop's own callbacks cannot come back around, and the stop runs
+     *  before a next speak can take the slot, so it never flushes that paragraph. */
+    private fun abort(current: SpokenParagraph) {
+        if (spoken.claim(current) { runCatching { tts.stop() } }) current.onDone()
     }
 
     override fun availableEngines(): List<TtsEngineInfo> =
@@ -136,29 +123,26 @@ class SystemTtsEngine(
             onDone()
             return
         }
-        pendingDone = onDone
-        val current = SpokenParagraph(++generation, pieces, onPieceStart)
-        spoken = current
+        val current = SpokenParagraph(++generation, pieces, onPieceStart, onDone)
+        spoken.replace(current)
         pieces.forEachIndexed { index, piece ->
             val queueMode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
             // A refusal is reported as a return value and never reaches the listener, so without this
             // nothing would clear the callback and playback would stop here for good.
             if (tts.speak(piece.text, queueMode, null, current.idOf(index)) == TextToSpeech.ERROR) {
-                abort()
+                abort(current)
                 return
             }
         }
     }
 
     override fun stop() {
-        pendingDone = null
-        spoken = null
+        spoken.replace(null)
         runCatching { tts.stop() }
     }
 
     override fun shutdown() {
-        pendingDone = null
-        spoken = null
+        spoken.replace(null)
         runCatching { tts.shutdown() }
     }
 }
@@ -168,6 +152,7 @@ internal class SpokenParagraph(
     val generation: Int,
     val pieces: List<TtsPiece>,
     val onPieceStart: (index: Int) -> Unit,
+    val onDone: () -> Unit,
 ) {
     fun idOf(index: Int) = "$UTTERANCE_PREFIX$generation:$index"
 
@@ -180,5 +165,26 @@ internal class SpokenParagraph(
 
     private companion object {
         const val UTTERANCE_PREFIX = "reikai-novel-tts:"
+    }
+}
+
+/**
+ * Who is being spoken, read on the binder thread and replaced on the main one. A paragraph carries its
+ * own done callback and is claimed whole, so a callback that read the slot before a speak replaced it
+ * can only finish the paragraph it read, never the next one.
+ */
+internal class SpokenSlot {
+    private var current: SpokenParagraph? = null
+
+    val value: SpokenParagraph? get() = synchronized(this) { current }
+
+    fun replace(paragraph: SpokenParagraph?) = synchronized(this) { current = paragraph }
+
+    /** Empties the slot if [paragraph] is still in it, running [whileHeld] before a speak can refill it. */
+    fun claim(paragraph: SpokenParagraph, whileHeld: () -> Unit = {}): Boolean = synchronized(this) {
+        if (current !== paragraph) return false
+        current = null
+        whileHeld()
+        true
     }
 }
