@@ -19,9 +19,10 @@ import reikai.domain.reader.neighbourChapter
 
 /**
  * The order a novel is read in from [currentId], over everything already read from the database: the
- * merge group's rows ([reading]), and the settings the reader steps by. [opened] is the current chapter's
- * own row, for a group-scoped open the unified list does not show. [filters] are the novel's chapter-list
- * filters, null with none stored. [onDiskAmong] answers which of some chapters are downloaded.
+ * merge group's rows ([reading]), and the settings the reader steps by. [opened] is the row the reader
+ * opens, found by the caller: the current chapter, or under group scope the copy it moves to. [filters]
+ * are the novel's chapter-list filters, null with none stored. [onDiskAmong] answers which of some
+ * chapters are downloaded.
  */
 class NovelOrderInputs(
     val currentId: Long,
@@ -78,7 +79,7 @@ fun novelReadingOrder(inputs: NovelOrderInputs): NovelReadingOrder = with(inputs
     } else {
         withOpenedChapter(
             unified = reading.rows,
-            opened = reading.rows.find { it.id == current } ?: pooled.find { it.id == current } ?: opened,
+            opened = opened,
             stitch = stitch,
             id = { it.id },
             // A novel source lists its chapters oldest-first, so the merged list runs that way too.

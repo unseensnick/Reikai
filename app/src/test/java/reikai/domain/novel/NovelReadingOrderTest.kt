@@ -150,6 +150,7 @@ class NovelReadingOrderTest {
             pooled = listOf(online, downloaded),
             stitch = stitch,
             copies = copies,
+            opened = downloaded,
         ).currentId shouldBe 2L
     }
 
