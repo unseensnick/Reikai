@@ -9,7 +9,6 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import reikai.data.toContentType
 import reikai.data.toDbValue
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
@@ -29,7 +28,7 @@ class MergeGroupRepositoryImpl(
     private val queries = database.merge_groupQueries
 
     override suspend fun getGroup(groupId: Long): MergeGroup? =
-        queries.getGroup(groupId, ::mapGroup).awaitAsOneOrNull()
+        queries.getGroup(groupId).awaitAsOneOrNull()?.let(::mapGroup)
 
     override suspend fun getGroupId(contentType: ContentType, entryId: Long): Long? =
         when (contentType) {
@@ -354,15 +353,7 @@ class MergeGroupRepositoryImpl(
         }
     }
 
-    private fun mapGroup(
-        id: Long,
-        contentType: Long,
-        overrideSourceRanking: Long,
-    ) = MergeGroup(
-        id = id,
-        contentType = contentType.toContentType(),
-        overrideSourceRanking = overrideSourceRanking != 0L,
-    )
+    private fun mapGroup(overrideSourceRanking: Long) = MergeGroup(overrideSourceRanking = overrideSourceRanking != 0L)
 
     companion object {
         private const val DEFAULT_SOURCE_PRIORITY = 0L

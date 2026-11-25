@@ -323,7 +323,7 @@ class EntryMergeManagerTest {
     ) = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(type, 1L) } returns 7L
-            coEvery { getGroup(7L) } returns MergeGroup(7L, type, overrideSourceRanking = true)
+            coEvery { getGroup(7L) } returns MergeGroup(overrideSourceRanking = true)
             coEvery { getMembers(type, 7L) } returns listOf(2L, 1L)
         }
 
@@ -336,7 +336,7 @@ class EntryMergeManagerTest {
         runTest {
             val repo = mockk<MergeGroupRepository> {
                 coEvery { getGroupId(type, 1L) } returns 7L
-                coEvery { getGroup(7L) } returns MergeGroup(7L, type, overrideSourceRanking = false)
+                coEvery { getGroup(7L) } returns MergeGroup(overrideSourceRanking = false)
                 coEvery { getMembers(type, 7L) } returns listOf(2L, 1L)
             }
 

@@ -54,7 +54,7 @@ selectLastInsertedRowId:
 SELECT last_insert_rowid();
 
 getGroup:
-SELECT _id, content_type, override_source_ranking
+SELECT override_source_ranking
 FROM merge_group
 WHERE _id = :groupId;
 
