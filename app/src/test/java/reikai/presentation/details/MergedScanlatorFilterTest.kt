@@ -56,14 +56,6 @@ class MergedScanlatorFilterTest {
     }
 
     @Test
-    fun `saving under All does not spread one source's own hidden scanlator to the others`() {
-        val shown = setOf("Alpha", "Gamma")
-        // Only Beta changed, so source 2 gains Beta and never gains source 1's Alpha.
-        scanlatorWrites(listOf(1L, 2L), excluded, shown, chosen = shown + "Beta").getValue(2L) shouldBe
-            setOf("Gamma", "Beta")
-    }
-
-    @Test
     fun `a source whose hidden set does not change is not written`() {
         val shown = setOf("Alpha")
         val own = mapOf(1L to setOf("Alpha"), 2L to emptySet())

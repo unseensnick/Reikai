@@ -106,7 +106,7 @@ class MergedTrunkConformanceTest {
 
         // The library reads what the stitch saved, so it moves once the reconcile after a write has run.
         val lead = side.storedLead(preferred = emptyList())
-        side.libraryPrimary(preferred = emptyList()) shouldBe lead
+        (lead to side.libraryPrimary(preferred = emptyList())) shouldBe (SMALLER to SMALLER)
     }
 
     @ParameterizedTest
@@ -136,7 +136,7 @@ class MergedTrunkConformanceTest {
             side.addChapters(id = SMALLER, numbers = 6..15)
 
             val lead = side.storedLead(preferred = emptyList())
-            side.libraryPrimary(preferred = emptyList()) shouldBe lead
+            (lead to side.libraryPrimary(preferred = emptyList())) shouldBe (SMALLER to SMALLER)
         }
 
     @ParameterizedTest

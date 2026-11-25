@@ -449,6 +449,22 @@ class MergedDuplicateDownloadsTest {
         savedQueue(type) shouldBe listOf(QueuedChapter(DISCARDED, 10L, 0))
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `of two merged-away copies the lower id takes the survivor's title`(type: Type) = runTest {
+        type.chapter(sourceDir(type).dir(OLD), CH1, "lower")
+        type.chapter(sourceDir(type).dir(OTHER), CH1, "higher")
+
+        downloads.carryFolders(
+            listOf(
+                MergedDuplicate(type.contentType, DISCARDED + 1, SURVIVOR, OTHER),
+                duplicate(type, OLD),
+            ),
+        )
+
+        type.read(sourceDir(type).dir(KEPT), CH1) shouldBe "lower"
+    }
+
     private fun duplicate(type: Type, discardedTitle: String) =
         MergedDuplicate(type.contentType, DISCARDED, SURVIVOR, discardedTitle)
 
@@ -604,6 +620,7 @@ class MergedDuplicateDownloadsTest {
         const val SOURCE_ID = 1L
         const val NOVEL_SOURCE = "src"
         const val OLD = "Old Title"
+        const val OTHER = "Other Title"
         const val KEPT = "Kept Title"
         const val CH1 = "Chapter 1_aaaaaa"
         const val CH2 = "Chapter 2_bbbbbb"

@@ -37,11 +37,15 @@ class CollapseNewChaptersTest {
     }
 
     @Test
-    @DisplayName("the copy the stitch ranks first is the one kept")
+    @DisplayName("the copy the stitch ranks first is the one kept, wherever the stitch lists it")
     fun theRankedCopyStands() {
-        // Only the second source reported it, but the first source's copy is the one the list shows,
-        // so a run that hands in both must not pick by which entry updated first.
-        collapse(mapOf(2L to listOf(Row(20)), 1L to listOf(Row(10)))) shouldBe setOf(10L)
+        val listedOutOfRank = listOf(ChapterUnit(chapterId = 20, unit = 0, copyOrder = 1), stitch.first())
+
+        collapseNewChapters(
+            mapOf(1L to listOf(Row(10)), 2L to listOf(Row(20))),
+            mapOf(1L to 7L, 2L to 7L),
+            mapOf(7L to listedOutOfRank),
+        ) { it.id }.announced shouldBe setOf(10L)
     }
 
     @Test

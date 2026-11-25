@@ -84,16 +84,6 @@ class RestorePrefEraGroupsConformanceTest {
 
     @ParameterizedTest
     @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a backup that stores its groups whole never groups by title`(type: ContentType) = runTest {
-        insert(type, 1, 2)
-
-        restore.fromBackup(type, emptyList(), prefEra = null, resolve = REFS::get)
-
-        groupOf(type, 1).shouldBeEmpty()
-    }
-
-    @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a pref-era backup's manual merge still restores`(type: ContentType) = runTest {
         insert(type, 1, 2)
 

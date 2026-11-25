@@ -210,7 +210,6 @@ class GroupChapterSettingsConformanceTest {
             side.shownDescending(OTHER, listOf(OTHER)) shouldBe false
         }
 
-    /** [SIBLING] in the library and ungrouped, [OWNER] not yet added: the add-to-group prompt's usual pick. */
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `a merge gives the members joining the owner's reader flags`(type: ContentType) = runTest {
@@ -244,6 +243,7 @@ class GroupChapterSettingsConformanceTest {
         side.viewerFlagsOf(OWNER) shouldBe CHANGED_ROTATION
     }
 
+    /** [SIBLING] in the library and ungrouped, [OWNER] not yet added: the add-to-group prompt's usual pick. */
     private suspend fun Side.pickInLibraryWithNewcomerOut() {
         setInLibrary(SIBLING, true)
         setInLibrary(OWNER, false)

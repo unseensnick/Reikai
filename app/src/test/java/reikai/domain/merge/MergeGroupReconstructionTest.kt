@@ -81,6 +81,13 @@ class MergeGroupReconstructionTest {
     }
 
     @Test
+    fun `the author guard leaves same-title entries with no author apart`() {
+        val candidates = listOf(candidate(1, title = "Re Zero", author = " "), candidate(2, title = "Re Zero"))
+
+        reconstruct(candidates, autoMergeByTitle = true, requireAuthor = true) shouldBe emptyList()
+    }
+
+    @Test
     fun `an unmerge pair excludes a same-title link`() {
         val candidates = listOf(candidate(1, title = "Same"), candidate(2, title = "Same"))
 
@@ -90,9 +97,10 @@ class MergeGroupReconstructionTest {
     @Test
     fun `a manual merge overrides an unmerge on the same pair`() {
         val groups = reconstruct(
-            candidates = listOf(candidate(1), candidate(2)),
+            candidates = listOf(candidate(1, title = "Same"), candidate(2, title = "Same")),
             manualMerges = setOf("1,2"),
             unmerges = setOf("1,2"),
+            autoMergeByTitle = true,
         )
 
         groups shouldBe listOf(listOf(1L, 2L))

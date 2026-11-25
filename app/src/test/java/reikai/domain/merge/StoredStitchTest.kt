@@ -31,6 +31,14 @@ class StoredStitchTest {
     }
 
     @Test
+    @DisplayName("the ranked copy of each merged chapter, in reading order, however the stitch is listed")
+    fun rankedCopyInReadingOrder() {
+        val shown = renderStoredStitch(listOf(Row(10), Row(11), Row(20), Row(21)), stitch.reversed()) { it.id }
+
+        shown.map { it.id } shouldBe listOf(10L, 11L)
+    }
+
+    @Test
     @DisplayName("a hidden copy falls through to the next source's")
     fun hiddenCopyFallsThrough() {
         // What an excluded scanlator or a source removed from the library looks like from here: the

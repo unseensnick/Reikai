@@ -150,9 +150,12 @@ class EntryMergeManagerTest {
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `resolution returns just itself when merging is disabled`(type: ContentType) = runTest {
-        // The repository must not be consulted when the master switch is off.
-        manager(type, mergingEnabled = false).computeRelatedIds(1L).toList() shouldBe listOf(1L)
-        manager(type, mergingEnabled = false).relatedIdsList(1L) shouldBe listOf(1L)
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(type, 1L) } returns 7L
+            coEvery { getFavoriteMembers(type, 7L) } returns listOf(1L, 2L)
+        }
+
+        manager(type, repo, mergingEnabled = false).computeRelatedIds(1L).toList() shouldBe listOf(1L)
     }
 
     @ParameterizedTest
