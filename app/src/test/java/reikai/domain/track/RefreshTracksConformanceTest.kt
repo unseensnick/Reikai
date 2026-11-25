@@ -63,7 +63,10 @@ class RefreshTracksConformanceTest {
                     },
                     trackerManager = h.trackerManager,
                     upsertNovelTrack = mockk {
-                        coEvery { await(any()) } answers { h.stored += firstArg<NovelTrack>().lastChapterRead }
+                        coEvery { await(any()) } answers {
+                            h.stored += firstArg<NovelTrack>().lastChapterRead
+                            true
+                        }
                     },
                 )
                 return { interactor.await(ENTRY_ID) }

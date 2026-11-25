@@ -50,10 +50,10 @@ class GetNovelTracks(
 
     fun subscribe(novelId: Long): Flow<List<NovelTrack>> = repository.getTracksByNovelIdAsFlow(novelId)
 
-    /** Every novel track, grouped by novel id, in one query. Mirrors [GetTracksPerManga.await]. */
+    /** Every novel track, grouped by novel id, in one query: twin of [GetTracksPerManga.await], type only. */
     suspend fun awaitAll(): Map<Long, List<NovelTrack>> = repository.getTracks().groupBy(NovelTrack::novelId)
 
-    /** Every novel track in the library, grouped by novel id. Mirrors [GetTracksPerManga.subscribe]. */
+    /** Every novel track, grouped by novel id: twin of [GetTracksPerManga.subscribe], type only. */
     fun subscribeAll(): Flow<Map<Long, List<NovelTrack>>> =
         repository.getTracksAsFlow().map { tracks -> tracks.groupBy(NovelTrack::novelId) }
 

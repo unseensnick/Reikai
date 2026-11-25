@@ -50,7 +50,10 @@ class ForwardOnlyPushConformanceTest {
                     },
                     trackerManager = h.trackerManager,
                     upsertNovelTrack = mockk<UpsertNovelTrack> {
-                        coEvery { await(any()) } answers { h.stored += firstArg<NovelTrack>().lastChapterRead }
+                        coEvery { await(any()) } answers {
+                            h.stored += firstArg<NovelTrack>().lastChapterRead
+                            true
+                        }
                     },
                     delayedTrackingStore = mockk(relaxed = true),
                 ).await(mockk(), ENTRY_ID, CHAPTER, setupJobOnFailure = false)

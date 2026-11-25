@@ -15,8 +15,7 @@ class DeleteNovelTrack(
     private val preferences: ReikaiLibraryPreferences,
 ) {
 
-    /** Remove the tracker from a single novel (the optimistic-bind rollback path). */
-    suspend fun await(novelId: Long, trackerId: Long) {
+    private suspend fun delete(novelId: Long, trackerId: Long) {
         try {
             repository.delete(novelId, trackerId)
         } catch (e: Exception) {
@@ -31,6 +30,6 @@ class DeleteNovelTrack(
      */
     suspend fun awaitGroup(novelId: Long, trackerId: Long) {
         trackGroupIds(novelId, { preferences.syncTrackerLinksGrouped.get() }, mergeManager::relatedIdsList)
-            .forEach { await(it, trackerId) }
+            .forEach { delete(it, trackerId) }
     }
 }

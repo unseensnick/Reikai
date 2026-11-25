@@ -95,8 +95,6 @@ class EntryTrackPortConformanceTest {
                 { calls += "manga group unbind ${firstArg<Long>()} ${secondArg<Long>()}" }
         }
         private val deleteNovelTrack = mockk<DeleteNovelTrack> {
-            coEvery { await(any(), any()) } answers
-                { calls += "novel row unbind ${firstArg<Long>()} ${secondArg<Long>()}" }
             coEvery { awaitGroup(any(), any()) } answers {
                 calls += "novel group unbind ${firstArg<Long>()} ${secondArg<Long>()}"
             }

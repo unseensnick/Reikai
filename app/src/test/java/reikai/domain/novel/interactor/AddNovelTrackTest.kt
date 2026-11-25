@@ -2,6 +2,7 @@ package reikai.domain.novel.interactor
 
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.Tracker
+import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -9,8 +10,10 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
+import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistory
+import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.track.NovelTrackUpdater
 import kotlin.time.Instant
 
@@ -22,7 +25,15 @@ class AddNovelTrackTest {
     private val chapters = mockk<NovelChapterRepository>()
     private val history = mockk<NovelHistoryRepository>()
 
-    private val addNovelTrack = AddNovelTrack(mockk(relaxed = true), updater, chapters, history)
+    private val saved = mutableListOf<NovelTrack>()
+    private val tracks = mockk<NovelTrackRepository> {
+        coEvery { upsert(any()) } answers {
+            saved += firstArg<NovelTrack>()
+            true
+        }
+    }
+
+    private val addNovelTrack = AddNovelTrack(UpsertNovelTrack(tracks), updater, chapters, history)
 
     private fun chapter(number: Double, read: Boolean) = NovelChapter(
         id = number.toLong(), novelId = NOVEL_ID, url = "c$number", name = "Chapter $number", read = read,
@@ -36,6 +47,21 @@ class AddNovelTrackTest {
         coEvery { history.getHistoryByNovelId(NOVEL_ID) } returns
             listOf(NovelHistory(1L, Instant.fromEpochMilliseconds(FIRST_READ_AT), 0L))
         addNovelTrack.bind(tracker, Track.create(1L).apply { title = "A novel" }, NOVEL_ID)
+    }
+
+    @Test
+    fun `the binding is saved on the novel`() = runTest {
+        bindAfterReading(false)
+
+        saved.single().novelId shouldBe NOVEL_ID
+    }
+
+    // The site makes the entry Reading rather than Planned from this, so it is the novel's own reading
+    @Test
+    fun `the site is told the novel has chapters read`() = runTest {
+        bindAfterReading(false, true)
+
+        coVerify { tracker.bind(any(), true) }
     }
 
     @Test

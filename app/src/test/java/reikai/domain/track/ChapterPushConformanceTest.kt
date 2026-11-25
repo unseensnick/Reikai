@@ -132,7 +132,10 @@ class ChapterPushConformanceTest {
                     },
                     trackerManager = h.trackerManager,
                     upsertNovelTrack = mockk {
-                        coEvery { await(any()) } answers { h.saved = firstArg<NovelTrack>().lastChapterRead }
+                        coEvery { await(any()) } answers {
+                            h.saved = firstArg<NovelTrack>().lastChapterRead
+                            true
+                        }
                     },
                     delayedTrackingStore = h.novelStore,
                 )
