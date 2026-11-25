@@ -68,16 +68,14 @@ class EntryMergeActionHost(
      */
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
-        val prevRelated = group.relatedIds
         dismissDialog()
         scope.launch {
             val snapshot = lasting {
                 // Read the group BEFORE splitting it: splitting a pair deletes the group row, and with it
                 // the per-group ranking an undo has to put back. Re-merging can only recover the members.
-                mergeManager.captureGroup(anchorId()).also { mergeManager.removeFromGroup(prevRelated, targetIds) }
+                mergeManager.captureGroup(anchorId()).also { mergeManager.removeFromGroup(targetIds) }
             }
-            // Re-read rather than publishing what the split returned: it returns the SURVIVORS, which
-            // do not include the anchor when the user splits the anchor's own source.
+            // Re-read: when the user splits the anchor's own source, the anchor is no longer in the group.
             withIOContext { group.refresh(anchorId()) }
             if (undoRequested(MR.strings.merge_sources_split)) {
                 lasting { mergeManager.restoreGroup(snapshot) }
@@ -93,13 +91,12 @@ class EntryMergeActionHost(
      */
     fun removeSourcesFromLibrary(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
-        val prevRelated = group.relatedIds
         dismissDialog()
         scope.launch {
             val (snapshot, joined) = lasting {
                 // Captured before the split, for the same reason as splitSources.
                 val snapshot = mergeManager.captureGroup(anchorId())
-                mergeManager.removeFromGroup(prevRelated, targetIds)
+                mergeManager.removeFromGroup(targetIds)
                 // Taken out only AFTER the split, and never in parallel with it: the split hands each member
                 // its own copy of the group's shared tracker binding, and that hand-out skips non-favorites.
                 snapshot to removal.takeOut(targetIds)
@@ -141,7 +138,7 @@ class EntryMergeActionHost(
                 val series = volumes.series(contentType, related.toList())
                 val kept = series.firstOrNull { it.id == anchor } ?: return@lasting null
                 val snapshot = mergeManager.captureGroup(anchor)
-                mergeManager.removeFromGroup(related, related.toList())
+                mergeManager.removeFromGroup(related.toList())
                 val move = volumes.combine(contentType, kept, series - kept)
                 if (move.result is LocalMoveResult.Failed) mergeManager.restoreGroup(snapshot)
                 Triple(kept, snapshot, move)

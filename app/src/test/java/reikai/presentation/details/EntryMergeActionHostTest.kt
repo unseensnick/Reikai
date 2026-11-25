@@ -79,12 +79,11 @@ class EntryMergeActionHostTest {
         anchorId = { 3L },
         mergeManager = mockk<MergeManager>(relaxed = true) {
             coEvery { captureGroup(any()) } returns GROUP
-            coEvery { removeFromGroup(any(), any()) } coAnswers {
+            coEvery { removeFromGroup(any()) } coAnswers {
                 splitGate?.let {
                     writeStarted.complete(Unit)
                     it.await()
                 }
-                longArrayOf(3L)
             }
             coEvery { restoreGroup(any()) } coAnswers {
                 restoreGate?.let {

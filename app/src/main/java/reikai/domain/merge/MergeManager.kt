@@ -17,8 +17,8 @@ interface MergeManager {
     /** Clear the per-group source-order override for [anchorId]'s group (back to the global ranking). */
     suspend fun clearSourceOrder(anchorId: Long)
 
-    /** Split [targetIds] out of their group, dissolving it below two members; returns the survivors. */
-    suspend fun removeFromGroup(relatedIds: LongArray, targetIds: List<Long>): LongArray
+    /** Split [targetIds] out of their group, dissolving it below two members. */
+    suspend fun removeFromGroup(targetIds: List<Long>)
 
     /** Merge [ids] into one group, absorbing any groups they already belong to. No-op for < 2 entries. */
     suspend fun merge(ids: List<Long>)

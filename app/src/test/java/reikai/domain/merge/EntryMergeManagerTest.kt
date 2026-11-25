@@ -240,9 +240,13 @@ class EntryMergeManagerTest {
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `removeFromGroup hands the group it is leaving to the dissolve hook`(type: ContentType) = runTest {
-        val repo = mockk<MergeGroupRepository>(relaxed = true)
+        // Read as stored when the split runs, so a member that joined after a screen resolved the group is in it.
+        val repo = mockk<MergeGroupRepository>(relaxed = true) {
+            coEvery { getGroupId(type, 3L) } returns 7L
+            coEvery { getFavoriteMembers(type, 7L) } returns listOf(1L, 2L, 3L)
+        }
 
-        manager(type, repo).removeFromGroup(longArrayOf(1L, 2L, 3L), listOf(3L))
+        manager(type, repo).removeFromGroup(listOf(3L))
 
         dissolved shouldContainExactly listOf(listOf(1L, 2L, 3L))
     }

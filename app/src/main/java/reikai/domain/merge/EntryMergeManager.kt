@@ -148,12 +148,13 @@ open class EntryMergeManager(
 
     /**
      * Split [targetIds] out of their group, keeping the survivors grouped; the group is dissolved when
-     * fewer than two members remain (the "remove all sources" case). Returns the surviving ids.
+     * fewer than two members remain (the "remove all sources" case). The tracker hand-out reads the
+     * group's library members as stored now, not as a screen last resolved them.
      */
-    override suspend fun removeFromGroup(relatedIds: LongArray, targetIds: List<Long>): LongArray {
-        if (targetIds.isEmpty()) return relatedIds
-        onBeforeDissolve(relatedIds.toList())
-        return repository.removeFromGroup(contentType, targetIds).toLongArray()
+    override suspend fun removeFromGroup(targetIds: List<Long>) {
+        val groupId = targetIds.firstNotNullOfOrNull { repository.getGroupId(contentType, it) } ?: return
+        onBeforeDissolve(repository.getFavoriteMembers(contentType, groupId))
+        repository.removeFromGroup(contentType, targetIds)
     }
 
     /**
