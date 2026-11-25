@@ -19,10 +19,6 @@ class UpdateNovel(
     private val sourceTracker: SourceTrackerDispatcher,
 ) {
 
-    suspend fun await(update: NovelUpdate): Boolean {
-        return novelRepository.update(update)
-    }
-
     suspend fun awaitUpdateCoverLastModified(novelId: Long): Boolean {
         return novelRepository.update(
             NovelUpdate(novelId) { coverLastModified = Clock.System.now() },

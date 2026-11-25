@@ -11,8 +11,9 @@ import org.junit.jupiter.params.provider.ValueSource
 import java.util.Locale
 
 /**
- * The rule every case here checks is the same one: no chunk may exceed the cap, because an utterance
- * past it fails and the paragraph is what stops being read.
+ * How a paragraph is cut into utterances: no chunk past the cap (an utterance past it fails and the
+ * paragraph stops being read), a cut at a sentence where one fits, wordless paragraphs dropped, and
+ * each piece's offsets into the paragraph.
  */
 class TtsUtteranceSplitterTest {
 
@@ -92,7 +93,7 @@ class TtsUtteranceSplitterTest {
     }
 
     /**
-     * The case the ruling is about. One Japanese sentence with no spaces and no terminator, so the
+     * One Japanese sentence with no spaces and no terminator, so the
      * sentence pass cannot place a single break and the line instance has to. A small kana may not
      * begin a line, so a splitter that counted characters instead would strand one at a chunk start.
      */

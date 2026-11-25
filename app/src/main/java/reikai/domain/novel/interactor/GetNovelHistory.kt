@@ -12,8 +12,8 @@ class GetNovelHistory(
     /** Empty category lists mean no constraint, matching the manga twin. */
     fun subscribe(
         query: String,
-        includedCategories: List<Long> = emptyList(),
-        excludedCategories: List<Long> = emptyList(),
+        includedCategories: List<Long>,
+        excludedCategories: List<Long>,
     ): Flow<List<NovelHistoryWithRelations>> =
         repository.getNovelHistory(query, includedCategories, excludedCategories)
 

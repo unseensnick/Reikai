@@ -624,9 +624,7 @@ class NovelPreferences(
     /** A source's own delay, overriding [downloadChapterDelayMs], as `sourceId=ms` entries. */
     fun downloadSourceDelays() = preferenceStore.getStringSet("novel_download_source_delays", emptySet())
 
-    /** Auto-download newly fetched chapters when an update is detected. The pref + download-manager
-     *  plumbing exist; the update-detection trigger that consumes it is wired into the background
-     *  update job. */
+    /** Download a novel's new chapters when an update finds them, as `FilterNovelChaptersForDownload` decides. */
     fun downloadNewChapters() = preferenceStore.getBoolean(
         "novel_download_new_chapters",
         mangaDownloadDefaults.downloadNewChapters.defaultValue(),
@@ -743,7 +741,7 @@ class NovelPreferences(
 
         const val SEEN_NOVEL_SOURCES_KEY = "ln_seen_novel_sources"
 
-        const val CSS_SNIPPETS_KEY = "ln_reader_css_snippets"
+        private const val CSS_SNIPPETS_KEY = "ln_reader_css_snippets"
 
         /** Named for the restorer, which switches every restored JavaScript snippet off. */
         const val JS_SNIPPETS_KEY = "ln_reader_js_snippets"

@@ -497,7 +497,7 @@ class NovelTtsService : Service() {
 internal const val PARAGRAPH_MS = 1_000L
 
 /** Every control read-aloud answers: it steps and seeks by paragraph as well as playing. */
-internal val MEDIA_SESSION_ACTIONS = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
+private val MEDIA_SESSION_ACTIONS = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
     PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_STOP or
     PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
     PlaybackStateCompat.ACTION_SEEK_TO

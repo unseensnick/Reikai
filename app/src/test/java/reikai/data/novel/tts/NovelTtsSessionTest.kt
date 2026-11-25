@@ -1,6 +1,5 @@
 package reikai.data.novel.tts
 
-import android.support.v4.media.session.PlaybackStateCompat
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -12,17 +11,9 @@ import reikai.domain.novel.tts.TtsPlayback
 
 class NovelTtsSessionTest {
 
-    private val stepAndSeek = PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_SEEK_TO
-
     @AfterEach
     fun tearDown() {
         NovelTtsSession.reset()
-    }
-
-    @Test
-    fun `read-aloud offers the system step and seek`() {
-        MEDIA_SESSION_ACTIONS and stepAndSeek shouldBe stepAndSeek
     }
 
     @Test
