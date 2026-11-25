@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -137,37 +138,40 @@ class NovelDownloadManagerFailureTest {
         every { failures } returns loadFailures
     }
 
-    private val manager = NovelDownloadManager(
-        scope = testAppScope(),
-        context = context,
-        provider = mockk { every { availableSpace() } returns -1L },
-        cache = mockk { every { downloadedChapterIds(any(), any()) } returns emptySet() },
-        chapterRepo = chapterRepo,
-        novelRepo = mockk<NovelRepository> {
-            coEvery { getById(1L) } returns novel
-            coEvery { getById(2L) } returns uninstalled
-            coEvery { getById(3L) } returns unloaded
-            coEvery { getById(4L) } returns null
-        },
-        sourceManager = sourceManager,
-        installer = installer,
-        downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
-        sourcePreferences = ReikaiSourcePreferences(InMemoryPreferenceStore()),
-        novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
-        saver = mockk {
-            coEvery { prepare(any(), any(), any()) } answers { secondArg() }
-            coEvery { write(any(), any(), any()) } returns NovelChapterSaver.SaveResult.NAME_TAKEN
-        },
-        securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
-        adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
-        sourceTitles = mockk(),
-        getEntryCustomInfo = mockk {
-            coEvery { await(EntryId.Novel(1L)) } returns CustomNovelInfo(novelId = 1L, title = "Mine")
-            coEvery { await(EntryId.Novel(2L)) } returns null
-            coEvery { await(EntryId.Novel(3L)) } returns null
-        },
-        sourceContacts = realTimeSourceContacts(),
-    )
+    // Built on first use, after setUp put IO on the scheduler, so its own launches run in virtual time too.
+    private val manager by lazy {
+        NovelDownloadManager(
+            scope = testAppScope(),
+            context = context,
+            provider = mockk { every { availableSpace() } returns -1L },
+            cache = mockk { every { downloadedChapterIds(any(), any()) } returns emptySet() },
+            chapterRepo = chapterRepo,
+            novelRepo = mockk<NovelRepository> {
+                coEvery { getById(1L) } returns novel
+                coEvery { getById(2L) } returns uninstalled
+                coEvery { getById(3L) } returns unloaded
+                coEvery { getById(4L) } returns null
+            },
+            sourceManager = sourceManager,
+            installer = installer,
+            downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
+            sourcePreferences = ReikaiSourcePreferences(InMemoryPreferenceStore()),
+            novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+            saver = mockk {
+                coEvery { prepare(any(), any(), any()) } answers { secondArg() }
+                coEvery { write(any(), any(), any()) } returns NovelChapterSaver.SaveResult.NAME_TAKEN
+            },
+            securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
+            adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
+            sourceTitles = mockk(),
+            getEntryCustomInfo = mockk {
+                coEvery { await(EntryId.Novel(1L)) } returns CustomNovelInfo(novelId = 1L, title = "Mine")
+                coEvery { await(EntryId.Novel(2L)) } returns null
+                coEvery { await(EntryId.Novel(3L)) } returns null
+            },
+            sourceContacts = realTimeSourceContacts(),
+        )
+    }
 
     // The drain runs on IO and retries with a real backoff, so IO is put on the scheduler runTest drives.
     private val scheduler = TestCoroutineScheduler()
@@ -280,6 +284,19 @@ class NovelDownloadManagerFailureTest {
 
         NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe listOf(20L)
     }
+
+    /** A rewrite of the saved queue, such as Download now on another chapter, keeps the failed row out. */
+    @Test
+    fun `a chapter its missing source took out of the saved queue stays out when the queue is rewritten`() =
+        runTest(scheduler) {
+            manager.downloadChapters(listOf(uninstalledChapter, unloadedChapter))
+            manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+
+            manager.startDownloadNow(unloadedChapter.id)
+            advanceUntilIdle()
+
+            NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe listOf(30L)
+        }
 
     @Test
     fun `a chapter whose installed plugin failed to load fails with the load's reason`() = runTest(scheduler) {

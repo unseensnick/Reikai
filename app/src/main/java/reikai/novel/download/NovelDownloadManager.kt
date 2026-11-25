@@ -294,16 +294,22 @@ class NovelDownloadManager(
 
     /**
      * Rewrites the saved queue from the live one as it is at write time, once the launch restore has
-     * landed: a rewrite before it would delete the saved rows it has not read yet.
+     * landed: a rewrite before it would delete the saved rows it has not read yet. A failed row the saved
+     * queue no longer holds stays out, since its failure took it out on purpose (a missing source).
      */
     private fun persistQueue() {
         scope.launch {
             restoreJob.join()
-            synchronized(storeLock) { store.replaceAll(_queueState.value) }
+            synchronized(storeLock) {
+                val saved = store.persisted().mapTo(HashSet()) { it.chapterId }
+                store.replaceAll(
+                    _queueState.value.filter { it.state != NovelDownload.State.ERROR || it.chapterId in saved },
+                )
+            }
         }
     }
 
-    /** Call after the live queue dropped [chapterIds], so a rewrite cannot save them again. */
+    /** Call after the live queue dropped [chapterIds], or failed them for good, so a rewrite cannot save them again. */
     private fun removeSaved(chapterIds: Collection<Long>) {
         synchronized(storeLock) { store.removeAll(chapterIds) }
     }
