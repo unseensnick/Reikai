@@ -161,7 +161,7 @@ class NovelDownloadManagerDrainTest {
             saver = saver,
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
-            sourceTitles = mockk(),
+            sourceTitles = mockk { coEvery { otherNovelTitles(any(), any()) } returns emptyList() },
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
             sourceContacts = contacts,
         )

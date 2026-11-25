@@ -186,6 +186,7 @@ class DownloaderQueueRestoreTest {
         downloader = downloader,
         pendingDeleter = mockk(),
         sourceTitles = mockk(),
+        getChaptersByMangaId = mockk(),
     )
 
     private fun TestScope.downloader(): Downloader {

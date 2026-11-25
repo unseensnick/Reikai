@@ -21,6 +21,7 @@ import logcat.LogPriority
 import reikai.domain.download.deletableDownloads // RK
 import reikai.domain.download.movesDownloadFolder // RK
 import reikai.domain.download.removableDownloads // RK
+import reikai.domain.download.sharesDownloadFolder // RK
 import reikai.domain.source.SourceTitlesRepository // RK
 import reikai.storage.deleteIfEmpty // RK
 import reikai.storage.listOrNull // RK
@@ -33,6 +34,7 @@ import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.interactor.GetChapter
+import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId // RK
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.interactor.GetManga
@@ -59,6 +61,7 @@ class DownloadManager(
     private val downloader: Downloader,
     private val pendingDeleter: DownloadPendingDeleter,
     private val sourceTitles: SourceTitlesRepository, // RK
+    private val getChaptersByMangaId: GetChaptersByMangaId, // RK
 ) {
 
     val queueState
@@ -326,6 +329,16 @@ class DownloadManager(
             if (removeQueued) {
                 removeQueuedManga(manga) // RK
             }
+            // RK --> a folder another manga on the source is named onto holds its downloads too, so only this
+            // manga's chapters go, and the folder only once that leaves it empty, as renameManga leaves it in place
+            val mangaDir = provider.findMangaDir(manga.title, source)
+            if (mangaDir != null && folderIsShared(manga, mangaDir.name.orEmpty())) {
+                val chapters = getChaptersByMangaId.await(manga.id)
+                provider.findChapterDirs(chapters, manga, source).second.forEach { it.delete() }
+                cache.removeChapters(chapters, manga)
+                if (mangaDir.listOrNull(context)?.isEmpty() != true) return@withIOContext
+            }
+            // RK <--
             provider.findMangaDir(manga.title, source)?.delete()
             cache.removeManga(manga)
 
@@ -344,6 +357,11 @@ class DownloadManager(
         // dequeue waits for the saved queue to land, so the empty check below cannot wipe it from storage
         downloader.dequeue(chapters)
         if (!wasRunning && queueState.value.isEmpty()) clearQueue()
+    }
+
+    private suspend fun folderIsShared(manga: Manga, folder: String): Boolean {
+        val others = sourceTitles.otherMangaTitles(manga.source, manga.id).map { provider.getMangaDirName(it) }
+        return sharesDownloadFolder(folder, others)
     }
 
     // A whole manga leaves the queue by the rule above, so emptying a paused queue ends it too

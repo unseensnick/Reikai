@@ -209,6 +209,7 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
             downloader = downloader,
             pendingDeleter = mockk(),
             sourceTitles = mockk { coEvery { otherMangaTitles(any(), any()) } returns emptyList() },
+            getChaptersByMangaId = mockk(),
         )
 
         val first = downloads.first()

@@ -130,6 +130,7 @@ class MangaTitleRenameHalf : TitleRenameHalf {
             },
             pendingDeleter = mockk(),
             sourceTitles = mockk { coEvery { otherMangaTitles(1L, 1L) } returns otherTitles },
+            getChaptersByMangaId = mockk(),
         )
 
         manager.renameManga(manga, newTitle)

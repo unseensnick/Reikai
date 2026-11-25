@@ -120,6 +120,7 @@ class MangaMarkReadHalf : MarkReadHalf {
                 downloader = mockk(),
                 pendingDeleter = mockk(),
                 sourceTitles = mockk(),
+                getChaptersByMangaId = mockk(),
             ),
         ).also { spy ->
             coEvery { spy.deleteChapters(any(), any(), any()) } answers { handed += firstArg<List<Chapter>>() }

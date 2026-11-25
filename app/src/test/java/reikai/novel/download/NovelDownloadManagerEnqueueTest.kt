@@ -197,7 +197,7 @@ class NovelDownloadManagerEnqueueTest {
             saver = mockk(),
             securityPreferences = mockk(),
             adultChecker = mockk(),
-            sourceTitles = mockk(),
+            sourceTitles = mockk { coEvery { otherNovelTitles(any(), any()) } returns emptyList() },
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
             sourceContacts = io.scheduler.sourceContacts(),
         )

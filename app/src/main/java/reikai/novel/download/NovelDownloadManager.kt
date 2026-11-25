@@ -38,6 +38,7 @@ import reikai.domain.download.downloadNetworkIssue
 import reikai.domain.download.hasRoomToDownload
 import reikai.domain.download.movesDownloadFolder
 import reikai.domain.download.parallelSourcesFor
+import reikai.domain.download.sharesDownloadFolder
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.manga.AdultContentChecker
@@ -369,8 +370,8 @@ class NovelDownloadManager(
     suspend fun findNovelDir(novel: Novel) = withIOContext { provider.findNovelDir(novel) }
 
     /**
-     * Drop the whole novel: everything it has queued, then its folder. The manga twin of this is
-     * [eu.kanade.tachiyomi.data.download.DownloadManager.deleteManga], pinned by EmptiedPausedQueueConformanceTest.
+     * Drop the whole novel: everything it has queued, then its folder, or only its chapters from a shared one.
+     * Twin of manga's DownloadManager.deleteManga, pinned by EmptiedPausedQueueConformanceTest.
      *
      * Chapter-by-chapter deletion cannot do this job. It only reaches what the disk cache already
      * reports, and a queued chapter is not downloaded yet, so the worker would keep fetching into a
@@ -382,9 +383,20 @@ class NovelDownloadManager(
             val ids = _queueState.value.filter { it.novelId == novel.id }.mapTo(HashSet()) { it.chapterId }
             synchronized(storeLock) { store.persisted() }.filter { it.entryId == novel.id }.mapTo(ids) { it.chapterId }
             dequeue(ids)
-            provider.deleteNovel(novel)
+            if (folderIsShared(novel)) {
+                deleteChapterFiles(novel, chapterRepo.getByNovelId(novel.id))
+            } else {
+                provider.deleteNovel(novel)
+                cache.removeNovel(novel)
+            }
         }
-        cache.removeNovel(novel)
+    }
+
+    // As DownloadManager.deleteManga asks: a folder another novel on the source is named onto holds its downloads.
+    private suspend fun folderIsShared(novel: Novel): Boolean {
+        val folder = provider.findNovelDir(novel)?.name ?: return false
+        val others = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
+        return sharesDownloadFolder(folder, others)
     }
 
     /**
@@ -412,12 +424,15 @@ class NovelDownloadManager(
     private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
         val novelsById = novelRepo.ownersOf(chapters)
         chapters.groupBy { it.novelId }.forEach { (novelId, owned) ->
-            val novel = novelsById[novelId] ?: return@forEach
-            provider.deleteChapters(novel, owned)
-            cache.removeChapters(novel, owned)
+            deleteChapterFiles(novelsById[novelId] ?: return@forEach, owned)
         }
+    }
+
+    private fun deleteChapterFiles(novel: Novel, chapters: List<NovelChapter>) {
+        provider.deleteChapters(novel, chapters)
+        cache.removeChapters(novel, chapters)
         // A novel left with nothing downloaded loses its folder, as a manga does.
-        novelsById.values.filter(provider::isNovelDirEmpty).forEach { novel ->
+        if (provider.isNovelDirEmpty(novel)) {
             provider.deleteNovel(novel)
             cache.removeNovel(novel)
         }

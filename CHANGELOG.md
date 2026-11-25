@@ -151,6 +151,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Changing the download queue's sort twice in quick succession now leaves the queue in the order the sort sheet shows.**
 - **Manga pages from sources that encrypt their images no longer download damaged when a slow or dropped connection cuts a page off.** Chapters already damaged need downloading again.
 - **A storage hiccup while deleting downloads no longer removes the series' or the source's other downloads.** For manga and novels alike.
+- **Deleting a series' downloads no longer deletes those of another series on its source whose title differs only in capitals or symbols.** For manga and novels alike.
 - **Merging the downloads of a series that was in the library twice no longer deletes the old chapter folders.** Anything that wasn't copied stays in a hidden folder beside them.
 - **Manga chapters in the download queue are no longer lost or brought back when you queue, reorder, cancel or delete right after opening the app.**
 - **A novel chapter downloaded again keeps its old file until the new one is written whole.** A failed download or rename keeps the old file, and a smaller chapter leaves nothing of it behind.

@@ -132,6 +132,7 @@ class MangaManualDeleteHalf : ManualDeleteHalf {
             },
             pendingDeleter = mockk(),
             sourceTitles = mockk(),
+            getChaptersByMangaId = mockk(),
         )
 
         restubDefaultDispatcher()

@@ -12,11 +12,19 @@ import logcat.logcat
  */
 fun movesDownloadFolder(folder: UniFile, newName: String, otherEntryFolders: Collection<String>): Boolean {
     val name = folder.name ?: return false
-    val shared = otherEntryFolders.any { it.equals(name, ignoreCase = true) }
+    val shared = sharesDownloadFolder(name, otherEntryFolders)
     val taken = !name.equals(newName, ignoreCase = true) && folder.parentFile?.findFile(newName) != null
     if (shared) logcat(TAG) { "Download folder $name stays: another entry on its source is named onto it" }
     if (taken) logcat(TAG) { "Download folder $name stays: $newName is already taken" }
     return !shared && !taken
 }
+
+/**
+ * Whether the download folder [folderName] is one another entry on its source is named onto ([otherEntryFolders]),
+ * so it holds that entry's downloads too. Names match ignoring case, as a case-blind disk and UniFile find them.
+ * A title change leaves such a folder in place, and a series delete takes only its own chapters from it.
+ */
+fun sharesDownloadFolder(folderName: String, otherEntryFolders: Collection<String>): Boolean =
+    otherEntryFolders.any { it.equals(folderName, ignoreCase = true) }
 
 private const val TAG = "DownloadFolderRename"

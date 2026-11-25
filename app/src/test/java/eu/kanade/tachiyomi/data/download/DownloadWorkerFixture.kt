@@ -140,6 +140,7 @@ class DownloadWorkerFixture(
             downloader = downloader,
             pendingDeleter = mockk(),
             sourceTitles = mockk(),
+            getChaptersByMangaId = mockk(),
         )
     }
 

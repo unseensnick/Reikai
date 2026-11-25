@@ -53,6 +53,7 @@ import kotlin.time.Instant
  * Both download engines drop a series folder once its last chapter goes, and a source folder once its last
  * series goes, and a picked folder's failed listing reads as empty. Neither may take that word for it: the
  * folder goes only on a listing trusted whole, or a provider hiccup deletes every other download beside it.
+ * Nor may a series delete take a folder another entry on its source is named onto.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 class EmptiedFolderDeleteConformanceTest(private val half: Half) {
@@ -105,6 +106,17 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
             (false to true)
     }
 
+    // Folders are named by sanitized title and found ignoring case, so "TITLE" lands in Title's folder.
+    @Test
+    fun `deleting a series whose folder another entry is named onto keeps that entry's chapters`() = runTest {
+        half.chapter(downloads, "Ch 1")
+        half.chapter(downloads, "Ch 2")
+
+        half.deleteSeries(context, picked(), otherTitles = listOf("TITLE"))
+
+        (half.hasChapter(downloads, "Ch 1") to half.hasChapter(downloads, "Ch 2")) shouldBe (false to true)
+    }
+
     @Test
     fun `deleting the last series takes the source folder with it`() = runTest {
         half.chapter(downloads, "Ch 1")
@@ -125,7 +137,9 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
         fun chapter(downloads: File, name: String)
         fun hasChapter(downloads: File, name: String): Boolean
         suspend fun deleteChapter(context: Context, downloads: UniFile, name: String)
-        suspend fun deleteSeries(context: Context, downloads: UniFile)
+
+        /** Deletes the series owning `Ch 1`, while [otherTitles] are the other entries on its source. */
+        suspend fun deleteSeries(context: Context, downloads: UniFile, otherTitles: List<String> = emptyList())
     }
 
     class MangaHalf : Half {
@@ -144,8 +158,8 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
             manager(context, downloads).deleteChapters(listOf(chapterRow(name)), manga, source)
         }
 
-        override suspend fun deleteSeries(context: Context, downloads: UniFile) {
-            manager(context, downloads).deleteManga(manga, source)
+        override suspend fun deleteSeries(context: Context, downloads: UniFile, otherTitles: List<String>) {
+            manager(context, downloads, otherTitles).deleteManga(manga, source)
         }
 
         private fun chapterRow(name: String) = Chapter.create().copy(
@@ -154,7 +168,11 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
             url = name,
         )
 
-        private fun manager(context: Context, downloads: UniFile): DownloadManager {
+        private fun manager(
+            context: Context,
+            downloads: UniFile,
+            otherTitles: List<String> = emptyList(),
+        ): DownloadManager {
             val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
             val storage = mockk<StorageManager> {
                 every { getDownloadsDirectory() } returns downloads
@@ -171,7 +189,8 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
                 getChapter = mockk(),
                 downloader = mockk(relaxed = true) { every { queueState } returns MutableStateFlow(emptyList()) },
                 pendingDeleter = mockk(),
-                sourceTitles = mockk(),
+                sourceTitles = mockk { coEvery { otherMangaTitles(1L, 1L) } returns otherTitles },
+                getChaptersByMangaId = mockk { coEvery { await(1L, any()) } returns listOf(chapterRow("Ch 1")) },
             )
         }
     }
@@ -194,8 +213,8 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
             manager(context, downloads).deleteChapters(listOf(chapterRow(name)))
         }
 
-        override suspend fun deleteSeries(context: Context, downloads: UniFile) {
-            manager(context, downloads).awaitDeleteNovel(novel)
+        override suspend fun deleteSeries(context: Context, downloads: UniFile, otherTitles: List<String>) {
+            manager(context, downloads, otherTitles).awaitDeleteNovel(novel)
         }
 
         private fun chapterRow(name: String) = NovelChapter(
@@ -204,7 +223,11 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
             dateFetch = Instant.fromEpochMilliseconds(0L), dateUpload = null, page = "",
         )
 
-        private fun manager(context: Context, downloads: UniFile): NovelDownloadManager {
+        private fun manager(
+            context: Context,
+            downloads: UniFile,
+            otherTitles: List<String> = emptyList(),
+        ): NovelDownloadManager {
             val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
             val novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply {
                 seenNovelSources().set(mapOf("tachiyomi:1" to LnSourceIdentity(name = "src", lang = "en")))
@@ -228,7 +251,7 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
                     novelPreferences = novelPreferences,
                 ),
                 cache = mockk(relaxed = true),
-                chapterRepo = mockk(),
+                chapterRepo = mockk { coEvery { getByNovelId(1L) } returns listOf(chapterRow("Ch 1")) },
                 novelRepo = mockk<NovelRepository> { coEvery { getById(1L) } returns novel },
                 sourceManager = mockk(),
                 installer = mockk(),
@@ -238,7 +261,7 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
                 saver = mockk(),
                 securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
                 adultChecker = mockk(),
-                sourceTitles = mockk(),
+                sourceTitles = mockk { coEvery { otherNovelTitles("tachiyomi:1", 1L) } returns otherTitles },
                 getEntryCustomInfo = mockk(),
                 sourceContacts = realTimeSourceContacts(),
             )

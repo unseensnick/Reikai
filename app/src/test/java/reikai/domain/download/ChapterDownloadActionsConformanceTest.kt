@@ -323,6 +323,7 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
                 downloader = downloader,
                 pendingDeleter = mockk(),
                 sourceTitles = mockk(),
+                getChaptersByMangaId = mockk(),
             ),
         ).also { spy ->
             coEvery { spy.deleteChapters(any(), any(), any()) } answers
