@@ -27,7 +27,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
-// RK: one list spanning both libraries; each row carries the content type it applies to.
+// One list spanning both libraries; each row carries the content type it applies to.
 @Composable
 fun CategoryScreen() {
     val viewModel = metroViewModel<CategoryViewModel>()
@@ -41,7 +41,7 @@ fun CategoryScreen() {
         onClickDeleteSelected = { viewModel.showDialog(CategoryDialog.DeleteSelected) },
         onToggleHidden = viewModel::toggleHidden,
         onChangeOrder = viewModel::changeOrder,
-        onMoveToEnd = viewModel::moveToEnd, // RK
+        onMoveToEnd = viewModel::moveToEnd,
         onDismissDialog = viewModel::dismissDialog,
         onCreate = viewModel::createCategory,
         onRename = viewModel::renameCategory,
@@ -68,13 +68,13 @@ private fun CategoryManager(
     onClickDeleteSelected: () -> Unit,
     onToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
-    onMoveToEnd: (Category, Int) -> Unit, // RK: the move menu, always to the whole table's ends
+    onMoveToEnd: (Category, Int) -> Unit, // the move menu, always to the whole table's ends
     onDismissDialog: () -> Unit,
     onSelectContentType: (ContentType) -> Unit,
     onCreate: (String, Long) -> Unit,
     onRename: (Category, String) -> Unit,
     onDelete: (Category) -> Unit,
-    // RK --> multi-select + deferred bulk delete
+    // Multi-select + deferred bulk delete
     onToggleSelection: (Category) -> Unit,
     onToggleRangeSelection: (Category) -> Unit,
     onSelectAll: () -> Unit,
@@ -83,7 +83,6 @@ private fun CategoryManager(
     onDeleteSelected: () -> Unit,
     onUndoDelete: (batch: Long) -> Unit,
     onCommitDelete: (batch: Long) -> Unit,
-    // RK <--
 ) {
     val context = LocalContext.current
     val navigator = LocalNavigator.current
@@ -102,9 +101,8 @@ private fun CategoryManager(
         onClickDelete = onClickDelete,
         onClickToggleHidden = onToggleHidden,
         onChangeOrder = onChangeOrder,
-        onMoveToEnd = onMoveToEnd, // RK
+        onMoveToEnd = onMoveToEnd,
         navigateUp = navigator::pop,
-        // RK -->
         onSelectContentType = onSelectContentType,
         snackbarHostState = snackbarHostState,
         onToggleSelection = onToggleSelection,
@@ -113,7 +111,6 @@ private fun CategoryManager(
         onInvertSelection = onInvertSelection,
         onClearSelection = onClearSelection,
         onDeleteSelected = onClickDeleteSelected, // the action-mode toolbar's Delete asks first
-        // RK <--
     )
 
     when (val dialog = successState.dialog) {
@@ -121,7 +118,7 @@ private fun CategoryManager(
         CategoryDialog.Create -> CategoryCreateDialog(
             onDismissRequest = onDismissDialog,
             onCreate = onCreate,
-            // RK: every name, so the chip's narrowing cannot hide a clash; the new category starts on
+            // Every name, so the chip's narrowing cannot hide a clash; the new category starts on
             // the library the chip is showing.
             categories = successState.allNames,
             initialContentType = successState.contentType.toCategoryContentType(),
@@ -137,7 +134,7 @@ private fun CategoryManager(
             onDelete = { onDelete(dialog.category) },
             category = dialog.category.name,
         )
-        // RK: bulk-delete confirmation -> deferred delete + undo snackbar
+        // Bulk-delete confirmation -> deferred delete + undo snackbar
         CategoryDialog.DeleteSelected -> CategoryDeleteSelectedDialog(
             count = successState.selection.size,
             onDismissRequest = onDismissDialog,
@@ -145,7 +142,7 @@ private fun CategoryManager(
         )
     }
 
-    // RK: an armed delete: commit on dismiss, restore on undo. Keyed on the batch, so a recreated screen
+    // An armed delete: commit on dismiss, restore on undo. Keyed on the batch, so a recreated screen
     // offers the undo again, and one committed elsewhere (a drag, leaving) takes its snackbar down.
     val undoable = successState.undoableDeletes.firstOrNull()
     LaunchedEffect(undoable) {
