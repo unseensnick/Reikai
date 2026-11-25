@@ -49,7 +49,8 @@ class ResumeCase(
  * The library continue button and a series page's Resume over both content types, with chapters 1 and
  * 2 unread and only chapter 2 bookmarked. A hidden chapter is passed over while another is unread. When
  * every unread chapter is hidden the first of them still opens, so neither button goes dead. A chapter
- * the series' own filter hides from its list is never opened.
+ * the series' own filter hides from its list is never opened. On a single-source series; which member's
+ * source keys a merged copy is MergedHiddenResumeConformanceTest's.
  */
 class HiddenChapterResumeConformanceTest {
 
