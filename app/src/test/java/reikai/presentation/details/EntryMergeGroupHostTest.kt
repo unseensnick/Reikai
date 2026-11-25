@@ -71,7 +71,7 @@ class EntryMergeGroupHostTest {
         // or the chapter pipeline looks up a member that is gone.
         host.setRelated(longArrayOf(1L, 3L))
 
-        host.selectedSource shouldBe null
+        host.state.value.selected shouldBe null
     }
 
     @Test
@@ -83,7 +83,7 @@ class EntryMergeGroupHostTest {
 
         host.setRelated(longArrayOf(1L, 2L))
 
-        host.selectedSource shouldBe 2L
+        host.state.value.selected shouldBe 2L
     }
 
     @Test
@@ -110,7 +110,7 @@ class EntryMergeGroupHostTest {
 
         host.selectSource(9L)
 
-        host.selectedSource shouldBe null
+        host.state.value.selected shouldBe null
     }
 
     // Chapter 1 is on source 1, its copy 2 on source 2; only copy 2 is on disk.

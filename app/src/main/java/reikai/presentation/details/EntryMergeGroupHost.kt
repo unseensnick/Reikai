@@ -68,10 +68,8 @@ class EntryMergeGroupHost(
     /** Group ids (this entry + grouped siblings); size <= 1 when not merged. */
     val relatedIds: LongArray get() = _state.value.ids
 
-    /** The grouped source chip in view; null = the unified ("All") list. */
-    val selectedSource: Long? get() = _state.value.selected
-
-    /** [selectedSource] as a stream, for the readers that only track the chip. */
+    /** The grouped source chip in view as a stream, null for the unified ("All") list, for the readers
+     *  that only track the chip. */
     val selectedSourceChanges: Flow<Long?> = _state.map { it.selected }.distinctUntilChanged()
 
     private val _chips = MutableStateFlow<List<EntryMergeSource>>(emptyList())

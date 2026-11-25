@@ -43,7 +43,7 @@ class DetailsChipViewConformanceTest {
             anchorChanges = emptyFlow(),
             onSourceChange = { from, to ->
                 flips += from to to
-                selectedDuringFlip = host.selectedSource
+                selectedDuringFlip = host.state.value.selected
             },
         ) { ids -> ids.map { EntryMergeSource(it, "src$it") } }
         if (seed) host.refresh(OPENED)
