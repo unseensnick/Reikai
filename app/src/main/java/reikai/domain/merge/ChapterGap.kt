@@ -79,8 +79,6 @@ object ChapterGap {
 
     private fun Present.count(span: Span?): Int = span?.let { absentBetween(it.lo, it.hi) } ?: 0
 
-    fun between(higher: Neighbour?, lower: Neighbour?, present: Present): Int = present.count(spanOf(higher, lower))
-
     /**
      * The count at a reader's boundary between two chapters. There a missing neighbour is the start or
      * end of what can be read, which the marker names itself, not chapters missing below the list.

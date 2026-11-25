@@ -34,10 +34,23 @@ class ChapterGapTest {
     private fun header(rows: List<ChapterGap.Neighbour>) =
         ChapterGap.total(rows, { it }, { false }, ChapterGap.Present.of(rows) { it.number }, false)
 
+    /** The count of the marker [ChapterGap.withMarkers] puts between [higher] and the row below it, [lower]. */
+    private fun between(higher: ChapterGap.Neighbour, lower: ChapterGap.Neighbour?, present: ChapterGap.Present) =
+        ChapterGap.withMarkers(
+            listOfNotNull(higher, lower),
+            neighbourOf = { it },
+            isHidden = { false },
+            present = present,
+            descending = true,
+            row = { null },
+        ) { before, after, count -> count.takeIf { before === higher && after === lower } }
+            .filterNotNull()
+            .sum()
+
     @Test
     @DisplayName("consecutive chapters are missing nothing")
     fun consecutiveIsZero() {
-        ChapterGap.between(at(5.0), at(4.0), none) shouldBe 0
+        between(at(5.0), at(4.0), none) shouldBe 0
     }
 
     // A merged list fills one source's gap with another's row, so the series has the number even when a filter,
@@ -48,32 +61,32 @@ class ChapterGapTest {
         val trunk = listOf(1.0, 2.0, 3.0, 5.0, 6.0).map { at(it, owner = 1L) }
         val present = presentOf(*(trunk + at(4.0, owner = 2L)).toTypedArray())
 
-        ChapterGap.between(at(5.0, owner = 1L), at(3.0, owner = 1L), present) shouldBe 0
+        between(at(5.0, owner = 1L), at(3.0, owner = 1L), present) shouldBe 0
     }
 
     @Test
     @DisplayName("a skipped chapter is counted")
     fun oneSkippedIsOne() {
-        ChapterGap.between(at(5.0), at(3.0), none) shouldBe 1
+        between(at(5.0), at(3.0), none) shouldBe 1
     }
 
     @Test
     @DisplayName("a decimal chapter does not count as a gap")
     fun decimalsAreFloored() {
-        ChapterGap.between(at(5.5), at(5.0), none) shouldBe 0
+        between(at(5.5), at(5.0), none) shouldBe 0
     }
 
     @Test
     @DisplayName("no neighbour below means everything under it is missing")
     fun leadingEdgeCountsDownToOne() {
-        ChapterGap.between(at(4.0), null, none) shouldBe 3
+        between(at(4.0), null, none) shouldBe 3
     }
 
     @Test
     @DisplayName("two sources of one entry are not compared")
     fun crossSourcePairIsDeclined() {
         // The same chapter is numbered differently by each source, so the difference measures nothing.
-        ChapterGap.between(at(526.0, owner = 1L), at(522.0, owner = 2L), none) shouldBe 0
+        between(at(526.0, owner = 1L), at(522.0, owner = 2L), none) shouldBe 0
     }
 
     @Test
@@ -81,7 +94,7 @@ class ChapterGapTest {
     fun volumeExtraIsDeclined() {
         val extra = at(2.0, name = "Chapter v11ex2: Vol 11 Extra 2: A Brief Repit")
 
-        ChapterGap.between(at(483.0, name = "Chapter 483: What Was Lost"), extra, none) shouldBe 0
+        between(at(483.0, name = "Chapter 483: What Was Lost"), extra, none) shouldBe 0
     }
 
     @Test
@@ -89,13 +102,13 @@ class ChapterGapTest {
     fun epilogueIsDeclined() {
         val epilogue = at(1.0, name = "Chapter epl1: Vol 11 Epilogue", owner = 1L)
 
-        ChapterGap.between(at(483.0, name = "Chapter 483: What Was Lost"), epilogue, none) shouldBe 0
+        between(at(483.0, name = "Chapter 483: What Was Lost"), epilogue, none) shouldBe 0
     }
 
     @Test
     @DisplayName("a label that is not a plain number is not believed")
     fun unparseableLabelIsDeclined() {
-        ChapterGap.between(at(9.0, name = "Chapter v2s3: Something"), at(3.0), none) shouldBe 0
+        between(at(9.0, name = "Chapter v2s3: Something"), at(3.0), none) shouldBe 0
     }
 
     @Test
@@ -106,7 +119,7 @@ class ChapterGapTest {
         val higher = at(523.0, name = "Chapter 523 - 517")
         val lower = at(516.0, name = "Chapter 516: Ever His Humble Servant")
 
-        ChapterGap.between(higher, lower, none) shouldBe 0
+        between(higher, lower, none) shouldBe 0
     }
 
     @ParameterizedTest(name = "{0} / {1}")
@@ -119,25 +132,25 @@ class ChapterGapTest {
     )
     @DisplayName("a label written with a period or behind a volume is believed")
     fun punctuatedLabelIsBelieved(higherName: String, lowerName: String) {
-        ChapterGap.between(at(14.0, name = higherName), at(10.0, name = lowerName), none) shouldBe 3
+        between(at(14.0, name = higherName), at(10.0, name = lowerName), none) shouldBe 3
     }
 
     @Test
     @DisplayName("a volume extra behind a volume number is still not believed")
     fun volumePrefixedExtraIsDeclined() {
-        ChapterGap.between(at(483.0, name = "Chapter 483"), at(2.0, name = "Vol 11 Extra 2"), none) shouldBe 0
+        between(at(483.0, name = "Chapter 483"), at(2.0, name = "Vol 11 Extra 2"), none) shouldBe 0
     }
 
     @Test
     @DisplayName("a decimal chapter reads as one number, not two")
     fun decimalIsOneNumber() {
-        ChapterGap.between(at(7.0, name = "Chapter 7"), at(5.5, name = "Chapter 5.5"), none) shouldBe 1
+        between(at(7.0, name = "Chapter 7"), at(5.5, name = "Chapter 5.5"), none) shouldBe 1
     }
 
     @Test
     @DisplayName("an unrecognized number is not a gap")
     fun negativeNumberIsDeclined() {
-        ChapterGap.between(at(5.0), at(-1.0, name = "Chapter -1.0"), none) shouldBe 0
+        between(at(5.0), at(-1.0, name = "Chapter -1.0"), none) shouldBe 0
     }
 
     @Test
