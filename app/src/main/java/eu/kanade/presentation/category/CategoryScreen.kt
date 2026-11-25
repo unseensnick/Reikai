@@ -149,7 +149,6 @@ fun CategoryScreen(
                         onMoveToEnd = onMoveToEnd, // RK
                         // RK: drag and the move menu only in Manual mode and outside selection
                         reorderable = reorderable,
-                        movable = reorderable,
                         selection = state.selection,
                         selectionMode = state.selectionMode,
                         onToggleSelection = onToggleSelection,
@@ -172,15 +171,13 @@ private fun CategoryContent(
     onClickToggleHidden: (Category) -> Unit, // RK: hidden-flag toggle
     onChangeOrder: (Category, Int) -> Unit,
     onMoveToEnd: (Category, Int) -> Unit, // RK
-    // RK: false hides the drag handle so the (sorted) list can't be manually reordered
-    reorderable: Boolean = true,
-    // RK: false hides the move-to-top / move-to-bottom menu
-    movable: Boolean = true,
+    // RK: false hides the drag handle and the move menu, so the (sorted) list can't be manually reordered
+    reorderable: Boolean,
     // RK --> multi-select
-    selection: Set<Long> = emptySet(),
-    selectionMode: Boolean = false,
-    onToggleSelection: (Category) -> Unit = {},
-    onToggleRangeSelection: (Category) -> Unit = {},
+    selection: Set<Long>,
+    selectionMode: Boolean,
+    onToggleSelection: (Category) -> Unit,
+    onToggleRangeSelection: (Category) -> Unit,
     // RK <--
 ) {
     val categoriesState = remember { categories.toMutableStateList() }
@@ -227,7 +224,7 @@ private fun CategoryContent(
                     // RK: hide the drag handle (and thus disable drag) when auto-sorted or selecting
                     showDragHandle = reorderable,
                     // RK: an index past the end is clamped to the last place by the reorder
-                    showMoveActions = movable,
+                    showMoveActions = reorderable,
                     onMoveToTop = { onMoveToEnd(category, 0) }, // RK
                     onMoveToBottom = { onMoveToEnd(category, Int.MAX_VALUE) }, // RK
                 )

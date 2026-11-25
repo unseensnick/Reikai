@@ -23,6 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
@@ -61,7 +63,7 @@ fun ReorderableCollectionItemScope.CategoryListItem(
     // RK: when false the drag handle is hidden (auto-sorted, or in selection mode)
     showDragHandle: Boolean = true,
     // RK --> jump a card to either end, where dragging it across a long list is not practical. Offered
-    // wherever the order is manual, including under a content-type chip where drag is off.
+    // wherever drag is.
     showMoveActions: Boolean = false,
     onMoveToTop: () -> Unit = {},
     onMoveToBottom: () -> Unit = {},
@@ -74,6 +76,8 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                 // RK --> a long-press enters selection; in selection mode a tap toggles
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .selectedBackground(selected)
+                // The check icon is drawn without a description, so a screen reader hears the pick from here
+                .semantics { if (selectionMode) this.selected = selected }
                 // RK <--
                 .padding(vertical = MaterialTheme.padding.small)
                 .padding(

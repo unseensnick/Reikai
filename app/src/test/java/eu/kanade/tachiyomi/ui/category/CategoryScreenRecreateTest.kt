@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.category
 
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -30,7 +31,8 @@ import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.upcoming.service.UpcomingPreferences
 
-/** A rotation or fold recreates the Activity: the screen is disposed and drawn again over the same model. */
+/** The edit categories screen over a real model. A rotation or fold recreates the Activity: the screen is
+ *  disposed and drawn again over the same model. */
 @RunWith(RobolectricTestRunner::class)
 class CategoryScreenRecreateTest {
 
@@ -99,6 +101,16 @@ class CategoryScreenRecreateTest {
         compose.waitForIdle()
 
         compose.onAllNodesWithText(CONFIRM).fetchSemanticsNodes().size shouldBe 1
+    }
+
+    /** The row's check icon has no description, so the row itself carries the pick. */
+    @Test
+    fun `a selected category reads as selected`() {
+        show()
+
+        compose.runOnIdle { model.toggleSelection(a.id) }
+
+        compose.onNodeWithText("A").assertIsSelected()
     }
 
     private companion object {
