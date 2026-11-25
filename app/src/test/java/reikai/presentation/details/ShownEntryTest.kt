@@ -1,95 +1,95 @@
 package reikai.presentation.details
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 
+/** What a merged entry's header shows, over each type's own overlay and id check. */
 class ShownEntryTest {
 
-    @Test
-    fun `a manga chip shows the chip's synopsis and tags under the anchor's custom title`() {
-        val anchor = Manga.create().copy(id = 1L, description = "anchor", genre = listOf("Action"))
-        val chip = Manga.create().copy(id = 2L, description = "chip", genre = listOf("Romance"))
-        val overlay = CustomMangaInfo(mangaId = 1L, title = "Custom")
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a chip shows the chip's synopsis and tags under the anchor's custom title`(kind: Kind) {
+        val anchor = Row(1L, description = "anchor", genre = listOf("Action"))
+        val chip = Row(2L, description = "chip", genre = listOf("Romance"))
 
-        val shown = shownManga(anchor, chip, overlay, null)
+        val shown = kind.shown(anchor, chip, Info(1L, title = "Custom"), null)
 
-        Triple(shown.title, shown.description, shown.genre) shouldBe Triple("Custom", "chip", listOf("Romance"))
+        shown.title shouldBe "Custom"
+        shown.description shouldBe "chip"
+        shown.genre shouldBe listOf("Romance")
     }
 
-    @Test
-    fun `a novel chip shows the chip's synopsis and tags under the anchor's custom title`() {
-        val anchor = Novel.create().copy(id = 1L, description = "anchor", genre = listOf("Action"))
-        val chip = Novel.create().copy(id = 2L, description = "chip", genre = listOf("Romance"))
-        val overlay = CustomNovelInfo(novelId = 1L, title = "Custom")
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a chip keeps its own cover under the anchor's custom cover url`(kind: Kind) {
+        val shown = kind.shown(Row(1L, thumbnailUrl = "anchor"), Row(2L, thumbnailUrl = "chip"), CUSTOM_COVER, null)
 
-        val shown = shownNovel(anchor, chip, overlay, null)
-
-        Triple(shown.title, shown.description, shown.genre) shouldBe Triple("Custom", "chip", listOf("Romance"))
+        shown.thumbnailUrl shouldBe "chip"
     }
 
-    @Test
-    fun `a manga chip keeps its own cover under the anchor's custom cover url`() {
-        val anchor = Manga.create().copy(id = 1L, thumbnailUrl = "anchor")
-        val chip = Manga.create().copy(id = 2L, thumbnailUrl = "chip")
-        val overlay = CustomMangaInfo(mangaId = 1L, thumbnailUrl = "custom")
-
-        shownManga(anchor, chip, overlay, null).thumbnailUrl shouldBe "chip"
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `with no chip selected the anchor shows its custom cover url`(kind: Kind) {
+        kind.shown(Row(1L, thumbnailUrl = "anchor"), null, CUSTOM_COVER, null).thumbnailUrl shouldBe "custom"
     }
 
-    @Test
-    fun `a novel chip keeps its own cover under the anchor's custom cover url`() {
-        val anchor = Novel.create().copy(id = 1L, thumbnailUrl = "anchor")
-        val chip = Novel.create().copy(id = 2L, thumbnailUrl = "chip")
-        val overlay = CustomNovelInfo(novelId = 1L, thumbnailUrl = "custom")
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a chip's own custom title does not replace the anchor's`(kind: Kind) {
+        val own = Info(2L, title = "Chip custom", thumbnailUrl = "chip-custom")
 
-        shownNovel(anchor, chip, overlay, null).thumbnailUrl shouldBe "chip"
+        kind.shown(Row(1L, title = "anchor"), Row(2L, title = "chip"), Info(1L, title = "Custom"), own).title shouldBe
+            "Custom"
     }
 
-    @Test
-    fun `with no chip selected the anchor shows its custom cover url`() {
-        val anchor = Manga.create().copy(id = 1L, thumbnailUrl = "anchor")
-        val overlay = CustomMangaInfo(mangaId = 1L, thumbnailUrl = "custom")
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a chip ignores a custom row read for another entry`(kind: Kind) {
+        val stale = Info(3L, thumbnailUrl = "other")
 
-        shownManga(anchor, null, overlay, null).thumbnailUrl shouldBe "custom"
+        kind.shown(Row(1L), Row(2L, thumbnailUrl = "chip"), null, stale).thumbnailUrl shouldBe "chip"
     }
 
-    @Test
-    fun `a manga chip's own custom title does not replace the anchor's`() {
-        val anchor = Manga.create().copy(id = 1L, title = "anchor")
-        val chip = Manga.create().copy(id = 2L, title = "chip")
-        val own = CustomMangaInfo(mangaId = 2L, title = "Chip custom", thumbnailUrl = "chip-custom")
+    /** The fields of an entry the header reads, either type's. */
+    data class Row(
+        val id: Long,
+        val title: String = "",
+        val description: String? = null,
+        val genre: List<String>? = null,
+        val thumbnailUrl: String? = null,
+    )
 
-        shownManga(anchor, chip, CustomMangaInfo(mangaId = 1L, title = "Custom"), own).title shouldBe "Custom"
+    data class Info(val id: Long, val title: String? = null, val thumbnailUrl: String? = null)
+
+    enum class Kind(val shown: (anchor: Row, chip: Row?, anchorInfo: Info?, chipInfo: Info?) -> Row) {
+        MANGA({ anchor, chip, anchorInfo, chipInfo ->
+            shownManga(anchor.manga(), chip?.manga(), anchorInfo?.manga(), chipInfo?.manga()).let {
+                Row(it.id, it.title, it.description, it.genre, it.thumbnailUrl)
+            }
+        }),
+        NOVEL({ anchor, chip, anchorInfo, chipInfo ->
+            shownNovel(anchor.novel(), chip?.novel(), anchorInfo?.novel(), chipInfo?.novel()).let {
+                Row(it.id, it.title, it.description, it.genre, it.thumbnailUrl)
+            }
+        }),
     }
 
-    @Test
-    fun `a novel chip's own custom title does not replace the anchor's`() {
-        val anchor = Novel.create().copy(id = 1L, title = "anchor")
-        val chip = Novel.create().copy(id = 2L, title = "chip")
-        val own = CustomNovelInfo(novelId = 2L, title = "Chip custom", thumbnailUrl = "chip-custom")
+    private companion object {
+        val CUSTOM_COVER = Info(1L, thumbnailUrl = "custom")
 
-        shownNovel(anchor, chip, CustomNovelInfo(novelId = 1L, title = "Custom"), own).title shouldBe "Custom"
-    }
+        fun Row.manga() = Manga.create()
+            .copy(id = id, title = title, description = description, genre = genre, thumbnailUrl = thumbnailUrl)
 
-    @Test
-    fun `a manga chip ignores a custom row read for another entry`() {
-        val anchor = Manga.create().copy(id = 1L)
-        val chip = Manga.create().copy(id = 2L, thumbnailUrl = "chip")
-        val stale = CustomMangaInfo(mangaId = 3L, thumbnailUrl = "other")
+        fun Row.novel() = Novel.create()
+            .copy(id = id, title = title, description = description, genre = genre, thumbnailUrl = thumbnailUrl)
 
-        shownManga(anchor, chip, null, stale).thumbnailUrl shouldBe "chip"
-    }
+        fun Info.manga() = CustomMangaInfo(mangaId = id, title = title, thumbnailUrl = thumbnailUrl)
 
-    @Test
-    fun `a novel chip ignores a custom row read for another entry`() {
-        val anchor = Novel.create().copy(id = 1L)
-        val chip = Novel.create().copy(id = 2L, thumbnailUrl = "chip")
-        val stale = CustomNovelInfo(novelId = 3L, thumbnailUrl = "other")
-
-        shownNovel(anchor, chip, null, stale).thumbnailUrl shouldBe "chip"
+        fun Info.novel() = CustomNovelInfo(novelId = id, title = title, thumbnailUrl = thumbnailUrl)
     }
 }

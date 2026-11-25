@@ -1,53 +1,55 @@
 package reikai.presentation.novel.details
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.presentation.details.EntrySourceState
 
 /** The source a novel's header names, browses and opens settings for is the viewed member's own. */
 class ViewedNovelSourceTest {
 
-    private val anchorId = 1L
-    private val siblingId = 2L
-
-    @Test
-    fun `a sibling whose plugin is not installed resolves to no source, not the anchor's`() {
-        viewedNovelSource(siblingId, anchorId, siblings = emptyMap(), anchorSource = "anchor-plugin") shouldBe null
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("viewed")
+    fun `the viewed member resolves to its own plugin, never the anchor's`(
+        @Suppress("UNUSED_PARAMETER") case: String,
+        viewedId: Long,
+        siblings: Map<Long, String>,
+        source: String?,
+    ) {
+        viewedNovelSource(viewedId, ANCHOR, siblings, anchorSource = "anchor-plugin") shouldBe source
     }
 
-    @Test
-    fun `an installed sibling resolves to its own plugin`() {
-        viewedNovelSource(siblingId, anchorId, mapOf(siblingId to "sibling-plugin"), "anchor-plugin") shouldBe
-            "sibling-plugin"
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("states")
+    fun `the viewed member's source state`(
+        @Suppress("UNUSED_PARAMETER") case: String,
+        viewedSource: String?,
+        isAnchorView: Boolean,
+        anchorMissing: Boolean,
+        state: EntrySourceState,
+    ) {
+        novelSourceState(viewedSource, isAnchorView, anchorMissing) shouldBe state
     }
 
-    @Test
-    fun `the anchor resolves to its own plugin`() {
-        viewedNovelSource(anchorId, anchorId, siblings = emptyMap(), anchorSource = "anchor-plugin") shouldBe
-            "anchor-plugin"
-    }
+    companion object {
+        private const val ANCHOR = 1L
+        private const val SIBLING = 2L
 
-    @Test
-    fun `an anchor whose plugin was looked up and not found is missing`() {
-        novelSourceState(viewedSource = null, isAnchorView = true, anchorMissing = true) shouldBe
-            EntrySourceState.Missing
-    }
+        @JvmStatic
+        fun viewed() = listOf(
+            Arguments.of("a sibling whose plugin is not installed", SIBLING, emptyMap<Long, String>(), null),
+            Arguments.of("an installed sibling", SIBLING, mapOf(SIBLING to "sibling-plugin"), "sibling-plugin"),
+            Arguments.of("the anchor", ANCHOR, emptyMap<Long, String>(), "anchor-plugin"),
+        )
 
-    @Test
-    fun `an anchor not looked up yet counts as installed, so the page does not flash a warning`() {
-        novelSourceState(viewedSource = null, isAnchorView = true, anchorMissing = false) shouldBe
-            EntrySourceState.Installed
-    }
-
-    @Test
-    fun `a sibling with no plugin is missing`() {
-        novelSourceState(viewedSource = null, isAnchorView = false, anchorMissing = false) shouldBe
-            EntrySourceState.Missing
-    }
-
-    @Test
-    fun `a viewed member with its plugin is installed`() {
-        novelSourceState(viewedSource = "plugin", isAnchorView = false, anchorMissing = true) shouldBe
-            EntrySourceState.Installed
+        @JvmStatic
+        fun states() = listOf(
+            Arguments.of("an anchor looked up and not found", null, true, true, EntrySourceState.Missing),
+            // So the page does not flash a warning.
+            Arguments.of("an anchor not looked up yet", null, true, false, EntrySourceState.Installed),
+            Arguments.of("a sibling with no plugin", null, false, false, EntrySourceState.Missing),
+            Arguments.of("a viewed member with its plugin", "plugin", false, true, EntrySourceState.Installed),
+        )
     }
 }

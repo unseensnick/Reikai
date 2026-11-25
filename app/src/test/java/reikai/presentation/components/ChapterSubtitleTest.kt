@@ -1,66 +1,64 @@
 package reikai.presentation.components
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
 /**
- * One rule, two callers: the manga adapter has a scanlator to add and the novel adapter does not, so
- * the shared row cannot be left to each of them to compose.
+ * The line under a chapter row: its source in a merged group, then its scanlator (a novel's translation group),
+ * for both content types alike, so neither adapter composes it on its own.
  */
 class ChapterSubtitleTest {
 
-    @Test
-    fun `a merged manga chapter names its source before its scanlator`() {
-        chapterSubtitle("MangaDex", "Some Group") shouldBe "MangaDex • Some Group"
+    @ParameterizedTest(name = "{0} and {1} read {2}")
+    @MethodSource("subtitles")
+    fun `the line names the source before the scanlator, leaving out what is missing`(
+        source: String?,
+        scanlator: String?,
+        line: String?,
+    ) {
+        chapterSubtitle(source, scanlator) shouldBe line
     }
 
-    @Test
-    fun `a merged novel chapter names its source alone`() {
-        chapterSubtitle("NovelUpdates", null) shouldBe "NovelUpdates"
+    @ParameterizedTest(name = "{0} is {1}")
+    @MethodSource("parts")
+    fun `a blank piece is nothing, so the row draws no separator for it`(value: String?, part: String?) {
+        subtitlePart(value) shouldBe part
     }
 
-    @Test
-    fun `an unmerged manga chapter still names its scanlator`() {
-        chapterSubtitle(null, "Some Group") shouldBe "Some Group"
+    @ParameterizedTest(name = "{0} labels {1}")
+    @MethodSource("groups")
+    fun `only a merged group's members are labelled with their source`(
+        members: Map<Long, String>,
+        labels: Map<Long, String>,
+    ) {
+        mergeSourceLabels(members) shouldBe labels
     }
 
-    @Test
-    fun `an unmerged novel chapter says nothing rather than drawing an empty line`() {
-        chapterSubtitle(null, null) shouldBe null
-    }
+    companion object {
+        @JvmStatic
+        fun subtitles() = listOf(
+            Arguments.of("MangaDex", "Some Group", "MangaDex • Some Group"),
+            Arguments.of("NovelUpdates", null, "NovelUpdates"),
+            Arguments.of(null, "Some Group", "Some Group"),
+            Arguments.of(null, null, null),
+            // Through subtitlePart, whose own cases are below.
+            Arguments.of("MangaDex", "   ", "MangaDex"),
+        )
 
-    @Test
-    fun `a blank scanlator is not a separator with nothing after it`() {
-        chapterSubtitle("MangaDex", "   ") shouldBe "MangaDex"
-    }
+        @JvmStatic
+        fun parts() = listOf(
+            Arguments.of("Some Group", "Some Group"),
+            Arguments.of("   ", null),
+            Arguments.of(null, null),
+        )
 
-    @Test
-    fun `a blank source does not lead the line`() {
-        chapterSubtitle("  ", "Some Group") shouldBe "Some Group"
-    }
-
-    @Test
-    fun `a piece with text is kept`() {
-        subtitlePart("Some Group") shouldBe "Some Group"
-    }
-
-    @Test
-    fun `a blank piece is nothing, so the row draws no separator for it`() {
-        subtitlePart("   ") shouldBe null
-    }
-
-    @Test
-    fun `an absent piece stays absent`() {
-        subtitlePart(null) shouldBe null
-    }
-
-    @Test
-    fun `every member of a merged group is labelled with its source`() {
-        mergeSourceLabels(mapOf(1L to "A", 2L to "B")) shouldBe mapOf(1L to "A", 2L to "B")
-    }
-
-    @Test
-    fun `a group of one labels nothing, since every row would carry the same name`() {
-        mergeSourceLabels(mapOf(1L to "A")) shouldBe emptyMap()
+        @JvmStatic
+        fun groups() = listOf(
+            Arguments.of(mapOf(1L to "A", 2L to "B"), mapOf(1L to "A", 2L to "B")),
+            // Every row would carry the same name.
+            Arguments.of(mapOf(1L to "A"), emptyMap<Long, String>()),
+        )
     }
 }

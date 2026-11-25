@@ -1,22 +1,24 @@
 package reikai.presentation.details
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class HeaderSourceTest {
 
-    @Test
-    fun `the unified view of a merged group names the whole group`() {
-        headerNamesWholeGroup(sourceCount = 2, selectedSource = null) shouldBe true
-    }
-
-    @Test
-    fun `a chosen source of a merged group names that source`() {
-        headerNamesWholeGroup(sourceCount = 2, selectedSource = 7L) shouldBe false
-    }
-
-    @Test
-    fun `a series with one source names it`() {
-        headerNamesWholeGroup(sourceCount = 1, selectedSource = null) shouldBe false
+    @ParameterizedTest(name = "{0} sources, chip {1}: {2}")
+    @CsvSource(
+        // The unified view of a merged group.
+        "2, , true",
+        // A chosen source of a merged group names that source.
+        "2, 7, false",
+        "1, , false",
+    )
+    fun `only the unified view of a merged group names the whole group`(
+        sourceCount: Int,
+        selectedSource: Long?,
+        wholeGroup: Boolean,
+    ) {
+        headerNamesWholeGroup(sourceCount, selectedSource) shouldBe wholeGroup
     }
 }

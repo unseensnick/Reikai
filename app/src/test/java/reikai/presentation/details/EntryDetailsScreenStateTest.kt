@@ -3,51 +3,38 @@ package reikai.presentation.details
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DownloadTargets
 
 /** The page's download gate and cover anchoring derive from the one viewed member, for both types. */
 class EntryDetailsScreenStateTest {
 
-    @Test
-    fun `an installed viewed source offers downloads`() {
-        loaded(sourceState = EntrySourceState.Installed).chaptersDownloadable shouldBe true
+    @ParameterizedTest(name = "{0}: {1}")
+    @CsvSource("Installed, true", "Missing, false", "Local, false")
+    fun `only an installed viewed source offers downloads, a local one's files being the series itself`(
+        state: EntrySourceState,
+        downloadable: Boolean,
+    ) {
+        loaded(sourceState = state).chaptersDownloadable shouldBe downloadable
     }
 
-    @Test
-    fun `a missing viewed source offers no downloads`() {
-        loaded(sourceState = EntrySourceState.Missing).chaptersDownloadable shouldBe false
+    // A local source's row keeps Mihon's disabled control; a missing one's keeps it only for what is on disk.
+    @ParameterizedTest(name = "{0}, {1}: {2}")
+    @CsvSource("Missing, NOT_DOWNLOADED, false", "Missing, DOWNLOADED, true", "Local, NOT_DOWNLOADED, true")
+    fun `a row's download control follows its source and what it has on disk`(
+        state: EntrySourceState,
+        download: Download.State,
+        offered: Boolean,
+    ) {
+        loaded(sourceState = state).rowOffersDownload(ROW, download) shouldBe offered
     }
 
-    @Test
-    fun `a local viewed source offers no downloads, its files being the series itself`() {
-        loaded(sourceState = EntrySourceState.Local).chaptersDownloadable shouldBe false
-    }
-
-    @Test
-    fun `a missing source's row with nothing downloaded offers no download control`() {
-        loaded(sourceState = EntrySourceState.Missing).rowOffersDownload(ROW, Download.State.NOT_DOWNLOADED) shouldBe
-            false
-    }
-
-    @Test
-    fun `a missing source's downloaded row keeps its download control`() {
-        loaded(sourceState = EntrySourceState.Missing).rowOffersDownload(ROW, Download.State.DOWNLOADED) shouldBe true
-    }
-
-    @Test
-    fun `a local source's row keeps Mihon's disabled download control`() {
-        loaded(sourceState = EntrySourceState.Local).rowOffersDownload(ROW, Download.State.NOT_DOWNLOADED) shouldBe true
-    }
-
-    @Test
-    fun `the cover is anchored while the page shows the anchor`() {
-        loaded(viewedEntryId = ANCHOR).isCoverAnchored shouldBe true
-    }
-
-    @Test
-    fun `the cover is not anchored while the page shows a sibling`() {
-        loaded(viewedEntryId = SIBLING).isCoverAnchored shouldBe false
+    @ParameterizedTest(name = "viewing {0}: {1}")
+    @CsvSource("$ANCHOR, true", "$SIBLING, false")
+    fun `the cover is anchored only while the page shows the anchor`(viewed: Long, anchored: Boolean) {
+        loaded(viewedEntryId = viewed).isCoverAnchored shouldBe anchored
     }
 
     @Test

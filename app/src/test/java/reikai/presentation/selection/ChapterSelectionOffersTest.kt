@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.details.EntryChapterListItem
@@ -19,11 +20,6 @@ import reikai.presentation.recents.chapterState
 class ChapterSelectionOffersTest {
 
     private fun offers(vararg chapters: ChapterMarks) = chapterSelectionOffers(chapters.toList(), emptyList())
-
-    private fun downloadOffers(vararg downloads: Download.State?) = chapterSelectionOffers(
-        emptyList(),
-        downloads.toList(),
-    )
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("rows")
@@ -55,29 +51,32 @@ class ChapterSelectionOffersTest {
     }
 
     /** Each row's own control downloads a finished chapter, and so does upstream's Updates bar. */
-    @Test
-    fun `a finished chapter not on disk can be downloaded from the selection`() {
-        downloadOffers(Download.State.NOT_DOWNLOADED).download shouldBe true
-    }
+    @ParameterizedTest(name = "{0}: download {1}, delete {2}")
+    @MethodSource("downloadStates")
+    fun `a finished chapter's selection offers Download off the device and Delete on it`(
+        state: Download.State?,
+        download: Boolean,
+        delete: Boolean,
+    ) {
+        val finished = RowProbe.DETAILS.make(true, ChapterProgress.Pages(9, pageCount = 38))
 
-    @Test
-    fun `a selection already on disk offers no download`() {
-        downloadOffers(Download.State.DOWNLOADED).download shouldBe false
-    }
+        val offers = chapterSelectionOffers(listOf(finished), listOf(state))
 
-    @Test
-    fun `a selection already on disk offers delete`() {
-        downloadOffers(Download.State.DOWNLOADED).delete shouldBe true
-    }
-
-    @Test
-    fun `a selected row with no chapter offers no download`() {
-        downloadOffers(null).download shouldBe false
+        offers.download shouldBe download
+        offers.delete shouldBe delete
     }
 
     companion object {
         @JvmStatic
         fun rows() = listOf(RowProbe.RECENTS, RowProbe.DETAILS)
+
+        // Null is a row with no download control.
+        @JvmStatic
+        fun downloadStates() = listOf(
+            Arguments.of(Download.State.NOT_DOWNLOADED, true, false),
+            Arguments.of(Download.State.DOWNLOADED, false, true),
+            Arguments.of(null, false, false),
+        )
 
         @JvmStatic
         fun startedRows() = rows().flatMap { row -> RecentsChapterFiltersTest.startedProbes().map { arrayOf(row, it) } }

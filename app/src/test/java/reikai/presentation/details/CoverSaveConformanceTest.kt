@@ -22,7 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.CoverColors
 import reikai.domain.entry.EntryId
@@ -50,11 +50,9 @@ class CoverSaveConformanceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["manga", "novel"])
-    fun `a cover that saved nothing says the save failed`(type: String) = runTest {
-        val appScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
-        val model = if (type == "manga") MangaCoverEditProbe(appScope) else NovelCoverEditProbe(appScope)
-        val viewer = model.model(inLibrary = true)
+    @EnumSource(Type::class)
+    fun `a cover that saved nothing says the save failed`(type: Type) = runTest {
+        val viewer = type.probe(CoroutineScope(UnconfinedTestDispatcher(testScheduler))).model(inLibrary = true)
         loaded(viewer)
 
         viewer.saveCover(mockk(relaxed = true), cover = "model")
@@ -64,10 +62,10 @@ class CoverSaveConformanceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["manga", "novel"])
-    fun `a cover that saved says so`(type: String) = runTest {
+    @EnumSource(Type::class)
+    fun `a cover that saved says so`(type: Type) = runTest {
         coEvery { savePicture(any(), any(), any(), any(), any(), any()) } returns mockk<Uri>()
-        val viewer = probe(type, CoroutineScope(UnconfinedTestDispatcher(testScheduler))).model(inLibrary = true)
+        val viewer = type.probe(CoroutineScope(UnconfinedTestDispatcher(testScheduler))).model(inLibrary = true)
         loaded(viewer)
 
         viewer.saveCover(mockk(relaxed = true), cover = "model")
@@ -77,10 +75,10 @@ class CoverSaveConformanceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["manga", "novel"])
-    fun `a cover that shared nothing says the share failed`(type: String) = runTest {
+    @EnumSource(Type::class)
+    fun `a cover that shared nothing says the share failed`(type: Type) = runTest {
         every { any<Context>().stringResource(MR.strings.error_sharing_cover) } returns "share error"
-        val viewer = probe(type, CoroutineScope(UnconfinedTestDispatcher(testScheduler))).model(inLibrary = true)
+        val viewer = type.probe(CoroutineScope(UnconfinedTestDispatcher(testScheduler))).model(inLibrary = true)
         loaded(viewer)
 
         viewer.shareCover(mockk(relaxed = true), cover = "model")
@@ -91,8 +89,8 @@ class CoverSaveConformanceTest {
 
     /** A custom cover's removal is a write the closed viewer must not cut off, as Save is. */
     @ParameterizedTest
-    @ValueSource(strings = ["manga", "novel"])
-    fun `a custom cover deleted as the viewer closes is still deleted`(type: String) = runTest {
+    @EnumSource(Type::class)
+    fun `a custom cover deleted as the viewer closes is still deleted`(type: Type) = runTest {
         val written = CompletableDeferred<Unit>()
         val cleared = mutableListOf<EntryId>()
         val clear = mockk<ClearCustomCover> {
@@ -101,7 +99,7 @@ class CoverSaveConformanceTest {
                 cleared += firstArg<EntryId>()
             }
         }
-        val probe = probe(type, CoroutineScope(UnconfinedTestDispatcher(testScheduler)), clear)
+        val probe = type.probe(CoroutineScope(UnconfinedTestDispatcher(testScheduler)), clear)
         val viewer = probe.model(inLibrary = true)
         loaded(viewer)
 
@@ -113,16 +111,12 @@ class CoverSaveConformanceTest {
         cleared shouldBe listOf(probe.id)
     }
 
-    private fun probe(
-        type: String,
-        appScope: CoroutineScope,
-        clear: ClearCustomCover = mockk(relaxed = true),
-    ): CoverEditProbe = if (type ==
-        "manga"
-    ) {
-        MangaCoverEditProbe(appScope, clear)
-    } else {
-        NovelCoverEditProbe(appScope, clear)
+    enum class Type(private val make: (CoroutineScope, ClearCustomCover) -> CoverEditProbe) {
+        MANGA(::MangaCoverEditProbe),
+        NOVEL(::NovelCoverEditProbe),
+        ;
+
+        fun probe(appScope: CoroutineScope, clear: ClearCustomCover = mockk(relaxed = true)) = make(appScope, clear)
     }
 
     private fun TestScope.loaded(model: EntryCoverViewModel<*>) {

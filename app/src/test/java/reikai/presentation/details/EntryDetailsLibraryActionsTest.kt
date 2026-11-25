@@ -2,6 +2,8 @@ package reikai.presentation.details
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.source.SourceKey
 
 /** The library-only actions and the Tracking tap, decided once by the shared body for both types. */
@@ -35,24 +37,13 @@ class EntryDetailsLibraryActionsTest {
         onCoverClick = {},
     )
 
-    @Test
-    fun `an entry outside the library offers no Migrate`() {
-        nav.forState(loaded(favorite = false)).shared.onMigrate shouldBe null
-    }
+    @ParameterizedTest(name = "in library {0}")
+    @ValueSource(booleans = [true, false])
+    fun `only a library entry offers Migrate and the interval editor`(favorite: Boolean) {
+        val shown = nav.forState(loaded(favorite = favorite))
 
-    @Test
-    fun `an entry outside the library offers no interval editor`() {
-        nav.forState(loaded(favorite = false)).perType.onEditInterval shouldBe null
-    }
-
-    @Test
-    fun `a library entry offers Migrate`() {
-        nav.forState(loaded(favorite = true)).shared.onMigrate shouldBe migrate
-    }
-
-    @Test
-    fun `a library entry offers the interval editor`() {
-        nav.forState(loaded(favorite = true)).perType.onEditInterval shouldBe editInterval
+        shown.shared.onMigrate shouldBe migrate.takeIf { favorite }
+        shown.perType.onEditInterval shouldBe editInterval.takeIf { favorite }
     }
 
     @Test

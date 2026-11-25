@@ -1,7 +1,9 @@
 package reikai.presentation.details
 
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
 /**
  * Open folder and Clear downloads in the details overflow act on the member this rule names, for manga
@@ -9,39 +11,47 @@ import org.junit.jupiter.api.Test
  */
 class DownloadFolderOwnerTest {
 
-    private data class Member(val id: Long, val isAnchor: Boolean = false, val hasFiles: Boolean = false)
+    data class Member(val id: Long, val isAnchor: Boolean = false, val hasFiles: Boolean = false)
 
-    private val anchor = Member(1, isAnchor = true)
-    private val sibling = Member(2)
-
-    private fun owner(viewed: Member?, group: List<Member>) =
-        downloadFolderOwner(viewed, group, isAnchor = { it.isAnchor }, hasDownloads = { it.hasFiles })
-
-    @Test
-    fun `a unified view whose only downloads are on a sibling opens the sibling's folder`() {
-        val withFiles = sibling.copy(hasFiles = true)
-        owner(viewed = null, group = listOf(anchor, withFiles)) shouldBe withFiles
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("owners")
+    fun `the folder opened is the viewed member's, or under All the anchor's before a sibling's`(
+        @Suppress("UNUSED_PARAMETER") case: String,
+        viewed: Member?,
+        group: List<Member>,
+        owner: Member?,
+    ) {
+        downloadFolderOwner(viewed, group, isAnchor = { it.isAnchor }, hasDownloads = { it.hasFiles }) shouldBe owner
     }
 
-    @Test
-    fun `a unified view prefers the anchor's folder when it holds files`() {
-        val anchorWithFiles = anchor.copy(hasFiles = true)
-        owner(viewed = null, group = listOf(sibling.copy(hasFiles = true), anchorWithFiles)) shouldBe anchorWithFiles
-    }
+    companion object {
+        private val ANCHOR = Member(1, isAnchor = true)
+        private val ANCHOR_WITH_FILES = ANCHOR.copy(hasFiles = true)
+        private val SIBLING = Member(2)
+        private val SIBLING_WITH_FILES = SIBLING.copy(hasFiles = true)
 
-    @Test
-    fun `a chip whose own source holds nothing offers nothing, even when a sibling does`() {
-        owner(viewed = sibling, group = listOf(anchor.copy(hasFiles = true), sibling)) shouldBe null
-    }
-
-    @Test
-    fun `a chip whose own source holds files opens its own folder`() {
-        val withFiles = sibling.copy(hasFiles = true)
-        owner(viewed = withFiles, group = listOf(anchor.copy(hasFiles = true), withFiles)) shouldBe withFiles
-    }
-
-    @Test
-    fun `an entry with nothing on disk offers nothing`() {
-        owner(viewed = null, group = listOf(anchor)) shouldBe null
+        @JvmStatic
+        fun owners() = listOf(
+            Arguments.of(
+                "All with downloads only on a sibling",
+                null,
+                listOf(ANCHOR, SIBLING_WITH_FILES),
+                SIBLING_WITH_FILES,
+            ),
+            Arguments.of(
+                "All with files on the anchor too",
+                null,
+                listOf(SIBLING_WITH_FILES, ANCHOR_WITH_FILES),
+                ANCHOR_WITH_FILES,
+            ),
+            Arguments.of("a chip holding nothing", SIBLING, listOf(ANCHOR_WITH_FILES, SIBLING), null),
+            Arguments.of(
+                "a chip holding files",
+                SIBLING_WITH_FILES,
+                listOf(ANCHOR_WITH_FILES, SIBLING_WITH_FILES),
+                SIBLING_WITH_FILES,
+            ),
+            Arguments.of("nothing on disk", null, listOf(ANCHOR), null),
+        )
     }
 }

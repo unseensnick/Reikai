@@ -5,6 +5,9 @@ import androidx.compose.ui.geometry.Rect
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
 /** The tag rules the edit-info dialog applies, for manga and novels alike. */
 class EntryTagsTest {
@@ -70,32 +73,28 @@ class EntryTagsTest {
         groupSourceTags(longArrayOf(1, 2)) { tags[it] } shouldBe listOf("Action", "Drama")
     }
 
-    @Test
-    fun `a drop on a chip takes its place`() {
-        tagDropIndex(ROW_OF_TWO, Offset(150f, 10f)) shouldBe 1
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("drops")
+    fun `a drop lands on the chip under it, at the end past them, and nowhere in a gap`(
+        @Suppress("UNUSED_PARAMETER") case: String,
+        chips: List<Rect>,
+        x: Float,
+        y: Float,
+        index: Int?,
+    ) {
+        tagDropIndex(chips, Offset(x, y)) shouldBe index
     }
 
-    @Test
-    fun `a drop past the last chip goes to the end`() {
-        tagDropIndex(ROW_OF_TWO, Offset(500f, 10f)) shouldBe 1
-    }
+    companion object {
+        private val ROW_OF_TWO = listOf(Rect(0f, 0f, 100f, 20f), Rect(110f, 0f, 200f, 20f))
 
-    @Test
-    fun `a drop below every chip goes to the end`() {
-        tagDropIndex(ROW_OF_TWO, Offset(10f, 300f)) shouldBe 1
-    }
-
-    @Test
-    fun `a drop in a gap between chips moves nothing`() {
-        tagDropIndex(ROW_OF_TWO, Offset(105f, 10f)) shouldBe null
-    }
-
-    @Test
-    fun `a chip not laid out yet takes no drop`() {
-        tagDropIndex(listOf(Rect.Zero, Rect(110f, 0f, 200f, 20f)), Offset(0f, 0f)) shouldBe null
-    }
-
-    private companion object {
-        val ROW_OF_TWO = listOf(Rect(0f, 0f, 100f, 20f), Rect(110f, 0f, 200f, 20f))
+        @JvmStatic
+        fun drops() = listOf(
+            Arguments.of("on a chip", ROW_OF_TWO, 150f, 10f, 1),
+            Arguments.of("past the last chip", ROW_OF_TWO, 500f, 10f, 1),
+            Arguments.of("below every chip", ROW_OF_TWO, 10f, 300f, 1),
+            Arguments.of("in a gap", ROW_OF_TWO, 105f, 10f, null),
+            Arguments.of("on a chip not laid out yet", listOf(Rect.Zero, ROW_OF_TWO[1]), 0f, 0f, null),
+        )
     }
 }
