@@ -1,7 +1,6 @@
 package reikai.domain.library
 
 import tachiyomi.core.common.util.lang.compareToWithCollator
-import kotlin.random.Random
 import kotlin.time.Instant
 
 /**
@@ -80,7 +79,7 @@ fun <T> librarySortComparator(
             return cmp.then(tiebreak)
         }
         LibrarySortMode.Random -> {
-            val base = compareBy<T> { Random(randomSeed + fields.id(it)).nextInt() }
+            val base = compareBy<T> { randomKey(randomSeed, fields.id(it)) }
             return (if (isAscending) base else base.reversed()).then(tiebreak)
         }
         else -> Unit
@@ -99,4 +98,15 @@ fun <T> librarySortComparator(
         LibrarySortMode.UnreadCount, LibrarySortMode.Random -> error("handled above")
     }
     return (if (isAscending) base else base.reversed()).then(tiebreak)
+}
+
+/**
+ * SplitMix64's mix of [id] under [seed]: a stable pseudo-random key, cheap enough to run per comparison,
+ * where a seeded Random per comparison discards 64 draws before its first.
+ */
+private fun randomKey(seed: Long, id: Long): Long {
+    var z = seed + id * 0x9E3779B97F4A7C15UL.toLong()
+    z = (z xor (z ushr 30)) * 0xBF58476D1CE4E5B9UL.toLong()
+    z = (z xor (z ushr 27)) * 0x94D049BB133111EBUL.toLong()
+    return z xor (z ushr 31)
 }
