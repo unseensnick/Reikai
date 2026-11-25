@@ -425,6 +425,10 @@ class NovelReaderViewModelHarness private constructor(
         downloaded[chapter.id] = text
     }
 
+    /** What details screens opened after it is set relink a local series through. */
+    // A remote novel's failed refresh offers no folders, as offerAfterFailure answers for one.
+    var localSeriesRelink = mockk<LocalSeriesRelink> { coEvery { offerAfterFailure(any(), any(), false) } returns null }
+
     /** What the reader's trim behind it queued for deletion on leaving. */
     val pendingDeletes = mutableListOf<NovelChapter>()
 
@@ -725,11 +729,6 @@ class NovelReaderViewModelHarness private constructor(
                 chapterRepo,
                 reikaiLibraryPreferences,
             )
-        // A remote novel's failed refresh offers no folders, as offerAfterFailure answers for one.
-        val localSeriesRelink = mockk<LocalSeriesRelink> {
-            coEvery { offerAfterFailure(any(), any(), false) } returns
-                null
-        }
         val uiPreferences = mockk<UiPreferences>(relaxed = true) {
             every { themeCoverBased } returns store.getBoolean("theme_cover_based", false)
         }

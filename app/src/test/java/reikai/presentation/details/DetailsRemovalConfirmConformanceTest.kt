@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -103,13 +104,13 @@ class DetailsRemovalConfirmConformanceTest {
         override suspend fun heartOnLibraryEntry(scope: TestScope): Pair<Boolean, List<Long>> =
             withModel(favorite = true) { model, removed ->
                 val success = model.state.filterIsInstance<MangaViewModel.State.Success>()
-                withTimeout(WAIT_MS) {
-                    success.first()
-                    model.toggleFavorite()
+                withTimeout(WAIT_MS) { success.first() }
+                model.toggleFavorite()
+                val opened = withTimeoutOrNull(WAIT_MS) {
                     success.first { it.dialog is MangaViewModel.Dialog.RemoveFromLibrary }
-                }
+                } != null
                 scope.testScheduler.advanceUntilIdle()
-                true to removed.toList()
+                opened to removed.toList()
             }
 
         override suspend fun staleConfirm(scope: TestScope): List<Long> = withModel(favorite = false) {
@@ -166,15 +167,15 @@ class DetailsRemovalConfirmConformanceTest {
                 val removed = CopyOnWriteArrayList<Long>()
                 harness.removeNovelsFromLibrary = recording(removed)
                 val model = harness.openDetails(harness.novel(harness.source("alpha")))
-                withTimeout(WAIT_MS) {
-                    model.state.first { it is NovelDetailsState.Loaded }
-                    model.toggleFavorite()
+                withTimeout(WAIT_MS) { model.state.first { it is NovelDetailsState.Loaded } }
+                model.toggleFavorite()
+                val opened = withTimeoutOrNull(WAIT_MS) {
                     model.state.first {
                         (it as? NovelDetailsState.Loaded)?.dialog is NovelDetailsDialog.RemoveFromLibrary
                     }
-                }
+                } != null
                 scope.testScheduler.advanceUntilIdle()
-                true to removed.toList()
+                opened to removed.toList()
             }
 
         override suspend fun staleConfirm(scope: TestScope): List<Long> =
