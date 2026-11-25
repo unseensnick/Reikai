@@ -17,8 +17,7 @@ class GetNovelCategories(
 ) {
     suspend fun await(): List<Category> = categoryRepository.getAll(CategoryContentType.NOVEL)
 
-    suspend fun awaitByNovelId(novelId: Long?): List<Category> =
-        novelId?.let { categoryRepository.getCategoriesByNovelId(it) }.orEmpty()
+    suspend fun awaitByNovelId(novelId: Long): List<Category> = categoryRepository.getCategoriesByNovelId(novelId)
 
     fun subscribe(): Flow<List<Category>> = categoryRepository.getAllAsFlow(CategoryContentType.NOVEL)
 }
