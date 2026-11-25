@@ -50,6 +50,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.SourceKey
 import reikai.novel.download.FakeSharedPreferences
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
@@ -317,7 +318,7 @@ class SourcePaceConformanceTest {
             }
 
             override suspend fun checkForUpdates() = updateBySource(listOf(manga), sourceOf = {
-                it.source
+                SourceKey.Manga(it.source)
             }, contacts) {}
 
             override suspend fun remove(chapterId: Long) = downloader.dequeue(listOf(chapter(chapterId)))
@@ -392,7 +393,9 @@ class SourcePaceConformanceTest {
 
             override suspend fun pause() = manager.pauseDownloads()
 
-            override suspend fun checkForUpdates() = updateBySource(listOf(novel), sourceOf = Novel::source, contacts) {
+            override suspend fun checkForUpdates() = updateBySource(listOf(novel), sourceOf = {
+                SourceKey.Novel(it.source)
+            }, contacts) {
             }
 
             override suspend fun remove(chapterId: Long) = manager.cancelDownloads(listOf(chapterId))

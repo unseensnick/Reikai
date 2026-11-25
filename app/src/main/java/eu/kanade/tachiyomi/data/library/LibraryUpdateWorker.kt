@@ -56,6 +56,7 @@ import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateSkip
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import reikai.domain.source.SourceKey
 import reikai.util.workRunningFlow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -264,7 +265,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
 
         // The sources at once and the one-at-a-time within each are one rule, and the skip, the progress
         // and the error bookkeeping are one step, both shared with the novel update job
-        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }, sourceContacts) { libraryManga ->
+        updateBySource(mangaToUpdate, sourceOf = { SourceKey.Manga(it.manga.source) }, sourceContacts) { libraryManga ->
             val manga = libraryManga.manga
             val outcome = checkUpdateEntry(
                 stillInLibrary = { getManga.await(manga.id)?.favorite == true },

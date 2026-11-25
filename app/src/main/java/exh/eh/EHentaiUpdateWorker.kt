@@ -44,6 +44,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.domain.source.SourceKey
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -176,8 +177,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                             updatedThisIteration + failuresThisIteration,
                             mangaMetaToUpdateThisIter.size,
                         )
-                        // Keyed as updateBySource keys it, so a download queued after waits out the delay.
-                        sourceContacts.reaching(manga.source.toString()) { updateEntryAndGetChapters(manga) }
+                        // So a download queued after waits out the delay.
+                        sourceContacts.reaching(SourceKey.Manga(manga.source)) { updateEntryAndGetChapters(manga) }
                     } catch (e: GalleryNotUpdatedException) {
                         if (e.network) {
                             failuresThisIteration++

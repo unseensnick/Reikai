@@ -60,6 +60,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
 import reikai.domain.novel.updateerror.UpsertNovelUpdateError
+import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.RunSources
@@ -196,7 +197,7 @@ class NovelUpdateWorker(
             ledger.progressed(done, total)
         }
         val sources = RunSources(installer, sourceManager)
-        updateBySource(favorites, sourceOf = Novel::source, sourceContacts) { novel ->
+        updateBySource(favorites, sourceOf = { SourceKey.Novel(it.source) }, sourceContacts) { novel ->
             val outcome = checkUpdateEntry(
                 stillInLibrary = { novelRepo.getById(novel.id)?.favorite == true },
                 progress = { check -> updates.around(novel, check) },

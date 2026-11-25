@@ -9,6 +9,7 @@ import reikai.data.novel.update.NovelUpdateNotifier
 import reikai.domain.download.SourceContacts
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
+import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.RunSources
@@ -46,7 +47,7 @@ class NovelMetadataRefresh(
             onProgress({ notifier.visibleTitles(updating) }, done, total)
         }
         val sources = RunSources(installer, sourceManager)
-        updateBySource(novels, sourceOf = Novel::source, sourceContacts) { novel ->
+        updateBySource(novels, sourceOf = { SourceKey.Novel(it.source) }, sourceContacts) { novel ->
             updates.around(novel) {
                 runCatchingCancellable { refresh(novel, sources) }.onFailure { logcat(LogPriority.ERROR, it) }
             }

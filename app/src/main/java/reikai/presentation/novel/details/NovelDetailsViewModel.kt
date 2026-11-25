@@ -136,6 +136,7 @@ import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.reader.ChapterListFilters
 import reikai.domain.reader.novelChapterListFilters
+import reikai.domain.source.SourceKey
 import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.TrackedChapterNumber
 import reikai.domain.track.autobind.AutoBindTrackers
@@ -1115,7 +1116,7 @@ class NovelDetailsViewModel(
         toDownload: MutableList<NovelChapter>,
         viewedPage: Long? = null,
     ): Novel =
-        sourceContacts.reaching(novel.source) {
+        sourceContacts.reaching(SourceKey.Novel(novel.source)) {
             refreshNovelFromSource(
                 novel,
                 src,

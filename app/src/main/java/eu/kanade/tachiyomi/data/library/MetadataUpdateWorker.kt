@@ -23,6 +23,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.updateBySource
 import reikai.data.novel.NovelMetadataRefresh
 import reikai.domain.download.SourceContacts
+import reikai.domain.source.SourceKey
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.model.LibraryManga
@@ -112,7 +113,7 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
         progressTotal = mangaToUpdate.size + novelMetadataRefresh.libraryCount()
 
         // RK: the kernel the novel pass and both update jobs run on
-        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }, sourceContacts) { libraryManga ->
+        updateBySource(mangaToUpdate, sourceOf = { SourceKey.Manga(it.manga.source) }, sourceContacts) { libraryManga ->
             val manga = libraryManga.manga
 
             withUpdateNotification(

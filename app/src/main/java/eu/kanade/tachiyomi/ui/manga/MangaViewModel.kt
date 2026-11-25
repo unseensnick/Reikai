@@ -147,6 +147,7 @@ import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.isInLibrary
 import reikai.domain.recommendation.localIdOf
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.source.SourceKey
 import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.RemoteFirstRemoval
 import reikai.domain.track.TrackedChapterNumber
@@ -756,7 +757,7 @@ class MangaViewModel(
             val newChapters = Collections.synchronizedList(mutableListOf<Chapter>())
 
             // Recorded as a contact, so a new chapter queued below still waits out the source's delay
-            suspend fun fetch(source: Source, manga: Manga) = sourceContacts.reaching(source.id.toString()) {
+            suspend fun fetch(source: Source, manga: Manga) = sourceContacts.reaching(SourceKey.Manga(source.id)) {
                 updateMangaFromRemote(
                     source = source,
                     manga = manga,

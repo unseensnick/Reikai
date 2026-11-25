@@ -51,6 +51,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.novel.ownersOf
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.SourceKey
 import reikai.domain.source.SourceTitlesRepository
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.RunSources
@@ -538,7 +539,7 @@ class NovelDownloadManager(
         // The least delay the source declares binds its retries as well as its pacing.
         val minimumMs = source?.minimumRequestDelayMs ?: 0L
         // A source an update or an earlier run reached moments ago waits out its delay before this chapter too.
-        delay(sourceContacts.waitBefore(claimed.source, paceFloor(claimed.source, minimumMs)))
+        delay(sourceContacts.waitBefore(SourceKey.Novel(claimed.source), paceFloor(claimed.source, minimumMs)))
         if (!startDownloading(next.chapterId)) return
         // What the notices name it by; the chapter is still saved under the source title.
         val shown = novel?.withCustomInfo(getEntryCustomInfo.await(EntryId.Novel(novel.id)))
@@ -628,7 +629,7 @@ class NovelDownloadManager(
             }
         } finally {
             // Also when a pause cancels a fetch, which may have reached the site.
-            sourceContacts.record(claimed.source)
+            sourceContacts.record(SourceKey.Novel(claimed.source))
         }
         if (connectionLost) {
             // Requeue so it's re-picked when the connection returns (not left DOWNLOADING or ERROR).

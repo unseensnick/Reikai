@@ -35,6 +35,7 @@ import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.source.SourceKey
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
 import reikai.presentation.novel.details.NovelDetailsState
@@ -90,8 +91,8 @@ class MergedNewChapterDownloadConformanceTest {
     fun `a refresh counts as reaching each member's source`(type: ContentType) = runTest {
         val contacts = SourceContacts { 0L }
         val sources = when (type) {
-            ContentType.MANGA -> mangaJudged(contacts).let { listOf("1", "2") }
-            else -> novelJudged(contacts).let { listOf("alpha", "beta") }
+            ContentType.MANGA -> mangaJudged(contacts).let { listOf(SourceKey.Manga(1L), SourceKey.Manga(2L)) }
+            else -> novelJudged(contacts).let { listOf(SourceKey.Novel("alpha"), SourceKey.Novel("beta")) }
         }
 
         sources.map { contacts.waitBefore(it, floorMs = 1_000L) } shouldBe listOf(1_000L, 1_000L)

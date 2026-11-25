@@ -24,6 +24,7 @@ import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.collapseNewChapters
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.source.SourceKey
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -134,9 +135,9 @@ class UpdateRunLedger<E, C>(private val report: (done: Int, total: Int) -> Unit)
  * first, and one entry at a time within a source, so no site takes two of the run's requests together. Each
  * check marks its source reached in [contacts] as it ends, so a chapter queued after waits out the delay.
  */
-suspend fun <E, S> updateBySource(
+suspend fun <E> updateBySource(
     entries: List<E>,
-    sourceOf: (E) -> S,
+    sourceOf: (E) -> SourceKey,
     contacts: SourceContacts,
     check: suspend (E) -> Unit,
 ) {
@@ -149,8 +150,7 @@ suspend fun <E, S> updateBySource(
                     semaphore.withPermit {
                         inSource.forEach {
                             ensureActive()
-                            // As a string, the key both downloaders pace a source by.
-                            contacts.reaching(sourceOf(it).toString()) { check(it) }
+                            contacts.reaching(sourceOf(it)) { check(it) }
                         }
                     }
                 }

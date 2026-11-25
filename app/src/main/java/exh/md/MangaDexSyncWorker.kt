@@ -41,6 +41,7 @@ import reikai.domain.manga.AdultContentChecker
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.SourceKey
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.util.notificationIcon
 import reikai.util.runCatchingCancellable
@@ -248,7 +249,7 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
                     // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
                     // only carries followStatus and would blank the rating until a manual refresh.
                     // Recorded so a download queued after the sync waits out the source's delay.
-                    local = sourceContacts.reaching(mangaDex.id.toString()) {
+                    local = sourceContacts.reaching(SourceKey.Manga(mangaDex.id)) {
                         updateMangaFromRemote(local, fetchDetails = true, fetchChapters = true)
                     }.getOrThrow().manga
                     // A refused favorite write leaves the follow out of the library, so it reports as failed.

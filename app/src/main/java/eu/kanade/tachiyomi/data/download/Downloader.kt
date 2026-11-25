@@ -64,6 +64,7 @@ import reikai.domain.download.hasRoomToDownload // RK
 import reikai.domain.download.parallelPagesFor // RK
 import reikai.domain.download.parallelSourcesFor // RK
 import reikai.domain.manga.MangaPreferences
+import reikai.domain.source.SourceKey
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -343,7 +344,7 @@ class Downloader(
         val pace = SourcePace() // RK
         while (true) {
             // RK: a source an update or an earlier run reached moments ago waits out its delay first; Off never waits
-            delay(sourceContacts.waitBefore(source.id.toString(), paceFloor(source)))
+            delay(sourceContacts.waitBefore(SourceKey.Manga(source.id), paceFloor(source)))
             // A canceled job can mark a chapter as downloading after it's been reset, so that counts as waiting too
             val download = queueState
                 .map { queue ->
@@ -359,7 +360,7 @@ class Downloader(
             val job = launchDownloadJob(download, slots, pagesStarted, owner)
             downloadJobs[download] = job
             // RK: as the chapter ends, even when its own end stops the downloader and cancels this loop
-            job.invokeOnCompletion { sourceContacts.record(source.id.toString()) }
+            job.invokeOnCompletion { sourceContacts.record(SourceKey.Manga(source.id)) }
             job.invokeOnCompletion {
                 downloadJobs.remove(download, job)
                 // A job canceled before it starts never reaches its finally block
