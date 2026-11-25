@@ -19,11 +19,15 @@ import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
+import okhttp3.MediaType
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
+import okio.BufferedSource
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -615,5 +619,35 @@ class CloudflareInterceptorTest {
         val code = runBounded { interceptor.intercept(chain("https://site.example/page")) }?.code
 
         (code to marked) shouldBe (200 to listOf("site.example"))
+    }
+
+    @Test
+    fun `a WebView fetch on a served host can send its redirect to another site back through the chain`() {
+        val fetcher = mockk<WebViewFetcher> {
+            every { serves(any()) } returns true
+            every { fetch(any(), any()) } answers {
+                val hop = secondArg<Request>().newBuilder().url("https://cdn.example/page").build()
+                WebViewFetcher.Outcome.Served(firstArg<Interceptor.Chain>().proceed(hop))
+            }
+        }
+        CloudflareInterceptor::class.java.getDeclaredField("webViewFetcher").apply { isAccessible = true }
+            .set(interceptor, fetcher)
+        val bodyOpen = AtomicBoolean(false)
+        val respond = { request: Request ->
+            // As OkHttp's RealCall, which refuses a new exchange while the last response's body is open.
+            check(!bodyOpen.get()) { "response body still open" }
+            bodyOpen.set(true)
+            val response = if (request.url.host == "cdn.example") ok(request) else challenge(request)
+            response.newBuilder().body(closeTracked(bodyOpen)).build()
+        }
+
+        runBounded { interceptor.intercept(chain("https://site.example/page", respond)) }?.code shouldBe 200
+    }
+
+    private fun closeTracked(open: AtomicBoolean) = object : ResponseBody() {
+        override fun contentType(): MediaType? = null
+        override fun contentLength() = 0L
+        override fun source(): BufferedSource = Buffer()
+        override fun close() = open.set(false)
     }
 }

@@ -202,16 +202,14 @@ class CloudflareInterceptor(
                 // Not knowsRoute: a sibling's solve can leave the host to the server after the check
                 // above, which would send a request the server carries into the WebView.
                 webViewAnswers(request, fetchRequest) -> {
+                    // Closed first, as solve does: OkHttp refuses the chain a redirect hop while it is open.
+                    response.close()
                     clearClearance(request.url, challengeUrl)
                     val since = solveCount.get()
                     when (val outcome = webViewFetcher.fetch(chain, fetchRequest)) {
-                        is WebViewFetcher.Outcome.Served -> {
-                            response.close()
-                            served(chain, outcome.response, since)
-                        }
+                        is WebViewFetcher.Outcome.Served -> served(chain, outcome.response, since)
                         // As a failed solve, so the caller can still offer the blocked page to open.
                         is WebViewFetcher.Outcome.Failed -> {
-                            response.close()
                             logcat(LogPriority.WARN, outcome.error) { "WebView fetch failed for ${request.url.host}" }
                             throw CloudflareBypassException()
                         }
