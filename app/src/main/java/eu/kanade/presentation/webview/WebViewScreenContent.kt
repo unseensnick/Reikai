@@ -56,7 +56,7 @@ import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.TabClose
 import reikai.presentation.webview.WebPageAction
 import reikai.presentation.webview.pageHtml
-import reikai.util.isDebugInspectorBuild
+import reikai.util.applyWebContentsDebugging
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -382,11 +382,9 @@ fun WebViewScreenContent(
                     webView.setDefaultSettings()
 
                     // Debug mode (chrome://inspect/#devices)
-                    // RK --> the gate the novel web reader shares, since it can switch the inspector off
-                    if (webView.context.isDebugInspectorBuild()) {
-                        // RK <--
-                        WebView.setWebContentsDebuggingEnabled(true)
-                    }
+                    // RK --> the developer tools setting, which a debug build keeps on regardless
+                    webView.context.applyWebContentsDebugging()
+                    // RK <--
 
                     webView.setUserAgent(headers["user-agent"] ?: defaultUserAgentProvider())
                 },

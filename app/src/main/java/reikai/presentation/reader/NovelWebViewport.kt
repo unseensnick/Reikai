@@ -57,8 +57,7 @@ import reikai.presentation.reader.web.NovelWebDocument
 import reikai.presentation.reader.web.NovelWebFonts
 import reikai.presentation.reader.web.NovelWebImages
 import reikai.presentation.reader.web.NovelWebSnippets
-import reikai.util.isDebugInspectorBuild
-import reikai.util.webContentsDebugging
+import reikai.util.applyWebContentsDebugging
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
@@ -224,7 +223,7 @@ class NovelWebViewport(
 
     internal val webView = WebView(context).apply {
         setDefaultSettings()
-        WebView.setWebContentsDebuggingEnabled(webContentsDebugging(devTools, context.isDebugInspectorBuild()))
+        context.applyWebContentsDebugging(devTools)
         if (devTools) {
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(message: ConsoleMessage): Boolean {

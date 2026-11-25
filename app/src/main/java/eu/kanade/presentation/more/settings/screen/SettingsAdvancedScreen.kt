@@ -59,8 +59,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.settings.bypassPreferenceItems
 import reikai.presentation.settings.forgetAllWebStorage
-import reikai.util.isDebugInspectorBuild
-import reikai.util.webContentsDebugging
+import reikai.util.applyWebContentsDebugging
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -486,9 +485,7 @@ data object SettingsAdvancedScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_novel_webview_dev_tools_summary),
                     // The switch is process-wide, so it changes now rather than when a novel page is next built.
                     onValueChanged = { on ->
-                        WebView.setWebContentsDebuggingEnabled(
-                            webContentsDebugging(on, context.isDebugInspectorBuild()),
-                        )
+                        context.applyWebContentsDebugging(on)
                         true
                     },
                 ),

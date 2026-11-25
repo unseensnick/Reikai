@@ -356,7 +356,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Settings -> Advanced -> Clear cookies and Clear WebView data now also sign novel plugins out of their sites.**
 - **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page, and no longer shows a stale result after the address or sign-in changes.** A source that fails through the server reports the server's reason too.
-- **Settings -> Advanced -> Novel web page developer tools now turns off the moment you untick it.** It stayed on until a novel was next opened.
+- **Settings -> Advanced -> Novel web page developer tools now takes effect at once on every web page in the app, after a restart too.** It used to wait until a novel was next opened.
 - **Novel find-and-replace rules and code snippets keep what you typed when the screen rotates while you edit them.**
 - **TalkBack now says which novel font is selected and whether a novel find-and-replace rule or code snippet is on.**
 - **Picking a storage folder the app can't write to now says so instead of saving it (from Mihon).** Upstream: mihonapp/mihon#3510.

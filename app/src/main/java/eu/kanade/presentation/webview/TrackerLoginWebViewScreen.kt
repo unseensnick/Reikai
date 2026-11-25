@@ -26,6 +26,7 @@ import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.presentation.webview.WebViewLoadingBar
 import reikai.presentation.webview.closeOnRendererGone
+import reikai.util.applyWebContentsDebugging
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -100,6 +101,7 @@ fun TrackerLoginWebViewScreen(
                     .weight(1f),
                 onCreated = {
                     it.setDefaultSettings()
+                    it.context.applyWebContentsDebugging()
                     // Must match what OkHttp sends: a Cloudflare clearance cookie is bound to the agent
                     // that earned it, so a sign-in solved here would be rejected on every later request.
                     it.setUserAgent(defaultUserAgentProvider())

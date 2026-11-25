@@ -21,6 +21,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import reikai.util.applyWebContentsDebugging
 import reikai.util.scriptString
 import tachiyomi.core.common.util.lang.withUIContext
 import kotlin.coroutines.resume
@@ -68,6 +69,7 @@ internal class PluginPageRenderer(private val appContext: Context) {
         var loaded = false
         val webView = WebView(appContext).apply {
             setDefaultSettings()
+            appContext.applyWebContentsDebugging()
             // Through setUserAgent, so the client hints name the same browser as the agent.
             request.userAgent?.takeIf { it.isNotBlank() }?.let(::setUserAgent)
             webViewClient = object : WebViewClient() {

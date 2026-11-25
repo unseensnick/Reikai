@@ -36,7 +36,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
 import reikai.presentation.webview.WebViewLoadingBar
 import reikai.presentation.webview.closeOnRendererGone
-import reikai.util.isDebugInspectorBuild
+import reikai.util.applyWebContentsDebugging
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Button
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -105,10 +105,7 @@ fun EhLoginWebViewScreen(
                         webView.setDefaultSettings()
 
                         // Debug mode (chrome://inspect/#devices)
-                        // The gate the novel web reader shares, since it can switch the inspector off
-                        if (webView.context.isDebugInspectorBuild()) {
-                            WebView.setWebContentsDebuggingEnabled(true)
-                        }
+                        webView.context.applyWebContentsDebugging()
                     },
                     client = webClient,
                 )
