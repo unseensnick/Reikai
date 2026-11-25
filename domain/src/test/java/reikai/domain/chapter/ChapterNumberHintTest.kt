@@ -77,9 +77,11 @@ class ChapterNumberHintTest {
         hints(misplacedCopy().undated(2L, 177L)) shouldBe mapOf(177L to hint(null))
     }
 
-    @Test
-    fun `an undated neighbour leaves a misplaced copy marked`() {
-        hints(misplacedCopy().undated(176L)) shouldBe mapOf(177L to hint(null))
+    // 176 and 178 are the rows listed before and after the copy, 2 its twin.
+    @ParameterizedTest
+    @ValueSource(longs = [176L, 178L, 2L])
+    fun `an undated neighbour or twin leaves a misplaced copy marked`(undated: Long) {
+        hints(misplacedCopy().undated(undated)) shouldBe mapOf(177L to hint(null))
     }
 
     @Test
