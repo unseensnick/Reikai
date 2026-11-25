@@ -310,7 +310,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         )
         private val removal = mockk<RemoveMangaFromLibrary> {
             coEvery { takeOut(any()) } returns emptyMap()
-            coEvery { restore(any()) } returns Unit
+            coEvery { restore(any()) } returns true
             coEvery { finish(any()) } returns Unit
             coEvery { await(any()) } returns emptyList()
         }

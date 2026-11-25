@@ -29,8 +29,9 @@ class VolumeMoves(private val scope: CoroutineScope, val snackbarHostState: Snac
         scope.launch { block() }
     }
 
-    suspend fun report(context: Context, move: LocalVolumeMove, message: String): Boolean =
+    suspend fun report(context: Context, move: LocalVolumeMove, message: String) {
         snackbarHostState.reportVolumeMove(context, move, message)
+    }
 
     /** Asks the screen to push [route], as soon as one is composed to. */
     fun open(route: NavKey) {

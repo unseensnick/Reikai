@@ -1,9 +1,7 @@
 // RK: whole file, one category list for both content types, see docs/dev/subsystems/library.md
 package eu.kanade.tachiyomi.ui.category
 
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,8 +21,8 @@ import kotlinx.coroutines.flow.collect
 import mihon.core.navigation.LocalNavigator
 import reikai.domain.category.toCategoryContentType
 import reikai.domain.library.ContentType
+import reikai.presentation.components.showUndo
 import tachiyomi.core.common.i18n.pluralStringResource
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -152,13 +150,8 @@ private fun CategoryManager(
     val undoable = successState.undoableDeletes.firstOrNull()
     LaunchedEffect(undoable) {
         if (undoable == null) return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = context.pluralStringResource(MR.plurals.categories_deleted, undoable.count, undoable.count),
-            actionLabel = context.stringResource(MR.strings.action_undo),
-            duration = SnackbarDuration.Short,
-            withDismissAction = true,
-        )
-        if (result == SnackbarResult.ActionPerformed) {
+        val message = context.pluralStringResource(MR.plurals.categories_deleted, undoable.count, undoable.count)
+        if (snackbarHostState.showUndo(context, message)) {
             onUndoDelete(undoable.batch)
         } else {
             onCommitDelete(undoable.batch)

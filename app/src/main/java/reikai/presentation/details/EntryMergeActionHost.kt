@@ -1,10 +1,9 @@
 package reikai.presentation.details
 
 import android.content.Context
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
@@ -15,6 +14,7 @@ import reikai.data.local.LocalMoveResult
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.MergeManager
 import reikai.presentation.components.reportVolumeMove
+import reikai.presentation.components.showUndo
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
@@ -111,11 +111,13 @@ class EntryMergeActionHost(
                 if (!undone) withContext(NonCancellable) { removal.finish(joined.keys.toList()) }
             }
             if (undone) {
-                lasting {
+                val restored = lasting {
                     mergeManager.restoreGroup(snapshot)
-                    removal.restore(joined)
+                    // A failed write leaves them out, so the removal is finished as one that stood.
+                    removal.restore(joined).also { if (!it) removal.finish(joined.keys.toList()) }
                 }
                 withIOContext { group.refresh(anchorId()) }
+                if (!restored) context.toast(MR.strings.merge_sources_restore_failed)
             } else {
                 withIOContext { offerToDeleteDownloads(joined.keys.toList()) }
             }
@@ -159,13 +161,6 @@ class EntryMergeActionHost(
     // A write a closed screen must not cut off runs on the app scope, and the screen only waits for it.
     private suspend fun <T> lasting(write: suspend () -> T): T = appScope.async { write() }.await()
 
-    private suspend fun undoRequested(message: StringResource): Boolean {
-        val result = snackbarHostState.showSnackbar(
-            message = context.stringResource(message),
-            actionLabel = context.stringResource(MR.strings.action_undo),
-            duration = SnackbarDuration.Short,
-            withDismissAction = true,
-        )
-        return result == SnackbarResult.ActionPerformed
-    }
+    private suspend fun undoRequested(message: StringResource): Boolean =
+        snackbarHostState.showUndo(context, context.stringResource(message))
 }

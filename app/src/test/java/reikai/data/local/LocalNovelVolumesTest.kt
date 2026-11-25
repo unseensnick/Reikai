@@ -151,7 +151,7 @@ class LocalNovelVolumesTest {
                 takenOut += firstArg<List<Long>>()
                 emptyMap()
             }
-            coEvery { restore(any()) } returns Unit
+            coEvery { restore(any()) } returns true
             coEvery { finish(any()) } returns Unit
             coEvery { await(any()) } returns emptyList()
         }

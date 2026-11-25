@@ -3,6 +3,8 @@ package reikai.presentation.details
 import android.content.Context
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.util.system.toast
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -114,14 +116,15 @@ class EntryMergeActionHostTest {
     @BeforeEach
     fun setUp() {
         virtualDispatchers()
-        mockkStatic(LOCALIZE)
+        mockkStatic(LOCALIZE, TOAST)
         every { any<Context>().stringResource(any()) } returns "localized"
+        every { any<Context>().toast(any<StringResource>(), any(), any()) } returns mockk(relaxed = true)
         every { any<Context>().stringResource(any(), *anyVararg()) } returns "localized"
     }
 
     @AfterEach
     fun tearDown() {
-        unmockkStatic(LOCALIZE)
+        unmockkStatic(LOCALIZE, TOAST)
         resetVirtualDispatchers()
     }
 
@@ -158,6 +161,16 @@ class EntryMergeActionHostTest {
 
         removal.favoriteAt shouldBe
             mapOf(1L to Instant.fromEpochMilliseconds(100L), 2L to Instant.fromEpochMilliseconds(200L))
+    }
+
+    @Test
+    fun `an undo whose write fails finishes the removal it leaves standing`() = runTest {
+        removal.failRestore = true
+        host.removeSourcesFromLibrary(SOURCES)
+        snackbarResult.complete(SnackbarResult.ActionPerformed)
+
+        removal.allCoversDropped.await()
+        removal.coversDropped.sorted() shouldBe SOURCES
     }
 
     @Test
@@ -247,12 +260,15 @@ class EntryMergeActionHostTest {
         val coversDropped: MutableList<Long> = Collections.synchronizedList(mutableListOf())
         val restored = CompletableDeferred<Unit>()
         val takenOut = CompletableDeferred<Unit>()
+        val allCoversDropped = CompletableDeferred<Unit>()
+        var failRestore = false
 
         override fun entryId(id: Long) = EntryId.Manga(id)
 
         override suspend fun favoriteAt(id: Long) = favoriteAt[id]
 
         override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean {
+            if (failRestore && favoriteAt.values.all { it != null }) return false
             this.favoriteAt.putAll(favoriteAt)
             if (favoriteAt.values.all { it != null }) restored.complete(Unit)
             if (favoriteAt.values.all { it == null }) takenOut.complete(Unit)
@@ -261,6 +277,7 @@ class EntryMergeActionHostTest {
 
         override suspend fun deleteCovers(id: Long) {
             coversDropped += id
+            if (coversDropped.size == SOURCES.size) allCoversDropped.complete(Unit)
         }
     }
 
@@ -269,5 +286,6 @@ class EntryMergeActionHostTest {
         val GROUP = GroupSnapshot(listOf(1L, 2L, 3L), overrideSourceRanking = true)
         val MOVED = LocalMoveResult.Moved
         const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
+        const val TOAST = "eu.kanade.tachiyomi.util.system.ToastExtensionsKt"
     }
 }

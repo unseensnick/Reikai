@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -79,6 +77,7 @@ import reikai.presentation.browse.globalsearch.EntryGlobalSearchRoute
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
+import reikai.presentation.components.showUndo
 import reikai.presentation.details.detailsRoute
 import reikai.presentation.library.CombineVolumesDialog // RK
 import reikai.presentation.library.LibraryBucket
@@ -238,16 +237,11 @@ fun LibraryTab() {
                 ManualOrderDrag { order, moved ->
                     engine.moveInCategory(category, order)
                     scope.launch {
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        val result = snackbarHostState.showSnackbar(
-                            message = context.stringResource(
-                                MR.strings.library_manual_order_moved,
-                                moved.libraryManga.manga.title,
-                            ),
-                            actionLabel = context.stringResource(MR.strings.action_undo),
-                            duration = SnackbarDuration.Short,
+                        val message = context.stringResource(
+                            MR.strings.library_manual_order_moved,
+                            moved.libraryManga.manga.title,
                         )
-                        if (result == SnackbarResult.ActionPerformed) engine.undoManualMove()
+                        if (snackbarHostState.showUndo(context, message)) engine.undoManualMove()
                     }
                 }
             }

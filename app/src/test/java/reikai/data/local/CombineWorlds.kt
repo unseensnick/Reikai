@@ -237,7 +237,7 @@ internal class MangaCombineWorld(context: Context) : CombineWorld(ContentType.MA
             updateMangaFromRemote = refresh,
             removeManga = mockk<RemoveMangaFromLibrary> {
                 coEvery { takeOut(any()) } returns emptyMap()
-                coEvery { restore(any()) } returns Unit
+                coEvery { restore(any()) } returns true
                 coEvery { finish(any()) } returns Unit
                 coEvery { await(any()) } returns emptyList()
             },
@@ -401,7 +401,7 @@ internal class NovelCombineWorld(context: Context) : CombineWorld(ContentType.NO
             novelDownloadManager = { downloads },
             removeNovels = mockk<RemoveNovelsFromLibrary> {
                 coEvery { takeOut(any()) } returns emptyMap()
-                coEvery { restore(any()) } returns Unit
+                coEvery { restore(any()) } returns true
                 coEvery { finish(any()) } returns Unit
                 coEvery { await(any()) } returns emptyList()
             },

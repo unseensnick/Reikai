@@ -27,13 +27,7 @@ suspend fun SnackbarHostState.reportVolumeMove(context: Context, move: LocalVolu
     }
     var undoing = false
     try {
-        currentSnackbarData?.dismiss()
-        undoing = showSnackbar(
-            message = message,
-            actionLabel = context.stringResource(MR.strings.action_undo),
-            duration = SnackbarDuration.Short,
-            withDismissAction = true,
-        ) == SnackbarResult.ActionPerformed
+        undoing = showUndo(context, message)
     } finally {
         if (!undoing) move.finish()
     }
@@ -45,4 +39,15 @@ suspend fun SnackbarHostState.reportVolumeMove(context: Context, move: LocalVolu
         move.finish()
     }
     return undone is LocalMoveResult.Failed
+}
+
+/** The Undo snackbar every move and removal offers, in place of one already showing; answers if Undo was tapped. */
+suspend fun SnackbarHostState.showUndo(context: Context, message: String): Boolean {
+    currentSnackbarData?.dismiss()
+    return showSnackbar(
+        message = message,
+        actionLabel = context.stringResource(MR.strings.action_undo),
+        duration = SnackbarDuration.Short,
+        withDismissAction = true,
+    ) == SnackbarResult.ActionPerformed
 }

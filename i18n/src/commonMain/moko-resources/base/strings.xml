@@ -207,6 +207,7 @@
     <string name="merge_sources_remove_all_action">Remove all from library</string>
     <string name="merge_sources_split">Split from the merged group</string>
     <string name="merge_sources_removed">Removed from library</string>
+    <string name="merge_sources_restore_failed">Couldn't put the sources back in your library</string>
     <string name="merge_unified">Unified</string>
     <string name="action_merge_source_icons">Show source icons on merged covers</string>
     <!-- RK: master merging switch -->

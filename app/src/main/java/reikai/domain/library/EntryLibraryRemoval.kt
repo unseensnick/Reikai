@@ -33,10 +33,8 @@ abstract class EntryLibraryRemoval(
         return joined.takeIf { write(it.mapValues { null }) }.orEmpty()
     }
 
-    /** Puts entries [takeOut] removed back in the library with the date each had joined it. */
-    suspend fun restore(joined: Map<Long, Instant>) {
-        write(joined)
-    }
+    /** Puts entries [takeOut] removed back in the library with the date each had joined it, answering if it did. */
+    suspend fun restore(joined: Map<Long, Instant>): Boolean = write(joined)
 
     /**
      * What a removal does once it is final, after any Undo window: drops the covers, and hands a local series'
