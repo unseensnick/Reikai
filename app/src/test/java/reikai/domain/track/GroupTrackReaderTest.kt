@@ -2,7 +2,10 @@ package reikai.domain.track
 
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
@@ -51,6 +54,29 @@ class GroupTrackReaderTest {
         )
 
         reader.groupIds(1L) shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `subscribe emits the entry's own tracks before the group resolves`() = runTest {
+        val tracks = mapOf(1L to listOf(Row(1L, 10L, 0.0)), 2L to listOf(Row(2L, 20L, 0.0)))
+        val reader = GroupTrackReader(
+            sharingEnabled = { true },
+            // The membership lookup hits the database, which is why the first emission skips it.
+            relatedIds = {
+                delay(10)
+                listOf(1L, 2L)
+            },
+            groupChanges = flowOf(Unit),
+            readOne = { emptyList() },
+            observeOne = { flowOf(tracks.getValue(it)) },
+            trackerId = Row::trackerId,
+            lastChapterRead = Row::lastChapterRead,
+        )
+
+        val emissions = reader.subscribe(1L).toList()
+
+        emissions.first().map { it.trackerId } shouldContainExactly listOf(10L)
+        emissions.last().map { it.trackerId } shouldContainExactly listOf(10L, 20L)
     }
 
     @Test
