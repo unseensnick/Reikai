@@ -81,7 +81,7 @@ class HiddenEntriesContentTest {
     }
 
     @Test
-    fun `Unhide puts the selection back`() {
+    fun `the Unhide button asks for the unhide`() {
         show(HiddenEntriesState(rows, ContentType.ALL, setOf(EntryId.Manga(1))))
 
         compose.onNodeWithContentDescription("Unhide").performClick()

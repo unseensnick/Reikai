@@ -7,7 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.library.sortForCategory
-import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
@@ -16,7 +16,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 /** The write half of the sort-override scope: per-category sort is on, so only the scope decides. */
 class SetSortModeForCategoryTest {
 
-    private val preferences = LibraryPreferences(EmittingPreferenceStore())
+    private val preferences = LibraryPreferences(InMemoryPreferenceStore())
         .apply { categorizedDisplaySettings.set(true) }
     private val chosen = LibrarySort(LibrarySort.Type.TotalChapters, LibrarySort.Direction.Descending)
 

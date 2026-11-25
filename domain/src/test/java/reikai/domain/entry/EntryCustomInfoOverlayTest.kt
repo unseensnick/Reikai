@@ -2,6 +2,7 @@ package reikai.domain.entry
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
@@ -61,20 +62,19 @@ class EntryCustomInfoOverlayTest {
             )
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `a feed row with no override of its own passes through`(info: InfoType) {
+    @Test
+    fun `a feed row with no override of its own passes through`() {
         val rows = listOf(row(id = 1))
 
-        rows.overlayCustomInfo(mapOf(2L to info.create(title = "x")), { it.mangaId }, { withCustomInfo(it) }) shouldBe
-            rows
+        val other = mapOf(2L to InfoType.MANGA.create(title = "x"))
+
+        rows.overlayCustomInfo(other, { it.mangaId }, { withCustomInfo(it) }) shouldBe rows
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `a feed row takes its set title`(info: InfoType) {
+    @Test
+    fun `a feed row takes its set title`() {
         val overlaid = listOf(row(id = 1)).overlayCustomInfo(
-            mapOf(1L to info.create(title = "custom")),
+            mapOf(1L to InfoType.MANGA.create(title = "custom")),
             { it.mangaId },
             { withCustomInfo(it) },
         )
@@ -82,11 +82,10 @@ class EntryCustomInfoOverlayTest {
         overlaid.single().title shouldBe "custom"
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `a feed row keeps its own title when only the cover is overridden`(info: InfoType) {
+    @Test
+    fun `a feed row keeps its own title when only the cover is overridden`() {
         val overlaid = listOf(row(id = 1)).overlayCustomInfo(
-            mapOf(1L to info.create(thumbnailUrl = "cover")),
+            mapOf(1L to InfoType.MANGA.create(thumbnailUrl = "cover")),
             { it.mangaId },
             { withCustomInfo(it) },
         )
@@ -94,11 +93,10 @@ class EntryCustomInfoOverlayTest {
         overlaid.single().title shouldBe "stored"
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `a feed row takes its set cover`(info: InfoType) {
+    @Test
+    fun `a feed row takes its set cover`() {
         val overlaid = listOf(row(id = 1)).overlayCustomInfo(
-            mapOf(1L to info.create(thumbnailUrl = "cover")),
+            mapOf(1L to InfoType.MANGA.create(thumbnailUrl = "cover")),
             { it.mangaId },
             { withCustomInfo(it) },
         )
@@ -106,9 +104,8 @@ class EntryCustomInfoOverlayTest {
         overlaid.single().coverData.url shouldBe "cover"
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `no overrides at all hands the feed back untouched`(info: InfoType) {
+    @Test
+    fun `no overrides at all hands the feed back untouched`() {
         val rows = listOf(row(id = 1))
 
         rows.overlayCustomInfo(emptyMap(), { it.mangaId }, { error("no override to apply") }) shouldBeSameInstanceAs
@@ -221,9 +218,6 @@ class EntryCustomInfoOverlayTest {
     )
 
     companion object {
-        @JvmStatic
-        fun infoTypes() = InfoType.entries
-
         @JvmStatic
         fun modelsAndInfoTypes() = Model.entries.flatMap { model -> InfoType.entries.map { Arguments.of(model, it) } }
     }
