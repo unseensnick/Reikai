@@ -57,7 +57,7 @@ import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.merge.stitchInputChanges
+import reikai.domain.merge.reconcileOnStitchInputChanges
 import reikai.domain.source.isInstalled
 import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryFilterPrefs
@@ -277,20 +277,13 @@ class LibraryViewModel(
 
     // RK -->
     init {
-        // RK: a newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
-        //     unread count would be wrong until something wrote them. Reconciling off the membership
-        //     flow covers every merge and unmerge from one place, instead of hooking each action. The
-        //     membership query re-runs on every write to the mangas table, at the cost of one pass over
-        //     the grouped manga, and a reconcile runs only when the answer changed. Stays always-on
-        //     rather than riding the shared state: a restore can regroup entries while the library
-        //     renders nothing. The preferred-source list rides along, since it picks each group's trunk.
+        // Always on, ungated: a restore can regroup entries while the library renders nothing.
         viewModelScope.launchIO {
-            stitchInputChanges(
+            reconcileMergedChapters.reconcileOnStitchInputChanges(
                 ContentType.MANGA,
                 mergeGroupRepository,
                 reikaiLibraryPreferences,
             )
-                .collectLatest { reconcileMergedChapters.await() }
         }
     }
     // RK <--

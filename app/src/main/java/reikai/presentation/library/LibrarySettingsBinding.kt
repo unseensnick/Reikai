@@ -3,8 +3,13 @@ package reikai.presentation.library
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.tagFilterFlow
 import tachiyomi.core.common.preference.Preference
@@ -82,6 +87,27 @@ data class LibraryProviderSettings(
     val filterAxes: StateFlow<List<LibraryFilterAxis>>,
     val categories: StateFlow<List<Category>>,
 )
+
+/**
+ * One type's [LibraryProviderSettings] on its model's [scope], from its smart-update [updateRestrictions] and
+ * its [categories], sorted as the library sorts them. A provider builds it lazily, so neither flow starts on
+ * the model until a sheet asks.
+ */
+fun libraryProviderSettings(
+    scope: CoroutineScope,
+    updateRestrictions: Preference<Set<String>>,
+    categories: Flow<List<Category>>,
+    libraryPreferences: LibraryPreferences,
+    reikaiLibraryPreferences: ReikaiLibraryPreferences,
+): LibraryProviderSettings {
+    fun axes(restrictions: Set<String>) = libraryFilterAxes(libraryPreferences, reikaiLibraryPreferences, restrictions)
+    return LibraryProviderSettings(
+        filterAxes = updateRestrictions.changes().map(::axes)
+            .stateIn(scope, SharingStarted.Eagerly, axes(updateRestrictions.get())),
+        categories = categories.sortedByCategoryPref(reikaiLibraryPreferences)
+            .stateIn(scope, SharingStarted.WhileSubscribed(), emptyList()),
+    )
+}
 
 /**
  * One view's settings sheet, described rather than rendered, so a sheet change is written once for

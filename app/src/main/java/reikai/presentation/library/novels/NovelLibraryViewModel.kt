@@ -34,7 +34,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.merge.stitchInputChanges
+import reikai.domain.merge.reconcileOnStitchInputChanges
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
@@ -68,12 +68,10 @@ import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
-import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIdsOf
 import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.seriesTags
-import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.library.withCustomInfo
 import reikai.util.runCatchingCancellable
@@ -197,19 +195,13 @@ class NovelLibraryViewModel(
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
         // badges); NovelLibraryRows.rows re-emits the build once the sources register.
         viewModelScope.launchIO { runCatchingCancellable { installer.ensureLoaded() } }
-        // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
-        // unread count would be wrong until something wrote them. Reconciling off the membership flow
-        // covers every merge and unmerge from one place. The membership query re-runs on every write to
-        // the novels table, at the cost of one pass over the grouped novels, and a reconcile runs only
-        // when the answer changed. Stays always-on: a restore can regroup entries while the library
-        // renders nothing. The preferred-source list rides along, since it picks each group's trunk.
+        // Always on, ungated: a restore can regroup entries while the library renders nothing.
         viewModelScope.launchIO {
-            stitchInputChanges(
+            reconcileMergedChapters.reconcileOnStitchInputChanges(
                 ContentType.NOVELS,
                 mergeGroupRepository,
                 reikaiLibraryPreferences,
             )
-                .collectLatest { reconcileMergedChapters.await() }
         }
     }
 
@@ -238,11 +230,6 @@ class NovelLibraryViewModel(
         val membersByRep = groups.associate { it.representative.novel.id to it.memberIds }
         val tracksByRep = membersByRep.mapValues { (_, memberIds) -> mergedGroupTracks(memberIds, uiTracks) }
         val scoringTrackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id }
-        val trackerMeanScores = libraryTrackerMeans(
-            membersByRow = membersByRep,
-            tracksById = uiTracks,
-            trackers = scoringTrackers,
-        )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
         // novels at once. The per-type seams live in the accessors.
         val filterPrefs = filter.resolve()
@@ -298,7 +285,7 @@ class NovelLibraryViewModel(
             isLoading = false,
             favorites = items,
             allFavorites = allItems,
-            trackerMeans = trackerMeanScores,
+            tracks = tracks,
             novelById = novelById,
             tracksByRep = tracksByRep,
             loggedInTrackerIds = loggedInTrackerIds,
@@ -403,15 +390,6 @@ class NovelLibraryViewModel(
         }
     }
 
-    // --- settings sheet: LibraryEngine builds the library-wide part, this model only lists categories ---
-
-    /** Every category the novel library can file into (the system Default, universal and novel-only rows) in
-     *  the category sort order, for the settings sheet's category filter and per-category sort. Empty
-     *  categories stay in, since a filter or a sort can be set on one before anything is filed there. */
-    val filterPickerCategories: StateFlow<List<Category>> = getNovelCategories.subscribe()
-        .sortedByCategoryPref(reikaiLibraryPreferences)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
-
     data class State(
         val isLoading: Boolean = true,
         val searchQuery: String? = null,
@@ -423,9 +401,8 @@ class NovelLibraryViewModel(
         val favorites: List<LibraryItem> = emptyList(),
         /** Every merge-collapsed row before filter and search, which the tag picker counts over. */
         private val allFavorites: List<LibraryItem> = emptyList(),
-        /** Per-rep mean tracker score (0-10, unscored reps absent), for the sort and the provider seam
-         *  (LibraryProvider.trackerMeans). */
-        val trackerMeans: Map<Long, Double> = emptyMap(),
+        /** Each novel's own tracks, by novel id, which LibraryProvider.trackerMeans averages on demand. */
+        val tracks: Map<Long, List<NovelTrack>> = emptyMap(),
         /** Rep id -> its LibraryNovel and unioned merge-group tracks, carried for the dynamic-grouping
          *  feed seam (LibraryProvider.dynamicGroupingFeed), which resolves metadata the row cannot carry. */
         val novelById: Map<Long, LibraryNovel> = emptyMap(),

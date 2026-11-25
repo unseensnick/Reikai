@@ -1,6 +1,7 @@
 package reikai.domain.merge
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -30,3 +31,14 @@ fun stitchInputChanges(
         .distinctUntilChanged()
         .map { }
 }
+
+/**
+ * Reconciles [contentType]'s merged groups each time [stitchInputChanges] emits, for as long as it is collected:
+ * a newly grouped entry's chapters have no cross-source identities until a reconcile writes them. Each library
+ * runs it for its own type, so a change to one type's inputs leaves the other type's groups unread.
+ */
+suspend fun ReconcileMergedChapters.reconcileOnStitchInputChanges(
+    contentType: ContentType,
+    repository: MergeGroupRepository,
+    preferences: ReikaiLibraryPreferences,
+) = stitchInputChanges(contentType, repository, preferences).collectLatest { await(contentType) }

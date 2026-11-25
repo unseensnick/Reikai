@@ -23,6 +23,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.groupedSourceIdsOf
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.track.toUiTrack
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import tachiyomi.domain.category.model.Category
@@ -57,22 +58,16 @@ class NovelLibraryAdapter(
 
     override val contentType = ContentType.NOVELS
 
-    override val settings: LibraryProviderSettings =
-        LibraryProviderSettings(
-            // The custom-interval axis follows the novel smart-update restrictions, as manga's follows its own.
-            filterAxes = novelPreferences.novelUpdateRestrictions().changes()
-                .map { libraryFilterAxes(libraryPreferences, reikaiLibraryPreferences, it) }
-                .stateIn(
-                    model.viewModelScope,
-                    SharingStarted.Eagerly,
-                    libraryFilterAxes(
-                        libraryPreferences,
-                        reikaiLibraryPreferences,
-                        novelPreferences.novelUpdateRestrictions().get(),
-                    ),
-                ),
-            categories = model.filterPickerCategories,
+    // The custom-interval axis follows the novel smart-update restrictions, as manga's follows its own.
+    override val settings: LibraryProviderSettings by lazy {
+        libraryProviderSettings(
+            model.viewModelScope,
+            novelPreferences.novelUpdateRestrictions(),
+            getNovelCategories.subscribe(),
+            libraryPreferences,
+            reikaiLibraryPreferences,
         )
+    }
 
     // Shared while subscribed, not eagerly: an eager share here is a permanent subscriber on the model,
     // which would hold its subscriber gate open for the model's whole life, so its database updates would
@@ -92,11 +87,22 @@ class NovelLibraryAdapter(
         model.state.loadedRows({ it.isLoading }) { it.favorites }
 
     override val trackKey: Flow<Any?> =
-        model.state.map { Triple(it.trackerMeans, it.tracksByRep, it.loggedInTrackerIds) }.distinctUntilChanged()
+        model.state.map { Triple(it.tracks, it.tracksByRep, it.loggedInTrackerIds) }.distinctUntilChanged()
 
     override val updating: Flow<Boolean> = NovelUpdateWorker.isRunningFlow(context)
 
-    override fun trackerMeans(): Map<Long, Double> = model.state.value.trackerMeans
+    override fun trackerMeans(): Map<Long, Double> {
+        val state = model.state.value
+        val trackers = trackerManager.getAll(state.loggedInTrackerIds).associateBy { it.id }
+        val membersByRow = state.favorites.associate { it.id to it.memberIds() }
+        return libraryTrackerMeans(
+            membersByRow,
+            state.tracks.mapValues { (_, t) ->
+                t.map { it.toUiTrack() }
+            },
+            trackers,
+        )
+    }
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 

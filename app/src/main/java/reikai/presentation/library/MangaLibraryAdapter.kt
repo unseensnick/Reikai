@@ -57,24 +57,15 @@ class MangaLibraryAdapter(
 
     override val contentType = ContentType.MANGA
 
-    // `by lazy` because these flows start on the model's scope, which should not happen until a sheet asks.
     override val settings: LibraryProviderSettings by lazy {
-        LibraryProviderSettings(
-            filterAxes = libraryPreferences.autoUpdateMangaRestrictions.changes()
-                .map(::filterAxes)
-                .stateIn(
-                    model.viewModelScope,
-                    SharingStarted.Eagerly,
-                    filterAxes(libraryPreferences.autoUpdateMangaRestrictions.get()),
-                ),
-            categories = getCategories.subscribe()
-                .sortedByCategoryPref(reikaiLibraryPreferences)
-                .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
+        libraryProviderSettings(
+            model.viewModelScope,
+            libraryPreferences.autoUpdateMangaRestrictions,
+            getCategories.subscribe(),
+            libraryPreferences,
+            reikaiLibraryPreferences,
         )
     }
-
-    private fun filterAxes(updateRestrictions: Set<String>) =
-        libraryFilterAxes(libraryPreferences, reikaiLibraryPreferences, updateRestrictions)
 
     // Shared while subscribed, not eagerly: an eager share here is a permanent subscriber on the model,
     // which would hold its subscriber gate open for the model's whole life, so its database updates would

@@ -33,18 +33,22 @@ class ReconcileMergedChapters(
      * Rebuild every stale group of every content type. A group that fails is logged and keeps its claim
      * for the next run, so one bad group holds up neither the rest of its type nor the other type.
      */
-    suspend fun await() {
-        stitchers.forEach { stitcher ->
-            loggingFailure({ "${stitcher.contentType} merged groups were not reconciled" }) {
-                val rankings = stitcher.rankings()
-                val stored = repository.getRankings()
-                // Only this type's groups are compared: the stored stamps cover both types, and a group
-                // checked against the other type's stitcher would be cleared by it.
-                val reranked = rankings.filter { (groupId, ranking) -> stored[groupId] != ranking }.keys
-                (repository.claimPendingGroups(stitcher.contentType) + reranked).distinct().forEach { groupId ->
-                    loggingFailure({ "Merged group $groupId was not restitched" }) {
-                        rebuildIfStale(stitcher, groupId, rankings[groupId])
-                    }
+    suspend fun await() = stitchers.forEach { reconcile(it) }
+
+    /** [await] for [contentType]'s groups alone, for a trigger only that type's inputs set off. */
+    suspend fun await(contentType: ContentType) =
+        stitchers.filter { it.contentType == contentType }.forEach { reconcile(it) }
+
+    private suspend fun reconcile(stitcher: MergedGroupStitcher) {
+        loggingFailure({ "${stitcher.contentType} merged groups were not reconciled" }) {
+            val rankings = stitcher.rankings()
+            val stored = repository.getRankings()
+            // Only this type's groups are compared: the stored stamps cover both types, and a group
+            // checked against the other type's stitcher would be cleared by it.
+            val reranked = rankings.filter { (groupId, ranking) -> stored[groupId] != ranking }.keys
+            (repository.claimPendingGroups(stitcher.contentType) + reranked).distinct().forEach { groupId ->
+                loggingFailure({ "Merged group $groupId was not restitched" }) {
+                    rebuildIfStale(stitcher, groupId, rankings[groupId])
                 }
             }
         }

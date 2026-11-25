@@ -48,7 +48,7 @@ The tables are a cache, never truth. A row records the inputs it was derived fro
 
 - `ReconcileMergedChapters.afterPass` wraps every chapter-writing pass (library update, backup restore, the gallery and metadata workers, a chapter-number correction) and reconciles even when the pass fails or is cancelled.
 - `currentStitch` rebuilds one stale group before a screen renders it. Both chapter providers (`MergedChapterProvider`, `NovelMergedChapterProvider`) read through it.
-- The two libraries reconcile on `stitchInputChanges`: membership, library membership and the preferred-source list.
+- Each library reconciles its own type on `stitchInputChanges` (membership, library membership and the preferred-source list) through `reconcileOnStitchInputChanges`, so one type's change never re-reads the other's groups.
 
 `MergedChapterOrder` is the one ordering kernel. Each source is walked in its own listed order, best ranked first; a chapter an earlier source already placed moves a cursor to it, a new one lands just after the cursor. Chapter numbers are never compared across sources, because each site counts its own way. A source that matches nothing already placed goes at the end of the walk. The stitched position is stamped onto `sourceOrder` of an in-memory copy (`stampedReadingOrder`); nothing writes it back.
 
