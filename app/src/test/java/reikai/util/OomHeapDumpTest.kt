@@ -12,7 +12,7 @@ class OomHeapDumpTest {
 
     @Test
     fun `a crash caused by running out of memory dumps the heap`() {
-        handler.uncaughtException(Thread.currentThread(), RuntimeException(OutOfMemoryError()))
+        handler.uncaughtException(Thread.currentThread(), OutOfMemoryError())
         dumps shouldBe 1
     }
 
