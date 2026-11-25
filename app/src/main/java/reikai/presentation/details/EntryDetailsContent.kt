@@ -154,6 +154,8 @@ fun EntryDetailsContent(
     // A picked volume heads the page with its own cover, description and notes.
     val pickedVolume = volumes?.let { view -> view.chips.firstOrNull { it.key == view.picked } }
     val volumeFiles by produceState<VolumeOwnFiles?>(null, pickedVolume?.series, pickedVolume?.key) {
+        // produceState keeps its last value across a key change, which would head this volume with the last one's.
+        value = null
         value = pickedVolume?.let {
             VolumeOwnFiles(
                 cover = behavior.volumePicking.cover(type, it.series, it.key),
