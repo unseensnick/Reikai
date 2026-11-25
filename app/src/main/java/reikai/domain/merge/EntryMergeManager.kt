@@ -3,6 +3,7 @@ package reikai.domain.merge
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -23,8 +24,8 @@ open class EntryMergeManager(
     // The type's own "suggest grouping same-title series" switch, which each subclass hands in.
     private val sameTitlePreference: Preference<Boolean>,
     // Runs after a merge with the group's library members in order, so the members joining take the
-    // settings owner's chapter settings and categories (GroupChapterSettings.adoptOwnerSetting,
-    // GroupCategories.adoptOwnerCategories).
+    // settings owner's chapter settings, reader flags and categories (each type's chapter and viewer flag
+    // settings' adoptOwnerSetting, GroupCategories.adoptOwnerCategories).
     private val onMerged: suspend (memberIds: List<Long>) -> Unit,
     private val onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
 ) : MergeManager {
@@ -92,7 +93,7 @@ open class EntryMergeManager(
             .map { }
     }
 
-    /** [computeRelatedIds] as a `List` for callers (the novel reader / tracking path) that want one. */
+    /** [computeRelatedIds] as a `List`, for the tracking interactors of both types. */
     suspend fun relatedIdsList(targetId: Long): List<Long> = computeRelatedIds(targetId).toList()
 
     /** The group [targetId] is in, or null when it is in none or grouping is switched off. What a
@@ -183,7 +184,7 @@ open class EntryMergeManager(
      * a group's members together, ordered by id so its lowest-id member leads whatever the caller's
      * sort. Grouped only while merging is on, since [groupIdsFor] is empty otherwise.
      */
-    suspend fun <T> seriesBuckets(items: List<T>, id: (T) -> Long): List<MergeBucket<T>> {
+    private suspend fun <T> seriesBuckets(items: List<T>, id: (T) -> Long): List<MergeBucket<T>> {
         val sorted = items.distinctBy(id).sortedBy(id)
         return sorted.bucketByMergeGroup(groupIdsFor(sorted.map(id)), mergingEnabled = true, id)
     }
@@ -191,15 +192,21 @@ open class EntryMergeManager(
     /**
      * [seriesBuckets] with each merged group's members in [rank]'s order, the library lead first, so a
      * surface reading a series off its first member reads the one its library row shows. [rank] gets the
-     * members and the group's override order ([overrideRankingMemberIds]), as the library collapse does.
+     * members and the group's override order, read once for every group from the query the library
+     * collapse reads ([MergeGroupRepository.getOverrideRankingsAsFlow]).
      */
     suspend fun <T> rankedSeriesBuckets(
         items: List<T>,
         id: (T) -> Long,
         rank: (members: List<T>, memberRanking: List<Long>) -> List<T>,
-    ): List<MergeBucket<T>> = seriesBuckets(items, id).map { bucket ->
-        if (bucket.members.size == 1) return@map bucket
-        MergeBucket(bucket.groupId, rank(bucket.members, overrideRankingMemberIds(id(bucket.members.first()))))
+    ): List<MergeBucket<T>> {
+        val buckets = seriesBuckets(items, id)
+        if (buckets.all { it.groupId == null }) return buckets
+        val overrides = repository.getOverrideRankingsAsFlow(contentType).first()
+        return buckets.map { bucket ->
+            val groupId = bucket.groupId ?: return@map bucket
+            MergeBucket(groupId, rank(bucket.members, overrides[groupId].orEmpty()))
+        }
     }
 
     /**

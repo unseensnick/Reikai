@@ -1,7 +1,9 @@
 package reikai.domain.merge
 
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
@@ -20,6 +22,7 @@ class TestMergeManagers(memberships: Map<ContentType, Map<Long, Long>>, mergingO
         coEvery { getGroupId(any(), any()) } answers { memberships[firstArg()]?.get(secondArg()) }
         // No group overrides the global source ranking.
         coEvery { getGroup(any()) } returns null
+        every { getOverrideRankingsAsFlow(any()) } returns flowOf(emptyMap())
         coEvery { getFavoriteMembers(any(), any()) } answers {
             memberships[firstArg()].orEmpty().filterValues { it == secondArg<Long>() }.keys.toList()
         }

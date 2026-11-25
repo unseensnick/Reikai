@@ -6,7 +6,9 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -266,6 +268,18 @@ class EntryMergeManagerTest {
         )
 
         manager.suggestGroupingOnAdd shouldBe true
+    }
+
+    @Test
+    fun `rankedSeriesBuckets ranks a merged series by its group's override order`() = runTest {
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getAllMemberships(ContentType.MANGA) } returns mapOf(1L to 7L, 2L to 7L)
+            every { getOverrideRankingsAsFlow(ContentType.MANGA) } returns flowOf(mapOf(7L to listOf(2L, 1L)))
+        }
+
+        manager(ContentType.MANGA, repo)
+            .rankedSeriesBuckets(listOf(1L, 2L, 3L), { it }) { members, ranking -> members.sortedBy(ranking::indexOf) }
+            .map { it.members } shouldBe listOf(listOf(2L, 1L), listOf(3L))
     }
 
     @Test
