@@ -22,11 +22,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -42,7 +42,8 @@ import tachiyomi.presentation.core.i18n.stringResource
  */
 @Composable
 fun EntryDetailsSkeleton(modifier: Modifier = Modifier) {
-    val pulse by rememberInfiniteTransition(label = "skeleton").animateFloat(
+    // Read in the draw layer, so each frame of the pulse redraws the skeleton rather than recomposing it.
+    val pulse = rememberInfiniteTransition(label = "skeleton").animateFloat(
         initialValue = LoadingPulse.MIN,
         targetValue = LoadingPulse.MAX,
         animationSpec = infiniteRepeatable(tween(durationMillis = LoadingPulse.HALF_PERIOD_MS), RepeatMode.Reverse),
@@ -54,7 +55,7 @@ fun EntryDetailsSkeleton(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.systemBars)
             .padding(start = 16.dp, top = APP_BAR_HEIGHT + 16.dp, end = 16.dp)
-            .alpha(pulse)
+            .graphicsLayer { alpha = pulse.value }
             .semantics { contentDescription = loading },
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -96,6 +97,7 @@ private fun Bone(modifier: Modifier) {
     )
 }
 
-private val APP_BAR_HEIGHT = 56.dp
+// The details toolbar is a Material 3 TopAppBar (AppBar), whose height this matches.
+private val APP_BAR_HEIGHT = TopAppBarDefaults.TopAppBarExpandedHeight
 private const val ACTIONS = 4
 private const val CHAPTERS = 8

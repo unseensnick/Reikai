@@ -116,6 +116,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Removing a manga from the library on its page now finishes even when you leave the page right after confirming, as a novel's does.**
 - **A novel's update interval and a chapter bookmark set on its page are now saved even if you leave the page straight away.**
 - **A paged novel's page picker now keeps its loading spinner while the page you switched to is still loading.**
+- **A series page no longer shifts down as it finishes loading, since its loading outline now lines up with the header.**
 - **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
 - **A novel whose plugin failed to load now gives the real reason when you refresh its details page, open a chapter or run a library update, instead of not installed.**
