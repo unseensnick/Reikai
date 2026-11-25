@@ -29,7 +29,8 @@ import tachiyomi.domain.manga.model.Manga
 
 /**
  * On a merged series' source chip, the header and the cover viewer draw the same cover: the chip's own,
- * with the cover address of its own custom-info row.
+ * with the cover address of its own custom-info row. The header side is the shownManga / shownNovel
+ * kernel fed the chip's row by hand; which row each details model feeds it is not pinned here.
  */
 class HeaderCoverViewerConformanceTest {
 
@@ -63,7 +64,7 @@ class HeaderCoverViewerConformanceTest {
     }
 }
 
-/** The header's cover address and the viewer built for the same chip, as the adapters build them. */
+/** The header kernel's cover address and the viewer model built for the same chip. */
 class HeaderCovers(val header: String?, val viewer: EntryCoverViewModel<*>)
 
 /** One content type's merged page: an anchor with its own custom cover, and a sibling chip in view. */

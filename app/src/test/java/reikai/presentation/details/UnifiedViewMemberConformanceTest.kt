@@ -114,6 +114,12 @@ class UnifiedViewMemberConformanceTest {
         allView(type, installed = listOf(false, false), opened = 0).pageOf shouldBe null
     }
 
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `with every member missing, All shows the opened member's interval`(type: ContentType) = runTest {
+        allView(type, installed = listOf(false, false), opened = 1).nextUpdateOf shouldBe 1
+    }
+
     /** The All view as member indices: whose page it opens and whose interval it shows. */
     private data class Shown(val downloadable: Boolean, val pageOf: Int?, val nextUpdateOf: Int?)
 
