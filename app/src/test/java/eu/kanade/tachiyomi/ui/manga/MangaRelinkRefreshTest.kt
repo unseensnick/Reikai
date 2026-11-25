@@ -20,6 +20,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.domain.source.models.RemoteMangaUpdate
 import org.junit.jupiter.api.AfterEach
@@ -85,9 +86,10 @@ class MangaRelinkRefreshTest {
                 model.state.filterIsInstance<MangaViewModel.State.Success>().first { !it.isRefreshingData }
             }
             model.relinkSeries("Renamed")
-            val refreshing = withTimeout(10_000) {
+            // A wait that ends empty reads as false, so a missing spinner fails on the assertion below.
+            val refreshing = withTimeoutOrNull(10_000) {
                 model.state.filterIsInstance<MangaViewModel.State.Success>().first { it.isRefreshingData }
-            }.isRefreshingData
+            }?.isRefreshingData ?: false
             release.complete(Unit)
 
             refreshing shouldBe true

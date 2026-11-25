@@ -88,6 +88,20 @@ class GetPagePreviewsTest {
         results.links() shouldBe listOf(listOf("A"), listOf("B"))
     }
 
+    // Another gallery's dropped list would otherwise spend this list's one refetch.
+    @Test
+    fun `another entry's dropped page list fetches nothing for this one`() = runTest {
+        val cache = cache()
+        val results = collect(cache, source("A", "B"))
+
+        val other = manga.copy(id = 2L)
+        cache.putPageListToCache(other, listOf(20L), PagePreviewPage(1, emptyList(), false, 1))
+        cache.removePageList(cache.pageListKey(other, listOf(20L), 1)) shouldBe true
+        runCurrent()
+
+        results.links() shouldBe listOf(listOf("A"))
+    }
+
     private companion object {
         const val SOURCE_ID = 7L
     }

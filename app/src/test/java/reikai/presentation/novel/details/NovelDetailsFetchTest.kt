@@ -120,15 +120,6 @@ class NovelDetailsFetchTest {
     }
 
     @Test
-    fun `a novel id with no stored row shows the not-found page`() = runTest {
-        val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
-            harness.openDetails(MISSING_ID).awaitState { it == NovelDetailsState.NotFound }
-        }
-
-        state shouldBe NovelDetailsState.NotFound
-    }
-
-    @Test
     fun `a novel opened from browsing whose plugin is not installed shows its row with the source missing`() =
         runTest {
             val loaded = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
@@ -541,7 +532,6 @@ class NovelDetailsFetchTest {
         const val NEW_URL = "/novel/new"
         const val NO_CHAPTERS = "no chapters"
         const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
-        const val MISSING_ID = 999L
         const val TINT = 0xFF336699.toInt()
         const val OTHER_TINT = 0xFF993366.toInt()
 

@@ -27,11 +27,13 @@ class DetailsRoutesTest {
 
     private val listed = NovelItem("Title", "/n/5", "cover")
     private val unwritable = NovelItem("Other", "/n/6", null)
+    private val failing = NovelItem("Broken", "/n/7", null)
 
-    // The row "/n/5" stores as id 9; "/n/6" cannot be written.
+    // The row "/n/5" stores as id 9; "/n/6" cannot be written, and writing "/n/7" throws.
     private val novels = mockk<NovelLibraryAdder> {
         coEvery { materialize(listed, "plugin") } returns Novel.create().copy(id = 9L, source = "plugin", url = "/n/5")
         coEvery { materialize(unwritable, "plugin") } returns null
+        coEvery { materialize(failing, "plugin") } throws IllegalStateException("database closed")
     }
 
     private fun novelRow(item: NovelItem) = novelBrowseRow(item, "plugin", MutableStateFlow(FavoritedNovels.None))
@@ -72,6 +74,12 @@ class DetailsRoutesTest {
     }
 
     // A second tap lands after the first page opened, so it would stack another page over it.
+    // A failed write opens nothing, so the tap says it could not open rather than crashing on its scope.
+    @Test
+    fun `a novel result whose row write throws opens nothing`() = runTest {
+        failing.storedDetailsRoute("plugin", novels) shouldBe null
+    }
+
     @Test
     fun `a second tap while the first page is still being built opens nothing`() = runTest {
         val pushed = mutableListOf<NavKey>()

@@ -20,6 +20,7 @@ import reikai.domain.library.ContentType
 import reikai.novel.source.NovelSourceManager
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.OutputStream
 
 /** The export runs off a picked file the provider may refuse, which must report rather than crash. */
 class CopyMarkExportTest {
@@ -34,8 +35,17 @@ class CopyMarkExportTest {
     )
 
     @Test
-    fun `a file that fails while written reports a failure`() = export(
+    fun `a file that will not open reports a failure`() = export(
         mockk { every { contentResolver.openOutputStream(any(), any()) } throws IOException("gone") },
+    )
+
+    @Test
+    fun `a file that fails while written reports a failure`() = export(
+        mockk {
+            every { contentResolver.openOutputStream(any(), any()) } returns object : OutputStream() {
+                override fun write(b: Int) = throw IOException("disk full")
+            }
+        },
     )
 
     // By the name a backup or a library search reads, which an uninstalled plugin still has, without loading any.
