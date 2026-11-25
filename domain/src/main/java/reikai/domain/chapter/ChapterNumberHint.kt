@@ -94,7 +94,7 @@ object ChapterNumberHint {
         val afterAt = date(after) ?: return false
         if ((at - beforeAt).absoluteValue <= PLACE_GAP || (at - afterAt).absoluteValue <= PLACE_GAP) return false
         return own.any { twin ->
-            twin !== row && number(twin) == number(row) &&
+            twin !== row && chapterNumberKey(number(twin)) == chapterNumberKey(number(row)) &&
                 date(twin)?.let { (it - at).absoluteValue <= COPY_GAP } == true
         }
     }

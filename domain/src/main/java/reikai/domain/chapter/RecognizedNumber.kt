@@ -10,6 +10,10 @@ import tachiyomi.domain.chapter.service.ChapterRecognition
  */
 fun isRecognizedChapterNumber(number: Double): Boolean = number >= 0.0
 
+/** What two chapter numbers are compared by, narrowed to Float: a source-reported number is a widened float
+ *  and a parsed one a double, so "10.1" from each must still be the same chapter. */
+fun chapterNumberKey(number: Double): Float = number.toFloat()
+
 /**
  * [chapters], given newest first, numbered from the whole list by Mihon's recognizer: a name that tells
  * no number takes one from its neighbours. A number the source gave ([numberOf], -1 for none) is kept,

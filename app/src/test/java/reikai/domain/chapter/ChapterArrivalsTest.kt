@@ -16,6 +16,16 @@ class ChapterArrivalsTest {
     ) = chapterArrivals(listOf(added), stored, removed, markDuplicateAsRead, now = NOW).single()
 
     @Test
+    fun `a relisted chapter whose stored number was a float keeps its read state`() {
+        val arrival = arrive(
+            ArrivingChapter(10.1, name = "Chapter 10.1"),
+            removed = listOf(StoredChapter(10.1f.toDouble(), read = true, name = "Chapter 10.1")),
+        )
+
+        (arrival.isRelisted to arrival.read) shouldBe (true to true)
+    }
+
+    @Test
     fun `an arriving interlude numbered like a read chapter does not arrive read`() {
         val interlude = ArrivingChapter(5.0, name = "Interlude 5")
 

@@ -1,5 +1,6 @@
 package reikai.domain.manga
 
+import reikai.domain.chapter.chapterNumberKey
 import reikai.domain.merge.GroupRanking
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
@@ -46,11 +47,10 @@ object ChapterAggregation {
         val ranked = ranking.walkOrder(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking)
 
         val order = MergedChapterOrder<Chapter> { chapter ->
-            // Narrowed to Float so a float-origin and a double-origin "1.1" key to the same value
-            // (see the class doc). Null where nothing was recognized, which matches nothing, and for
-            // a gallery chapter, whose number identifies nothing: a later source's chapter 1 would
-            // otherwise be taken for a copy of the gallery's work.
-            chapter.chapterNumber.toFloat()
+            // Null where nothing was recognized, which matches nothing, and for a gallery chapter, whose
+            // number identifies nothing: a later source's chapter 1 would otherwise be taken for a copy
+            // of the gallery's work.
+            chapterNumberKey(chapter.chapterNumber)
                 .takeIf { chapter.isRecognizedNumber && chapter.mangaId !in gallerySourceMangaIds }
         }
         ranked.forEachIndexed { index, source ->
@@ -94,5 +94,5 @@ object ChapterAggregation {
         distinctChapterNumberCount(chapters.filter { it.isRecognizedNumber }.map { it.chapterNumber })
 
     /** How many chapters [numbers] name, each narrowed to Float as the stitch keys them. */
-    fun distinctChapterNumberCount(numbers: List<Double>): Int = numbers.distinctBy { it.toFloat() }.size
+    fun distinctChapterNumberCount(numbers: List<Double>): Int = numbers.distinctBy(::chapterNumberKey).size
 }

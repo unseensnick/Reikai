@@ -25,8 +25,7 @@ fun <T> List<T>.chapterCopySets(
         root[find(j)] = find(i)
     }
     indices.filter { marks[it] != CopyMark.NeverSkip }
-        // Narrowed to Float: a source-reported number is a widened float, a parsed one a double, and both must match.
-        .groupBy { ownerOf(this[it]) to numberOf(this[it]).toFloat() }.values.forEach { sameNumber ->
+        .groupBy { ownerOf(this[it]) to chapterNumberKey(numberOf(this[it])) }.values.forEach { sameNumber ->
             val number = numberOf(this[sameNumber.first()])
             if (sameNumber.size == 1 || !isRecognizedChapterNumber(number)) return@forEach
             val written = sameNumber.map { WrittenChapter(nameOf(this[it]), number, originOf(this[it])) }

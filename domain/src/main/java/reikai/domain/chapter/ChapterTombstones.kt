@@ -75,11 +75,12 @@ fun tombstoneRevivals(
     }
     val removedByNumber = removed.filter {
         it.url in pool && isRecognizedChapterNumber(it.number)
-    }.groupBy { it.number }
-    val arrivingByNumber = unmatchedByFolder.groupBy { it.number }
+    }.groupBy { chapterNumberKey(it.number) }
+    val arrivingByNumber = unmatchedByFolder.groupBy { chapterNumberKey(it.number) }
     unmatchedByFolder.forEach { chapter ->
-        val twin = removedByNumber[chapter.number]?.singleOrNull() ?: return@forEach
-        if (arrivingByNumber.getValue(chapter.number).size == 1) revivals += Revival(chapter.url, twin.url)
+        val key = chapterNumberKey(chapter.number)
+        val twin = removedByNumber[key]?.singleOrNull() ?: return@forEach
+        if (arrivingByNumber.getValue(key).size == 1) revivals += Revival(chapter.url, twin.url)
     }
     return revivals
 }

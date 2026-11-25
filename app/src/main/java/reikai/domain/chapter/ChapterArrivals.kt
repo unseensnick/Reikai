@@ -66,10 +66,10 @@ fun chapterArrivals(
     now: Instant,
 ): List<Arrival> {
     val read = stored.filter { it.read }
-    val readByNumber = read.filter { isRecognizedChapterNumber(it.number) }.groupBy { it.number }
+    val readByNumber = read.filter { isRecognizedChapterNumber(it.number) }.groupBy { chapterNumberKey(it.number) }
     // A hand-made group joins its chapters whatever their numbers.
     val readByGroup = read.filter { it.mark is CopyMark.Group }.groupBy { it.mark }
-    val removedByNumber = removed.groupBy { it.number }
+    val removedByNumber = removed.groupBy { chapterNumberKey(it.number) }
     // Keeps an older undated chapter from sorting above a newer dated one.
     var maxSeenUploadDate: Instant? = null
     return added.mapIndexed { index, chapter ->
@@ -77,9 +77,11 @@ fun chapterArrivals(
             ?.also { maxSeenUploadDate = listOfNotNull(maxSeenUploadDate, it).max() }
             ?: maxSeenUploadDate
             ?: now
-        val candidates = readByNumber[chapter.number].orEmpty() + readByGroup[chapter.mark].orEmpty()
+        val candidates = readByNumber[chapterNumberKey(chapter.number)].orEmpty() + readByGroup[chapter.mark].orEmpty()
         val duplicate = markDuplicateAsRead && candidates.isNotEmpty() && chapter.isCopyOfAny(candidates)
-        val twins = removedByNumber[chapter.number].takeIf { isRecognizedChapterNumber(chapter.number) }
+        val twins = removedByNumber[chapterNumberKey(chapter.number)].takeIf {
+            isRecognizedChapterNumber(chapter.number)
+        }
         if (twins == null) {
             val dateFetch = now + (added.size - index).milliseconds
             Arrival(chapter.read || duplicate, chapter.bookmark, dateFetch, dateUpload, duplicate, isRelisted = false)

@@ -510,6 +510,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel's edited author, artist, description, genres or status in a backup from Reikai 0.1 or 0.2 now survives the next refresh after a restore.**
 - **Restoring a backup now fills in a manga chapter's page count when the rest of that chapter already matches the device.** Before, it showed the page you reached without the total until the chapter was opened again.
 - **The restore error log no longer shows the private part of an extension repo's address it could not add.**
+- **After a restore, a decimal manga chapter such as 10.1 that its source lists again now keeps its read and bookmark state.**
 
 ### Tracking
 
