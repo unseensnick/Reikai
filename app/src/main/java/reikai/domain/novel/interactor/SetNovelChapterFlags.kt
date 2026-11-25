@@ -39,10 +39,7 @@ class SetNovelChapterFlags(
             shownDescending = novel.effectiveSortDescending(novelPreferences),
             picked = picked,
         )
-        val direction = if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC
-        var flags = setNovelFlag(novel.chapterFlags, picked, NovelChapterFlags.SORTING_MASK)
-        flags = setNovelFlag(flags, direction, NovelChapterFlags.SORT_DIR_MASK)
-        flags = setNovelFlag(flags, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
+        val flags = withSort(novel.chapterFlags, picked, descending)
         return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
@@ -70,17 +67,12 @@ class SetNovelChapterFlags(
     )
 
     private suspend fun awaitSetFilters(novel: Novel, read: Long, bookmarked: Long, downloaded: Long): Boolean {
-        var flags = setNovelFlag(novel.chapterFlags, read, NovelChapterFlags.READ_MASK)
-        flags = setNovelFlag(flags, bookmarked, NovelChapterFlags.BOOKMARKED_MASK)
-        flags = setNovelFlag(flags, downloaded, NovelChapterFlags.DOWNLOADED_MASK)
-        flags = setNovelFlag(flags, NovelChapterFlags.FILTER_LOCAL, NovelChapterFlags.FILTER_LOCAL_MASK)
+        val flags = withFilters(novel.chapterFlags, read, bookmarked, downloaded)
         return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
     suspend fun awaitSetHideTitles(novel: Novel, hide: Boolean): Boolean {
-        val display = if (hide) NovelChapterFlags.DISPLAY_NUMBER else NovelChapterFlags.DISPLAY_NAME
-        var flags = setNovelFlag(novel.chapterFlags, display, NovelChapterFlags.DISPLAY_MASK)
-        flags = setNovelFlag(flags, NovelChapterFlags.DISPLAY_LOCAL, NovelChapterFlags.DISPLAY_LOCAL_MASK)
+        val flags = withDisplay(novel.chapterFlags, hide)
         return novelRepository.update(NovelUpdate(novel.id) { chapterFlags = flags })
     }
 
@@ -121,27 +113,22 @@ class SetNovelChapterFlags(
     }
 
     // The settings [novel] follows from the default, written as its own; null when it follows none.
-    private fun pinnedToDefaults(novel: Novel): NovelUpdate? = with(NovelChapterFlags) {
+    private fun pinnedToDefaults(novel: Novel): NovelUpdate? {
         val prefs = novelPreferences
         var flags = novel.chapterFlags
         if (!novel.usesLocalSort) {
-            val direction = if (novel.effectiveSortDescending(prefs)) SORT_DESC else SORT_ASC
-            flags = setNovelFlag(flags, novel.effectiveSorting(prefs), SORTING_MASK)
-            flags = setNovelFlag(flags, direction, SORT_DIR_MASK)
-            flags = setNovelFlag(flags, SORT_LOCAL, SORT_LOCAL_MASK)
+            flags = withSort(flags, novel.effectiveSorting(prefs), novel.effectiveSortDescending(prefs))
         }
         if (!novel.usesLocalFilter) {
-            flags = setNovelFlag(flags, novel.effectiveReadFilter(prefs), READ_MASK)
-            flags = setNovelFlag(flags, novel.effectiveBookmarkedFilter(prefs), BOOKMARKED_MASK)
-            flags = setNovelFlag(flags, novel.effectiveDownloadedFilter(prefs), DOWNLOADED_MASK)
-            flags = setNovelFlag(flags, FILTER_LOCAL, FILTER_LOCAL_MASK)
+            flags = withFilters(
+                flags,
+                novel.effectiveReadFilter(prefs),
+                novel.effectiveBookmarkedFilter(prefs),
+                novel.effectiveDownloadedFilter(prefs),
+            )
         }
-        if (!novel.usesLocalDisplay) {
-            val display = if (novel.effectiveHideChapterTitles(prefs)) DISPLAY_NUMBER else DISPLAY_NAME
-            flags = setNovelFlag(flags, display, DISPLAY_MASK)
-            flags = setNovelFlag(flags, DISPLAY_LOCAL, DISPLAY_LOCAL_MASK)
-        }
-        if (flags == novel.chapterFlags) null else NovelUpdate(novel.id) { chapterFlags = flags }
+        if (!novel.usesLocalDisplay) flags = withDisplay(flags, novel.effectiveHideChapterTitles(prefs))
+        return if (flags == novel.chapterFlags) null else NovelUpdate(novel.id) { chapterFlags = flags }
     }
 
     private fun clearedOverrides(novel: Novel): NovelUpdate {
@@ -149,5 +136,25 @@ class SetNovelChapterFlags(
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.FILTER_LOCAL_MASK)
         flags = setNovelFlag(flags, 0L, NovelChapterFlags.DISPLAY_LOCAL_MASK)
         return NovelUpdate(novel.id) { chapterFlags = flags }
+    }
+
+    // Each group's bits with its LOCAL bit on, for a pick and for Set as default alike.
+    private fun withSort(flags: Long, sorting: Long, descending: Boolean): Long = with(NovelChapterFlags) {
+        val sorted = setNovelFlag(flags, sorting, SORTING_MASK)
+        val directed = setNovelFlag(sorted, if (descending) SORT_DESC else SORT_ASC, SORT_DIR_MASK)
+        setNovelFlag(directed, SORT_LOCAL, SORT_LOCAL_MASK)
+    }
+
+    private fun withFilters(flags: Long, read: Long, bookmarked: Long, downloaded: Long): Long =
+        with(NovelChapterFlags) {
+            var filtered = setNovelFlag(flags, read, READ_MASK)
+            filtered = setNovelFlag(filtered, bookmarked, BOOKMARKED_MASK)
+            filtered = setNovelFlag(filtered, downloaded, DOWNLOADED_MASK)
+            setNovelFlag(filtered, FILTER_LOCAL, FILTER_LOCAL_MASK)
+        }
+
+    private fun withDisplay(flags: Long, hide: Boolean): Long = with(NovelChapterFlags) {
+        val shown = setNovelFlag(flags, if (hide) DISPLAY_NUMBER else DISPLAY_NAME, DISPLAY_MASK)
+        setNovelFlag(shown, DISPLAY_LOCAL, DISPLAY_LOCAL_MASK)
     }
 }
