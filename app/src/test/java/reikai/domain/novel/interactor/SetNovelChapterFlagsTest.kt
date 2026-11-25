@@ -8,12 +8,22 @@ import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapterFlags
+import reikai.domain.novel.model.NovelChapterFlags.SHOW_BOOKMARKED
+import reikai.domain.novel.model.NovelChapterFlags.SHOW_DOWNLOADED
+import reikai.domain.novel.model.NovelChapterFlags.SHOW_NOT_BOOKMARKED
+import reikai.domain.novel.model.NovelChapterFlags.SHOW_NOT_DOWNLOADED
+import reikai.domain.novel.model.NovelChapterFlags.SHOW_READ
+import reikai.domain.novel.model.NovelChapterFlags.SHOW_UNREAD
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.model.effectiveBookmarkedFilter
+import reikai.domain.novel.model.effectiveDownloadedFilter
 import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.effectiveSortDescending
@@ -116,6 +126,61 @@ class SetNovelChapterFlagsTest {
 
         filtered.effectiveReadFilter(prefs) shouldBe 0L
     }
+
+    /** Which filter a pick sets, and the value it picks, against the defaults [filterDefaults] holds. */
+    enum class FilterPick(
+        val write: suspend SetNovelChapterFlags.(Novel) -> Unit,
+        val shown: Triple<Long, Long, Long>,
+    ) {
+        READ(
+            { awaitSetReadFilter(it, SHOW_UNREAD) },
+            Triple(SHOW_UNREAD, SHOW_BOOKMARKED, SHOW_DOWNLOADED),
+        ),
+        BOOKMARKED(
+            { awaitSetBookmarkedFilter(it, SHOW_NOT_BOOKMARKED) },
+            Triple(SHOW_READ, SHOW_NOT_BOOKMARKED, SHOW_DOWNLOADED),
+        ),
+        DOWNLOADED(
+            { awaitSetDownloadedFilter(it, SHOW_NOT_DOWNLOADED) },
+            Triple(SHOW_READ, SHOW_BOOKMARKED, SHOW_NOT_DOWNLOADED),
+        ),
+    }
+
+    // The three filters share one local bit, so a pick on a novel still following the defaults takes the other
+    // two as it showed them, or setting one would turn the others off.
+    @ParameterizedTest
+    @EnumSource(FilterPick::class)
+    fun `a filter pick keeps the other two filters as the novel showed them`(pick: FilterPick) = runTest {
+        val sent = slot<NovelUpdate>()
+        val repository = mockk<NovelRepository> { coEvery { update(capture(sent)) } returns true }
+        val novel = Novel.create().copy(id = 1L)
+        SetNovelChapterFlags(repository, filterDefaults).apply { pick.write(this, novel) }
+        val stored = novel.copy(chapterFlags = sent.captured.chapterFlags!!)
+
+        Triple(
+            stored.effectiveReadFilter(filterDefaults),
+            stored.effectiveBookmarkedFilter(filterDefaults),
+            stored.effectiveDownloadedFilter(filterDefaults),
+        ) shouldBe pick.shown
+    }
+
+    private val filterDefaults = NovelPreferences(
+        InMemoryPreferenceStore(
+            sequenceOf(
+                InMemoryPreferenceStore.InMemoryPreference("ln_default_chapter_filter_unread", SHOW_READ, 0L),
+                InMemoryPreferenceStore.InMemoryPreference(
+                    "ln_default_chapter_filter_bookmarked",
+                    SHOW_BOOKMARKED,
+                    0L,
+                ),
+                InMemoryPreferenceStore.InMemoryPreference(
+                    "ln_default_chapter_filter_downloaded",
+                    SHOW_DOWNLOADED,
+                    0L,
+                ),
+            ),
+        ),
+    )
 
     private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
 

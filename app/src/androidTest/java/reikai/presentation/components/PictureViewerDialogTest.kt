@@ -118,7 +118,7 @@ class PictureViewerDialogTest(private val highQuality: Boolean) {
         assertEquals("[$name] closes", 1, dismissed.get())
     }
 
-    /** Turned a quarter clockwise, the picture's left end is at the top, and it is drawn taller than it was. */
+    /** Turned a quarter clockwise, the picture's left end is at the top. */
     @Test
     fun rotateTurnsThePictureAQuarter() {
         clickRotate()
