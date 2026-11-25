@@ -27,8 +27,9 @@
 # - MangaType / MangaLewd: Komikku-shaped helpers, kept in upstream shape so a re-port diffs cleanly.
 # - EightMuses / HentaiNexus (and the later TachiyomiSY gallery wrappers): the wrapper contract's
 #   override boilerplate (layered details update, URL-import search), each body already a shared call.
-# - Workers (EHentaiUpdateWorker, MangaDexSyncWorker, NovelUpdateWorker, TrackerRefreshWorker):
-#   WorkManager setup, the foreground notice and constraints.
+# - Workers (EHentaiUpdateWorker, MangaDexSyncWorker, NovelUpdateWorker, TrackerRefreshWorker,
+#   NovelEpubExportWorker): the member-injection header (graph.inject(this), then the @Inject
+#   lateinit list), with no logic shared.
 # - MangaViewModel / NovelDetailsViewModel / NovelLibraryViewModel / NovelReaderViewModel /
 #   MigrateNovelUseCase: DI
 #   constructor lists and the details engine twin behind the shared details contract.
@@ -41,8 +42,8 @@
 # - MigrateMangaUseCase / MigrateNovelUseCase: engine twins, pinned by MigrateEngineConformanceTest.
 # - Update-error interactors and repositories: engine twins over separate tables, pinned by
 #   UpdateErrorConformanceTest.
-# - CustomMangaInfo / CustomNovelInfo repositories: engine twins, pinned by ResetEntryInfoConformanceTest
-#   and BackupCustomInfoConformanceTest.
+# - CustomMangaInfo / CustomNovelInfo repositories: engine twins, pinned by CustomInfoAltTitlesTest,
+#   which runs both real implementations.
 # - Group stitchers and chapter aggregation: engine twins, pinned by MergedTrunkConformanceTest and
 #   MergedCountConformanceTest.
 # - PropagateTrackerLinks / PropagateNovelTrackerLinks: both forward to the handOutGroupTrackers kernel.
