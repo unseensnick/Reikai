@@ -1,5 +1,10 @@
 package reikai.domain.merge
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
 import tachiyomi.core.common.util.lang.withIOContext
 
 /**
@@ -21,6 +26,15 @@ suspend fun <T> EntryMergeManager.onePerSeries(items: List<T>, id: (T) -> Long):
     val rows = items.distinctBy(id)
     return rows.dedupeByMergeGroup(withIOContext { groupIdsFor(rows.map(id)) }, id)
 }
+
+/**
+ * [onePerSeries] over a live list, asked again whenever a library member joins or leaves a group. The
+ * membership query re-runs on every entry write, so only a changed answer asks again.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+fun <T> Flow<List<T>>.onePerSeries(merges: EntryMergeManager, id: (T) -> Long): Flow<List<T>> =
+    combine(this, merges.membershipChanges().distinctUntilChanged()) { items, _ -> items }
+        .mapLatest { merges.onePerSeries(it, id) }
 
 /** Entries that render as one row: a merge group's present members, or one entry's items. */
 class MergeBucket<T>(

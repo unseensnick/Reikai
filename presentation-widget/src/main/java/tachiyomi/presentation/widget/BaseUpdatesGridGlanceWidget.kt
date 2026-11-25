@@ -34,7 +34,6 @@ import mihon.core.metro.metroGraph
 import mihon.presentation.widget.di.PresentationWidgetGraph
 import reikai.presentation.widget.MangaUpdatesPerSeries
 import reikai.presentation.widget.loadWidgetCover
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.model.UpdatesWithRelations
@@ -92,8 +91,8 @@ abstract class BaseUpdatesGridGlanceWidget : GlanceAppWidget() {
             }
 
             val flow = remember {
-                // RK: under Edit info's cover and the merging switch, as the combined widget draws it
-                perSeries.withCustomInfo(
+                // RK: one per series under Edit info and the merging switch, as the combined widget draws it
+                perSeries.drawn(
                     perSeries.seriesMerging.flatMapLatest { getUpdates.subscribe(false, DateLimit, it) },
                 )
                     .map { rawData ->
@@ -121,8 +120,8 @@ abstract class BaseUpdatesGridGlanceWidget : GlanceAppWidget() {
         val widthPx = CoverWidth.value.toInt().dpToPx
         val heightPx = CoverHeight.value.toInt().dpToPx
         return withContext(Dispatchers.Default) {
-            // A merged series draws one cover, as on the combined widget
-            perSeries.onePerSeries(this@prepareData)
+            // Already one per series, through perSeries.drawn
+            this@prepareData
                 .take(rowCount * columnCount)
                 .map { updatesView ->
                     val bitmap = loadWidgetCover(

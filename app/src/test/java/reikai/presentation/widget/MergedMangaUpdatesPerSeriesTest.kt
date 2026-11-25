@@ -34,18 +34,18 @@ class MergedMangaUpdatesPerSeriesTest {
 
     @Test
     fun `a merged manga draws one cover`() = runTest {
-        perSeries(mergingOn = true).onePerSeries(updates).map { it.mangaId } shouldBe listOf(2L)
+        perSeries(mergingOn = true).drawn(flowOf(updates)).first().map { it.mangaId } shouldBe listOf(2L)
     }
 
     @Test
     fun `with series merging off each source draws its own cover`() = runTest {
-        perSeries(mergingOn = false).onePerSeries(updates).map { it.mangaId } shouldBe listOf(2L, 1L)
+        perSeries(mergingOn = false).drawn(flowOf(updates)).first().map { it.mangaId } shouldBe listOf(2L, 1L)
     }
 
     @Test
     fun `an edited cover is the one Mihon's widgets draw`() = runTest {
         val edited = perSeries(custom = listOf(CustomMangaInfo(mangaId = 1L, thumbnailUrl = "mine")))
-            .withCustomInfo(flowOf(listOf(update(1L, 10L))))
+            .drawn(flowOf(listOf(update(1L, 10L))))
             .first()
 
         edited.single().coverData.url shouldBe "mine"

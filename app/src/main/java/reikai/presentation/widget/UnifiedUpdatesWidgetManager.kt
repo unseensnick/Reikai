@@ -20,11 +20,16 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.NovelCover
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.interactor.GetUpdates
 
 /**
@@ -40,6 +45,9 @@ class UnifiedUpdatesWidgetManager(
     private val novelRepository: NovelRepository,
     private val securityPreferences: SecurityPreferences,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val mangaPerSeries: MangaUpdatesPerSeries,
+    private val novelMergeManager: NovelMergeManager,
+    private val getEntryCustomInfo: GetEntryCustomInfo,
 ) {
 
     // Seeded at process start, then kept by the receiver's enabled and disabled broadcasts.
@@ -51,9 +59,14 @@ class UnifiedUpdatesWidgetManager(
 
     context(context: Context)
     fun init(scope: CoroutineScope) {
-        val receiver = ComponentName(context, UnifiedUpdatesGlanceReceiver::class.java)
-        // Null where the device has no widget host at all.
-        placed.value = AppWidgetManager.getInstance(context)?.getAppWidgetIds(receiver)?.isNotEmpty() == true
+        // A call into the system server, so off the first frame. It only raises the flag, so an enable
+        // broadcast that lands first is not undone.
+        scope.launch(Dispatchers.Default) {
+            val receiver = ComponentName(context, UnifiedUpdatesGlanceReceiver::class.java)
+            // Null where the device has no widget host at all.
+            val seen = AppWidgetManager.getInstance(context)?.getAppWidgetIds(receiver)?.isNotEmpty() == true
+            if (seen) placed.value = true
+        }
         unifiedWidgetRefreshes(
             placed = placed,
             updates = unifiedWidgetUpdates(
@@ -61,6 +74,9 @@ class UnifiedUpdatesWidgetManager(
                 novelRepository,
                 reikaiLibraryPreferences.shownContent.changes(),
                 reikaiLibraryPreferences.seriesMergingEnabled.changes(),
+                mangaPerSeries,
+                novelMergeManager,
+                getEntryCustomInfo.subscribeAll(),
             ),
             locked = securityPreferences.useAuthenticator.changes(),
         )
@@ -78,8 +94,8 @@ class UnifiedUpdatesWidgetManager(
 
 /** What a widget's face depends on, so a change to anything here redraws it. */
 internal data class UnifiedWidgetDrawn(
-    val mangaChapterIds: Set<Long>,
-    val novelChapterIds: Set<Long>,
+    val mangaCovers: List<MangaCover>,
+    val novelCovers: List<NovelCover>,
     val shown: ContentType,
     val locked: Boolean,
 )
@@ -94,8 +110,8 @@ internal fun unifiedWidgetRefreshes(
     if (!isPlaced) return@flatMapLatest emptyFlow()
     combine(updates, locked) { updates, locked ->
         UnifiedWidgetDrawn(
-            updates.manga.map { it.chapterId }.toSet(),
-            updates.novel.map { it.chapterId }.toSet(),
+            updates.manga.map { it.coverData },
+            updates.novel.map { it.coverData },
             updates.shown,
             locked,
         )

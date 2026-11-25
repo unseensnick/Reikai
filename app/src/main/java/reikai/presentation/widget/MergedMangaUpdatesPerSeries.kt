@@ -21,13 +21,12 @@ class MergedMangaUpdatesPerSeries(
     private val getEntryCustomInfo: GetEntryCustomInfo,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : MangaUpdatesPerSeries {
-    override suspend fun onePerSeries(updates: List<UpdatesWithRelations>): List<UpdatesWithRelations> =
-        mangaMergeManager.onePerSeries(updates) { it.mangaId }
-
-    override fun withCustomInfo(updates: Flow<List<UpdatesWithRelations>>): Flow<List<UpdatesWithRelations>> =
-        combine(updates, getEntryCustomInfo.subscribeAll()) { rows, customInfo ->
+    override fun drawn(updates: Flow<List<UpdatesWithRelations>>): Flow<List<UpdatesWithRelations>> {
+        val perSeries = updates.onePerSeries(mangaMergeManager) { it.mangaId }
+        return combine(perSeries, getEntryCustomInfo.subscribeAll()) { rows, customInfo ->
             rows.map { it.withCustomInfo(customInfo[EntryId.Manga(it.mangaId)]) }
         }
+    }
 
     override val seriesMerging: Flow<Boolean>
         get() = reikaiLibraryPreferences.seriesMergingEnabled.changes()

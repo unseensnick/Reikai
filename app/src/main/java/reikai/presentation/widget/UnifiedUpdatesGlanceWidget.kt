@@ -42,25 +42,19 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import mihon.app.di.appGraph
-import reikai.domain.entry.EntryCustomInfo
-import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
-import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
-import reikai.domain.manga.MangaMergeManager
-import reikai.domain.merge.onePerSeries
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.presentation.details.mangaDetailsIntent
 import reikai.presentation.details.novelDetailsIntent
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.BaseUpdatesGridGlanceWidget
@@ -95,7 +89,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     @Inject private lateinit var getEntryCustomInfo: GetEntryCustomInfo
 
     // A merge group is one series, so it gets one cover here as it gets one library row.
-    @Inject private lateinit var mangaMergeManager: MangaMergeManager
+    @Inject private lateinit var mangaPerSeries: MangaUpdatesPerSeries
 
     @Inject private lateinit var novelMergeManager: NovelMergeManager
 
@@ -134,17 +128,16 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
             }
 
             val flow = remember {
-                combine(
-                    unifiedWidgetUpdates(
-                        getUpdates,
-                        novelRepository,
-                        reikaiLibraryPreferences.shownContent.changes(),
-                        reikaiLibraryPreferences.seriesMergingEnabled.changes(),
-                    ),
+                unifiedWidgetUpdates(
+                    getUpdates,
+                    novelRepository,
+                    reikaiLibraryPreferences.shownContent.changes(),
+                    reikaiLibraryPreferences.seriesMergingEnabled.changes(),
+                    mangaPerSeries,
+                    novelMergeManager,
                     getEntryCustomInfo.subscribeAll(),
-                ) { updates, customInfo ->
-                    prepareSections(context, updates, customInfo, rowCount, columnCount)
-                }
+                )
+                    .map { prepareSections(context, it, rowCount, columnCount) }
             }
             val data by flow.collectAsState(initial = null)
             UnifiedUpdatesContent(
@@ -167,13 +160,9 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     private suspend fun prepareSections(
         context: Context,
         updates: UnifiedWidgetUpdates,
-        customInfo: Map<EntryId, EntryCustomInfo>,
         rowCount: Int,
         columnCount: Int,
     ): SectionData {
-        // Dedupe per series, then per merge group so a series grouped across sources draws one cover.
-        val novelRows = novelMergeManager.onePerSeries(updates.novel) { it.novelId }
-        val mangaRows = mangaMergeManager.onePerSeries(updates.manga) { it.mangaId }
         val cap = updates.sectionRows(rowCount) * columnCount
 
         val widthPx = CoverWidth.value.toInt().dpToPx
@@ -181,27 +170,19 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
 
         // Coil loads on its own threads; scaling and converting the covers is CPU work, as upstream's widget does it
         return withContext(Dispatchers.Default) {
-            val novelCovers = novelRows
+            val novelCovers = updates.novel
                 .take(cap)
                 .map { row ->
-                    val cover = row.withCustomInfo(customInfo[EntryId.Novel(row.novelId)]).coverData
                     WidgetCover(
-                        bitmap = loadWidgetCover(context, cover, widthPx, heightPx),
+                        bitmap = loadWidgetCover(context, row.coverData, widthPx, heightPx),
                         intent = novelIntent(context, row),
                     )
                 }
-            val mangaCovers = mangaRows
+            val mangaCovers = updates.manga
                 .take(cap)
                 .map { row ->
-                    val cover = MangaCover(
-                        mangaId = row.mangaId,
-                        sourceId = row.sourceId,
-                        isMangaFavorite = true,
-                        url = row.withCustomInfo(customInfo[EntryId.Manga(row.mangaId)]).coverData.url,
-                        lastModified = row.coverData.lastModified,
-                    )
                     WidgetCover(
-                        bitmap = loadWidgetCover(context, cover, widthPx, heightPx),
+                        bitmap = loadWidgetCover(context, row.coverData, widthPx, heightPx),
                         intent = mangaIntent(context, row.mangaId),
                     )
                 }

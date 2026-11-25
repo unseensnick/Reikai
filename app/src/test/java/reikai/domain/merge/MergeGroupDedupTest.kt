@@ -1,7 +1,12 @@
 package reikai.domain.merge
 
 import io.kotest.matchers.collections.shouldContainExactly
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.library.ContentType
 
 /**
  * The one definition of "count a merged series once", shared by the stats screen and the tracker
@@ -36,5 +41,18 @@ class MergeGroupDedupTest {
         val membership = mapOf(1L to 7L, 2L to 7L)
 
         listOf(2L, 1L).dedupeByMergeGroup(membership) { it } shouldContainExactly listOf(2L)
+    }
+
+    /** A cover widget draws through this, and only redraws when it emits again. */
+    @Test
+    fun `a live list counts a series merged after it was first drawn once`() = runTest {
+        val merges = TestMergeManagers(emptyMap(), mergingOn = true)
+
+        val regrouped = flowOf(listOf(1L, 2L))
+            .onePerSeries(merges.manga) { it }
+            .onEach { merges.groups.value = mapOf(ContentType.MANGA to mapOf(1L to 9L, 2L to 9L)) }
+            .first { it.size == 1 }
+
+        regrouped shouldContainExactly listOf(1L)
     }
 }

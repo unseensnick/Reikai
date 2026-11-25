@@ -3,6 +3,8 @@ package reikai.presentation.widget
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -10,9 +12,14 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.TestMergeManagers
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.updates.UpdatesRepositoryImpl
@@ -66,14 +73,11 @@ internal class UnifiedWidgetUpdatesTest {
         probe.chapterIds(updates(ContentType.ALL)) shouldBe listOf(1L)
     }
 
-    @Test
-    fun `two sections split the rows`() {
-        UnifiedWidgetUpdates(emptyList(), emptyList(), ContentType.ALL).sectionRows(4) shouldBe 2
-    }
-
-    @Test
-    fun `the one section Show leaves takes every row`() {
-        UnifiedWidgetUpdates(emptyList(), emptyList(), ContentType.MANGA).sectionRows(4) shouldBe 4
+    /** Two sections split the rows, never below one each; the one section Show leaves takes them all. */
+    @ParameterizedTest(name = "{0} over {1} rows")
+    @MethodSource("sectionRowCases")
+    fun `each section gets its share of the rows`(shown: ContentType, rowCount: Int, rows: Int) {
+        UnifiedWidgetUpdates(emptyList(), emptyList(), shown).sectionRows(rowCount) shouldBe rows
     }
 
     @Test
@@ -81,14 +85,32 @@ internal class UnifiedWidgetUpdatesTest {
         updates(ContentType.NOVELS).shown shouldBe ContentType.NOVELS
     }
 
-    private suspend fun updates(shown: ContentType) = unifiedWidgetUpdates(
-        GetUpdates(UpdatesRepositoryImpl(database)),
-        NovelRepositoryImpl(database),
-        flowOf(shown),
-        flowOf(true),
-    ).first()
+    private suspend fun updates(shown: ContentType): UnifiedWidgetUpdates {
+        val merges = TestMergeManagers(emptyMap(), mergingOn = true)
+        val customInfo = GetEntryCustomInfo(
+            mockk { every { subscribeAll() } returns flowOf(emptyList()) },
+            mockk { every { subscribeAll() } returns flowOf(emptyList()) },
+        )
+        return unifiedWidgetUpdates(
+            GetUpdates(UpdatesRepositoryImpl(database)),
+            NovelRepositoryImpl(database),
+            flowOf(shown),
+            flowOf(true),
+            MergedMangaUpdatesPerSeries(merges.manga, customInfo, ReikaiLibraryPreferences(InMemoryPreferenceStore())),
+            merges.novel,
+            customInfo.subscribeAll(),
+        ).first()
+    }
 
     companion object {
+        @JvmStatic
+        fun sectionRowCases() = listOf(
+            Arguments.of(ContentType.ALL, 4, 2),
+            Arguments.of(ContentType.ALL, 1, 1),
+            Arguments.of(ContentType.MANGA, 4, 4),
+            Arguments.of(ContentType.NOVELS, 4, 4),
+        )
+
         @JvmStatic
         fun probes() = listOf(
             WidgetUpdatesProbe(

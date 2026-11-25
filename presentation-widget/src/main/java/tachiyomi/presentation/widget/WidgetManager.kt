@@ -48,14 +48,16 @@ class WidgetManager(
             .flatMapLatest { hasWidgets ->
                 if (hasWidgets) {
                     combine(
-                        // RK --> under the library's merging switch, which decides what a hidden member hides
-                        perSeries.seriesMerging.flatMapLatest {
-                            getUpdates.subscribe(
-                                read = false,
-                                after = BaseUpdatesGridGlanceWidget.DateLimit,
-                                seriesMerging = it,
-                            )
-                        },
+                        // RK --> what the widgets draw, under the merging switch (what a hidden member hides)
+                        perSeries.drawn(
+                            perSeries.seriesMerging.flatMapLatest {
+                                getUpdates.subscribe(
+                                    read = false,
+                                    after = BaseUpdatesGridGlanceWidget.DateLimit,
+                                    seriesMerging = it,
+                                )
+                            },
+                        ),
                         // RK <--
                         securityPreferences.useAuthenticator.changes(),
                         transform = { a, b -> a to b },
@@ -66,7 +68,8 @@ class WidgetManager(
             }
             .distinctUntilChanged { old, new ->
                 old.second == new.second &&
-                    old.first.map { it.chapterId }.toSet() == new.first.map { it.chapterId }.toSet()
+                    // RK: the covers drawn, so an Edit info cover or a merge redraws though no chapter changed
+                    old.first.map { it.coverData } == new.first.map { it.coverData }
             }
             .onEach {
                 try {
