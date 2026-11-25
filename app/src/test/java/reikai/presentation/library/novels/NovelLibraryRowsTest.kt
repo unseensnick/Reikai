@@ -92,6 +92,25 @@ class NovelLibraryRowsTest {
         verify(exactly = 1) { downloadCache.getDownloadCount(any()) }
     }
 
+    /** Its badge reads Generic before and after, so only its registering can tell the rows to re-read its name. */
+    @Test
+    fun `the library's iconless plugin registering re-reads its name`() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            rowsClass(backgroundScope).buildRows().collect {}
+        }
+
+        registered.value = listOf(iconlessPlugin)
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { sourceManager.identityOf(SOURCE) }
+    }
+
+    private val iconlessPlugin = mockk<NovelSource> {
+        every { id } returns SOURCE
+        every { iconUrl } returns null
+        every { site } returns ""
+    }
+
     private val plugin = mockk<NovelSource> {
         every { id } returns SOURCE
         every { iconUrl } returns ICON
