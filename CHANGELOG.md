@@ -339,6 +339,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Split wide pages and Rotate wide pages to fit, with the high quality renderer off, now catch pages made wide by their photo rotation and JPEG 2000 and JPEG XL pages (from Mihon).** Upstream: mihonapp/mihon#4289.
 - **With TalkBack, each row of the reader's Bottom bar buttons list now reads as one checkbox named for its button.**
 - **With the high quality renderer, a next or previous chapter that fails to load now explains why in the same words a novel uses.**
+- **Read aloud's Underline mark in the web view of a novel now follows the text colour on older Android System WebView versions too.**
 
 ### Statistics
 

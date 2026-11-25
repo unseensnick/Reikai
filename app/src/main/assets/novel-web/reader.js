@@ -1454,6 +1454,12 @@
         '::highlight(rk-tts-underline) { text-decoration: underline; }';
     }
 
+    function textColorAt(range) {
+      var node = range.startContainer;
+      var el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return el ? getComputedStyle(el).color : 'currentColor';
+    }
+
     function drawBoxes(range, options) {
       if (!overlay) {
         overlay = document.createElement('div');
@@ -1463,6 +1469,8 @@
       var outline = options.style === 'OUTLINE';
       var rects = outline ? [range.getBoundingClientRect()] : range.getClientRects();
       var pad = outline ? OUTLINE_PAD_PX : 0;
+      // An underline takes the text's colour, as the Highlight path's text-decoration and the native renderer do.
+      var lineColor = options.style === 'UNDERLINE' ? textColorAt(range) : options.color;
       for (var i = 0; i < rects.length; i++) {
         var box = document.createElement('div');
         box.className = 'rk-tts-box rk-tts-' + options.style.toLowerCase();
@@ -1470,7 +1478,7 @@
         box.style.top = (rects[i].top + window.scrollY - pad) + 'px';
         box.style.width = (rects[i].width + pad * 2) + 'px';
         box.style.height = (rects[i].height + pad * 2) + 'px';
-        box.style.borderColor = options.color;
+        box.style.borderColor = lineColor;
         if (options.style === 'BACKGROUND') box.style.backgroundColor = options.color;
         overlay.appendChild(box);
       }
