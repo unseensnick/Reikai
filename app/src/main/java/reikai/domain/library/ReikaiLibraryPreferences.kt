@@ -184,7 +184,8 @@ class ReikaiLibraryPreferences(
     // sort and Random seed keys retired the same way (DEAD_NOVEL_SORT_KEY).
     // endregion
 
-    // region Merging (persisted group tables; the pref-based keys below stay only for the one-time migration)
+    // region Merging (groups live in their own tables; the manual merge and unmerge lists and
+    // novelAutoMergeRequireAuthor stay only for the one-time migration)
 
     /** Master switch for source merging (manga + novels). Off resolves every series standalone and hides
      *  the merge UI without deleting groups, so turning it back on restores them. Lives in Settings. */
