@@ -56,9 +56,10 @@ class MangaCoverMetadata(
      */
     fun savePrefs(): Job = scope.launchIO {
         loaded.join()
-        val encoded = CoverColors.encode()
-        val colours = CoverColors.withoutRecency(encoded)
         saveMutex.withLock {
+            // Taken under the lock, so two saves close together write their snapshots in the order they took them.
+            val encoded = CoverColors.encode()
+            val colours = CoverColors.withoutRecency(encoded)
             if (colours == lastSaved) return@launchIO
             uiPreferences.coverVibrantColors.set(encoded)
             lastSaved = colours
