@@ -22,6 +22,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistory
@@ -56,7 +57,8 @@ class MigrateNovelUseCase(
     private val novelDownloadManagerProvider: () -> NovelDownloadManager,
     private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
-    private val getNovelTracks: GetNovelTracks,
+    // The repository, not GetNovelTracks, which swallows a failed read into no tracks
+    private val novelTrackRepository: NovelTrackRepository,
     private val upsertNovelTrack: UpsertNovelTrack,
     private val sourceManager: NovelSourceManager,
     private val novelRepository: NovelRepository,
@@ -155,9 +157,10 @@ class MigrateNovelUseCase(
             }
 
             // Carry tracker links onto the target, re-pointed to its id (matching manga migration). The
-            // source's own track rows are left intact, which is correct for a Copy. Checked, so a dropped
-            // link fails the row before the swap.
-            check(upsertNovelTrack.awaitAll(getNovelTracks.await(current.id).map { it.copy(novelId = target.id) })) {
+            // source's own track rows are left intact, which is correct for a Copy. Checked, and the read
+            // throws, so a dropped link or a failed read fails the row before the swap.
+            val carried = novelTrackRepository.getTracksByNovelId(current.id).map { it.copy(novelId = target.id) }
+            check(upsertNovelTrack.awaitAll(carried)) {
                 "Tracker carry failed (${current.id} -> ${target.id})"
             }
 

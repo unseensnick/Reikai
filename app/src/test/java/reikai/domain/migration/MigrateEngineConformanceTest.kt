@@ -44,8 +44,8 @@ import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.interactor.UpdateNovel
@@ -85,7 +85,6 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
 import tachiyomi.domain.track.repository.TrackRepository
 import java.io.File
@@ -509,6 +508,14 @@ class MigrateEngineConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
+    fun `a failed tracker read fails the row before the library changes`(engine: MigrateEngine) = runTest {
+        val outcome = engine.migrate(Setup(sourceTrackId = 5L, trackReadFails = true), replace = true)
+
+        ((outcome.error != null) to outcome.swap) shouldBe (true to null)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
     fun `a failed history carry fails the row before the library changes`(engine: MigrateEngine) = runTest {
         val setup = Setup(
             sourceChapters = listOf(Ch(1, 1.0, read = true)),
@@ -648,6 +655,7 @@ data class Setup(
     val sourceUninstalled: Boolean = false,
     val carryWriteFails: Boolean = false,
     val trackWriteFails: Boolean = false,
+    val trackReadFails: Boolean = false,
     val historyWriteFails: Boolean = false,
     val swapFails: Boolean = false,
     /** A write inside the migration's transaction swallows its own failure, which rolls the whole of it back. */
@@ -908,8 +916,11 @@ class MangaEngine : MigrateEngine {
             coEvery { downloadChapters(any(), any(), any()) } answers { rec.downloadsQueued++ }
         }
         val track = setup.sourceTrackId?.let { mangaTrack(it) }
-        val getTracks = mockk<GetTracks> { coEvery { await(any<Long>()) } answers { listOfNotNull(track) } }
         val trackRepository = mockk<TrackRepository> {
+            coEvery { getTracksByMangaId(any()) } answers {
+                if (setup.trackReadFails) throw Injected()
+                listOfNotNull(track)
+            }
             coEvery { upsertAll(any()) } answers {
                 if (setup.trackWriteFails) throw Injected()
                 firstArg<List<Track>>().forEach { rec.tracksWritten += it.id to it.mangaId }
@@ -954,7 +965,6 @@ class MangaEngine : MigrateEngine {
             getChaptersByMangaId = getChapters,
             updateChapter = mockk(relaxed = true),
             getCategories = getCategories,
-            getTracks = getTracks,
             trackRepository = trackRepository,
             coverCache = coverCache,
             updateMangaFromRemote = updateFromRemote,
@@ -1118,7 +1128,12 @@ class NovelEngine : MigrateEngine {
             coEvery { downloadChapters(any()) } answers { rec.downloadsQueued++ }
         }
         val track = setup.sourceTrackId?.let { novelTrack(it) }
-        val getTracks = mockk<GetNovelTracks> { coEvery { await(any()) } answers { listOfNotNull(track) } }
+        val trackRepository = mockk<NovelTrackRepository> {
+            coEvery { getTracksByNovelId(any()) } answers {
+                if (setup.trackReadFails) throw Injected()
+                listOfNotNull(track)
+            }
+        }
         val upsertTrack = mockk<UpsertNovelTrack> {
             coEvery { awaitAll(any()) } answers {
                 firstArg<List<NovelTrack>>().forEach { rec.tracksWritten += it.id to it.novelId }
@@ -1158,7 +1173,7 @@ class NovelEngine : MigrateEngine {
             novelDownloadManagerProvider = { downloadManager },
             updateNovel = updateNovel,
             coverCache = coverCache,
-            getNovelTracks = getTracks,
+            novelTrackRepository = trackRepository,
             upsertNovelTrack = upsertTrack,
             sourceManager = sourceManager,
             novelRepository = novelRepository,

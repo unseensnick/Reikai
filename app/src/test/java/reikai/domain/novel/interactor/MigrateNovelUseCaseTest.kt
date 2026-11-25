@@ -51,7 +51,7 @@ class MigrateNovelUseCaseTest {
         novelDownloadManagerProvider = { novelDownloadManager },
         updateNovel = mockk(relaxed = true),
         coverCache = mockk(relaxed = true),
-        getNovelTracks = mockk(relaxed = true),
+        novelTrackRepository = mockk(relaxed = true),
         upsertNovelTrack = mockk { coEvery { awaitAll(any()) } returns true },
         sourceManager = mockk(relaxed = true),
         novelRepository = mockk<NovelRepository>(relaxed = true) { coEvery { updateAll(any()) } returns true },

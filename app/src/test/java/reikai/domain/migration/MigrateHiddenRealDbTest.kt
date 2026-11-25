@@ -34,7 +34,6 @@ import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
-import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
@@ -58,7 +57,6 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.domain.track.interactor.GetTracks
 
 /**
  * The hide carry through each type's real migrate use case over real repositories on an in-memory
@@ -266,7 +264,6 @@ class MangaHideEngine : HideEngine(ContentType.MANGA) {
             getChaptersByMangaId = GetChaptersByMangaId(chapters),
             updateChapter = UpdateChapter(chapters),
             getCategories = GetCategories(CategoryRepositoryImpl(database)),
-            getTracks = GetTracks(tracks),
             trackRepository = tracks,
             coverCache = mockk(relaxed = true),
             updateMangaFromRemote = mockk(),
@@ -320,7 +317,7 @@ class NovelHideEngine : HideEngine(ContentType.NOVELS) {
             novelDownloadManagerProvider = { error("a migration without flags or a refresh needs no downloads") },
             updateNovel = UpdateNovel(novels, mockk(relaxed = true)),
             coverCache = mockk(relaxed = true),
-            getNovelTracks = GetNovelTracks(tracks, mergeManager, prefs),
+            novelTrackRepository = tracks,
             upsertNovelTrack = UpsertNovelTrack(tracks),
             sourceManager = sourceManager,
             novelRepository = novels,

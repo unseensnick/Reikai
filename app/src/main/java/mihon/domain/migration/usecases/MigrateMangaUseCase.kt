@@ -37,7 +37,6 @@ import tachiyomi.domain.history.repository.HistoryRepository // RK
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.repository.TrackRepository // RK
 import kotlin.time.Clock
 
@@ -53,8 +52,7 @@ class MigrateMangaUseCase(
     private val updateChapter: UpdateChapter,
     private val getCategories: GetCategories,
     // RK: setMangaCategories moved to MigrationSwapEffects, which files the target's whole group.
-    private val getTracks: GetTracks,
-    // RK: the repository, not UpsertTrack, which logs and swallows; see the track carry below.
+    // RK: getTracks dropped: the repository throws where GetTracks and UpsertTrack swallow; see the track carry.
     private val trackRepository: TrackRepository,
     private val coverCache: CoverCache,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
@@ -181,7 +179,8 @@ class MigrateMangaUseCase(
             }
 
             // Update track
-            getTracks.await(current.id).mapNotNull { track ->
+            trackRepository.getTracksByMangaId(current.id).mapNotNull { track ->
+                // RK: a failed read fails the row
                 val updatedTrack = track.copy(mangaId = target.id)
 
                 val service = enhancedServices

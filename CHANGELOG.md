@@ -492,6 +492,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A migration that cannot read an entry's trackers now fails that entry instead of finishing without them.**
 - **Migration rows show a source's language when more than one language is enabled, for manga and novels.**
 - **The migrate search now lists the sources that found something above the ones that found nothing.**
 - **A migration or an add to a group whose database write fails now reports the failure instead of showing success.** Before, the change was quietly undone.
