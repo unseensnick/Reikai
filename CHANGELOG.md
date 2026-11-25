@@ -114,6 +114,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A gallery's page previews now fill their loading ring as each thumbnail loads, instead of showing it full from the start.**
 - **The More info link on a gallery's details page is now easier to tap, and TalkBack announces it as a button.**
 - **Removing a manga from the library on its page now finishes even when you leave the page right after confirming, as a novel's does.**
+- **A novel's update interval and a chapter bookmark set on its page are now saved even if you leave the page straight away.**
+- **A paged novel's page picker now keeps its loading spinner while the page you switched to is still loading.**
 - **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
 - **A novel whose plugin failed to load now gives the real reason when you refresh its details page, open a chapter or run a library update, instead of not installed.**
@@ -1315,6 +1317,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **AniList tracking now stays under the service's request limit, so a burst of updates is no longer rejected (from Mihon).** Upstream: mihonapp/mihon#3942.
 - **Marking a chapter read now updates the tracker status shown on the entry straight away, on manga and novels.**
 - **An open manga or novel page now follows Settings -> Tracking -> Share trackers across merged sources as soon as you change it.**
+- **Marking a chapter read with tracker updates set to Ask no longer asks to update a tracker you have logged out of, on manga and novels.**
 - **A tracker's start date is now filled in when the first chapter you read is not chapter 1, on manga and novels.** A date already on the tracker is never replaced.
 - **Removing a tracker with "Also remove from" now keeps it bound when the service refuses, so you can retry.**
 - **Binding or changing the status of a series from your own manga server when you have not started it no longer marks its Chapter 0 read, in Reikai or on the server.**

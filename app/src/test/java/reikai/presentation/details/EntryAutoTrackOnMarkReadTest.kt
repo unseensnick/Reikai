@@ -5,6 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import eu.kanade.domain.track.model.AutoTrackState
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.HttpException
@@ -112,6 +113,14 @@ class EntryAutoTrackOnMarkReadTest {
         pushed shouldBe emptyList()
     }
 
+    /** A row left by a tracker the user logged out of cannot be pushed, so it never asks to. */
+    @Test
+    fun `a logged-out tracker's stale row does not ask to push`() = runTest {
+        step(lastRead = 10.0, staleRows = listOf(kitsu.id to 0.0)).setRead(1L, listOf(marked), read = true)
+
+        pushed shouldBe emptyList()
+    }
+
     @Test
     fun `marking unread tells no tracker`() = runTest {
         step().setRead(entryId = 1L, chapters = listOf(marked), read = false)
@@ -197,13 +206,17 @@ class EntryAutoTrackOnMarkReadTest {
         pushFailed: List<Pair<Tracker, Throwable>> = emptyList(),
         lastRead: Double = 0.0,
         prompt: SnackbarResult = SnackbarResult.ActionPerformed,
+        staleRows: List<Pair<Long, Double>> = emptyList(),
     ) = EntryAutoTrackOnMarkRead<Copy>(
         appScope = testAppScope(),
         context = mockk(relaxed = true),
         snackbarHostState = mockk<SnackbarHostState> {
             coEvery { showSnackbar(any(), any(), any(), any()) } returns prompt
         },
-        trackerManager = mockk { every { loggedInTrackers() } returns listOf(mockk()) },
+        // AniList is logged in; Kitsu is not.
+        trackerManager = mockk {
+            every { loggedInTrackers() } returns listOf(mockk<BaseTracker> { every { id } returns anilist.id })
+        },
         trackPreferences = mockk<TrackPreferences> {
             every { autoUpdateTrackOnMarkRead } returns mockk { every { get() } returns state }
         },
@@ -214,7 +227,7 @@ class EntryAutoTrackOnMarkReadTest {
         },
         trackedNumbers = { chapters -> chapters.map { trunkNumbers[it] ?: it.number } },
         refresh = { refreshFailed },
-        lastReadPerTracker = { listOf(lastRead) },
+        lastReadPerTracker = { listOf(anilist.id to lastRead) + staleRows },
         pushProgress = { _, number ->
             pushed += number
             ChapterPushOutcome(failed = pushFailed)

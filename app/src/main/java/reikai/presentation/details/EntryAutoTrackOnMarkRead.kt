@@ -38,7 +38,8 @@ class EntryAutoTrackOnMarkRead<C>(
     // The numbers a push sends for chapters, the trunk's copy's on a merged series (TrackedChapterNumber).
     private val trackedNumbers: suspend (List<C>) -> List<Double>,
     private val refresh: suspend (entryId: Long) -> List<Pair<Tracker?, Throwable>>,
-    private val lastReadPerTracker: suspend (entryId: Long) -> List<Double>,
+    // Each of the group's trackers by id, with the last chapter it has read.
+    private val lastReadPerTracker: suspend (entryId: Long) -> List<Pair<Long, Double>>,
     private val pushProgress: suspend (entryId: Long, chapterNumber: Double) -> ChapterPushOutcome,
 ) {
 
@@ -66,7 +67,11 @@ class EntryAutoTrackOnMarkRead<C>(
         }
 
         val furthestRead = chapterNumbers.max()
-        if (lastReadPerTracker(entryId).none { furthestRead > it }) return refreshFailed
+        // Only a tracker the push can reach counts as behind, as the push kernels skip a logged-out one.
+        val reachable = trackerManager.loggedInTrackers().mapTo(HashSet()) { it.id }
+        if (lastReadPerTracker(entryId).none { (tracker, last) -> tracker in reachable && furthestRead > last }) {
+            return refreshFailed
+        }
 
         if (autoTrackState == AutoTrackState.ASK) {
             val result = snackbarHostState.showSnackbar(

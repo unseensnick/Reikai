@@ -1575,7 +1575,7 @@ class MangaViewModel(
         writeRead = { chapters, read -> setReadStatus.await(read = read, chapters = chapters.toTypedArray()) },
         trackedNumbers = { trackedChapterNumber.ofManga(it) },
         refresh = { refreshTracks.await(it) },
-        lastReadPerTracker = { getTracksInGroup.await(it).map(Track::lastChapterRead) },
+        lastReadPerTracker = { getTracksInGroup.await(it).map { track -> track.trackerId to track.lastChapterRead } },
         pushProgress = { id, chapterNumber -> trackChapter.await(context, id, chapterNumber) },
     )
     // RK <--

@@ -119,7 +119,6 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelCover
-import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.effectiveBookmarkedFilter
@@ -350,7 +349,8 @@ class NovelDetailsViewModel(
 
     private val isRefreshing = MutableStateFlow(false)
 
-    private val isPageLoading = MutableStateFlow(false)
+    // A count, since a fetch for a page the user moved off runs on beside the next one.
+    private val pagesLoading = MutableStateFlow(0)
 
     /** Cover-derived tint, extracted once; see [updateSeedColor]. */
     private val seedColor = MutableStateFlow<Color?>(null)
@@ -467,7 +467,7 @@ class NovelDetailsViewModel(
     val state: StateFlow<NovelDetailsState> = combine(
         sourcedChapterList,
         combine(downloadStates, trackingButton, combine(customInfo, chipCustomInfo, ::Pair), ::Triple),
-        combine(chapterSelection, dialog, isRefreshing, isPageLoading, seedColor, ::Overlay),
+        combine(chapterSelection, dialog, isRefreshing, pagesLoading.map { it > 0 }, seedColor, ::Overlay),
         notFound,
     ) { list, (downloads, tracking, info), overlay, notFound ->
         list?.copy(
@@ -900,7 +900,7 @@ class NovelDetailsViewModel(
         if (filters.isActive) return
         if (!triedPages.add(pageKey)) return
         viewModelScope.launchIO {
-            isPageLoading.value = true
+            pagesLoading.update { it + 1 }
             try {
                 src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
                     val synced = syncChaptersWithNovelSource(
@@ -926,7 +926,7 @@ class NovelDetailsViewModel(
                 val message = with(context) { e.refreshFailureMessage() }
                 launchUI { snackbarHostState.showSnackbar(message) }
             } finally {
-                isPageLoading.value = false
+                pagesLoading.update { it - 1 }
             }
         }
     }
@@ -1324,7 +1324,8 @@ class NovelDetailsViewModel(
     /** A user-set interval is stored negative, as manga's; [days] 0 hands it back to the prediction. */
     fun setFetchInterval(days: Int) {
         val novel = (state.value as? NovelDetailsState.Loaded)?.intervalNovel ?: return
-        viewModelScope.launchIO {
+        // A settings save the dialog confirmed, so closing the page right after cannot drop it.
+        appScope.launchIO {
             updateNovelFetchInterval(
                 novel.copy(fetchInterval = -days),
                 { chapterRepo.getByNovelId(novel.id) },
@@ -1489,12 +1490,11 @@ class NovelDetailsViewModel(
     )
 
     fun toggleChapterBookmark(chapter: NovelChapter) {
-        viewModelScope.launchIO {
-            // Toggled against what the row shows, which on a merged entry is the group's own state.
-            val marks = (state.value as? NovelDetailsState.Loaded)?.marks ?: GroupMarks.NONE
-            val target = !marks.isBookmarked(chapter.id, chapter.bookmark)
-            chapterRepo.setBookmarkBulk(expandToGroup(listOf(chapter)).map { it.id }, target)
-        }
+        // Toggled against what the row shows, which on a merged entry is the group's own state.
+        val marks = (state.value as? NovelDetailsState.Loaded)?.marks ?: GroupMarks.NONE
+        val target = !marks.isBookmarked(chapter.id, chapter.bookmark)
+        // On the app scope, as the read state's write is, so closing the page right after cannot drop it.
+        appScope.launchIO { chapterRepo.setBookmarkBulk(expandToGroup(listOf(chapter)).map { it.id }, target) }
     }
 
     fun markChapterRead(chapter: NovelChapter, read: Boolean) = setRead(listOf(chapter), read)
@@ -1533,7 +1533,9 @@ class NovelDetailsViewModel(
         writeRead = { chapters, read -> setNovelReadStatus.await(read, chapters) },
         trackedNumbers = { trackedChapterNumber.ofNovels(it) },
         refresh = { refreshNovelTracks.await(it) },
-        lastReadPerTracker = { getNovelTracks.awaitGroup(it).map(NovelTrack::lastChapterRead) },
+        lastReadPerTracker = { id ->
+            getNovelTracks.awaitGroup(id).map { track -> track.trackerId to track.lastChapterRead }
+        },
         pushProgress = { id, chapterNumber -> trackNovelChapter.await(context, id, chapterNumber) },
     )
 
@@ -1872,8 +1874,6 @@ sealed interface NovelDetailsState {
         /** [storedRows] with hidden ones dropped unless they are shown, before the filters and sort. */
         val unfilteredRows: List<NovelChapter> = emptyList(),
     ) : NovelDetailsState {
-        val selectionMode: Boolean get() = selection.isNotEmpty()
-
         /** Whose update interval the page shows and sets: the All view's served member, else the anchor. */
         val intervalNovel: Novel get() = servedNovel ?: novel
 
