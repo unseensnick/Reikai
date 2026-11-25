@@ -149,6 +149,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Dragging a source in Manage sources and back to where it was no longer saves a manual order.**
 - **Cancelling a merged manga chapter's download from its details page now cancels every queued copy of it, as it does for novels.**
 - **A merged series' details page now shows every source's tags under All, as the library does.** A source chip still shows that source's own tags.
 - **A merged series now keeps its reading mode, chapter display and rotation whichever source you open it through, and on upgrade takes the settings of the source you read most recently.** Opening it from History, Updates or another source used to drop what you had set.
@@ -380,6 +381,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **TalkBack now names the show and hide password button in sign-in dialogs.**
 - **Settings -> Advanced -> Clear cookies and Clear WebView data now also sign novel plugins out of their sites.**
 - **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page, and no longer shows a stale result after the address or sign-in changes.** A source that fails through the server reports the server's reason too.
 - **Settings -> Advanced -> Novel web page developer tools now takes effect at once on every web page in the app, after a restart too.** It used to wait until a novel was next opened.
@@ -417,6 +419,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A source's sign-in is no longer sent to another site when a request is redirected there and meets a Cloudflare check.**
 - **A page from a site behind a Cloudflare check no longer fails when its first try in the background web view drops but the retry gets through.**
 - **A library manga refreshed while it shows in Browse no longer has its new status or details undone.**
+- **Serbian and Serbo-Croatian sources now show the Serbian flag instead of the Croatian one.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
 - **Opening a shared link that a manga extension fails to read no longer crashes, and the app goes on to look for it elsewhere.**
 - **Leaving Browse, search, the feed or follows during a multi-select add to library no longer stops the add partway.** Every selected entry is added and filed.

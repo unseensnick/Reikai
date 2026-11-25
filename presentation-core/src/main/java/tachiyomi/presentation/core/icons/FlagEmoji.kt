@@ -105,7 +105,7 @@ class FlagEmoji {
                 "ro" -> "ro" // Romanian -> Romania, RO
                 "ru" -> "ru" // Russian -> Russia, RU
                 "sd" -> "pk" // Sindhi -> Pakistan, PK
-                "sh" -> "hr" // Serbo-Croatian -> Serbia, HR
+                "sh" -> "rs" // Serbo-Croatian -> Serbia, RS
                 "si" -> "lk" // Sinhalese -> Sri Lanka, LK
                 "sk" -> "sk" // Slovak -> Slovakia, SK
                 "sl" -> "si" // Slovenian -> Slovenia, SI
@@ -113,7 +113,7 @@ class FlagEmoji {
                 "sn" -> "zw" // Shona -> Zimbabwe, ZW
                 "so" -> "so" // Somali -> Somalia, SO
                 "sq" -> "al" // Albanian -> Albania, AL
-                "sr" -> "hr" // Serbian -> Serbia, HR
+                "sr" -> "rs" // Serbian -> Serbia, RS
                 "st" -> "ls" // Sesotho -> South Africa, ZA - Lesotho, LS
                 "sv" -> "se" // Swedish -> Sweden, SE
                 "sw" -> "tz" // Swahili -> Tanzania, TZ - Kenya, KE

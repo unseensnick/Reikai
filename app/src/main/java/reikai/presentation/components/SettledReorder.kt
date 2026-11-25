@@ -26,19 +26,21 @@ fun <T> rememberSettledReorder(
     contentPadding: PaddingValues = PaddingValues(),
     onSettled: (List<T>) -> Unit,
 ): ReorderableLazyListState {
-    var didDrag by remember { mutableStateOf(false) }
+    // The order the drag started from, so one that ends where it began settles nothing.
+    var dragStart by remember { mutableStateOf<List<Any>?>(null) }
     val currentOnSettled by rememberUpdatedState(onSettled)
     val state = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
         val fromIndex = items.indexOfFirst { keyOf(it) == from.key }
         val toIndex = items.indexOfFirst { keyOf(it) == to.key }
         if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
+        if (dragStart == null) dragStart = items.map(keyOf)
         items.add(toIndex, items.removeAt(fromIndex))
-        didDrag = true
     }
     LaunchedEffect(state.isAnyItemDragging) {
-        if (!state.isAnyItemDragging && didDrag) {
-            didDrag = false
-            currentOnSettled(items.toList())
+        val start = dragStart
+        if (!state.isAnyItemDragging && start != null) {
+            dragStart = null
+            if (items.map(keyOf) != start) currentOnSettled(items.toList())
         }
     }
     return state

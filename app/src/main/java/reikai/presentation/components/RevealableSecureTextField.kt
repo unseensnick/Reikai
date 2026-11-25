@@ -22,6 +22,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.roundedfilled.Visibility
 import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * A full-width password field with a show/hide toggle, the last field of a sign-in dialog. Mihon's
@@ -48,7 +50,9 @@ fun RevealableSecureTextField(
                     } else {
                         MaterialSymbols.RoundedFilled.VisibilityOff
                     },
-                    contentDescription = null,
+                    contentDescription = stringResource(
+                        if (hidden) MR.strings.action_show_password else MR.strings.action_hide_password,
+                    ),
                 )
             }
         },

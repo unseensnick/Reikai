@@ -1420,6 +1420,8 @@
     <string name="username">Username</string>
     <string name="email">Email address</string>
     <string name="password">Password</string>
+    <string name="action_show_password">Show password</string>
+    <string name="action_hide_password">Hide password</string>
     <string name="login_token">Personal access token</string>
     <string name="login_token_info">Generate a token on the tracker\'s website, then paste it here.</string>
     <string name="login_get_token">Get a token</string>
