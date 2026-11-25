@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -41,19 +42,22 @@ class ShownContentTest {
     }
 
     @Test
-    fun `the state Browse reads follows the Show setting`() = runTest {
-        shown.set(ContentType.NOVELS)
+    fun `changes carry a chip pick while both types show`() = runTest {
+        val seen = mutableListOf<ContentType>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { scoped.changes().toList(seen) }
 
-        scoped.stateIn(backgroundScope).value shouldBe ContentType.NOVELS
+        stored.set(ContentType.NOVELS)
+
+        seen shouldBe listOf(ContentType.MANGA, ContentType.NOVELS)
     }
 
     @Test
-    fun `the stored side ignores the Show setting`() {
+    fun `the state Browse reads follows the Show setting`() = runTest {
+        val state = scoped.stateIn(backgroundScope + UnconfinedTestDispatcher(testScheduler))
+
         shown.set(ContentType.NOVELS)
 
-        scoped.stored.set(ContentType.ALL)
-
-        scoped.stored.get() shouldBe ContentType.ALL
+        state.value shouldBe ContentType.NOVELS
     }
 
     @Test
