@@ -208,7 +208,7 @@ class NovelLibraryViewModel(
             stitchInputChanges(
                 ContentType.NOVELS,
                 mergeGroupRepository,
-                reikaiLibraryPreferences.preferredNovelSources.changes(),
+                reikaiLibraryPreferences,
             )
                 .collectLatest { reconcileMergedChapters.await() }
         }

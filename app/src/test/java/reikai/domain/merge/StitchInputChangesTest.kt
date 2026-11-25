@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
@@ -23,23 +24,18 @@ class StitchInputChangesTest {
     }
     private val preferences = ReikaiLibraryPreferences(EmittingPreferenceStore())
 
-    // What each library passes in: its own type's preferred-source list.
-    private fun preferredSources(type: ContentType) = when (type) {
-        ContentType.MANGA -> preferences.preferredMangaSources.changes()
-        else -> preferences.preferredNovelSources.changes()
-    }
-
     private fun reorderPreferredSources(type: ContentType) = when (type) {
         ContentType.MANGA -> preferences.preferredMangaSources.set(listOf(2L, 1L))
         else -> preferences.preferredNovelSources.set(listOf("b", "a"))
     }
 
+    // Each type reconciles on its own preferred-source list, which the kernel picks by type.
     @ParameterizedTest
     @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
     fun `reordering the preferred sources asks for a reconcile`(type: ContentType) = runTest {
         var emissions = 0
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            stitchInputChanges(type, repository, preferredSources(type)).collect { emissions++ }
+            stitchInputChanges(type, repository, preferences).collect { emissions++ }
         }
 
         reorderPreferredSources(type)
@@ -47,12 +43,11 @@ class StitchInputChangesTest {
         emissions shouldBe 2
     }
 
-    @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a membership change still asks for a reconcile`(type: ContentType) = runTest {
+    @Test
+    fun `a membership change still asks for a reconcile`() = runTest {
         var emissions = 0
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            stitchInputChanges(type, repository, preferredSources(type)).collect { emissions++ }
+            stitchInputChanges(ContentType.MANGA, repository, preferences).collect { emissions++ }
         }
 
         memberships.value = mapOf(1L to 10L, 2L to 10L)
