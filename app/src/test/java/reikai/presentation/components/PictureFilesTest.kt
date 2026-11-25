@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
+import eu.kanade.tachiyomi.util.storage.cacheImageDir
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -55,6 +56,16 @@ class PictureFilesTest {
         savePicture(context, imageSaver, Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888), "Page", "Saga", true)
 
         saved.captured.location shouldBe Location.Cache
+    }
+
+    @Test
+    fun `a picture written to share replaces the one shared before`() = runTest {
+        val earlier = context.cacheImageDir.apply { mkdirs() }.resolve("earlier.png").apply { writeText("x") }
+        val imageSaver = mockk<ImageSaver> { every { save(any()) } returns Uri.EMPTY }
+
+        savePicture(context, imageSaver, Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888), "Page", "Saga", true)
+
+        earlier.exists() shouldBe false
     }
 
     @Test

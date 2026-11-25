@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
 import eu.kanade.tachiyomi.util.storage.DiskUtil
+import eu.kanade.tachiyomi.util.storage.cacheImageDir
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,8 @@ suspend fun savePicture(
 ): Uri? {
     val bytes = pictureBytes(context, model) ?: return null
     return withIOContext {
+        // Only the last shared picture is kept, as a manga page's share keeps it.
+        if (forSharing) context.cacheImageDir.deleteRecursively()
         imageSaver.save(
             Image.Page(
                 inputStream = { ByteArrayInputStream(bytes) },
