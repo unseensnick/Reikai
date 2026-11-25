@@ -2,8 +2,6 @@ package reikai.presentation.library
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
-import io.mockk.every
-import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -20,6 +18,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergedChapterUnitRepository.GroupStitch
 import reikai.domain.merge.MergedChapterUnitRepository.StoredUnit
+import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -36,11 +35,7 @@ class MergeCollapseInputsTest {
     private lateinit var units: MergedChapterUnitRepositoryImpl
     private lateinit var groups: MergeGroupRepositoryImpl
 
-    // An in-memory preference's changes() never emits, and the inputs wait for every flow.
-    private val prefs = mockk<ReikaiLibraryPreferences> {
-        every { seriesMergingEnabled.changes() } returns flowOf(true)
-        every { showMergeSourceIcons.changes() } returns flowOf(true)
-    }
+    private val prefs = ReikaiLibraryPreferences(EmittingPreferenceStore())
 
     @BeforeEach
     fun setUp() {
