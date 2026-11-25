@@ -31,7 +31,7 @@ class WebViewFetcherTest {
     @Test
     fun aPageStillOpeningIsNotEvictedForAnotherSite() {
         // One more site than the page cap, all at once, so the last page opens while the first waits to be ready.
-        val servers = List(5) { LoopbackServer { _, _ -> LoopbackServer.ok("site") } }
+        val servers = List(WebViewFetcher.MAX_PAGES + 1) { LoopbackServer { _, _ -> LoopbackServer.ok("site") } }
         val start = CountDownLatch(1)
         val pool = Executors.newFixedThreadPool(servers.size)
         val codes = servers.map { server ->
@@ -46,7 +46,7 @@ class WebViewFetcherTest {
         pool.shutdown()
         servers.forEach(LoopbackServer::close)
 
-        assertEquals(List(5) { 200 }, answered)
+        assertEquals(List(servers.size) { 200 }, answered)
     }
 
     @Test

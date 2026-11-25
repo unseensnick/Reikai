@@ -415,6 +415,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A search or a migration target pick in Browse now survives Android closing the app in the background.**
 - **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
 - **A source's sign-in is no longer sent to another site when a request is redirected there and meets a Cloudflare check.**
+- **A page from a site behind a Cloudflare check no longer fails when its first try in the background web view drops but the retry gets through.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
 - **Opening a shared link that a manga extension fails to read no longer crashes, and the app goes on to look for it elsewhere.**
 - **Leaving Browse, search, the feed or follows during a multi-select add to library no longer stops the add partway.** Every selected entry is added and filed.

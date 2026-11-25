@@ -91,13 +91,15 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
             val first = fetchOnce(chain, current, manualRedirect = manualOnly)
             // A fetch that followed a redirect to another site is refused unless that site allows it,
             // so ask again without following, and learn the target from a navigation instead.
-            val redirected = when {
-                first is Answer.Redirect -> true
-                manualOnly || first !is Answer.Error || !first.fromPage -> false
-                !followsRedirect(current, chain.followRedirects) -> false
-                else -> fetchOnce(chain, current, manualRedirect = true) is Answer.Redirect
+            val retry = when {
+                first is Answer.Redirect -> null
+                manualOnly || first !is Answer.Error || !first.fromPage -> null
+                !followsRedirect(current, chain.followRedirects) -> null
+                else -> fetchOnce(chain, current, manualRedirect = true)
             }
-            if (!redirected) return first.toOutcome(current)
+            val redirected = first is Answer.Redirect || retry is Answer.Redirect
+            // A retry that answered outright was a passing failure, not a redirect, so its answer stands.
+            if (!redirected) return ((retry as? Answer.Done) ?: first).toOutcome(current)
             // Checked before the navigation below, which would load the page only for its answer to be refused.
             if (!followsRedirect(
                     current,
@@ -429,23 +431,24 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
         }
     }
 
-    private companion object {
-        const val BRIDGE = "reikaiFetch"
-        const val READY = "{\"kind\":\"ready\"}"
-        const val PAGE_CLOSED = "closed"
-        const val ID_PREFIX = "{\"id\":\""
+    companion object {
+        // Public for the instrumented test, which opens one more site than this.
         const val MAX_PAGES = 4
-        const val MAX_SERVED_ORIGINS = 64
-        const val MAX_HOPS = 5
-        const val MAX_BODY_BYTES = 32L * 1024 * 1024
-        const val TIMEOUT_SECONDS = 20L
-        const val FETCH_TIMEOUT_SECONDS = 90L
-        const val POLL_MILLIS = 250L
-        const val IDLE_MILLIS = 60_000L
+        private const val BRIDGE = "reikaiFetch"
+        private const val READY = "{\"kind\":\"ready\"}"
+        private const val PAGE_CLOSED = "closed"
+        private const val ID_PREFIX = "{\"id\":\""
+        private const val MAX_SERVED_ORIGINS = 64
+        private const val MAX_HOPS = 5
+        private const val MAX_BODY_BYTES = 32L * 1024 * 1024
+        private const val TIMEOUT_SECONDS = 20L
+        private const val FETCH_TIMEOUT_SECONDS = 90L
+        private const val POLL_MILLIS = 250L
+        private const val IDLE_MILLIS = 60_000L
 
         // Fixed: nothing from a request is ever part of this text. Chunks stay small because the
         // listener runs on the main thread.
-        val FETCH_PAGE = """
+        private val FETCH_PAGE = """
             <!doctype html><html><head><script>
             (() => {
               const bridge = window.$BRIDGE;
