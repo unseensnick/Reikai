@@ -14,6 +14,7 @@ import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.manga.RemoveMangaFromLibrary
+import reikai.domain.merge.GroupKeptSettings
 import reikai.domain.track.autobind.AutoBindOnAdd
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.library.reikaiSortCategories
@@ -269,7 +270,6 @@ class MangaLibraryAdder(
         sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
     )
 
-    /** [add], after which a series back in the library takes its group's chapter settings and reader flags. */
     private suspend fun <T> rejoinGroup(id: Long, add: suspend () -> T): T =
-        chapterSettings.rejoin(id, mergeManager) { viewerFlagSettings.rejoin(id, mergeManager, add) }
+        GroupKeptSettings(chapterSettings, viewerFlagSettings, groupCategories).rejoin(id, mergeManager, add)
 }

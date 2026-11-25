@@ -15,6 +15,7 @@ import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.manga.PropagateTrackerLinks
+import reikai.domain.merge.GroupKeptSettings
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelGroupCategories
@@ -62,11 +63,7 @@ object ReikaiBindings {
     ): MangaMergeManager = MangaMergeManager(
         repository,
         preferences,
-        onMerged = {
-            chapterSettings.adoptOwnerSetting(it)
-            viewerFlagSettings.adoptOwnerSetting(it)
-            groupCategories.adoptOwnerCategories(it)
-        },
+        onMerged = GroupKeptSettings(chapterSettings, viewerFlagSettings, groupCategories)::adoptOwner,
     ) { propagate.distribute(it) }
 
     // The novel propagator arrives deferred because it reads tracks through GetNovelTracks, which
@@ -84,11 +81,7 @@ object ReikaiBindings {
     ): NovelMergeManager = NovelMergeManager(
         repository,
         preferences,
-        onMerged = {
-            chapterSettings.adoptOwnerSetting(it)
-            viewerFlagSettings.adoptOwnerSetting(it)
-            groupCategories.adoptOwnerCategories(it)
-        },
+        onMerged = GroupKeptSettings(chapterSettings, viewerFlagSettings, groupCategories)::adoptOwner,
     ) { propagate().distribute(it) }
 
     @Provides

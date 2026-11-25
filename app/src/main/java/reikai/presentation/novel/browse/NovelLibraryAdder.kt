@@ -9,6 +9,7 @@ import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.GroupKeptSettings
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
@@ -314,7 +315,6 @@ class NovelLibraryAdder(
         novelRepository.getByUrlAndSource(item.path, sourceId)?.let { removeNovelsFromLibrary.await(listOf(it.id)) }
     }
 
-    /** [add], after which a series back in the library takes its group's chapter settings and reader flags. */
     private suspend fun <T> rejoinGroup(id: Long, add: suspend () -> T): T =
-        chapterSettings.rejoin(id, mergeManager) { viewerFlagSettings.rejoin(id, mergeManager, add) }
+        GroupKeptSettings(chapterSettings, viewerFlagSettings, groupCategories).rejoin(id, mergeManager, add)
 }
