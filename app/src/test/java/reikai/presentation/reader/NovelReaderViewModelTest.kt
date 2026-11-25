@@ -405,6 +405,22 @@ class NovelReaderViewModelTest {
         reopened.chapter.value?.chapterId shouldBe first.id
     }
 
+    /** The chapter and its position are one saved value, so neither can come from another moment than the other. */
+    @Test
+    fun `an incognito place saved as one value reopens on its chapter at its position`() = readerTest { harness ->
+        harness.incognito.set(true)
+        val novel = harness.novel(harness.source("src"))
+        val launched = harness.chapter(novel, 1.0)
+        val reached = harness.chapter(novel, 2.0)
+        val savedState = SavedStateHandle(mapOf("novel_chapter_position" to longArrayOf(reached.id, 4000)))
+
+        val restored = harness.open(novel, launched.id, savedState = savedState)
+        advanceUntilIdle()
+
+        restored.chapter.value?.let { it.chapterId to it.progress } shouldBe
+            (reached.id to ChapterProgress.Percent.ofWhole(40))
+    }
+
     /** A chapter that never rendered was not being read, so History's newest must not replace it on a restore. */
     @Test
     fun `a kill before the first chapter renders reopens on the chapter the launch named`() =

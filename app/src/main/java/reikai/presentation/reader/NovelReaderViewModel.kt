@@ -289,12 +289,12 @@ class NovelReaderViewModel(
      * then. `ReaderViewModel` restores the same thing from its own handle. Declared above every reader
      * of it, which would otherwise see 0 while this initializer had not run.
      */
-    private val openingChapterId: Long = savedState.get<Long>(SAVED_CHAPTER_ID)
+    private val openingChapterId: Long = savedState.get<LongArray>(SAVED_PLACE)?.get(0)
         ?: spokenChapter()?.takeIf { followSession || readAloudSession.isSpoken(initialChapterId) }
         ?: initialChapterId
 
     /** Whether the first load reopens after a process kill, which [newestStampedChapter] may move on. */
-    private var restoringAfterKill = savedState.contains(SAVED_CHAPTER_ID)
+    private var restoringAfterKill = savedState.contains(SAVED_PLACE)
 
     /** Loading until the first chapter renders, so the host shows a spinner rather than a blank page.
      *  Declared above the init block that calls load(), which would otherwise write it before it exists. */
@@ -640,11 +640,16 @@ class NovelReaderViewModel(
      *  killed cannot drop a held write. */
     fun flushProgress() = progressSlot.flush()
 
-    /** The chapter being read's position, kept for a process kill as manga keeps its page: in incognito the
-     *  database holds none to reopen at. Kept as it is written, so it is never a place the save skipped. */
-    private fun keepPosition(chapterId: Long, at: ChapterProgress.Percent) {
-        if (chapterId == currentChapterId) savedState[SAVED_POSITION] = longArrayOf(chapterId, at.hundredths)
+    /** The chapter being read with its position, kept for a process kill as manga keeps its page: in incognito the
+     *  database holds none to reopen at. Kept as each is written, so it is never a place the save skipped, and only
+     *  once the chapter has rendered, or a kill during a slow first load reopened History's newest instead. One
+     *  value checked and written under [placeLock], so a write racing a crossing cannot save the departed chapter
+     *  or pair one chapter with another's position. */
+    private fun keepPlace(chapterId: Long, at: ChapterProgress.Percent) = synchronized(placeLock) {
+        if (chapterId == currentChapterId) savedState[SAVED_PLACE] = longArrayOf(chapterId, at.hundredths)
     }
+
+    private val placeLock = Any()
 
     /** The newest position this session has for [chapterId] that the database may not hold yet: one held
      *  back, one waiting to be written, or, in incognito, the one kept across a process kill. Outside it the
@@ -652,7 +657,7 @@ class NovelReaderViewModel(
      *  can write on behind it. */
     private suspend fun unstoredPosition(chapterId: Long, ownerId: Long): Long? =
         progressSlot.unstored(chapterId)?.hundredths
-            ?: savedState.get<LongArray>(SAVED_POSITION)
+            ?: savedState.get<LongArray>(SAVED_PLACE)
                 ?.takeIf { it[0] == chapterId && incognito.of(ownerId) }
                 ?.get(1)
 
@@ -660,12 +665,6 @@ class NovelReaderViewModel(
      *  one, so it advances only once a chapter has actually rendered. */
     @Volatile
     private var currentChapterId: Long = openingChapterId
-
-    /** Saves [chapterId] as the one to reopen after a process kill, once it has rendered: saved before, a kill
-     *  during a slow first load reopened History's newest chapter rather than the one the launch named. */
-    private fun keepChapter(chapterId: Long) {
-        savedState[SAVED_CHAPTER_ID] = chapterId
-    }
 
     /** The chapter a load is aiming at, which is what a retry repeats. Separate from [currentChapterId]
      *  because a load that fails leaves the reader showing what it had. */
@@ -818,7 +817,7 @@ class NovelReaderViewModel(
         holdReadClockWhileSpeaking()
         followReadAloud()
         // Kept as each is written, so it is never a place the save skipped.
-        progressSlot.persisted.onEach { (id, at) -> keepPosition(id, at) }.launchIn(viewModelScope)
+        progressSlot.persisted.onEach { (id, at) -> keepPlace(id, at) }.launchIn(viewModelScope)
         viewModelScope.launchIO {
             val novel = try {
                 val ownerId = getNextNovelChapter.viewerFlags(novelId).also(viewerFlags::complete).ownerId
@@ -983,14 +982,13 @@ class NovelReaderViewModel(
         flushProgress()
         updateHistory()
         currentChapterId = target
-        keepChapter(target)
         currentNovelId = owner
         startReadSession()
         this.bookmarked.value = bookmarked
         chapter.value = arriving
         // Its own first report usually beat this here, and was not the current chapter's when it came.
         progress.value = latestReport?.takeIf { it.first == target }?.second ?: arriving.progress
-        keepPosition(target, progress.value)
+        keepPlace(target, progress.value)
         settleNeighbours(around)
         window.value = recentred
         return passed
@@ -1121,13 +1119,12 @@ class NovelReaderViewModel(
         val reloading = row.id == currentChapterId && chapter.value != null
         startReadSession(resume = reloading)
         currentChapterId = row.id
-        keepChapter(row.id)
         currentNovelId = row.novelId
         this.bookmarked.value = bookmarked
         chapter.value = opened
         if (!reloading) {
             progress.value = opened.progress
-            keepPosition(row.id, opened.progress)
+            keepPlace(row.id, opened.progress)
             latestTopLine = null
         }
         openGeneration = window.generation
@@ -1681,12 +1678,9 @@ internal fun NovelChapter.toReaderChapterRow(
     )
 }
 
-/** Where the chapter being read is kept for a process kill. Its own key, not the launch extra the
+/** The chapter being read with its position, kept for a process kill. Its own key, not the launch extra the
  *  intent carries: a restored Activity is handed that same intent, naming the chapter it opened on. */
-private const val SAVED_CHAPTER_ID = "novel_chapter_id"
-
-/** The chapter being read with its position, kept beside it for the same process kill. */
-private const val SAVED_POSITION = "novel_chapter_position"
+private const val SAVED_PLACE = "novel_chapter_position"
 
 /** The novel and scope the reader opened in, which a follow can take from read aloud, kept for the same kill. */
 private const val SAVED_VIEW = "novel_reader_view"
