@@ -36,6 +36,7 @@ import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
 import reikai.domain.local.localShownVolumeKey
 import reikai.novel.local.LocalNovelSource
+import reikai.source.local.localChapterFile
 import reikai.source.local.localChapterUnit
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -109,7 +110,7 @@ internal fun mangaChapterVolume(owner: Manga?, url: String, name: String): Chapt
     val key = localGroupKey(owner.url, folder, volume)
     if (volume == VolumeOwner.LOOSE) {
         val prefix = if (folder == owner.url) "" else "$folder - "
-        val file = url.split('/').last { it.isNotEmpty() }
+        val file = localChapterFile(url)
         val label = if (folder == owner.url) VolumeLabel.Loose else VolumeLabel.Name(folder)
         return ChapterVolume(owner.url, key, label, prefix, LooseChapter(file, name.removePrefix(prefix)))
     }

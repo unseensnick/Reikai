@@ -3,8 +3,8 @@ package reikai.presentation.details
 /**
  * Shared hidden-chapter view logic for the manga and novel details models, so the "show hidden only
  * while hidden chapters still exist" collapse rule and the dimmed-id computation can't drift. Each model
- * keeps its own chapter type, key building, and pipeline integration; these operate over a [keyOf] /
- * [idOf] projection of whatever chapter/item type the caller renders.
+ * keeps its own chapter type, key building, and pipeline integration; these operate over a `keyOf` /
+ * `idOf` projection of whatever chapter/item type the caller renders.
  */
 data class HiddenChapterView<T>(
     val visible: List<T>,

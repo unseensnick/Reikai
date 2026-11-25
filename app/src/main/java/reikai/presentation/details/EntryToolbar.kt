@@ -238,9 +238,10 @@ fun EntryToolbar(
                         ),
                     )
                     // Overflow order (both types): Refresh, Edit categories, Edit info, Migrate, Manage
-                    // sources, Notes, Share, Gallery info, Search downloaded chapters, Word count, Open
-                    // folder, Clear downloads, Source settings, Show/Hide hidden, then the scroll actions
-                    // when they sit here. Each is gated on its callback.
+                    // sources, Notes, Share, Gallery info, Search downloaded chapters, Word count, Reorder
+                    // volumes, Add volumes, Split out, Delete volumes, Rename files, Export, Open folder,
+                    // Clear downloads, Source settings, Recommendations, Show/Hide hidden, then the scroll
+                    // actions when they sit here. Each is gated on its callback.
                     add(
                         AppBar.OverflowAction(
                             title = stringResource(MR.strings.action_webview_refresh),

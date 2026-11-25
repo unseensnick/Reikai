@@ -24,9 +24,10 @@ import reikai.presentation.details.EntryCoverViewModel
 import java.io.InputStream
 
 /**
- * The novel cover source for the shared [EntryCoverViewModel]. Subscribes by url + source (there is no
- * by-id novel flow) and keys the custom cover by [EntryId.Novel] (so it can't collide with a same-id
- * manga). The save / share machinery lives in the shared base.
+ * The novel cover source for the shared [EntryCoverViewModel]. Subscribes by url + source, which the adapter
+ * keys the model by (NovelEntryAdapter's coverKey), so an address change builds a new one, and keys the custom
+ * cover by [EntryId.Novel] (so it can't collide with a same-id manga). The save / share machinery lives in the
+ * shared base.
  */
 @AssistedInject
 class NovelCoverViewModel(
