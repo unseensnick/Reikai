@@ -17,9 +17,9 @@ class SourceTitlesRepositoryImpl(
 
     private val queries = database.source_titlesQueries
 
-    override suspend fun otherMangaTitles(sourceId: Long, mangaId: Long): List<String> =
-        queries.otherMangaTitles(sourceId, mangaId).awaitAsList()
+    override suspend fun otherMangaTitles(sourceIds: Collection<Long>, mangaId: Long): List<String> =
+        queries.otherMangaTitles(sourceIds, mangaId).awaitAsList()
 
-    override suspend fun otherNovelTitles(source: String, novelId: Long): List<String> =
-        queries.otherNovelTitles(source, novelId).awaitAsList()
+    override suspend fun otherNovelTitles(sources: Collection<String>, novelId: Long): List<String> =
+        queries.otherNovelTitles(sources, novelId).awaitAsList()
 }

@@ -93,6 +93,12 @@ class NovelDownloadProvider(
     /** What [source]'s folder is called before it is made a valid file name: see [sourceFolderLabels]. */
     fun sourceFolderLabel(source: String): String = folderLabels[source] ?: source
 
+    /** [source] and every seen source whose folder is the same one, as two catalogues of one name and language are. */
+    fun sourcesSharingFolder(source: String): Set<String> {
+        val folder = sourceDirName(source)
+        return folderLabels.keys.filterTo(hashSetOf(source)) { sourceDirName(it).equals(folder, ignoreCase = true) }
+    }
+
     /**
      * Moves each of [sources]' folders from the label [from] gives it to the one [to] gives it, where the old one
      * exists and the new one is free; a taken name leaves the folder where it is, its downloads unread but kept.

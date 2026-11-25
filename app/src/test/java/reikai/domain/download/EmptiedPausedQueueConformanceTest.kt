@@ -202,7 +202,11 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
             },
             cache = mockk(relaxed = true),
             getCategories = mockk(),
-            sourceManager = mockk { coEvery { getOrStub(manga.source) } returns mockk(relaxed = true) },
+            sourceManager = mockk {
+                coEvery { getOrStub(manga.source) } returns mockk(relaxed = true)
+                coEvery { getAll() } returns emptyList()
+                coEvery { getStubSources() } returns emptyList()
+            },
             downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
             getManga = mockk(),
             getChapter = mockk(),

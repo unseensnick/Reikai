@@ -117,10 +117,15 @@ class MangaTitleRenameHalf : TitleRenameHalf {
             provider = mockk {
                 coEvery { findMangaDir("Old", any()) } answers { sourceFolder.findFile("Old") }
                 every { getMangaDirName(any()) } answers { firstArg() }
+                every { getSourceDirName(any()) } returns "src"
             },
             cache = mockk(relaxed = true),
             getCategories = mockk(),
-            sourceManager = mockk { coEvery { getOrStub(1L) } returns mockk(relaxed = true) },
+            sourceManager = mockk {
+                coEvery { getOrStub(1L) } returns mockk(relaxed = true)
+                coEvery { getAll() } returns emptyList()
+                coEvery { getStubSources() } returns emptyList()
+            },
             downloadPreferences = mockk(),
             getManga = mockk(),
             getChapter = mockk(),
@@ -129,7 +134,7 @@ class MangaTitleRenameHalf : TitleRenameHalf {
                 coEvery { awaitQueueRestored() } just runs
             },
             pendingDeleter = mockk(),
-            sourceTitles = mockk { coEvery { otherMangaTitles(1L, 1L) } returns otherTitles },
+            sourceTitles = mockk { coEvery { otherMangaTitles(setOf(1L), 1L) } returns otherTitles },
             getChaptersByMangaId = mockk(),
         )
 
@@ -171,7 +176,7 @@ class NovelTitleRenameHalf : TitleRenameHalf {
             saver = mockk(),
             securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
             adultChecker = mockk(),
-            sourceTitles = mockk { coEvery { otherNovelTitles("src", 1L) } returns otherTitles },
+            sourceTitles = mockk { coEvery { otherNovelTitles(setOf("src"), 1L) } returns otherTitles },
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
             sourceContacts = realTimeSourceContacts(),
         )

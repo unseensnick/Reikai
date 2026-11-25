@@ -117,6 +117,17 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
         (half.hasChapter(downloads, "Ch 1") to half.hasChapter(downloads, "Ch 2")) shouldBe (false to true)
     }
 
+    // Two sources of one name and language write into one source folder, so their series folders meet too.
+    @Test
+    fun `deleting a series whose folder a same-named source's entry shares keeps that entry's chapters`() = runTest {
+        half.chapter(downloads, "Ch 1")
+        half.chapter(downloads, "Ch 2")
+
+        half.deleteSeries(context, picked(), sharerTitles = listOf("Title"))
+
+        (half.hasChapter(downloads, "Ch 1") to half.hasChapter(downloads, "Ch 2")) shouldBe (false to true)
+    }
+
     @Test
     fun `deleting the last series takes the source folder with it`() = runTest {
         half.chapter(downloads, "Ch 1")
@@ -138,8 +149,16 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
         fun hasChapter(downloads: File, name: String): Boolean
         suspend fun deleteChapter(context: Context, downloads: UniFile, name: String)
 
-        /** Deletes the series owning `Ch 1`, while [otherTitles] are the other entries on its source. */
-        suspend fun deleteSeries(context: Context, downloads: UniFile, otherTitles: List<String> = emptyList())
+        /**
+         * Deletes the series owning `Ch 1`, while [otherTitles] are the other entries on its source and [sharerTitles]
+         * the entries on a second source of the same name and language.
+         */
+        suspend fun deleteSeries(
+            context: Context,
+            downloads: UniFile,
+            otherTitles: List<String> = emptyList(),
+            sharerTitles: List<String> = emptyList(),
+        )
     }
 
     class MangaHalf : Half {
@@ -158,8 +177,13 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
             manager(context, downloads).deleteChapters(listOf(chapterRow(name)), manga, source)
         }
 
-        override suspend fun deleteSeries(context: Context, downloads: UniFile, otherTitles: List<String>) {
-            manager(context, downloads, otherTitles).deleteManga(manga, source)
+        override suspend fun deleteSeries(
+            context: Context,
+            downloads: UniFile,
+            otherTitles: List<String>,
+            sharerTitles: List<String>,
+        ) {
+            manager(context, downloads, mapOf(1L to otherTitles, 2L to sharerTitles)).deleteManga(manga, source)
         }
 
         private fun chapterRow(name: String) = Chapter.create().copy(
@@ -171,7 +195,7 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
         private fun manager(
             context: Context,
             downloads: UniFile,
-            otherTitles: List<String> = emptyList(),
+            titles: Map<Long, List<String>> = emptyMap(),
         ): DownloadManager {
             val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
             val storage = mockk<StorageManager> {
@@ -183,13 +207,20 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
                 provider = DownloadProvider(context, storage, libraryPreferences),
                 cache = mockk(relaxed = true),
                 getCategories = mockk(),
-                sourceManager = mockk { coEvery { getOrStub(1L) } returns source },
+                sourceManager = mockk {
+                    coEvery { getOrStub(1L) } returns source
+                    coEvery { getAll() } returns listOf(source)
+                    coEvery { getStubSources() } returns listOf(StubSource(id = 2L, lang = "en", name = "src"))
+                },
                 downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
                 getManga = mockk(),
                 getChapter = mockk(),
                 downloader = mockk(relaxed = true) { every { queueState } returns MutableStateFlow(emptyList()) },
                 pendingDeleter = mockk(),
-                sourceTitles = mockk { coEvery { otherMangaTitles(1L, 1L) } returns otherTitles },
+                sourceTitles = mockk {
+                    coEvery { otherMangaTitles(any(), 1L) } answers
+                        { firstArg<Collection<Long>>().flatMap { titles[it].orEmpty() } }
+                },
                 getChaptersByMangaId = mockk { coEvery { await(1L, any()) } returns listOf(chapterRow("Ch 1")) },
             )
         }
@@ -213,8 +244,17 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
             manager(context, downloads).deleteChapters(listOf(chapterRow(name)))
         }
 
-        override suspend fun deleteSeries(context: Context, downloads: UniFile, otherTitles: List<String>) {
-            manager(context, downloads, otherTitles).awaitDeleteNovel(novel)
+        override suspend fun deleteSeries(
+            context: Context,
+            downloads: UniFile,
+            otherTitles: List<String>,
+            sharerTitles: List<String>,
+        ) {
+            manager(
+                context,
+                downloads,
+                mapOf("tachiyomi:1" to otherTitles, "tachiyomi:2" to sharerTitles),
+            ).awaitDeleteNovel(novel)
         }
 
         private fun chapterRow(name: String) = NovelChapter(
@@ -226,11 +266,16 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
         private fun manager(
             context: Context,
             downloads: UniFile,
-            otherTitles: List<String> = emptyList(),
+            titles: Map<String, List<String>> = emptyMap(),
         ): NovelDownloadManager {
             val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
             val novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply {
-                seenNovelSources().set(mapOf("tachiyomi:1" to LnSourceIdentity(name = "src", lang = "en")))
+                seenNovelSources().set(
+                    mapOf(
+                        "tachiyomi:1" to LnSourceIdentity(name = "src", lang = "en"),
+                        "tachiyomi:2" to LnSourceIdentity(name = "src", lang = "en"),
+                    ),
+                )
             }
             val appContext = mockk<Context>(relaxed = true) {
                 every { getSharedPreferences(any(), any()) } returns FakeSharedPreferences()
@@ -261,7 +306,11 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
                 saver = mockk(),
                 securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
                 adultChecker = mockk(),
-                sourceTitles = mockk { coEvery { otherNovelTitles("tachiyomi:1", 1L) } returns otherTitles },
+                sourceTitles = mockk {
+                    coEvery { otherNovelTitles(any(), 1L) } answers {
+                        firstArg<Collection<String>>().flatMap { titles[it].orEmpty() }
+                    }
+                },
                 getEntryCustomInfo = mockk(),
                 sourceContacts = realTimeSourceContacts(),
             )

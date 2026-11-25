@@ -359,9 +359,16 @@ class DownloadManager(
         if (!wasRunning && queueState.value.isEmpty()) clearQueue()
     }
 
-    private suspend fun folderIsShared(manga: Manga, folder: String): Boolean {
-        val others = sourceTitles.otherMangaTitles(manga.source, manga.id).map { provider.getMangaDirName(it) }
-        return sharesDownloadFolder(folder, others)
+    private suspend fun folderIsShared(manga: Manga, folder: String): Boolean =
+        sharesDownloadFolder(folder, otherFolderNames(manga))
+
+    // Every other manga named into the manga's source folder, which a source of the same name and language shares
+    private suspend fun otherFolderNames(manga: Manga): List<String> {
+        val folder = provider.getSourceDirName(sourceManager.getOrStub(manga.source))
+        val sharing = (sourceManager.getAll() + sourceManager.getStubSources())
+            .filter { provider.getSourceDirName(it).equals(folder, ignoreCase = true) }
+            .mapTo(hashSetOf(manga.source)) { it.id }
+        return sourceTitles.otherMangaTitles(sharing, manga.id).map(provider::getMangaDirName)
     }
 
     // A whole manga leaves the queue by the rule above, so emptying a paused queue ends it too
@@ -425,7 +432,7 @@ class DownloadManager(
 
         if (oldFolder.name == newName) return@withIOContext
         // RK --> a folder another manga on the source shares, or a name another folder holds, stays put
-        val otherFolders = sourceTitles.otherMangaTitles(manga.source, manga.id).map { provider.getMangaDirName(it) }
+        val otherFolders = otherFolderNames(manga)
         if (!movesDownloadFolder(oldFolder, newName, otherFolders)) return@withIOContext
         // RK <--
 
