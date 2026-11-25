@@ -10,15 +10,16 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -38,8 +39,10 @@ import reikai.presentation.browse.EntryBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.mockIoDispatcher
 import reikai.util.testAppScope
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * The Filter chip means one thing on both catalogues: a search-shaped listing is showing. The two
@@ -56,7 +59,10 @@ class FilterChipConformanceTest {
     fun setUp() = Dispatchers.setMain(dispatcher)
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() {
+        Dispatchers.resetMain()
+        unmockkStatic(Dispatchers::class)
+    }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -212,12 +218,15 @@ private class MangaFilterChipProbe : FilterChipProbe {
 
     override suspend fun open(test: TestScope) {
         val store = EmittingPreferenceStore()
+        val sourceManager = mockk<SourceManager>(relaxed = true) { coEvery { getOrStub(SOURCE_ID) } returns source }
+        // As the novel probe's: the model's IO on the test's clock, after the stubbing.
+        mockIoDispatcher(StandardTestDispatcher(test.testScheduler))
         model = BrowseSourceViewModel(
             appScope = testAppScope(),
             sourceId = SOURCE_ID,
             // Opened the way the screen opens it, so the seeded listing is under test too.
             listingQuery = mangaListingQuery(startLatest = false, initialQuery = null),
-            sourceManager = mockk(relaxed = true) { coEvery { getOrStub(SOURCE_ID) } returns source },
+            sourceManager = sourceManager,
             sourcePreferences = SourcePreferences(store),
             libraryPreferences = LibraryPreferences(store),
             getRemoteManga = mockk(relaxed = true),
@@ -228,8 +237,7 @@ private class MangaFilterChipProbe : FilterChipProbe {
             getFlatMetadataById = mockk(relaxed = true),
             exhPreferences = ExhPreferences(store),
         )
-        // The source resolves on Dispatchers.IO, which the test scheduler cannot advance.
-        model.state.first { it.source != null }
+        test.advanceUntilIdle()
         val bulk = mockk<BulkFavoriteViewModel> {
             every { state } returns
                 MutableStateFlow(EntryBulkFavoriteViewModel.State())
@@ -280,6 +288,9 @@ private class NovelFilterChipProbe(
         // MockK's own dynamic-call helper instead of the manager's.
         val manager = mockk<NovelSourceManager>(relaxed = true)
         coEvery { manager.get(SOURCE_ID) } returns source
+        // The model's collectors run on IO; left on real threads, one could set the adapter's state from a
+        // snapshot taken before the step under test. After the stubbing, since a coEvery reads Dispatchers.
+        mockIoDispatcher(StandardTestDispatcher(test.testScheduler))
         model = NovelBrowseViewModel(
             appScope = testAppScope(),
             sourceId = SOURCE_ID,
@@ -296,9 +307,8 @@ private class NovelFilterChipProbe(
             getIncognitoState = mockk(relaxed = true),
             libraryPreferences = LibraryPreferences(store),
         )
-        // The plugin resolves on Dispatchers.IO, which the test scheduler cannot advance, so the
-        // state is awaited. Every verb below early-returns until the source has landed.
-        model.state.first { it.source != null }
+        // Every verb below early-returns until the source has landed.
+        test.advanceUntilIdle()
         val bulk = mockk<NovelBulkFavoriteViewModel> {
             every { state } returns
                 MutableStateFlow(EntryBulkFavoriteViewModel.State())
