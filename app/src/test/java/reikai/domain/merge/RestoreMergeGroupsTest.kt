@@ -261,11 +261,11 @@ class RestoreMergeGroupsTest {
     }
 
     @Test
-    fun `a group with fewer than two resolvable members is not created`() = runTest {
-        insertManga(1)
+    fun `a group too small to restore does not claim its entry from a later one`() = runTest {
+        (1L..2L).forEach { insertManga(it) }
 
-        restore(ContentType.MANGA, listOf(listOf(1)))
+        restore(ContentType.MANGA, listOf(listOf(1), listOf(1, 2)))
 
-        repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
+        groupOf(1) shouldBe listOf(1L, 2L)
     }
 }
