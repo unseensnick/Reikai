@@ -1,9 +1,6 @@
 package reikai.domain.merge
 
-import eu.kanade.domain.chapter.model.applyFilters
 import eu.kanade.domain.manga.model.downloadedFilter
-import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.ui.manga.ChapterList
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockkStatic
@@ -16,7 +13,6 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
-import reikai.domain.novel.model.sortedAndFiltered
 import reikai.domain.reader.ChapterListFilters
 import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.readerChapterFilters
@@ -27,10 +23,9 @@ import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Instant
 
 /**
- * A merged series' details list shows one row per chapter, flagged read or bookmarked when any
- * source's copy is, so its chapter filters have to answer on that same group-wide flag. Pinned once
- * over both details lists and the readers' "skip filtered" pass, which all three readers run through
- * one kernel: a filter reading only the row's own flag shows a chapter the row itself draws as read.
+ * A merged series' chapter counts as read or bookmarked when any source's copy is, so a reader's "skip
+ * filtered" pass answers its chapter filters on that group-wide flag. Pinned once over the readers, which
+ * all run one eligibility kernel; the details lists' half of the rule is MergedDetailsFilterConformanceTest.
  */
 class MergedChapterFilterConformanceTest {
 
@@ -77,52 +72,6 @@ class MergedChapterFilterConformanceTest {
     fun `the not-bookmarked filter hides a chapter another source has bookmarked`(probe: Probe) {
         probe.shownIds(Filter.NOT_BOOKMARKED, readElsewhere = false, bookmarkedElsewhere = true) shouldBe
             emptyList()
-    }
-
-    private object MangaDetails : Probe {
-        override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
-            val manga = Manga.create().copy(id = 1L, source = 100L, chapterFlags = mangaFlagOf(filter))
-            val shown = mangaChapter(CHAPTER_ID, read = false, bookmark = false)
-            val flags = groupFlags(
-                shown,
-                mangaChapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere),
-                { it.id },
-                { it.read },
-                { it.bookmark },
-            )
-            // As MangaViewModel.toChapterListItems builds each row.
-            val item = ChapterList.Item(
-                chapter = shown,
-                downloadState = Download.State.NOT_DOWNLOADED,
-                isRead = flags.isRead(shown),
-                isBookmarked = flags.isBookmarked(shown),
-            )
-            return listOf(item).applyFilters(manga, downloadedOnly = false).map { it.id }.toList()
-        }
-
-        override fun toString() = "manga details"
-    }
-
-    private object NovelDetails : Probe {
-        override fun shownIds(filter: Filter, readElsewhere: Boolean, bookmarkedElsewhere: Boolean): List<Long> {
-            val shown = novelChapter(CHAPTER_ID)
-            val flags = groupFlags(
-                shown,
-                novelChapter(SIBLING_ID, readElsewhere, bookmarkedElsewhere),
-                { it.id },
-                { it.read },
-                { it.bookmark },
-            )
-            return listOf(shown).sortedAndFiltered(
-                novel = novelWith(filter),
-                prefs = NovelPreferences(InMemoryPreferenceStore()),
-                downloadedChapterIds = emptySet(),
-                marks = flags.marks,
-                downloadedOnly = false,
-            ).map { it.id }
-        }
-
-        override fun toString() = "novel details"
     }
 
     /**
@@ -179,7 +128,7 @@ class MergedChapterFilterConformanceTest {
         private const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
 
         @JvmStatic
-        fun probes() = listOf(MangaDetails, NovelDetails, MangaReader, NovelReader)
+        fun probes(): List<Probe> = listOf(MangaReader, NovelReader)
 
         /** A real two-source stitch: [shown] is the copy the list keeps, [sibling] the other source's. */
         fun <T> groupFlags(shown: T, sibling: T, id: (T) -> Long, read: (T) -> Boolean, bookmark: (T) -> Boolean) =
