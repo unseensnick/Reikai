@@ -46,4 +46,14 @@ class UnconfirmedRemovalsTest {
             present = stillInParent,
         ) shouldBe listOf("Series/Vol 1")
     }
+
+    @Test
+    fun `a sibling whose name only starts with the chapter's does not make it gone`() = runTest {
+        unconfirmedRemovals(
+            removed = listOf("Series/Vol 1"),
+            listed = listOf("Series/Vol 10/", "Series/Vol 10/ch1.cbz"),
+            containerOf = containerOf,
+            present = stillInParent,
+        ) shouldBe listOf("Series/Vol 1")
+    }
 }

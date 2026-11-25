@@ -17,10 +17,9 @@ import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
 /**
- * Proves the persisted merge-group storage round-trips and that the FK cascade removes membership when
- * a parent entry is deleted (the fix for the pref-era id-reuse capture). Establishes the reusable
- * pattern for testing this schema: a pure-JVM in-memory SQLite DB built from [Database.Schema] with
- * foreign keys enabled, so later schema work can reuse it.
+ * The merge-group storage over a real in-memory SQLite database with foreign keys on: membership reads,
+ * the cascade that drops a deleted entry's membership so a reused id is never captured, and the merge,
+ * replace, order and override rules.
  */
 class MergeGroupRepositoryTest {
 
@@ -204,8 +203,8 @@ class MergeGroupRepositoryTest {
 
         repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(1L, 2L, 3L, 4L)
         // The first id's group is the one that SURVIVES, keeping its row and everything on it; only
-        // the absorbed one goes. Rebuilding into a fresh row is what used to drop the group's own
-        // columns, so this pins the identity, not just the membership.
+        // the absorbed one goes. A fresh row would drop the group's own columns, so this pins the
+        // identity, not just the membership.
         merged shouldBe g1
         repository.getGroup(g2).shouldBeNull()
     }

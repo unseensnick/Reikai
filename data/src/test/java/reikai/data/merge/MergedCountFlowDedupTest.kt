@@ -21,8 +21,9 @@ import tachiyomi.data.DatabaseBindings
 
 /**
  * The merged counts the library folds into every rebuild re-run on any write to the chapter and entry
- * tables, since SQLite names only the table that changed. They emit only when the value they carry
- * changed, so a write to an ungrouped entry costs the library no extra rebuild. Entries 1 and 2 are
+ * tables, since SQLite names only the table that changed. The counts emit only when the value they carry
+ * changed, so a write to an ungrouped entry costs the library no extra rebuild; the stitch-writes flow
+ * emits on every stitch write by design, since a re-pairing changes no count. Entries 1 and 2 are
  * grouped and stitched as one merged chapter (10 and 20); entry 4 is in the library on its own.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
