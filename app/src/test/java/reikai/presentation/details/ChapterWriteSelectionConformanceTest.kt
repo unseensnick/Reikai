@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.manga.model.downloadedFilter
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.ui.manga.mangaDetailsModel
@@ -40,7 +41,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * A read or bookmark write on one chapter ends the selection, as the selection bar's own do, through
+ * A read, bookmark or download write on one chapter ends the selection, as the selection bar's own do, through
  * each type's real details model and adapter. Pinned once over both types.
  */
 class ChapterWriteSelectionConformanceTest {
@@ -50,6 +51,7 @@ class ChapterWriteSelectionConformanceTest {
         HeaderMarkRead({ markChaptersRead(listOf(it), read = true) }),
         ReadSwipe({ chapterSwipe(it, LibraryPreferences.ChapterSwipeAction.ToggleRead) }),
         BookmarkSwipe({ chapterSwipe(it, LibraryPreferences.ChapterSwipeAction.ToggleBookmark) }),
+        RowDownload({ onChapterDownloadAction(it, ChapterDownloadAction.START) }),
     }
 
     /** A two-chapter entry with the first chapter selected. */

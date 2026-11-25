@@ -110,6 +110,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A tag typed in Edit info no longer doubles one that differs only in capitals.**
 - **Saving Edit info on a series whose source reports a status Reikai does not know no longer sets it to On hiatus.**
 - **Share and Open in WebView on a series page now open only web addresses, so a light-novel source can no longer hand another app one of Reikai's own files.**
+- **Downloading a novel chapter from its row or the Download menu now ends the chapter selection, as it does for manga, and a selected novel chapter can no longer be bookmarked or marked twice by a quick second tap.**
 - **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
 - **A novel whose plugin failed to load now gives the real reason when you refresh its details page, open a chapter or run a library update, instead of not installed.**

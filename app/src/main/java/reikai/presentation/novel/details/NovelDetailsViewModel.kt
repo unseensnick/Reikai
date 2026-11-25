@@ -1441,20 +1441,21 @@ class NovelDetailsViewModel(
 
     fun markSelectedRead(read: Boolean) = withSelection { chapters -> setRead(chapters, read) }
 
+    // On the app scope, as the read state's write is, so closing the page right after cannot drop it.
     fun bookmarkSelected(bookmark: Boolean) = withSelection { chapters ->
-        chapterRepo.setBookmarkBulk(expandToGroup(chapters).map { it.id }, bookmark)
+        appScope.launch { chapterRepo.setBookmarkBulk(expandToGroup(chapters).map { it.id }, bookmark) }.join()
     }
 
     /** Mark every chapter the list shows before the earliest selected one read, across all fetched pages
      *  of a paged source; expandToGroup folds it across the group. */
     fun markPreviousRead() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val selected = loaded.selectedRows().mapTo(HashSet()) { it.id }
+        clearSelection()
         viewModelScope.launchIO {
-            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             val shown = if (loaded.pages.isEmpty()) loaded.chapters else shownAcrossPages(loaded)
-            val selected = loaded.selectedRows().mapTo(HashSet()) { it.id }
             val previous = ReadingOrder.before(ReadingOrder.of(shown, loaded.sortDescending)) { it.id in selected }
             if (previous.isNotEmpty()) setRead(previous, read = true)
-            clearSelection()
         }
     }
 
@@ -1560,13 +1561,12 @@ class NovelDetailsViewModel(
         }
     }
 
+    // Taken and ended at the tap, as manga's verbs are, so a second tap or a late clear acts on no other rows.
     private inline fun withSelection(crossinline block: suspend (List<NovelChapter>) -> Unit) {
-        viewModelScope.launchIO {
-            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            val chapters = loaded.selectedRows()
-            if (chapters.isNotEmpty()) block(chapters)
-            clearSelection()
-        }
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chapters = loaded.selectedRows()
+        clearSelection()
+        if (chapters.isNotEmpty()) viewModelScope.launchIO { block(chapters) }
     }
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
@@ -1576,6 +1576,8 @@ class NovelDetailsViewModel(
                 val chapters = rowDownloadChapters(action, listOf(chapter), downloadCopiesOf(listOf(chapter))) { it.id }
                 downloadManager.runChapterAction(action, chapters) { expandForDelete(listOf(chapter)) }
             }.join()
+            // An explicit download ends the selection, as manga's does; Start now leaves it.
+            if (action == ChapterDownloadAction.START) clearSelection()
             if (action == ChapterDownloadAction.START || action == ChapterDownloadAction.START_NOW) {
                 promptAddToLibraryOnFirstDownload()
             }
@@ -1635,6 +1637,7 @@ class NovelDetailsViewModel(
             ) { hiddenKey(it) in hidden }
             if (targets.isNotEmpty()) {
                 appScope.launch { downloadManager.downloadChapters(downloadCopiesOf(targets)) }.join()
+                clearSelection()
                 promptAddToLibraryOnFirstDownload()
             }
         }
