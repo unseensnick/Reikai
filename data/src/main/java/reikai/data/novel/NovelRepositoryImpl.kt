@@ -223,6 +223,13 @@ class NovelRepositoryImpl(
         }
     }
 
+    override suspend fun getDisprovedPageCount(novelId: Long): Long? =
+        database.novel_disproved_page_countQueries.getReportedPages(novelId).awaitAsOneOrNull()
+
+    override suspend fun setDisprovedPageCount(novelId: Long, reportedPages: Long) {
+        database.novel_disproved_page_countQueries.setReportedPages(novelId, reportedPages)
+    }
+
     private suspend fun write(update: NovelUpdate) = with(update) {
         database.novelsQueries.partialUpdate(
             title = title,

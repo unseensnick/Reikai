@@ -578,6 +578,28 @@ class NovelRefreshTest {
     }
 
     @Test
+    fun `a page count a probe disproved is not probed again`() = runTest {
+        val novel = storedPages(mark = 4L, last = 4)
+        val source = listing(4, reported = 2)
+        refresh(novel, source)
+        source.fetchedPages.clear()
+
+        refresh(novels.getById(novel.id)!!, source)
+
+        source.fetchedPages shouldBe listOf("4")
+    }
+
+    @Test
+    fun `the page a probe fetched is synced without fetching it again`() = runTest {
+        val novel = storedPages(mark = 3L, last = 3)
+        val source = listing(3, reported = 2)
+
+        refresh(novel, source)
+
+        source.fetchedPages shouldBe listOf("3")
+    }
+
+    @Test
     fun `a single page count the next page disproves keeps the later pages`() = runTest {
         val novel = storedPages(mark = 3L, last = 3)
 

@@ -1,0 +1,17 @@
+-- The page count a novel's source last sent that a probe of the page after it disproved: some plugins' count
+-- parse falls back too low. A refresh trusts it without probing again while the source keeps sending that
+-- count, and probes once more when the count changes. Left out of backups, since one probe derives it again.
+CREATE TABLE novel_disproved_page_count(
+    novel_id INTEGER NOT NULL PRIMARY KEY,
+    reported_pages INTEGER NOT NULL,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+getReportedPages:
+SELECT reported_pages FROM novel_disproved_page_count WHERE novel_id = :novelId;
+
+setReportedPages:
+INSERT INTO novel_disproved_page_count(novel_id, reported_pages)
+VALUES (:novelId, :reportedPages)
+ON CONFLICT(novel_id) DO UPDATE SET reported_pages = excluded.reported_pages;

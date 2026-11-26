@@ -18,6 +18,7 @@ import reikai.domain.source.keptStatus
 import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.LockedSeriesSource
@@ -185,7 +186,12 @@ suspend fun refreshNovelFromSource(
     val rowsPastLast = sentPages != null &&
         novelChapterRepository.getDistinctPages(current.id).any { (it.toLongOrNull() ?: 0L) > sentPages }
     // A plugin whose count parse falls back too low still lists the page after it, so that count drops nothing.
-    val disproved = sentPages != null && rowsPastLast && source.listsChapters(current.url, sentPages + 1)
+    // A count a probe once disproved is stored and trusted while the source keeps sending it, so the probe runs once.
+    val knownLow = rowsPastLast && novelRepository.getDisprovedPageCount(current.id) == sentPages
+    val probePage = sentPages?.takeIf { rowsPastLast && !knownLow }?.plus(1)
+    val probed = probePage?.let { page -> source.listedChapters(current.url, page)?.let { page to it } }
+    probed?.let { (page, _) -> novelRepository.setDisprovedPageCount(current.id, page - 1) }
+    val disproved = knownLow || probed != null
     val dropsPages = rowsPastLast && !disproved
     val sourcePages = sentPages?.takeUnless { disproved } ?: current.totalPages
     // A grown page count is stored by the walk as far as it got, never before it.
@@ -226,6 +232,7 @@ suspend fun refreshNovelFromSource(
             novelDownloadManager = novelDownloadManager,
             alsoPage = viewedPage,
             dropsPagesPastLast = dropsPages,
+            fetched = probed,
         )
         synced = synced?.plus(walk.synced) ?: walk.synced
         if (walk.walkedThrough != merged.totalPages) {
@@ -308,9 +315,9 @@ suspend fun syncOpenedChapters(
     )
 }
 
-/** Whether [page] of the novel at [novelPath] lists a chapter; a page that fails to load lists none. */
-private suspend fun NovelSource.listsChapters(novelPath: String, page: Long): Boolean =
-    runCatchingCancellable { parsePage(novelPath, page.toString()) }.getOrNull()?.chapters.isNullOrEmpty().not()
+/** The chapters [page] of the novel at [novelPath] lists, null when it lists none or fails to load. */
+private suspend fun NovelSource.listedChapters(novelPath: String, page: Long): List<ChapterItem>? =
+    runCatchingCancellable { parsePage(novelPath, page.toString()) }.getOrNull()?.chapters?.takeIf { it.isNotEmpty() }
 
 /**
  * Syncs the chapters [sourceNovel] parsed with [novel], or returns null when it parsed none. [pages] is the count the

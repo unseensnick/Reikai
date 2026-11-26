@@ -4,6 +4,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.host.ChapterItem
 import reikai.novel.source.NovelSource
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -18,6 +19,8 @@ data class NovelPageWalk(val synced: NovelChapterSyncResult, val walkedThrough: 
  * the caller's. A page that throws is skipped, but the returned mark stops below it, so the next walk fetches it again.
  * [dropsPagesPastLast] walks from page 2, re-tagging chapters that moved down, then drops the rows still past [toPage]
  * only when no page failed or came back empty, since such a page may be where they moved (library.md).
+ *
+ * @param fetched a page the caller already fetched this refresh, with its chapters, synced from those rather than twice.
  */
 suspend fun walkNovelPages(
     novel: Novel,
@@ -31,6 +34,7 @@ suspend fun walkNovelPages(
     novelDownloadManager: NovelDownloadManager,
     alsoPage: Long? = null,
     dropsPagesPastLast: Boolean = false,
+    fetched: Pair<Long, List<ChapterItem>>? = null,
 ): NovelPageWalk {
     val range = maxOf(2L, walkedThrough)..toPage
     val walked = if (dropsPagesPastLast) 2L..toPage else range
@@ -42,7 +46,8 @@ suspend fun walkNovelPages(
     for (p in pages) {
         val key = p.toString()
         val result = runCatchingCancellable {
-            val chapters = source.parsePage(novel.url, key)?.chapters.orEmpty()
+            val chapters =
+                fetched?.takeIf { it.first == p }?.second ?: source.parsePage(novel.url, key)?.chapters.orEmpty()
             if (chapters.isEmpty()) {
                 // A challenge page loads without an error and lists nothing, so it counts as failed: the stored count stops
                 // before it, and a dropping walk keeps the pages past it.

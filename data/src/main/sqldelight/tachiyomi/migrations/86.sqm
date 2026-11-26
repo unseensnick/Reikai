@@ -1,0 +1,8 @@
+-- The page count a novel's source sent that a probe disproved, so a refresh probes once rather than on every
+-- update (novel_disproved_page_count.sq).
+CREATE TABLE novel_disproved_page_count(
+    novel_id INTEGER NOT NULL PRIMARY KEY,
+    reported_pages INTEGER NOT NULL,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);

@@ -120,4 +120,9 @@ interface NovelRepository {
      *  after favoriting the target failed. */
     suspend fun updateAll(updates: List<NovelUpdate>): Boolean
     suspend fun setCategories(novelId: Long, categoryIds: List<Long>)
+
+    /** The page count the novel's source sent that a probe of the next page disproved, null when none has. */
+    suspend fun getDisprovedPageCount(novelId: Long): Long?
+
+    suspend fun setDisprovedPageCount(novelId: Long, reportedPages: Long)
 }

@@ -142,6 +142,7 @@ class BackupTableCoverageTest {
             "dedupe_merged_ids" to "an upgrade migration's record, emptied once its carry finishes",
             "dedupe_merged_chapter_ids" to "an upgrade migration's record, emptied once its carry finishes",
             "taste_library" to "a cache of the tracker libraries, pulled again from the trackers",
+            "novel_disproved_page_count" to "a page count a probe disproved, derived again by one probe",
             // data-and-backup.md, Decisions: a row is a disk step on the first device's storage.
             "local_file_journal" to "an in-flight file operation on this device's storage, replayed at start here only",
         )
