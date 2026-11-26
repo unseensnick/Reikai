@@ -26,7 +26,7 @@ A test earns its place by catching a bug a user would otherwise hit, or by holdi
 - Kotest assertions (`shouldBe`, `shouldHaveSize`, etc.) read more naturally than JUnit's `assertEquals`. Test names describe behavior, not implementation.
 - Arrange-Act-Assert. No `if` or loops in tests; parameterize instead.
 - **Expensive setup is built once when the cases only read it**: a migrated database or a composed screen goes in a per-class fixture, not in each case's setup.
-- Run the specific test class after changes (`./gradlew :domain:test --tests "FullyQualifiedClassName"`), not the full suite. Faster feedback, fewer tokens.
+- Run the specific test class after changes (`./gradlew :domain:testDebugUnitTest --tests "FullyQualifiedClassName"`), not the full suite. Faster feedback, fewer tokens.
 - Flaky test? Fix it or delete it. Never retry to make it pass.
 - Never `assertTrue(true)` or check a mock was called without verifying arguments.
 
