@@ -1839,7 +1839,7 @@ sealed interface NovelDetailsState {
         /** Live download-queue states by chapter id (queued/downloading/error only; a finished
          *  download is read from [downloadedChapterIds]). */
         val downloadStates: Map<Long, Download.State> = emptyMap(),
-        /** Chapter ids downloaded on disk, from NovelDownloadCache (replaces the old is_downloaded flag).
+        /** Chapter ids downloaded on disk, from NovelDownloadCache.
          *  A finished download shows DOWNLOADED via membership here, not a queue state. */
         val downloadedChapterIds: Set<Long> = emptySet(),
         /** Whose folder Open folder opens; null hides it and Clear downloads. See downloadFolderOwner. */

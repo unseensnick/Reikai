@@ -1,0 +1,14 @@
+-- Drop novel_chapters.is_downloaded: whether a chapter is downloaded is read from disk
+-- (NovelDownloadCache), and no query, view or backup field reads the column.
+ALTER TABLE novel_chapters DROP COLUMN is_downloaded;
+
+-- Dropping a column makes SQLite rewrite every double-quoted string in the schema to single quotes, so
+-- the system category trigger is created again with the text category.sq declares.
+DROP TRIGGER system_category_delete_trigger;
+CREATE TRIGGER system_category_delete_trigger BEFORE DELETE
+ON category
+BEGIN SELECT CASE
+    WHEN old.id <= 0 THEN
+        RAISE(ABORT, "System category can't be deleted")
+    END;
+END;

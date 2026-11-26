@@ -22,7 +22,6 @@ CREATE TABLE novel_chapters(
     date_fetch INTEGER AS Instant NOT NULL,
     date_upload INTEGER AS Instant,
     page TEXT NOT NULL DEFAULT '',
-    is_downloaded INTEGER AS Boolean NOT NULL DEFAULT 0,
     scanlator TEXT,
     raw_chapter_number REAL,
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
