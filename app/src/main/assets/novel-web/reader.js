@@ -1425,7 +1425,8 @@
     /*
      * The Custom Highlight API draws background and underline in the text's own layout, so they move
      * with it. It cannot draw a box, and an old WebView has no such API, so both of those are boxes
-     * laid over the page from the range's rectangles and laid again whenever the layout changes.
+     * placed from the range's rectangles (a background one behind the text) and placed again whenever
+     * the layout changes.
      */
     function draw() {
       clear();

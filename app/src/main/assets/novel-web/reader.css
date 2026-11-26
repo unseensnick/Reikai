@@ -110,8 +110,10 @@ html.rk-readings-hidden .rk-failure {
   box-sizing: border-box;
 }
 
+/* Behind the text, as the Highlight path paints it, so the colour keeps its own strength. Nothing between the
+   canvas and the chapter text paints a background (body's is the canvas's), so the box shows through. */
 .rk-tts-background {
-  opacity: 0.4;
+  z-index: -1;
 }
 
 .rk-tts-underline {

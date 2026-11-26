@@ -327,6 +327,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Tapping text inside a link with no address now turns the page in the novel reader's WebView mode.**
 - **Novel chapters whose pictures load lazily no longer pause for three seconds on opening in WebView mode.**
 - **Read aloud now marks and follows every paragraph in WebView mode, including ones that hold a picture.**
+- **On an older Android System WebView, the Background read aloud highlight in novel WebView mode now shows at its full colour behind the text.** The highlight text colour still applies only on newer versions.
 - **Bionic reading in WebView mode now bolds the same letters as Native text mode when a word contains emphasis.**
 - **Preformatted blocks in novel chapters now wrap in WebView mode instead of being cut off.**
 - **Novel progress in WebView mode is now saved at your exact position whenever a scroll stops.**
