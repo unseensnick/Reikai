@@ -18,6 +18,7 @@ import reikai.domain.library.TagAliases
 import reikai.presentation.components.EntryStatus
 import tachiyomi.domain.category.model.Category
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.time.Instant
 
 /**
@@ -288,8 +289,9 @@ private fun <T> ComparisonQueryNode.matches(row: T, fields: LibraryQueryFields<T
         ComparisonField.UNREAD -> value.toLongOrNull()?.let { queryComparator.apply(fields.unreadCount(row), it) }
         ComparisonField.READ -> value.toLongOrNull()?.let { queryComparator.apply(fields.readCount(row), it) }
         ComparisonField.TOTAL -> value.toLongOrNull()?.let { queryComparator.apply(fields.totalChapters(row), it) }
+        // Rounded to one decimal, so score=7.7 finds a mean of 7.666... that exact equality never would
         ComparisonField.SCORE -> value.toDoubleOrNull()?.let { wanted ->
-            fields.meanScore(row)?.let { queryComparator.apply(it, wanted) }
+            fields.meanScore(row)?.let { queryComparator.apply((it * 10).roundToInt() / 10.0, wanted) }
         }
     } ?: false
 

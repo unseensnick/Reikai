@@ -73,6 +73,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel keeps its real cover when its source page offers only a generic placeholder image.**
 - **In the library's List mode, a series' badges now sit together as one strip instead of two separately rounded ones.**
 - **A local series now shows one folder badge in the library instead of two.**
+- **Library search's score= now finds a series whose tracker scores average to the typed score at one decimal.** A mean of 7.67 is found by score=7.7.
 - **Stopping an adult-source series update now really stops it, with no false failure notice.**
 - **Library updates check several novel sources at once, as they do for manga.**
 - **The bottom bar comes back when a shortcut or notification switches tabs while you are selecting in the library, Updates, History or Recents.**

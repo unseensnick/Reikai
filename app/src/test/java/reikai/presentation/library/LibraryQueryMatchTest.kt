@@ -191,6 +191,7 @@ class LibraryQueryMatchTest {
             case("tracker does not match part of a name", "tracker:ani", false),
             case("category matches through the resolved ids", "category:read", true),
             case("score compares the mean", "score>=7 score<7.5", true),
+            case("score compares the mean rounded to one decimal", "score=7.7", true, Row(score = 23.0 / 3)),
             case("an unscored entry fails a score comparison", "score>0", false, Row(score = null)),
             case("a negated score comparison finds an unscored entry", "-score>0", true, Row(score = null)),
             case("a bare word sweeps the text fields", "mysteries", true),
