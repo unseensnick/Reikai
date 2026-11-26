@@ -138,6 +138,7 @@ A TachiyomiSY or Komikku backup keeps each merge on the merged entry's own row, 
 - **A chapter whose file sits on a copy the stitch does not show still streams when opened.** Reading the hidden copy would open a different chapter row, with its own history and position.
 - **A recents row's download indicator answers for its own copy only.** It is evaluated as the row draws, so asking every copy would multiply a disk probe by the group size on each recomposition.
 - **Some novel titles stay unmatched on purpose.** Normalization handles apostrophes, curly quotes, zero-width characters and accented letters; a missing space (`theCold`), a hyphen against a space, and titles the sites really spell differently are left, since closing them needs fuzzy matching.
+- **The manga side resolves a merged chapter's owning member by hand at about twelve sites** (`group?.mangaById?.get(chapter.mangaId) ?: anchor` in `LibraryViewModel`, `ChapterGetNextUnread`, `MangaViewModel`, `ReaderViewModel`, `MangaRecentsAdapter`), where novels key from one map. Fed a narrowed map, that fallback names the anchor and reaches the wrong source's key or folder. Move those sites to one `ownerOf(chapter)` helper the next time they are touched.
 - **Sorting a chapter list "By source" follows the source's own listing**, through the stamped `sourceOrder`, never the stored chapter number.
 
 ## Decisions
