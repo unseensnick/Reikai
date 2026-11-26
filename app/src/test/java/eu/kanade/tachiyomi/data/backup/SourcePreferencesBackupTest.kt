@@ -39,6 +39,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.backup.AppPreferenceCarry
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
@@ -193,6 +194,8 @@ class SourcePreferencesBackupTest {
             SecurityPreferences(store),
             PrivacyPreferences(store),
             mockk(relaxed = true),
+            mockk(relaxed = true),
+            ReikaiLibraryPreferences(store),
         ),
     )
 

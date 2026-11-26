@@ -99,6 +99,8 @@ class PreferenceRestorerTest {
             securityPreferences,
             privacyPreferences,
             novelSources,
+            mockk(relaxed = true),
+            ReikaiLibraryPreferences(store),
         ),
     )
 

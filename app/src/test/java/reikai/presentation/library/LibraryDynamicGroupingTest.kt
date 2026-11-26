@@ -4,6 +4,8 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.TagAlias
@@ -408,6 +410,32 @@ class LibraryDynamicGroupingTest {
             languageCodes = mapOf(merged to listOf("ja", "")),
         )
         result.keys.map { it.label } shouldBe listOf("ja")
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        ints = [
+            LibraryGroup.BY_TAG,
+            LibraryGroup.BY_SOURCE,
+            LibraryGroup.BY_LANGUAGE,
+            LibraryGroup.BY_AUTHOR,
+            LibraryGroup.BY_STATUS,
+            LibraryGroup.BY_TRACK_STATUS,
+            LibraryGroup.UNGROUPED,
+        ],
+    )
+    fun `a group the app names keeps its key in another language`(groupType: Int) {
+        fun keyIn(unknown: String, notTracked: String, ungrouped: String) = LibraryDynamicGrouping.build(
+            items = listOf(DynItem(EntryId.Manga(1L), null, null, null)),
+            groupType = groupType,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = unknown,
+            notTrackedLabel = notTracked,
+            ungroupedLabel = ungrouped,
+        ).keys.single().key
+
+        keyIn("Inconnu", "Non suivi", "Non groupé") shouldBe keyIn("Unknown", "Not tracked", "Ungrouped")
     }
 
     private fun build(

@@ -8,7 +8,7 @@ import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.TagAliases
 import reikai.domain.library.tagKey
 import reikai.domain.library.tagLabel
-import reikai.presentation.components.entryStatusRes
+import reikai.presentation.components.EntryStatus
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.track.model.Track
 
@@ -74,32 +74,38 @@ suspend fun libraryDynamicGroupingFeed(
         emptyMap()
     },
     statusNames = if (groupType == LibraryGroup.BY_STATUS) {
-        rows.associate { it.entryId to context.stringResource(entryStatusRes(it.libraryManga.manga.status)) }
+        rows.associate { row ->
+            val status = EntryStatus.of(row.libraryManga.manga.status)
+            row.entryId to labelledGroupName(DynamicGroupKeys.status(status), context.stringResource(status.label))
+        }
     } else {
         emptyMap()
     },
     trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
         rows.mapNotNull { row ->
             groupTrackStatus(groupTracks(row), loggedInTrackerIds, trackerManager)
-                ?.let { row.entryId to context.stringResource(it) }
+                ?.let { row.entryId to DynamicGroupKeys.trackStatusName(it, context.stringResource(it)) }
         }.toMap()
     } else {
         emptyMap()
     },
 )
 
-private const val LANG_SPLITTER = "⨼⨦⨠"
+private const val LABEL_SPLITTER = "⨼⨦⨠"
 
 /**
  * Normalized form of a dynamic bucket's key, matching the spelling-merge rule below (case-folded,
  * separator runs unified). This is what [LibraryBucket.Dynamic.key] holds and what is persisted in
  * `collapsed_dynamic_categories`. Stored keys may predate normalization, so membership checks
- * normalize both sides. A language key drops its label, which follows the device's language data,
- * so a relabelled language keeps its stored collapse state.
+ * normalize both sides. A [labelledGroupName] key drops its label, which follows the app's or the
+ * device's language, so a language or a group the app names keeps its stored collapse state.
  */
 fun normalizeDynamicKey(name: String): String =
-    (if (LANG_SPLITTER in name) name.substringBefore(LANG_SPLITTER) + LANG_SPLITTER else name)
+    (if (LABEL_SPLITTER in name) name.substringBefore(LABEL_SPLITTER) + LABEL_SPLITTER else name)
         .let(::tagKey)
+
+/** A group name keyed by the stable [id] and shown as [label], so its key never follows the language. */
+fun labelledGroupName(id: String, label: String): String = "$id$LABEL_SPLITTER$label"
 
 /** Stored collapse keys in bucket-key form, so a key persisted before normalization still matches. */
 fun Set<String>.normalizedDynamicKeys(): Set<String> = mapTo(HashSet(), ::normalizeDynamicKey)
@@ -114,7 +120,7 @@ fun Set<String>.normalizedDynamicKeys(): Set<String> = mapTo(HashSet(), ::normal
  */
 object LibraryDynamicGrouping {
 
-    private const val SOURCE_SPLITTER = "◘•◘"
+    internal const val SOURCE_SPLITTER = "◘•◘"
 
     private val DYNAMIC_GROUP_TYPES = setOf(
         LibraryGroup.BY_TAG,
@@ -148,7 +154,8 @@ object LibraryDynamicGrouping {
         // UNGROUPED: one flat synthetic bucket holding every item, no per-item metadata lookups.
         if (groupType == LibraryGroup.UNGROUPED) {
             val allIds = items.distinctBy { it.id }.map { it.id }
-            val bucket = LibraryBucket.Dynamic(normalizeDynamicKey(ungroupedLabel), ungroupedLabel)
+            val name = labelledGroupName(DynamicGroupKeys.UNGROUPED, ungroupedLabel)
+            val bucket = LibraryBucket.Dynamic(normalizeDynamicKey(name), ungroupedLabel)
             return mapOf(bucket to allIds)
         }
 
@@ -214,7 +221,7 @@ object LibraryDynamicGrouping {
     /** The label behind an encoded name: the part that is not the source-id / language-code disambiguator. */
     private fun labelOf(encodedName: String): String = when {
         SOURCE_SPLITTER in encodedName -> encodedName.substringBefore(SOURCE_SPLITTER)
-        LANG_SPLITTER in encodedName -> encodedName.substringAfter(LANG_SPLITTER)
+        LABEL_SPLITTER in encodedName -> encodedName.substringAfter(LABEL_SPLITTER)
         else -> encodedName
     }
 
@@ -231,25 +238,26 @@ object LibraryDynamicGrouping {
         tagAliases: TagAliases,
     ): List<String> {
         val itemId = item.id
+        val unknown = labelledGroupName(DynamicGroupKeys.UNKNOWN, unknownLabel)
         return when (groupType) {
             LibraryGroup.BY_TAG -> {
                 val tags = tagAliases.resolveAll(item.genre.orEmpty())
                     .mapNotNull { tagLabel(it).ifBlank { null } }
-                tags.ifEmpty { listOf(unknownLabel) }
+                tags.ifEmpty { listOf(unknown) }
             }
             LibraryGroup.BY_SOURCE -> sourceMeta[itemId].orEmpty()
                 .map { (name, key) -> "$name$SOURCE_SPLITTER$key" }
-                .ifEmpty { listOf("$unknownLabel${SOURCE_SPLITTER}0") }
+                .ifEmpty { listOf(labelledGroupName(DynamicGroupKeys.UNKNOWN_SOURCE, unknownLabel)) }
             // A member with no language says nothing about the series, so Unknown only when none has one.
             LibraryGroup.BY_LANGUAGE -> languageCodes[itemId].orEmpty()
                 .filterNot { it.isBlank() }
-                .map { code -> "$code$LANG_SPLITTER${languageDisplay(code).ifBlank { code }}" }
-                .ifEmpty { listOf(unknownLabel) }
+                .map { code -> labelledGroupName(code, languageDisplay(code).ifBlank { code }) }
+                .ifEmpty { listOf(unknown) }
             LibraryGroup.BY_AUTHOR -> {
                 val author = item.author?.takeUnless { it.isBlank() }
                 val artist = item.artist?.takeUnless { it.isBlank() }
                 if (author == null && artist == null) {
-                    listOf(unknownLabel)
+                    listOf(unknown)
                 } else {
                     listOfNotNull(author, artist)
                         .flatMap { combined ->
@@ -257,11 +265,12 @@ object LibraryDynamicGrouping {
                                 .mapNotNull { it.trim().ifBlank { null } }
                         }
                         .distinct()
-                        .ifEmpty { listOf(unknownLabel) }
+                        .ifEmpty { listOf(unknown) }
                 }
             }
-            LibraryGroup.BY_TRACK_STATUS -> listOf(trackStatuses[itemId] ?: notTrackedLabel)
-            LibraryGroup.BY_STATUS -> listOf(statusNames[itemId] ?: unknownLabel)
+            LibraryGroup.BY_TRACK_STATUS ->
+                listOf(trackStatuses[itemId] ?: labelledGroupName(DynamicGroupKeys.NOT_TRACKED, notTrackedLabel))
+            LibraryGroup.BY_STATUS -> listOf(statusNames[itemId] ?: unknown)
             else -> emptyList()
         }
     }

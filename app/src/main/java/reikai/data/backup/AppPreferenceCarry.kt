@@ -1,5 +1,6 @@
 package reikai.data.backup
 
+import android.content.Context
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
@@ -12,6 +13,7 @@ import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import mihon.core.migration.migrations.MigrationCustomInfoFlagMigration
 import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
@@ -28,6 +30,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.carryShowNsfwSource
 import reikai.novel.content.NovelSnippets
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.library.DynamicGroupKeys
 import tachiyomi.core.common.preference.Preference
 
 /**
@@ -46,6 +49,8 @@ class AppPreferenceCarry(
     private val securityPreferences: SecurityPreferences,
     privacyPreferences: PrivacyPreferences,
     private val novelSourceManager: NovelSourceManager,
+    private val context: Context,
+    private val libraryPreferences: ReikaiLibraryPreferences,
 ) {
 
     // Restored only when the backup holds the safer value. Verbose logging without header redaction puts
@@ -97,6 +102,10 @@ class AppPreferenceCarry(
             // The device's records win: a backup only names sources this device has never seen.
             novelPreferences.seenNovelSources().key() -> (value as? StringPreferenceValue)?.let {
                 novelSourceManager.rememberBackedUp(NovelPreferences.decodeSeenNovelSources(it.value))
+            }
+            // An older backup saved its collapsed groups under their labels, read back in this app's language.
+            libraryPreferences.collapsedDynamicCategories.key() -> (value as? StringSetPreferenceValue)?.let {
+                libraryPreferences.collapsedDynamicCategories.set(DynamicGroupKeys.withNeutralKeys(it.value, context))
             }
             DEAD_READER_PADDING_KEY ->
                 (value as? IntPreferenceValue)?.let { novelPreferences.carryReaderPaddingToMargins(it.value) }

@@ -88,6 +88,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Grouping novels by tracking status now follows a tracker login or logout at once.**
 - **A library search for `chapter:` now matches a % or _ you type literally instead of as a wildcard.**
 - **A library category header's sort control is easier to tap without collapsing the category, and TalkBack now says whether a category is collapsed.**
+- **Collapsed status, tracking status, Unknown, Not tracked and Ungrouped library groups now stay collapsed after a language change.** A backup restored on a phone in another language keeps them too.
 
 ### Details
 

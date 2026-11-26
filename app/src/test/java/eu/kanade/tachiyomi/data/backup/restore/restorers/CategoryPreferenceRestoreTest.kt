@@ -88,6 +88,8 @@ class CategoryPreferenceRestoreTest {
             SecurityPreferences(store),
             PrivacyPreferences(store),
             mockk(relaxed = true),
+            mockk(relaxed = true),
+            ReikaiLibraryPreferences(store),
         ),
     )
 

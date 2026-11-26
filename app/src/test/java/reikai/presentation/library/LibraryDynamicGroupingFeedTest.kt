@@ -90,7 +90,8 @@ class LibraryDynamicGroupingFeedTest {
     fun `status groups name the row's publishing status`(type: ContentType) = runTest {
         val row = row(type)
 
-        feed(row, LibraryGroup.BY_STATUS).statusNames shouldBe mapOf(row.entryId to "Ongoing")
+        feed(row, LibraryGroup.BY_STATUS).statusNames shouldBe
+            mapOf(row.entryId to labelledGroupName("rk:status:ongoing", "Ongoing"))
     }
 
     @ParameterizedTest
@@ -106,7 +107,8 @@ class LibraryDynamicGroupingFeedTest {
     fun `tracking status groups name the group's logged-in tracker status`(type: ContentType) = runTest {
         val row = row(type)
 
-        feed(row, LibraryGroup.BY_TRACK_STATUS).trackStatuses shouldBe mapOf(row.entryId to "Reading")
+        feed(row, LibraryGroup.BY_TRACK_STATUS).trackStatuses shouldBe
+            mapOf(row.entryId to labelledGroupName("rk:track:reading", "Reading"))
     }
 
     private suspend fun feed(row: LibraryItem, groupType: Int): DynamicGroupingFeed {
