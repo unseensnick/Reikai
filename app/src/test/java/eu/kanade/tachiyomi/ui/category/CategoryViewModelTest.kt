@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.category
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -73,11 +74,14 @@ class CategoryViewModelTest {
     @RegisterExtension
     val main = MainDispatcherExtension()
 
+    // Shared by every model a test builds, as a model restored after a process kill reads its saved state.
+    private val savedState = SavedStateHandle()
+
     /** A model whose state is collected, as the screen collects it. */
     private fun TestScope.model(): CategoryViewModel {
         // Unconfined, so a committed delete has landed by the time the call returns
         val appScope = backgroundScope + UnconfinedTestDispatcher(testScheduler)
-        val model = main.track(CategoryViewModel(appScope, actions, reikaiLibraryPreferences))
+        val model = main.track(CategoryViewModel(savedState, appScope, actions, reikaiLibraryPreferences))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.state.collect {} }
         return model
     }
@@ -250,6 +254,18 @@ class CategoryViewModelTest {
         ViewModelStore().apply { put("categories", model) }.clear()
 
         table.value shouldBe listOf(b, c)
+    }
+
+    /** A process kill skips onCleared, so the restored model is all that can still resolve the delete. */
+    @Test
+    fun `a delete armed before a process kill is offered again and commits from the restored model`() = runTest {
+        model().deleteCategory(a)
+
+        val restored = model()
+        val offered = restored.undoBatches()
+        restored.commitPendingDelete(offered.single())
+
+        (offered.size to table.value) shouldBe (1 to listOf(b, c))
     }
 
     /** The snackbar is drawn from the undoable deletes, so this is what takes it off screen. */

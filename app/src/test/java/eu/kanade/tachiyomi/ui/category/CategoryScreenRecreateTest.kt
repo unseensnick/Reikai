@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.SavedStateHandle
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -67,7 +68,7 @@ class CategoryScreenRecreateTest {
         libraryPreferences = libraryPreferences,
         renameCategory = mockk(),
     )
-    private val model = CategoryViewModel(testAppScope(), actions, reikaiLibraryPreferences)
+    private val model = CategoryViewModel(SavedStateHandle(), testAppScope(), actions, reikaiLibraryPreferences)
     private val restoration = StateRestorationTester(compose)
 
     private fun show() {

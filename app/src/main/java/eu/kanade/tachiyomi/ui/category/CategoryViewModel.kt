@@ -1,14 +1,19 @@
 package eu.kanade.tachiyomi.ui.category
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
 import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
-import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.binding
-import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import dev.zacsweers.metrox.viewmodel.ViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ViewModelAssistedFactoryKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -21,8 +26,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
@@ -41,15 +48,26 @@ import kotlin.time.Duration.Companion.seconds
 
 // RK: one model over one list spanning both libraries. Rows carry their own content type, so there is no
 // longer a per-type model or write path; [CategoryActions] dispatches on the row where it has to.
-@Inject
-@ViewModelKey
-@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
+// RK: assisted for the SavedStateHandle that keeps an armed delete across a process kill
+@AssistedInject
 class CategoryViewModel(
+    @Assisted private val savedState: SavedStateHandle, // RK
     @AppCoroutineScope private val appScope: CoroutineScope,
     // RK: CategoryActions stands in for the per-type category interactors
     private val actions: CategoryActions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
+
+    // RK -->
+    @AssistedFactory
+    @ViewModelAssistedFactoryKey(CategoryViewModel::class)
+    @ContributesIntoMap(AppScope::class)
+    fun interface Factory : ViewModelAssistedFactory {
+        override fun create(extras: CreationExtras): CategoryViewModel = create(extras.createSavedStateHandle())
+
+        fun create(@Assisted savedState: SavedStateHandle): CategoryViewModel
+    }
+    // RK <--
 
     // RK: a SharedFlow rather than a receiveAsFlow Channel, which can only be collected once.
     private val _events = MutableSharedFlow<CategoryEvent>(extraBufferCapacity = 8)
@@ -62,11 +80,15 @@ class CategoryViewModel(
     // can't clobber them mid-undo.
     private val selectionStore = SelectionStore<Long>()
 
-    // Holds the rows, not just their ids: a delete has to know the category's content type to clean the
-    // right side's preferences, and by commit time the row is gone from the live list. Keyed by the delete
-    // that armed them: the screen shows one undo snackbar per delete, and each resolves only its own rows.
-    private val pendingDelete = MutableStateFlow<Map<Long, PendingDelete>>(emptyMap())
-    private var nextDeleteBatch = 0L
+    // Keyed by the delete that armed them: the screen shows one undo snackbar per delete, and each resolves
+    // only its own rows. Mirrored into [savedState], so a model restored after a process kill offers the
+    // undo again rather than bringing the rows back unasked; the rows stay stored until the commit reads them.
+    private val pendingDelete = MutableStateFlow(
+        savedState.get<ArrayList<LongArray>>(SAVED_PENDING_DELETES).orEmpty()
+            .withIndex()
+            .associate { (batch, ids) -> batch.toLong() to PendingDelete(ids.toSet()) },
+    )
+    private var nextDeleteBatch = pendingDelete.value.size.toLong()
 
     // RK: which library's categories the list is narrowed to. Per visit, not persisted: this is a
     // settings destination rather than somewhere the user lives. Read through the Show setting live,
@@ -97,7 +119,7 @@ class CategoryViewModel(
         pendingDelete,
         contentTypes,
     ) { categories, sortOrder, selected, pending, (contentType, reachable) ->
-        val pendingIds = pending.values.flatMap { it.categories }.mapTo(HashSet()) { it.id }
+        val pendingIds = pending.values.flatMapTo(HashSet()) { it.ids }
         val stored = categories.filterNot(Category::isSystemCategory)
         val visible = stored.filterNot { it.id in pendingIds }
         val shown = categoriesForContentType(visible, contentType)
@@ -112,7 +134,7 @@ class CategoryViewModel(
             contentType = contentType,
             undoableDeletes = pending
                 .filterValues { it.commit == null }
-                .map { (batch, delete) -> UndoableDelete(batch, delete.categories.size) },
+                .map { (batch, delete) -> UndoableDelete(batch, delete.ids.size) },
         )
     }
     // RK <--
@@ -135,7 +157,7 @@ class CategoryViewModel(
 
     // RK: a single row delete defers like the bulk path so it's undoable too; commit is shared.
     fun deleteCategory(category: Category) {
-        armDelete(setOf(category))
+        armDelete(setOf(category.id))
     }
 
     // RK --> multi-select + deferred bulk delete, over the shared selection kernel
@@ -170,25 +192,27 @@ class CategoryViewModel(
     fun deleteSelected() {
         val ids = selectionStore.selection.value
         if (ids.isEmpty()) return
-        val categories = (state.value as? CategoryScreenState.Success)
-            ?.categories
-            ?.filter { it.id in ids }
-            .orEmpty()
-        if (categories.isEmpty()) return
-        armDelete(categories.toSet())
+        val shown = visibleCategoryIds()?.filterTo(HashSet()) { it in ids }.orEmpty()
+        if (shown.isEmpty()) return
+        armDelete(shown)
         clearSelection()
     }
 
     // The undo snackbar is drawn from state rather than sent as an event, so a screen recreated by a
     // rotation or fold shows it again for every delete still armed.
-    private fun armDelete(categories: Set<Category>) {
+    private fun armDelete(ids: Set<Long>) {
         val batch = nextDeleteBatch++
-        pendingDelete.update { it + (batch to PendingDelete(categories)) }
+        updatePending { it + (batch to PendingDelete(ids)) }
+    }
+
+    private fun updatePending(transform: (Map<Long, PendingDelete>) -> Map<Long, PendingDelete>) {
+        val pending = pendingDelete.updateAndGet(transform)
+        savedState[SAVED_PENDING_DELETES] = pending.values.mapTo(ArrayList()) { it.ids.toLongArray() }
     }
 
     /** Undo one armed delete: its rows return and the DB was never touched. A committing one is past undoing. */
     fun undoPendingDelete(batch: Long) {
-        pendingDelete.update { pending -> if (pending[batch]?.commit == null) pending - batch else pending }
+        updatePending { pending -> if (pending[batch]?.commit == null) pending - batch else pending }
     }
 
     /** Commit one armed delete to the DB. Per-row so each delete keeps its reorder + preference cleanup. */
@@ -208,16 +232,23 @@ class CategoryViewModel(
         val claimed = pendingDelete.value.filter { (batch, delete) -> batch in batches && delete.commit == null }
         if (claimed.isEmpty()) return
         val commit = appScope.launch(start = CoroutineStart.LAZY) {
-            claimed.values.flatMap { it.categories }.forEach { category ->
+            // Read back from the stored table, which keeps a pending row: the type it holds picks which
+            // side's preferences the delete cleans.
+            val ids = claimed.values.flatMapTo(HashSet()) { it.ids }
+            actions.subscribe().first().filter { it.id in ids }.forEach { category ->
                 if (!actions.delete(category)) _events.tryEmit(CategoryEvent.InternalError)
             }
-            pendingDelete.update { it - claimed.keys }
+            updatePending { it - claimed.keys }
         }
-        pendingDelete.update { pending -> pending + claimed.mapValues { (_, delete) -> delete.copy(commit = commit) } }
+        updatePending { pending -> pending + claimed.mapValues { (_, delete) -> delete.copy(commit = commit) } }
         commit.start()
     }
 
-    private data class PendingDelete(val categories: Set<Category>, val commit: Job? = null)
+    private data class PendingDelete(val ids: Set<Long>, val commit: Job? = null)
+
+    private companion object {
+        const val SAVED_PENDING_DELETES = "pending_category_deletes"
+    }
     // RK <--
 
     // RK --> a drag's index is a slot in the list the chip shows; the move menu's 0 and past-the-end

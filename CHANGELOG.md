@@ -78,6 +78,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Library updates check several novel sources at once, as they do for manga.**
 - **The bottom bar comes back when a shortcut or notification switches tabs while you are selecting in the library, Updates, History or Recents.**
 - **Rotating or folding the phone on Edit categories no longer deletes a category before you can Undo it.** A delete confirmation stays open too, and Undo no longer lingers after a drag has already deleted it.
+- **A category deleted on Edit categories no longer comes back if Android closes Reikai while Undo is still showing.** Reopening the screen offers the Undo again.
 - **Undoing a category delete on Edit categories can no longer leave two categories with the same name.**
 - **A drag, rename, hide or new category on Edit categories is no longer lost when you leave the screen straight away.**
 - **TalkBack now says which categories are selected on Edit categories.**
