@@ -239,10 +239,10 @@ open class EntryMergeManager(
      * about to leave the library while their group stays.
      *
      * Must run BEFORE the unfavorite: the hand-out skips non-favorites, so afterwards the leaving
-     * entry is precisely who it misses. No-op with merging off, where nothing was shared to hand out.
+     * entry is precisely who it misses. Runs with merging off too, as every dissolve path does: the
+     * switch hides a group but keeps its one shared binding, which a member leaving would take with it.
      */
     suspend fun handOutTrackersBeforeRemoval(entryIds: List<Long>) {
-        if (!preferences.seriesMergingEnabled.get()) return
         val handled = HashSet<Long>()
         entryIds.distinct().forEach { id ->
             val groupId = repository.getGroupId(contentType, id) ?: return@forEach
@@ -252,10 +252,11 @@ open class EntryMergeManager(
     }
 
     /** Fully dissolve the group of each of [targetIds] (the library bulk "Unmerge"). Ungrouped targets
-     *  are skipped. */
+     *  are skipped. The hand-out reads the stored group, not [computeRelatedIds], so the switch is ignored. */
     suspend fun unmerge(targetIds: List<Long>) {
         targetIds.distinct().forEach { targetId ->
-            onBeforeDissolve(computeRelatedIds(targetId).toList())
+            val members = favoriteMembersOf(targetId) ?: return@forEach
+            onBeforeDissolve(members)
             repository.dissolve(contentType, targetId)
         }
     }

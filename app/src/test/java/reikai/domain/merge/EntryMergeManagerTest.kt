@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
@@ -186,14 +188,34 @@ class EntryMergeManagerTest {
         dissolved shouldContainExactly listOf(listOf(1L, 2L, 3L))
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `handOutTrackersBeforeRemoval does nothing while merging is disabled`(type: ContentType) = runTest {
-        // Nothing resolves as a group with the switch off, so no tracker was ever shared to hand out.
-        manager(type, mergingEnabled = false).handOutTrackersBeforeRemoval(listOf(1L))
-
-        dissolved.isEmpty() shouldBe true
+    /** Each verb that breaks a group up or takes a member out of the library, all handing the group out. */
+    enum class DissolvePath(val run: suspend EntryMergeManager.() -> Unit) {
+        LibraryRemoval({ handOutTrackersBeforeRemoval(listOf(1L)) }),
+        Unmerge({ unmerge(listOf(1L)) }),
+        RemoveFromGroup({ removeFromGroup(listOf(1L)) }),
+        ReplaceInGroup({ replaceInGroup(1L, 3L) }),
+        ClearAll({ clearAllMergesIncludingAuto() }),
     }
+
+    @ParameterizedTest
+    @MethodSource("dissolvePaths")
+    fun `every dissolve path hands the group out while merging is off`(type: ContentType, path: DissolvePath) =
+        runTest {
+            // The switch hides the group but keeps its one shared binding, so 2 still needs its own copy.
+            val repo = mockk<MergeGroupRepository>(relaxed = true) {
+                coEvery { getGroupId(type, 1L) } returns 7L
+                coEvery { getFavoriteMembers(type, 7L) } returns listOf(1L, 2L)
+                coEvery { getAllMemberships(type) } returns mapOf(1L to 7L, 2L to 7L)
+                // The repository runs the hook inside its swap transaction, so the fake runs it as stored.
+                coEvery { replaceInGroup(type, 1L, 3L, any()) } coAnswers {
+                    arg<suspend (List<Long>) -> Unit>(3)(listOf(1L, 2L))
+                }
+            }
+
+            path.run(manager(type, repo, mergingEnabled = false))
+
+            dissolved shouldContainExactly listOf(listOf(1L, 2L))
+        }
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
@@ -355,4 +377,11 @@ class EntryMergeManagerTest {
 
             manager(type, repo).overrideRankingMemberIds(1L) shouldBe emptyList()
         }
+
+    companion object {
+        @JvmStatic
+        fun dissolvePaths() = listOf(ContentType.MANGA, ContentType.NOVELS).flatMap { type ->
+            DissolvePath.entries.map { Arguments.of(type, it) }
+        }
+    }
 }
