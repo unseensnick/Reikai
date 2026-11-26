@@ -9,9 +9,9 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * A manga chapter whose read state differs from the backup's keeps the device's larger page count,
- * which the shared length case in RestoreMergeConformanceTest cannot reach: there every other field
- * matches. Runs the real restore over real SQL.
+ * The manga restore's own chapter writes, run over real SQL. A chapter whose read state differs from the
+ * backup's keeps the device's larger page count, which the shared length case in RestoreMergeConformanceTest
+ * cannot reach: there every other field matches.
  */
 class MangaRestoreChaptersTest {
 
@@ -34,5 +34,20 @@ class MangaRestoreChaptersTest {
         val device = Chapter.create().copy(url = "c1", name = "C1", read = false, lastPageRead = 30, pageCount = 38)
 
         restoredPageCount(backup, device) shouldBe 38
+    }
+
+    @Test
+    fun `a restored chapter's name is found by the chapter search in another case`() = runTest {
+        MangaRestoreHarness.create().use { harness ->
+            val mangaId = harness.insert(Manga.create().copy(url = "u", source = 1L, title = "T"))
+            val backup = BackupChapter(url = "c1", name = "Глава 1")
+
+            harness.restorer().restore(
+                listOf(BackupManga(source = 1L, url = "u", title = "T", chapters = listOf(backup))),
+                emptyList(),
+            )
+
+            harness.chapters.getMangaIdsWithChapterNameLike("глава") shouldBe setOf(mangaId)
+        }
     }
 }

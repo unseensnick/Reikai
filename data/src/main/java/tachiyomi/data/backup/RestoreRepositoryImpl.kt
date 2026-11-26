@@ -11,6 +11,7 @@ import exh.metadata.metadata.base.FlatMetadata
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonObject
+import reikai.data.chapterNameFold
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
@@ -249,6 +250,7 @@ class RestoreRepositoryImpl(
                 remoteDateUpload = chapter.dateUpload,
                 remoteMemo = chapter.memo,
                 pageCount = chapter.pageCount, // RK: page count
+                nameFolded = chapterNameFold(chapter.name), // RK: the `chapter:` search's fold
             )
                 .awaitAsOneOrNull()
         }

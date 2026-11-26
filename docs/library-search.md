@@ -70,9 +70,8 @@ It is the one field that looks past the entry itself, which is why a plain word 
 An empty quoted value finds entries where a field is missing: `genre:""` finds entries with no genres at all, `tracker:""` entries you track nowhere, and `category:""` entries in none of your categories.
 A bare `genre:` with nothing after it reads as ordinary text instead.
 
-::: warning `chapter:` is not accent-insensitive
-Its case-insensitivity covers plain letters only, so an accented character has to match the chapter's own casing.
-`ch:épilogue` does not find "Épilogue".
+::: warning Search ignores case, not accents
+`ch:épilogue` finds "Épilogue", but `ch:epilogue` does not.
 :::
 
 ## Comparing numbers and dates

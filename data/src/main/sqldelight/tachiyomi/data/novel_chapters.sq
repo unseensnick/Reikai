@@ -24,6 +24,8 @@ CREATE TABLE novel_chapters(
     page TEXT NOT NULL DEFAULT '',
     scanlator TEXT,
     raw_chapter_number REAL,
+    -- The name case-folded for the `chapter:` search, as on manga's table (88.sqm)
+    name_folded TEXT,
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
     ON DELETE CASCADE
 );
@@ -78,7 +80,7 @@ ORDER BY CAST(page AS INTEGER), min(source_order);
 getNovelIdsWithChapterNameLike:
 SELECT DISTINCT novel_id
 FROM novel_chapters
-WHERE lower(name) LIKE lower(:pattern) ESCAPE '\';
+WHERE coalesce(name_folded, name) LIKE :pattern ESCAPE '\';
 
 getById:
 SELECT *
@@ -92,14 +94,16 @@ WHERE url = :url AND novel_id = :novelId
 LIMIT 1;
 
 insert:
-INSERT INTO novel_chapters (novel_id, url, name, read, bookmark, last_text_progress, chapter_number, source_order, date_fetch, date_upload, page, scanlator, raw_chapter_number)
-VALUES (:novelId, :url, :name, :read, :bookmark, :lastTextProgress, :chapterNumber, :sourceOrder, :dateFetch, :dateUpload, :page, :scanlator, :rawChapterNumber);
+INSERT INTO novel_chapters (novel_id, url, name, read, bookmark, last_text_progress, chapter_number, source_order, date_fetch, date_upload, page, scanlator, raw_chapter_number, name_folded)
+VALUES (:novelId, :url, :name, :read, :bookmark, :lastTextProgress, :chapterNumber, :sourceOrder, :dateFetch, :dateUpload, :page, :scanlator, :rawChapterNumber, :nameFolded);
 
 update:
 UPDATE novel_chapters SET
     novel_id = coalesce(:novelId, novel_id),
     url = coalesce(:url, url),
     name = coalesce(:name, name),
+    -- Follows the name: kept when the name is, so a caller passing no name passes no fold either
+    name_folded = CASE WHEN :name IS NULL THEN name_folded ELSE :nameFolded END,
     read = coalesce(:read, read),
     bookmark = coalesce(:bookmark, bookmark),
     last_text_progress = coalesce(:lastTextProgress, last_text_progress),

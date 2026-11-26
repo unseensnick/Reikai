@@ -288,6 +288,8 @@ fun mapNovelChapter(
     page: String,
     scanlator: String?,
     rawChapterNumber: Double?,
+    // Taken because the chapter reads select every column; only the `chapter:` search reads it
+    @Suppress("UNUSED_PARAMETER") nameFolded: String?,
 ): NovelChapter = NovelChapter(
     id = id,
     novelId = novelId,

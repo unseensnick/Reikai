@@ -3,16 +3,20 @@ package reikai.data.library
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.ChapterNameFoldBackfill
 import reikai.data.novel.NovelChapterRepositoryImpl
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.chapter.ChapterRepositoryImpl
+import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.model.ChapterRemoteUpdate
 
-/** The library's `chapter:` term finds a chapter name containing the term as typed, for both types. */
+/** The library's `chapter:` term finds a chapter name containing the term in any case, for both types. */
 class ChapterNameSearchConformanceTest {
 
     private lateinit var driver: JdbcSqliteDriver
@@ -47,7 +51,93 @@ class ChapterNameSearchConformanceTest {
         type.matching(database, "0%") shouldBe setOf(3L)
     }
 
-    enum class Type(private val statements: List<String>) {
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `an ASCII name is found in another case without a stored fold`(type: Type) = runTest {
+        type.seed(driver)
+
+        type.matching(database, "START") shouldBe setOf(1L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a term in capitals finds a lower-case name`(type: Type) = runTest {
+        type.seed(driver)
+        type.rename(driver, "глава 1")
+
+        type.matching(database, "ГЛАВА") shouldBe setOf(1L)
+    }
+
+    /** Every write that stores a chapter name stores its fold, so a capitalised Cyrillic name is found in lower case. */
+    @ParameterizedTest
+    @EnumSource(Write::class)
+    fun `a name is found in another case after each write that stores it`(write: Write) = runTest {
+        write.type.seed(driver)
+
+        write.run(database)
+
+        write.type.matching(database, "глава") shouldBe setOf(1L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a name stored before its fold is found once the backfill has run`(type: Type) = runTest {
+        type.seed(driver)
+        type.rename(driver, "Глава 1")
+
+        ChapterNameFoldBackfill(database).run()
+
+        type.matching(database, "глава") shouldBe setOf(1L)
+    }
+
+    enum class Write(val type: Type) {
+        MANGA_ADD(Type.MANGA) {
+            override suspend fun run(database: Database) {
+                ChapterRepositoryImpl(database).updateFromRemote(
+                    removedIds = emptyList(),
+                    added = listOf(Chapter.create().copy(mangaId = 1L, url = "new", name = "Глава 1")),
+                    updated = emptyList(),
+                )
+            }
+        },
+        MANGA_RENAME(Type.MANGA) {
+            override suspend fun run(database: Database) {
+                ChapterRepositoryImpl(database).updateFromRemote(
+                    removedIds = emptyList(),
+                    added = emptyList(),
+                    updated = listOf(
+                        ChapterRemoteUpdate(1L, "Глава 1", null, 1.0, null, 0L, JsonObject(emptyMap())),
+                    ),
+                )
+            }
+        },
+        NOVEL_INSERT(Type.NOVEL) {
+            override suspend fun run(database: Database) {
+                val repository = NovelChapterRepositoryImpl(database)
+                repository.insert(repository.getById(1L)!!.copy(url = "new", name = "Глава 1"))
+            }
+        },
+        NOVEL_SYNC_RENAME(Type.NOVEL) {
+            override suspend fun run(database: Database) {
+                val repository = NovelChapterRepositoryImpl(database)
+                val renamed = repository.getById(1L)!!.copy(name = "Глава 1")
+                repository.updateFromRemote(removedIds = emptyList(), added = emptyList(), updated = listOf(renamed))
+            }
+        },
+        NOVEL_UPDATE(Type.NOVEL) {
+            override suspend fun run(database: Database) {
+                val repository = NovelChapterRepositoryImpl(database)
+                repository.update(repository.getById(1L)!!.copy(name = "Глава 1"))
+                // A write naming no chapter name keeps the fold
+                repository.setBookmarkBulk(listOf(1L), true)
+            }
+        },
+        ;
+
+        abstract suspend fun run(database: Database)
+    }
+
+    enum class Type(private val statements: List<String>, private val renameFirst: String) {
         MANGA(
             listOf(
                 "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
@@ -64,6 +154,7 @@ class ChapterNameSearchConformanceTest {
                     "(2, 2, 'c2', 'v_1 extra', NULL, 0, 0, 0, 1.0, 0, 0, 0, '{}'), " +
                     "(3, 3, 'c3', '100% done', NULL, 0, 0, 0, 1.0, 0, 0, 0, '{}')",
             ),
+            "UPDATE chapter SET remote_name = ? WHERE id = 1",
         ) {
             override suspend fun matching(database: Database, term: String) =
                 ChapterRepositoryImpl(database).getMangaIdsWithChapterNameLike(term)
@@ -79,6 +170,7 @@ class ChapterNameSearchConformanceTest {
                     "(2, 2, 'c2', 'v_1 extra', 0, 0, 0, 1.0, 0, 0, 0), " +
                     "(3, 3, 'c3', '100% done', 0, 0, 0, 1.0, 0, 0, 0)",
             ),
+            "UPDATE novel_chapters SET name = ? WHERE _id = 1",
         ) {
             override suspend fun matching(database: Database, term: String) =
                 NovelChapterRepositoryImpl(database).getNovelIdsWithChapterNameLike(term)
@@ -86,6 +178,10 @@ class ChapterNameSearchConformanceTest {
         ;
 
         suspend fun seed(driver: JdbcSqliteDriver) = statements.forEach { driver.execute(null, it, 0).await() }
+
+        /** Renames the first entry's chapter in SQL, leaving its fold as a row stored before the column has it. */
+        suspend fun rename(driver: JdbcSqliteDriver, name: String) =
+            driver.execute(null, renameFirst, 1) { bindString(0, name) }.await()
 
         abstract suspend fun matching(database: Database, term: String): Set<Long>
     }

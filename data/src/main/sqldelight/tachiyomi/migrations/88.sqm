@@ -1,0 +1,4 @@
+-- The case-folded chapter name the library's `chapter:` search reads, filled only where it differs from what
+-- SQLite's LIKE folds itself. Older rows stay NULL until ChapterNameFoldMigration fills them.
+ALTER TABLE chapter ADD COLUMN name_folded TEXT;
+ALTER TABLE novel_chapters ADD COLUMN name_folded TEXT;

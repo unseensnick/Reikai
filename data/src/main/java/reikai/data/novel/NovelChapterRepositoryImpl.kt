@@ -10,6 +10,8 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import logcat.LogPriority
+import reikai.data.chapterNameFold
+import reikai.data.foldCase
 import reikai.data.likeContaining
 import reikai.data.readInChunks
 import reikai.domain.novel.NovelChapterRepository
@@ -51,7 +53,9 @@ class NovelChapterRepositoryImpl(
         database.novel_chaptersQueries.getDistinctPages(novelId).awaitAsList()
 
     override suspend fun getNovelIdsWithChapterNameLike(name: String): Set<Long> =
-        database.novel_chaptersQueries.getNovelIdsWithChapterNameLike(likeContaining(name)).awaitAsList().toSet()
+        database.novel_chaptersQueries.getNovelIdsWithChapterNameLike(
+            likeContaining(foldCase(name)),
+        ).awaitAsList().toSet()
 
     override suspend fun getById(id: Long): NovelChapter? =
         database.novel_chaptersQueries.getById(id, ::mapNovelChapter).awaitAsOneOrNull()
@@ -102,7 +106,8 @@ class NovelChapterRepositoryImpl(
         val stored = added.filter { existing.add(it.novelId to it.url) }.map { it.copy(id = insertRow(it)) }
         updated.forEach { chapter ->
             database.novel_chaptersQueries.update(
-                novelId = null, url = null, name = chapter.name, read = null, bookmark = null,
+                novelId = null, url = null, name = chapter.name, nameFolded = chapterNameFold(chapter.name),
+                read = null, bookmark = null,
                 lastTextProgress = null, chapterNumber = chapter.chapterNumber, sourceOrder = chapter.sourceOrder,
                 dateFetch = null, dateUpload = chapter.dateUpload, page = chapter.page,
                 scanlator = chapter.scanlator, rawChapterNumber = chapter.rawChapterNumber, chapterId = chapter.id,
@@ -114,7 +119,7 @@ class NovelChapterRepositoryImpl(
     override suspend fun setLastTextProgress(id: Long, progress: Long): Boolean = try {
         // Null every column but last_text_progress so coalesce keeps the rest.
         database.novel_chaptersQueries.update(
-            novelId = null, url = null, name = null, read = null, bookmark = null,
+            novelId = null, url = null, name = null, nameFolded = null, read = null, bookmark = null,
             lastTextProgress = progress, chapterNumber = null, sourceOrder = null,
             dateFetch = null, dateUpload = null, page = null, scanlator = null, rawChapterNumber = null, chapterId = id,
         )
@@ -128,7 +133,7 @@ class NovelChapterRepositoryImpl(
         database.transaction {
             ids.forEach { id ->
                 database.novel_chaptersQueries.update(
-                    novelId = null, url = null, name = null, read = null, bookmark = bookmark,
+                    novelId = null, url = null, name = null, nameFolded = null, read = null, bookmark = bookmark,
                     lastTextProgress = null, chapterNumber = null, sourceOrder = null,
                     dateFetch = null, dateUpload = null, page = null, scanlator = null, rawChapterNumber = null,
                     chapterId = id,
@@ -146,7 +151,7 @@ class NovelChapterRepositoryImpl(
         database.transaction {
             ids.forEach { id ->
                 database.novel_chaptersQueries.update(
-                    novelId = null, url = null, name = null, read = read, bookmark = null,
+                    novelId = null, url = null, name = null, nameFolded = null, read = read, bookmark = null,
                     lastTextProgress = if (!read) 0L else null,
                     chapterNumber = null, sourceOrder = null,
                     dateFetch = null, dateUpload = null, page = null, scanlator = null, rawChapterNumber = null,
@@ -166,6 +171,7 @@ class NovelChapterRepositoryImpl(
             novelId = chapter.novelId,
             url = chapter.url,
             name = chapter.name,
+            nameFolded = chapterNameFold(chapter.name),
             read = chapter.read,
             bookmark = chapter.bookmark,
             lastTextProgress = chapter.lastTextProgress,
@@ -186,6 +192,7 @@ class NovelChapterRepositoryImpl(
             novelId = chapter.novelId,
             url = chapter.url,
             name = chapter.name,
+            nameFolded = chapterNameFold(chapter.name),
             read = chapter.read,
             bookmark = chapter.bookmark,
             lastTextProgress = chapter.lastTextProgress,

@@ -51,9 +51,9 @@ android {
 
         // versionCode also climbs mid-cycle when a preference migration needs it, since a migration is a
         // no-op until the shipped versionCode reaches its gate (see CLAUDE.md). Each migration's own
-        // `version` names its gate. 0.5.1 shipped as 205 and this cycle has climbed to 211, so the next
-        // migration takes 212+. versionName tracks the last shipped release until the next cycle is cut.
-        versionCode = 211
+        // `version` names its gate. 0.5.1 shipped as 205 and this cycle has climbed to 212, so the next
+        // migration takes 213+. versionName tracks the last shipped release until the next cycle is cut.
+        versionCode = 212
         versionName = "0.5.1"
         // RK <--
 

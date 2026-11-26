@@ -9,6 +9,8 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonObject
+import reikai.data.chapterNameFold
+import reikai.data.foldCase
 import reikai.data.likeContaining
 import tachiyomi.core.common.util.lang.toLong
 import tachiyomi.data.Database
@@ -72,6 +74,7 @@ class ChapterRepositoryImpl(
                     remoteDateUpload = chapter.dateUpload,
                     remoteMemo = chapter.memo,
                     pageCount = chapter.pageCount, // RK: the chapter's page count column
+                    nameFolded = chapterNameFold(chapter.name), // RK: the `chapter:` search's fold
                 )
                     .awaitAsOne()
                 chapter.copy(id = chapterId)
@@ -79,6 +82,7 @@ class ChapterRepositoryImpl(
             updated.forEach { chapterUpdate ->
                 database.chapterQueries.updateRemote(
                     remoteName = chapterUpdate.name,
+                    nameFolded = chapterNameFold(chapterUpdate.name), // RK
                     remoteScanlator = chapterUpdate.scanlator,
                     remoteChapterNumber = chapterUpdate.chapterNumber,
                     remoteOrder = chapterUpdate.sourceOrder,
@@ -140,7 +144,7 @@ class ChapterRepositoryImpl(
     // RK -->
     override suspend fun getMangaIdsWithChapterNameLike(name: String): Set<Long> {
         return database.chapterQueries
-            .getMangaIdsWithChapterNameLike(likeContaining(name))
+            .getMangaIdsWithChapterNameLike(likeContaining(foldCase(name)))
             .awaitAsList()
             .toSet()
     }

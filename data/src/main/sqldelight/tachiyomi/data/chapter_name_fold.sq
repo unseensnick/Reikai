@@ -1,0 +1,23 @@
+-- Fills name_folded on rows stored before 88.sqm added it. A name that is all ASCII (its length in chars
+-- matches its length in bytes) can never need a fold, so only the rest are read back for Kotlin to fold.
+
+mangaCandidates:
+SELECT id, remote_name
+FROM chapter
+WHERE name_folded IS NULL
+AND length(remote_name) <> length(CAST(remote_name AS BLOB));
+
+-- Only while the name is the one folded, so a sync renaming the chapter meanwhile keeps its own fold
+setMangaFold:
+UPDATE chapter SET name_folded = :nameFolded
+WHERE id = :id AND remote_name = :name;
+
+novelCandidates:
+SELECT _id, name
+FROM novel_chapters
+WHERE name_folded IS NULL
+AND length(name) <> length(CAST(name AS BLOB));
+
+setNovelFold:
+UPDATE novel_chapters SET name_folded = :nameFolded
+WHERE _id = :id AND name = :name;
