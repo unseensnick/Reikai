@@ -62,7 +62,6 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.LibraryBooks
 import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.RemoveDone
-import mihon.icons.materialsymbols.rounded.SwapCalls
 import reikai.presentation.icons.CallSplit
 import reikai.presentation.icons.Merge
 import reikai.presentation.icons.ReikaiIcons
@@ -251,7 +250,7 @@ fun LibraryBottomActionMenu(
     // RK: combine local series into one with volumes; takes Merge's place, Merge moving into the overflow
     onCombineClicked: (() -> Unit)? = null,
     // RK: hide the selected series from the library view, from the overflow
-    onHideClicked: (() -> Unit)? = null,
+    onHideClicked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -278,9 +277,6 @@ fun LibraryBottomActionMenu(
                     if (isActive) confirm[toConfirmIndex] = false
                 }
             }
-            // RK: Export and Hide live there, and Merge when Combine as volumes takes its place
-            val itemOverflow = onDownloadClicked != null || onExportClicked != null || onCombineClicked != null ||
-                onHideClicked != null
             Row(
                 modifier = Modifier
                     .windowInsetsPadding(
@@ -356,79 +352,57 @@ fun LibraryBottomActionMenu(
                         )
                     }
                 }
-                if (!itemOverflow) {
-                    // RK --> Migrate hides for a selection mixing manga and novels
-                    if (onMigrateClicked != null) {
-                        Button(
-                            title = stringResource(MR.strings.migrate),
-                            icon = MaterialSymbols.Rounded.SwapCalls,
-                            toConfirm = confirm[4],
-                            onLongClick = { onLongClickItem(4) },
-                            onClick = onMigrateClicked,
-                        )
-                    }
-                    // RK <--
-                    Button(
-                        title = stringResource(MR.strings.action_delete),
-                        icon = MaterialSymbols.Rounded.Delete,
-                        toConfirm = confirm[5],
-                        onLongClick = { onLongClickItem(5) },
-                        onClick = onDeleteClicked,
-                    )
-                } else {
-                    var overflowMenuOpen by remember { mutableStateOf(false) }
-                    Button(
-                        title = stringResource(MR.strings.label_more),
-                        icon = MaterialSymbols.Rounded.MoreVert,
-                        toConfirm = false,
-                        onLongClick = {},
-                        onClick = { overflowMenuOpen = true },
+                // RK: no in-row Migrate and Delete, since the library always passes Hide and so always overflows
+                var overflowMenuOpen by remember { mutableStateOf(false) }
+                Button(
+                    title = stringResource(MR.strings.label_more),
+                    icon = MaterialSymbols.Rounded.MoreVert,
+                    toConfirm = false,
+                    onLongClick = {},
+                    onClick = { overflowMenuOpen = true },
+                ) {
+                    DropdownMenu(
+                        expanded = overflowMenuOpen,
+                        onDismissRequest = { overflowMenuOpen = false },
+                        offset = BottomBarMenuDpOffset,
                     ) {
-                        DropdownMenu(
-                            expanded = overflowMenuOpen,
-                            onDismissRequest = { overflowMenuOpen = false },
-                            offset = BottomBarMenuDpOffset,
-                        ) {
-                            // RK --> Migrate hides for a selection mixing manga and novels; Export shows for novels
-                            if (onMigrateClicked != null) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(MR.strings.migrate)) },
-                                    onClick = onMigrateClicked,
-                                )
-                            }
-                            if (onCombineClicked != null && onMergeClicked != null) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(MR.strings.action_merge)) },
-                                    onClick = {
-                                        overflowMenuOpen = false
-                                        onMergeClicked()
-                                    },
-                                )
-                            }
-                            if (onExportClicked != null) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(MR.strings.action_export_epub)) },
-                                    onClick = {
-                                        overflowMenuOpen = false
-                                        onExportClicked()
-                                    },
-                                )
-                            }
-                            if (onHideClicked != null) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(MR.strings.action_hide)) },
-                                    onClick = {
-                                        overflowMenuOpen = false
-                                        onHideClicked()
-                                    },
-                                )
-                            }
-                            // RK <--
+                        // RK --> Migrate hides for a selection mixing manga and novels; Export shows for novels
+                        if (onMigrateClicked != null) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(MR.strings.action_delete)) },
-                                onClick = onDeleteClicked,
+                                text = { Text(stringResource(MR.strings.migrate)) },
+                                onClick = onMigrateClicked,
                             )
                         }
+                        if (onCombineClicked != null && onMergeClicked != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(MR.strings.action_merge)) },
+                                onClick = {
+                                    overflowMenuOpen = false
+                                    onMergeClicked()
+                                },
+                            )
+                        }
+                        if (onExportClicked != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(MR.strings.action_export_epub)) },
+                                onClick = {
+                                    overflowMenuOpen = false
+                                    onExportClicked()
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(MR.strings.action_hide)) },
+                            onClick = {
+                                overflowMenuOpen = false
+                                onHideClicked()
+                            },
+                        )
+                        // RK <--
+                        DropdownMenuItem(
+                            text = { Text(stringResource(MR.strings.action_delete)) },
+                            onClick = onDeleteClicked,
+                        )
                     }
                 }
             }
