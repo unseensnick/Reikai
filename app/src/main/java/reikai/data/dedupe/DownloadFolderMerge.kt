@@ -9,6 +9,7 @@ import reikai.domain.download.hasRoomToCopy
 import reikai.storage.IN_FLIGHT_SUFFIX
 import reikai.storage.copyVerified
 import reikai.storage.deleteTree
+import reikai.storage.findFolderRecovering
 import reikai.storage.parkIfSpent
 import reikai.storage.rename
 import reikai.storage.retireMoved
@@ -54,6 +55,20 @@ internal object DownloadFolderMerge {
             logcat { "Merged ${from.name} into ${into.name}; the chapters the survivor already had stay in it" }
         }
         return FolderCarry(finished = Moved.FAILED !in results, changed = placed > 0)
+    }
+
+    /**
+     * Moves the title folders named [titles] from the source folder [from] into the one at [target] under [root],
+     * each by [merge], and leaves every other title where it is: what a renamed source does with a folder another
+     * source still reads from, for both types.
+     */
+    fun moveTitles(context: Context, root: UniFile, from: UniFile, target: String, titles: Collection<String>) {
+        val into = root.findFolderRecovering(target) ?: root.createDirectory(target) ?: return
+        titles.distinct().forEach { name ->
+            val title = from.findFolderRecovering(name)?.takeIf { it.isDirectory } ?: return@forEach
+            val twin = into.findFolderRecovering(name) ?: into.createDirectory(name) ?: return@forEach
+            merge(context, from = title, into = twin)
+        }
     }
 
     private enum class Moved { PLACED, LEFT, FAILED }

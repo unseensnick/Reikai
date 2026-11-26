@@ -59,6 +59,7 @@ class NovelDownloadSourceFolderMigrationTest {
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,
             novelPreferences = novelPreferences,
+            sourceTitles = mockk(relaxed = true),
         )
         NovelDownloadSourceFolderMigration(novelPreferences, provider, cache = mockk(relaxed = true))
     }

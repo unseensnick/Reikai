@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import logcat.LogPriority
+import reikai.data.dedupe.DownloadFolderMerge // RK
 import reikai.domain.download.deletableDownloads // RK
 import reikai.domain.download.movesDownloadFolder // RK
 import reikai.domain.download.removableDownloads // RK
@@ -413,6 +414,18 @@ class DownloadManager(
 
         if (oldFolder.name == newName) return@withIOContext
 
+        // RK --> a folder another source of the same name and language still reads keeps it: this source's titles move
+        val shared = (sourceManager.getAll() + sourceManager.getStubSources()).any {
+            it.id != newSource.id && provider.getSourceDirName(it).equals(oldFolder.name, ignoreCase = true)
+        }
+        val root = oldFolder.parentFile
+        if (shared && root != null) {
+            val titles = sourceTitles.otherMangaTitles(listOf(newSource.id), NO_MANGA).map(provider::getMangaDirName)
+            DownloadFolderMerge.moveTitles(context, root, from = oldFolder, target = newName, titles = titles)
+            return@withIOContext
+        }
+        // RK <--
+
         // RK: the shared rename, judged by the name it produced, as the novel source folders' is
         if (!oldFolder.rename(newName)) {
             logcat(LogPriority.ERROR) { "Failed to rename source download folder: ${oldFolder.name}" }
@@ -526,3 +539,6 @@ class DownloadManager(
             )
         }
 }
+
+// RK: no manga row has this id, so otherMangaTitles answers every title of the sources it is given
+private const val NO_MANGA = -1L

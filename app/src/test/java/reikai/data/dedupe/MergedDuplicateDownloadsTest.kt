@@ -85,6 +85,7 @@ class MergedDuplicateDownloadsTest {
             downloadProvider,
             libraryPreferences,
             NovelPreferences(InMemoryPreferenceStore()),
+            mockk(relaxed = true),
         )
 
     private val sourceManager = mockk<SourceManager> {

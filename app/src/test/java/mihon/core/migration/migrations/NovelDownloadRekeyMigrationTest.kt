@@ -57,6 +57,7 @@ class NovelDownloadRekeyMigrationTest {
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,
             novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+            sourceTitles = mockk(relaxed = true),
         )
     }
     private val storageManager by lazy {

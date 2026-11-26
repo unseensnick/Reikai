@@ -75,6 +75,7 @@ class NovelDownloadProviderTest {
         downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
         libraryPreferences = libraryPreferences,
         novelPreferences = novelPreferences,
+        sourceTitles = mockk(relaxed = true),
     )
 
     @Test

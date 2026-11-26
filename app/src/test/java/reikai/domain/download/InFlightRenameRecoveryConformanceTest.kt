@@ -226,6 +226,7 @@ class NovelRecoveryHalf : RecoveryHalf {
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,
             novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+            sourceTitles = mockk(relaxed = true),
         )
     }
 

@@ -299,6 +299,7 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
                     downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
                     libraryPreferences = libraryPreferences,
                     novelPreferences = novelPreferences,
+                    sourceTitles = mockk(relaxed = true),
                 ),
                 cache = mockk(relaxed = true),
                 chapterRepo = mockk { coEvery { getByNovelId(1L) } returns listOf(chapterRow("Ch 1")) },

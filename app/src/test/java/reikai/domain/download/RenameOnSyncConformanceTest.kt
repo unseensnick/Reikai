@@ -186,6 +186,7 @@ class RenameOnSyncConformanceTest {
                     downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
                     libraryPreferences = libraryPreferences,
                     novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+                    sourceTitles = mockk(relaxed = true),
                 )
                 val folder = File(root, "src/T").apply { mkdirs() }
                 val oldFile = File(folder, provider.chapterFileName("Chapter 5", URL))

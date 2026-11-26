@@ -55,6 +55,7 @@ class NovelChapterSaverTest {
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,
             novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+            sourceTitles = mockk(relaxed = true),
         )
     }
 

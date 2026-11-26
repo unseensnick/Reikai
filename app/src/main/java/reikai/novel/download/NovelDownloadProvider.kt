@@ -23,6 +23,7 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.source.SourceTitlesRepository
 import reikai.novel.source.isNovelAppSourceId
 import reikai.storage.deleteFile
 import reikai.storage.deleteIfEmpty
@@ -53,6 +54,7 @@ class NovelDownloadProvider(
     private val downloadProvider: DownloadProvider,
     private val libraryPreferences: LibraryPreferences,
     novelPreferences: NovelPreferences,
+    private val sourceTitles: SourceTitlesRepository,
 ) {
 
     // Read fresh, as Mihon's DownloadProvider reads its root, so a storage change reaches every caller at once
@@ -78,9 +80,10 @@ class NovelDownloadProvider(
     val sourceFolders: StateFlow<Map<String, String>> = novelPreferences.seenNovelSources().changes()
         .map(::sourceFolderLabels)
         .onEach { labels ->
+            val renamed = labels.keys.filter { folderLabels[it] != labels[it] }
+            val leaving = titlesLeavingSharedFolders(renamed, labels)
             synchronized(folderLock) {
-                val renamed = labels.keys.filter { folderLabels[it] != labels[it] }
-                renameSourceFolders(renamed, from = { folderLabels[it] ?: it }, to = { labels.getValue(it) })
+                renameSourceFolders(renamed, from = { folderLabels[it] ?: it }, to = { labels.getValue(it) }, leaving)
                 folderLabels = labels
                 if (renamed.isNotEmpty() || !appliedLabels.isSet()) appliedLabels.set(labels)
             }
@@ -115,18 +118,47 @@ class NovelDownloadProvider(
 
     /**
      * Moves each of [sources]' folders from the label [from] gives it to the one [to] gives it, where the old one
-     * exists and the new one is free; a taken name leaves the folder where it is, its downloads unread but kept.
+     * exists and the new one is free; a taken name leaves the folder where it is, its downloads unread but kept. A
+     * source in [leavingShared] shares its folder with one that stays, so only its own titles move, those named.
      */
-    fun renameSourceFolders(sources: Collection<String>, from: (String) -> String, to: (String) -> String) {
+    fun renameSourceFolders(
+        sources: Collection<String>,
+        from: (String) -> String,
+        to: (String) -> String,
+        leavingShared: Map<String, List<String>> = emptyMap(),
+    ) {
         val root = downloadsDir ?: return
         sources.forEach { source ->
             val target = folderName(to(source))
             val folder = root.findFolderRecovering(folderName(from(source)))?.takeIf { it.isDirectory }
                 ?: return@forEach
+            if (folder.name == target) return@forEach
+            leavingShared[source]?.let { titles ->
+                DownloadFolderMerge.moveTitles(context, root, from = folder, target = target, titles = titles)
+                return@forEach
+            }
             // No other entry is named onto a source folder, so only a taken name keeps it in place
-            if (folder.name == target || !movesDownloadFolder(folder, target, emptyList())) return@forEach
+            if (!movesDownloadFolder(folder, target, emptyList())) return@forEach
             folder.rename(target)
         }
+    }
+
+    /**
+     * The folder names of each renamed source's own titles, for a source whose folder another source still reads
+     * from after the rename, as two catalogues of one name and language do. Read from the database, since the
+     * folder itself cannot tell whose title is whose.
+     */
+    private suspend fun titlesLeavingSharedFolders(
+        renamed: List<String>,
+        labels: Map<String, String>,
+    ): Map<String, List<String>> {
+        fun before(source: String) = folderName(folderLabels[source] ?: source)
+        fun after(source: String) = folderName(labels[source] ?: source)
+        return renamed.filter { source ->
+            folderLabels.keys.any {
+                it != source && before(it).equals(before(source), true) && !after(it).equals(after(source), true)
+            }
+        }.associateWith { source -> sourceTitles.otherNovelTitles(listOf(source), NO_NOVEL).map(::novelDirName) }
     }
 
     /**
@@ -267,6 +299,9 @@ class NovelDownloadProvider(
 
     companion object {
         private const val HTML_EXT = ".html"
+
+        // No novel row has this id, so otherNovelTitles answers every title of the sources it is given
+        private const val NO_NOVEL = -1L
     }
 }
 

@@ -130,6 +130,7 @@ class DownloadCacheChangesConformanceTest {
                     downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
                     libraryPreferences = libraryPreferences,
                     novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+                    sourceTitles = mockk(relaxed = true),
                 ),
                 downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
             )
