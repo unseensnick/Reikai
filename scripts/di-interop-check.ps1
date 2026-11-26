@@ -324,6 +324,10 @@ foreach ($file in $sources) {
             }
         }
     }
+    # A model built from CreationExtras (for its SavedStateHandle) is keyed by its assisted factory instead.
+    foreach ($m in [regex]::Matches($text, '@ViewModelAssistedFactoryKey\(\s*([A-Za-z0-9_]+)::class')) {
+        [void]$keyedModels.Add($m.Groups[1].Value)
+    }
     foreach ($m in [regex]::Matches($text, 'assistedMetroViewModel<\s*[A-Za-z0-9_.]+\s*,\s*([A-Za-z0-9_.]+)\.[A-Za-z0-9_]+\s*>')) {
         [void]$resolvedFactories.Add((Resolve-Imported $text $m.Groups[1].Value))
     }
