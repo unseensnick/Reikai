@@ -102,7 +102,7 @@ class PluginWebStorageTest {
         }
         val host = mockk<LnPluginHost>(relaxed = true)
         val model = PluginWebStorageViewModel("plugin", sourceManager, host, appScope())
-        model.onPageStorage("https://site.example/login", SITE_STORAGE)
+        model.onPageStorage("https://site.example/login", SITE_STORAGE_RESULT)
 
         ViewModelStore().apply { put("browser", model) }.clear()
         loaded.complete(Unit)
@@ -121,10 +121,29 @@ class PluginWebStorageTest {
         )
         val host = mockk<LnPluginHost>(relaxed = true)
         val model = PluginWebStorageViewModel("plugin", sourceManager, host, appScope())
-        model.onPageStorage("https://www.site.example/", OTHER_STORAGE)
-        model.onPageStorage("https://m.site.example/", OTHER_STORAGE)
-        model.onPageStorage("https://www.site.example/login", SITE_STORAGE)
+        model.onPageStorage("https://www.site.example/", OTHER_STORAGE_RESULT)
+        model.onPageStorage("https://m.site.example/", OTHER_STORAGE_RESULT)
+        model.onPageStorage("https://www.site.example/login", SITE_STORAGE_RESULT)
 
+        ViewModelStore().apply { put("browser", model) }.clear()
+        advanceUntilIdle()
+
+        verify { host.storeWebStorage("plugin", SITE_STORAGE) }
+    }
+
+    // A sign-in page closed straight after it loads: its storage is still being read when the model clears.
+    @Test
+    fun `a page whose storage is still being read when the browser closes keeps it`() = runTest {
+        val sourceManager = mockk<NovelSourceManager>()
+        coEvery { sourceManager.get("plugin") } returns LnPluginSource(
+            mockk(),
+            LnPluginInfo(id = "plugin", name = "Plugin", site = "https://site.example", webStorageUtilized = true),
+        )
+        val host = mockk<LnPluginHost>(relaxed = true)
+        val model = PluginWebStorageViewModel("plugin", sourceManager, host, appScope())
+        advanceUntilIdle()
+
+        model.onPageStorage("https://site.example/login", SITE_STORAGE_RESULT)
         ViewModelStore().apply { put("browser", model) }.clear()
         advanceUntilIdle()
 
@@ -163,5 +182,9 @@ class PluginWebStorageTest {
     private companion object {
         val SITE_STORAGE = WebStorageSnapshot(local = """{"token":"site"}""", session = "{}")
         val OTHER_STORAGE = WebStorageSnapshot(local = "{}", session = "{}")
+
+        // What the page script hands evaluateJavascript for each, JSON-encoded a second time.
+        const val SITE_STORAGE_RESULT = """"{\"local\":{\"token\":\"site\"},\"session\":{}}""""
+        const val OTHER_STORAGE_RESULT = """"{\"local\":{},\"session\":{}}""""
     }
 }

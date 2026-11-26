@@ -14,6 +14,8 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.novel.host.LnPluginHost
@@ -25,6 +27,7 @@ import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 
 /**
  * What the in-app browser runs after each page load so a light-novel plugin can read the site's storage,
@@ -39,10 +42,10 @@ fun rememberPluginStorageCapture(novelSourceId: String?): (WebView) -> Unit {
     }
     return remember(model) {
         { webView: WebView ->
-            // Read on Main, as the WebView answers, so skipped for a plugin that never uses the storage.
+            // The WebView answers on Main, so skipped for a plugin that never uses the storage.
             if (model.capturesStorage) {
                 val pageUrl = webView.url
-                webView.evaluateJavascript(WEB_STORAGE_SCRIPT) { model.onPageStorage(pageUrl, parseWebStorage(it)) }
+                webView.evaluateJavascript(WEB_STORAGE_SCRIPT) { model.onPageStorage(pageUrl, it) }
             }
         }
     }
@@ -74,8 +77,13 @@ class PluginWebStorageViewModel(
     val capturesStorage: Boolean get() = !resolved || target != null
 
     // Each host's newest storage with the page it came from, newest host last. Which host is the
-    // plugin's site is known only once its source resolves, so the choice waits for the close.
+    // plugin's site is known only once its source resolves, so the choice waits for the close. Read and
+    // written only on [parser].
     private val storageByHost = LinkedHashMap<String, Pair<String, WebStorageSnapshot>>()
+
+    // One at a time, so pages parse in the order they loaded and the save [onCleared] queues runs after
+    // every parse queued before it. A storage can run to megabytes, decoded twice, so never on Main.
+    private val parser = Dispatchers.Default.limitedParallelism(1)
 
     init {
         viewModelScope.launchIO {
@@ -84,22 +92,27 @@ class PluginWebStorageViewModel(
         }
     }
 
-    fun onPageStorage(pageUrl: String?, snapshot: WebStorageSnapshot?) {
+    /** Takes what [WEB_STORAGE_SCRIPT] returned on [pageUrl]. On the app scope, so a close cannot drop it. */
+    fun onPageStorage(pageUrl: String?, result: String?) {
         val pageHost = pageUrl?.toHttpUrlOrNull()?.host ?: return
-        if (snapshot == null) return
-        storageByHost.remove(pageHost)
-        storageByHost[pageHost] = pageUrl to snapshot
+        appScope.launch(parser) {
+            val snapshot = parseWebStorage(result) ?: return@launch
+            storageByHost.remove(pageHost)
+            storageByHost[pageHost] = pageUrl to snapshot
+        }
     }
 
     // On clear rather than on dispose: a rotation disposes the browser but keeps this model. On the app
     // scope, since the plugin may still be resolving (the browser restored before the first plugin load),
     // and this model's own scope is cancelled by now.
     override fun onCleared() {
-        val pages = storageByHost.values.toList()
-        if (pages.isEmpty()) return
-        appScope.launchIO {
-            val plugin = target ?: webStoragePlugin(sourceManager.get(novelSourceId)) ?: return@launchIO
-            pluginSiteStorage(plugin.site, pages)?.let { host.storeWebStorage(plugin.id, it) }
+        appScope.launch(parser) {
+            val pages = storageByHost.values.toList()
+            if (pages.isEmpty()) return@launch
+            withIOContext {
+                val plugin = target ?: webStoragePlugin(sourceManager.get(novelSourceId)) ?: return@withIOContext
+                pluginSiteStorage(plugin.site, pages)?.let { host.storeWebStorage(plugin.id, it) }
+            }
         }
     }
 }
