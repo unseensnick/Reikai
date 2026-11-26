@@ -1,16 +1,21 @@
 package reikai.presentation
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureScreenRoboImage
+import eu.kanade.core.preference.asState
+import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import org.junit.Rule
 import org.junit.Test
@@ -18,7 +23,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import reikai.domain.entry.EntryId
 import reikai.presentation.browse.catalogue.SavedSearchChip
+import reikai.presentation.library.LibraryBucket
+import reikai.presentation.library.LibraryItemsLayout
+import reikai.presentation.library.ManualOrderDrag
+import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.migrate.flow.EntryMigrationListViewModel.CommitActivity
 import reikai.presentation.migrate.flow.EntryMigrationListViewModel.Dialog
 import reikai.presentation.migrate.flow.EntryMigrationListViewModel.State
@@ -31,7 +41,11 @@ import reikai.presentation.reader.settings.ReaderSettingsSheet
 import reikai.presentation.recents.RecentsToolbar
 import reikai.presentation.settings.appearance.IconTile
 import reikai.util.LauncherIcon
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.presentation.core.components.material.TabText
 
 /**
@@ -209,6 +223,138 @@ class ScreenshotTest {
                 SavedSearchChip(selected = true, label = "Completed romance", onClick = {}, onLongClick = {})
                 SavedSearchChip(selected = false, label = "New this week", onClick = {}, onLongClick = {})
             }
+        }
+        capture()
+    }
+
+    // A manga and a novel share row id 2, the case the lazy keys and the selection must keep apart.
+    private val libraryRows = listOf(
+        libraryRow(EntryId.Manga(1), "Alpha", unread = 3, downloads = 2),
+        libraryRow(EntryId.Manga(2), "Beta", unread = 0, downloads = 0),
+        libraryRow(EntryId.Novel(2), "Gamma", unread = 12, downloads = 1),
+        libraryRow(EntryId.Novel(4), "Delta", unread = 0, downloads = 0),
+    )
+
+    private fun libraryRow(id: EntryId, title: String, unread: Long, downloads: Int) = LibraryItem(
+        libraryManga = LibraryManga(
+            manga = Manga.create().copy(id = id.rawId, title = title),
+            categories = emptyList(),
+            totalChapters = 20,
+            readCount = 0,
+            bookmarkCount = 0,
+            latestUpload = null,
+            chapterFetchedAt = null,
+            lastRead = null,
+        ),
+        downloadCount = downloads,
+        unreadCount = unread,
+        isLocal = false,
+        badges = LibraryItem.Badges(
+            downloadCount = downloads,
+            unreadCount = unread,
+            isLocal = false,
+            sourceLanguage = "",
+        ),
+        entryId = id,
+    )
+
+    // The pager's page: one selected, a query showing the global search row, a Manual category's drag.
+    private fun showLibraryItems(
+        displayMode: LibraryDisplayMode,
+        columns: Int = 3,
+        searchQuery: String? = "a",
+        manual: Boolean = true,
+    ) = show {
+        val scope = rememberCoroutineScope()
+        LibraryItemsLayout(
+            items = libraryRows,
+            displayMode = displayMode,
+            getColumnsForOrientation = { InMemoryPreferenceStore().getInt("columns", columns).asState(scope) },
+            contentPadding = PaddingValues(),
+            selection = setOf(EntryId.Novel(2)),
+            onClick = {},
+            onLongClick = {},
+            onClickContinueReading = {},
+            searchQuery = searchQuery,
+            onGlobalSearchClicked = {},
+            drag = if (manual) ManualOrderDrag { _, _ -> } else null,
+        )
+    }
+
+    @Test
+    fun `library comfortable grid`() {
+        showLibraryItems(LibraryDisplayMode.ComfortableGrid)
+        capture()
+    }
+
+    @Test
+    fun `library comfortable grid adaptive`() {
+        showLibraryItems(LibraryDisplayMode.ComfortableGrid, columns = 0, searchQuery = null, manual = false)
+        capture()
+    }
+
+    @Test
+    fun `library panorama grid`() {
+        showLibraryItems(LibraryDisplayMode.ComfortableGridPanorama)
+        capture()
+    }
+
+    @Test
+    fun `library compact grid`() {
+        showLibraryItems(LibraryDisplayMode.CompactGrid)
+        capture()
+    }
+
+    @Test
+    fun `library cover only grid`() {
+        showLibraryItems(LibraryDisplayMode.CoverOnlyGrid, columns = 0)
+        capture()
+    }
+
+    @Test
+    fun `library list`() {
+        showLibraryItems(LibraryDisplayMode.List)
+        capture()
+    }
+
+    @Test
+    fun `library list without search`() {
+        showLibraryItems(LibraryDisplayMode.List, searchQuery = null, manual = false)
+        capture()
+    }
+
+    @Test
+    fun `library single list comfortable`() {
+        val reading = LibraryBucket.Dynamic("reading", "Reading")
+        val planned = LibraryBucket.Dynamic("planned", "Plan to read")
+        show {
+            ReikaiLibraryContent(
+                buckets = listOf(reading, planned),
+                getItemsForCategory = { if (it == reading) libraryRows.take(3) else libraryRows.drop(3) },
+                collapsedCategories = emptySet(),
+                collapsedDynamicCategories = emptySet(),
+                getItemCount = { null },
+                displayMode = LibraryDisplayMode.ComfortableGrid,
+                columns = 3,
+                selection = setOf(EntryId.Novel(2)),
+                searchQuery = "a",
+                gridState = rememberLazyGridState(),
+                contentPadding = PaddingValues(),
+                onClickManga = { _, _ -> },
+                onLongClickManga = { _, _ -> },
+                onToggleDefaultCollapse = {},
+                onToggleDynamicCollapse = {},
+                onGlobalSearchClicked = {},
+                onRefresh = { false },
+                refreshing = false,
+                onClickCategorySort = {},
+                onRefreshCategory = {},
+                onSelectAllInCategory = {},
+                sortLabelFor = { error("a dynamic group has no sort") },
+                sortAscendingFor = { null },
+                onClickContinueReading = {},
+                manualDragFor = { bucket -> ManualOrderDrag { _, _ -> }.takeIf { bucket == reading } },
+            )
         }
         capture()
     }
