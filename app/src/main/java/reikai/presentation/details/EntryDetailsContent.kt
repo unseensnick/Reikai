@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -72,6 +74,7 @@ import reikai.presentation.recommendation.RelatedMangaCarousel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.material.IconButtonTokens
 import tachiyomi.presentation.core.i18n.stringResource
 
 /** Dim level for a hidden chapter row shown via "Show hidden chapters". */
@@ -837,8 +840,10 @@ private fun LazyListScope.chapterHeaderItem(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = IconButtonTokens.StateLayerSize)
                         .clickable(enabled = !state.selectionMode, onClick = copies.toggle)
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                        .padding(horizontal = 16.dp)
+                        .wrapContentHeight(Alignment.CenterVertically),
                 )
             }
             // A paged novel's page bar sits under the header, opening the page selector. The

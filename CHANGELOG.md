@@ -87,6 +87,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The library's Lewd filter no longer hides series tagged Young Adult or Adult Cast.** Adult notifications stop blanking them too.
 - **Grouping novels by tracking status now follows a tracker login or logout at once.**
 - **A library search for `chapter:` now matches a % or _ you type literally instead of as a wildcard.**
+- **A library category header's sort control is easier to tap without collapsing the category, and TalkBack now says whether a category is collapsed.**
 
 ### Details
 
@@ -141,6 +142,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A page preview on a merged gallery's details page now opens the gallery's own chapter, as More previews does.**
 - **A pull to refresh made just as a novel's first load stops spinning is no longer ignored.**
 - **A novel's word count and chapter search now read "1 of 1 chapter" rather than "1 of 1 chapters".**
+- **The warning beside a chapter whose number may be wrong is easier to tap without opening the chapter.**
 
 ### Merged series
 

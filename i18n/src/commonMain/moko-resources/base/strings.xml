@@ -1509,6 +1509,10 @@
     <string name="action_show_category">Show category</string>
     <string name="hopper_long_press">Hopper long-press</string>
     <string name="hopper_action_expand_collapse">Expand/collapse</string>
+    <string name="action_expand_category">Expand</string>
+    <string name="action_collapse_category">Collapse</string>
+    <string name="category_collapsed">Collapsed</string>
+    <string name="category_expanded">Expanded</string>
     <string name="hopper_action_random_global">Random (global)</string>
     <string name="add_to_library">Add to library</string>
     <string name="add_to_library_failed">Couldn\'t add to library</string>

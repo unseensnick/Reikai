@@ -38,8 +38,8 @@ import mihon.icons.materialsymbols.rounded.FileDownloadOff
 import mihon.icons.materialsymbols.rounded.RemoveDone
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Circle
-import mihon.icons.materialsymbols.roundedfilled.Warning
 import reikai.presentation.components.subtitlePart
+import reikai.presentation.details.ChapterNumberHintMarker
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
@@ -131,16 +131,7 @@ fun MangaChapterListItem(
                         )
                     }
                     // RK --> before the title, since a long title ellipsizes whatever follows it
-                    if (onNumberHintClick != null) {
-                        Icon(
-                            imageVector = MaterialSymbols.RoundedFilled.Warning,
-                            contentDescription = stringResource(MR.strings.chapter_number_hint),
-                            modifier = Modifier
-                                .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() })
-                                .combinedClickable(onClick = onNumberHintClick, onLongClick = onNumberHintClick),
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
+                    if (onNumberHintClick != null) ChapterNumberHintMarker(textHeight, onNumberHintClick)
                     // RK <--
                     Text(
                         text = title,
