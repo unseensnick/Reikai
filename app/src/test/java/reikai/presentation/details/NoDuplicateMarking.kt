@@ -3,10 +3,13 @@ package reikai.presentation.details
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.library.StoredType
+import reikai.domain.library.TagAliases
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
 /** A marking with duplicates switched off, for a details test whose subject is not them. */
@@ -36,3 +39,6 @@ fun noVolumePicking() = VolumePicking(
     mockk(relaxed = true),
     CoroutineScope(Dispatchers.Unconfined),
 )
+
+/** No tag aliases, for a details test whose subject is not them. */
+fun noTagAliases(): Flow<TagAliases> = flowOf(TagAliases.NONE)

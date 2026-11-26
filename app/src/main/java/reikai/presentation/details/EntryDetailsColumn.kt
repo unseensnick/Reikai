@@ -4,6 +4,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import eu.kanade.presentation.manga.components.SearchMetadataChips
+import reikai.domain.library.LabelledTag
 import kotlin.time.Instant
 
 /**
@@ -20,7 +21,7 @@ data class EntryDetailsUiState(
     val nextUpdate: Instant?,
     val isUserIntervalMode: Boolean,
     val description: String?,
-    val tags: List<String>?,
+    val tags: List<LabelledTag>?,
     val notes: String,
     val descriptionDefaultExpanded: Boolean,
 )

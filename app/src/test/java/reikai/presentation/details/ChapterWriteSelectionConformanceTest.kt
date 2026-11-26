@@ -108,7 +108,7 @@ class ChapterWriteSelectionConformanceTest {
                 longArrayOf(ENTRY),
             ).also { store.put("manga", it) }
             return try {
-                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
+                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking(), noTagAliases())
                     .settledSelection(FIRST, SECOND, write)
             } finally {
                 // The model stops reading before the database closes.
@@ -139,6 +139,7 @@ class ChapterWriteSelectionConformanceTest {
                     mockk(relaxed = true),
                     noDuplicateMarking(),
                     noVolumePicking(),
+                    noTagAliases(),
                 )
                     .settledSelection(first, second, write)
             }

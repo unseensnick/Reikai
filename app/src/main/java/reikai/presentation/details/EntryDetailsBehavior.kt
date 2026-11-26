@@ -8,6 +8,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import mihon.app.di.AppGraph
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.library.StoredType
+import reikai.domain.library.TagAliases
 import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.VolumeMoves
 import tachiyomi.core.common.preference.Preference
@@ -23,19 +25,20 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 
 /**
- * [source] and [duplicates] (which no model state carries) mapped to the neutral state with its volume views
- * from [volumes], off the main thread since every chapter row is mapped. Never seeded by mapping, which ran the
- * whole list on Main in composition, so a first open shows Loading; a re-entry (rotation, a screen popped back
- * to) reads the same adapter ([keptForScreen]) and renders its last state at once. WhileSubscribed, so the
- * mapper stops while the screen is gone.
+ * [source], [duplicates] and the user's [tagAliases] (which no model state carries) mapped to the neutral state
+ * with its volume views from [volumes], off the main thread since every chapter row is mapped. Never seeded by
+ * mapping, which ran the whole list on Main in composition, so a first open shows Loading; a re-entry (rotation,
+ * a screen popped back to) reads the same adapter ([keptForScreen]) and renders its last state at once.
+ * WhileSubscribed, so the mapper stops while the screen is gone.
  */
 internal fun <S, D> ViewModel.neutralDetailsState(
     source: StateFlow<S>,
     duplicates: StateFlow<D>,
     volumes: DetailsVolumeInputs,
-    toNeutral: (S, D) -> EntryDetailsScreenState,
+    tagAliases: Flow<TagAliases>,
+    toNeutral: (S, D, TagAliases) -> EntryDetailsScreenState,
 ): StateFlow<EntryDetailsScreenState> =
-    combine(source, duplicates, volumes.values) { s, d, v -> toNeutral(s, d).withVolumeViews(v) }
+    combine(source, duplicates, volumes.values, tagAliases) { s, d, v, a -> toNeutral(s, d, a).withVolumeViews(v) }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), EntryDetailsScreenState.Loading)
 

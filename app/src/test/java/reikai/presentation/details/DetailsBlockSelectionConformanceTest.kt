@@ -119,7 +119,7 @@ class DetailsBlockSelectionConformanceTest {
                 longArrayOf(ENTRY),
             ).also { store.put("manga", it) }
             return try {
-                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
+                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking(), noTagAliases())
                     .blockThenLongPress()
             } finally {
                 val job = model.viewModelScope.coroutineContext.job
@@ -146,6 +146,7 @@ class DetailsBlockSelectionConformanceTest {
                     mockk(relaxed = true),
                     noDuplicateMarking(),
                     noVolumePicking(),
+                    noTagAliases(),
                 )
                     .blockThenLongPress()
             }

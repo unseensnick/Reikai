@@ -101,7 +101,15 @@ class MergedHiddenResumeConformanceTest {
             prefs = prefs,
         ).also { store.put("manga", it) }
         try {
-            return resumeOf(MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking()))
+            return resumeOf(
+                MangaEntryAdapter(
+                    model,
+                    mockk(relaxed = true),
+                    noDuplicateMarking(),
+                    noVolumePicking(),
+                    noTagAliases(),
+                ),
+            )
         } finally {
             // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
@@ -127,6 +135,7 @@ class MergedHiddenResumeConformanceTest {
                     mockk(relaxed = true),
                     noDuplicateMarking(),
                     noVolumePicking(),
+                    noTagAliases(),
                 ),
             )
             // Either copy of Second is that chapter; which one opens is the preferred source's rule, not this one's.

@@ -115,7 +115,15 @@ class MergedDetailsFilterConformanceTest {
             stitch = listOf(ChapterUnit(OWNER_COPY, 0, 0), ChapterUnit(SIBLING_COPY, 0, 1)),
         ).also { store.put("manga", it) }
         try {
-            return rowsOf(MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking()))
+            return rowsOf(
+                MangaEntryAdapter(
+                    model,
+                    mockk(relaxed = true),
+                    noDuplicateMarking(),
+                    noVolumePicking(),
+                    noTagAliases(),
+                ),
+            )
         } finally {
             // The model stops reading before the database closes.
             val job = model.viewModelScope.coroutineContext.job
@@ -142,6 +150,7 @@ class MergedDetailsFilterConformanceTest {
                     mockk(relaxed = true),
                     noDuplicateMarking(),
                     noVolumePicking(),
+                    noTagAliases(),
                 ),
             )
         }

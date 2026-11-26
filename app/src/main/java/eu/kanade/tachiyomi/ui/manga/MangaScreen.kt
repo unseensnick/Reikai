@@ -37,6 +37,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo // RK
 import reikai.domain.library.ContentType
 import reikai.domain.library.StoredType
+import reikai.domain.library.tagAliasesFlow // RK
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
@@ -99,7 +100,8 @@ fun MangaScreen(
                 StoredType.MANGA,
                 graph.readerPreferences.skipDupe,
             )
-            MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
+            val aliases = graph.reikaiLibraryPreferences.tagAliasesFlow()
+            MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking, aliases)
         }
     }
     val settings = remember(viewModel) { viewModel.detailsSettings(context.appGraph) }

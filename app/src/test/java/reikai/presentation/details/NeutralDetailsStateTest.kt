@@ -53,7 +53,9 @@ class NeutralDetailsStateTest {
     /** The mapping walks every chapter row, and asking for the state happens on Main, in composition. */
     @Test
     fun `a first open starts from Loading rather than mapping the model on the spot`() {
-        model.neutralDetailsState(source, duplicates, noVolumes) { value, _ -> mappedOnTheSpot(value) }.value shouldBe
+        model.neutralDetailsState(source, duplicates, noVolumes, noTagAliases()) { value, _, _ ->
+            mappedOnTheSpot(value)
+        }.value shouldBe
             EntryDetailsScreenState.Loading
     }
 
@@ -67,7 +69,9 @@ class NeutralDetailsStateTest {
 
     @Test
     fun `the mapper stops when the last collector leaves`() = runTest {
-        val state = model.neutralDetailsState(source, duplicates, noVolumes) { value, _ -> neutral(value) }
+        val state = model.neutralDetailsState(source, duplicates, noVolumes, noTagAliases()) { value, _, _ ->
+            neutral(value)
+        }
         val collector = backgroundScope.launch { state.collect {} }
         source.subscriptionCount.first { it == 1 }
 
@@ -88,7 +92,13 @@ class NeutralDetailsStateTest {
             ),
             duplicates = DuplicateMarks(copies = copies.associateWith { copies }, marks = emptyMap()),
         )
-        val state = model.neutralDetailsState(MutableStateFlow(rows), duplicates, noVolumes) { value, _ -> value }
+        val state = model.neutralDetailsState(MutableStateFlow(rows), duplicates, noVolumes, noTagAliases()) {
+                value,
+                _,
+                _,
+            ->
+            value
+        }
         val collector = backgroundScope.launch { state.collect {} }
         state.first { it is EntryDetailsScreenState.Loaded }
 

@@ -30,6 +30,7 @@ import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.StoredType
+import reikai.domain.library.tagAliasesFlow
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -99,7 +100,8 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
                 StoredType.NOVELS,
                 graph.novelPreferences.readerSkipDuplicateChapters(),
             )
-            NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)
+            val aliases = graph.reikaiLibraryPreferences.tagAliasesFlow()
+            NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking, aliases)
         }
     }
     val settings = remember(viewModel) { viewModel.detailsSettings(context.appGraph) }

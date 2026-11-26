@@ -3,7 +3,9 @@ package reikai.domain.library
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.presentation.library.normalizeDynamicKey
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -176,5 +178,61 @@ class TagFilterTest {
     @Test
     fun `Group by tag folds a key the way the tag filter does`() {
         normalizeDynamicKey(" Slice_of--Life ") shouldBe tagKey("slice of life")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("labelledCases")
+    fun `a series' tags show through the aliases, once per key, labelled, with the source's spelling`(
+        case: String,
+        tags: List<String>,
+        aliases: List<TagAlias>,
+        shown: List<LabelledTag>,
+    ) {
+        labelledTags(tags, TagAliases(aliases)) shouldBe shown
+    }
+
+    /** The series page's Show only sends the label, so it must name the tag the source spelling reads as. */
+    @ParameterizedTest
+    @ValueSource(strings = ["slice_of-life", "MARTIAL ARTS", "the end of an era", "BL", "Sci-fi", "  a  b "])
+    fun `a label keeps its tag's key`(tag: String) {
+        tagKey(labelledTags(listOf(tag), TagAliases.NONE).single().label) shouldBe tagKey(tag)
+    }
+
+    companion object {
+        private val SF = listOf(TagAlias("SF", "Science Fiction"))
+
+        @JvmStatic
+        fun labelledCases() = listOf(
+            arguments(
+                "first spelling wins",
+                listOf("Action", "ACTION", "action"),
+                emptyList<TagAlias>(),
+                listOf(LabelledTag("Action", "Action")),
+            ),
+            arguments(
+                "labelled in title case",
+                listOf("MARTIAL ARTS"),
+                emptyList<TagAlias>(),
+                listOf(LabelledTag("Martial Arts", "MARTIAL ARTS")),
+            ),
+            arguments(
+                "blank dropped",
+                listOf("", "-_-", "Drama"),
+                emptyList<TagAlias>(),
+                listOf(LabelledTag("Drama", "Drama")),
+            ),
+            arguments(
+                "alias shown",
+                listOf("SF", "Drama"),
+                SF,
+                listOf(LabelledTag("Science Fiction", "SF"), LabelledTag("Drama", "Drama")),
+            ),
+            arguments(
+                "alias and target once",
+                listOf("Science Fiction", "sf"),
+                SF,
+                listOf(LabelledTag("Science Fiction", "Science Fiction")),
+            ),
+        )
     }
 }

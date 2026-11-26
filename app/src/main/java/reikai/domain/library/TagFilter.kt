@@ -169,6 +169,23 @@ private val MINOR_WORDS = setOf(
     "a", "an", "and", "as", "at", "but", "by", "for", "in", "nor", "of", "on", "or", "per", "the", "to", "vs", "via",
 )
 
+/** One of a series' tags as a screen shows it: its [label], and the source's own [spelling] behind it. */
+data class LabelledTag(val label: String, val spelling: String)
+
+/**
+ * A series' [tags] as every screen shows them, for both content types: read through the [aliases], blank ones
+ * dropped, each [tagKey] once under its first tag. The [LabelledTag.spelling] is what that source sent, which a
+ * search of the source and a copy take, since a source only knows its own names.
+ */
+fun labelledTags(tags: List<String>, aliases: TagAliases): List<LabelledTag> {
+    val seen = HashSet<String>()
+    return tags.mapNotNull { tag ->
+        val resolved = aliases.resolve(tag)
+        val key = tagKey(resolved)
+        if (key.isEmpty() || !seen.add(key)) null else LabelledTag(tagLabel(resolved), tag)
+    }
+}
+
 /** One tag the picker offers: its [key], the first spelling the library shows it in, and how many series carry it. */
 data class TagChoice(val key: String, val label: String, val count: Int)
 

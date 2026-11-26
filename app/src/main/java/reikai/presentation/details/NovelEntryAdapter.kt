@@ -5,12 +5,15 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.seriesAltTitles
 import reikai.domain.library.StoredType
+import reikai.domain.library.TagAliases
+import reikai.domain.library.labelledTags
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.NovelChapterListEntry
@@ -63,6 +66,7 @@ class NovelEntryAdapter(
     private val coverViewModelFactory: NovelCoverViewModel.Factory,
     override val duplicateMarking: DuplicateMarking,
     override val volumePicking: VolumePicking,
+    tagAliases: Flow<TagAliases>,
 ) : EntryDetailsBehavior {
 
     private val duplicatesMemo = DuplicateMarksMemo<NovelChapter>()
@@ -70,8 +74,12 @@ class NovelEntryAdapter(
     private val volumeInputs = DetailsVolumeInputs(volumePicking, StoredType.NOVELS)
 
     override val state: StateFlow<EntryDetailsScreenState> =
-        model.neutralDetailsState(model.state, duplicateMarking.marks, volumeInputs) { state, marks ->
-            state.toNeutral(marks)
+        model.neutralDetailsState(model.state, duplicateMarking.marks, volumeInputs, tagAliases) {
+                state,
+                marks,
+                aliases,
+            ->
+            state.toNeutral(marks, aliases)
         }
 
     override fun setOnlyCopies(on: Boolean) = volumeInputs.setOnlyCopies(on)
@@ -79,13 +87,17 @@ class NovelEntryAdapter(
     // A novel chapter is one request, so there is no percentage to report while it runs.
     override fun downloadProgress(chapterId: Long) = DownloadProgress.Unsupported
 
-    private fun NovelDetailsState.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
-        NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
-        NovelDetailsState.NotFound -> EntryDetailsScreenState.NotFound
-        is NovelDetailsState.Loaded -> toNeutralLoaded(marks)
-    }
+    private fun NovelDetailsState.toNeutral(marks: CopyMarks?, aliases: TagAliases): EntryDetailsScreenState =
+        when (this) {
+            NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
+            NovelDetailsState.NotFound -> EntryDetailsScreenState.NotFound
+            is NovelDetailsState.Loaded -> toNeutralLoaded(marks, aliases)
+        }
 
-    private fun NovelDetailsState.Loaded.toNeutralLoaded(marks: CopyMarks?): EntryDetailsScreenState.Loaded {
+    private fun NovelDetailsState.Loaded.toNeutralLoaded(
+        marks: CopyMarks?,
+        aliases: TagAliases,
+    ): EntryDetailsScreenState.Loaded {
         val sibling = displayNovel.takeIf { it.id != novel.id }
         val display = shownNovel(novel, sibling, customInfo, chipCustomInfo)
         val tags = shownTags(
@@ -123,7 +135,7 @@ class NovelEntryAdapter(
                 nextUpdate = intervalNovel.expectedNextUpdate(),
                 isUserIntervalMode = intervalNovel.fetchInterval < 0,
                 description = display.description,
-                tags = tags,
+                tags = tags?.let { labelledTags(it, aliases) },
                 notes = display.notes,
                 descriptionDefaultExpanded = model.isFromSource,
             ),

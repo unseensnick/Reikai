@@ -13,12 +13,16 @@ import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.getMainSource
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.seriesAltTitles
+import reikai.domain.library.LabelledTag
 import reikai.domain.library.StoredType
+import reikai.domain.library.TagAliases
+import reikai.domain.library.labelledTags
 import reikai.domain.library.tagKey
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
@@ -47,6 +51,7 @@ class MangaEntryAdapter(
     private val coverViewModelFactory: MangaEntryCoverViewModel.Factory,
     override val duplicateMarking: DuplicateMarking,
     override val volumePicking: VolumePicking,
+    tagAliases: Flow<TagAliases>,
 ) : EntryDetailsBehavior {
 
     private val duplicatesMemo = DuplicateMarksMemo<Chapter>()
@@ -54,21 +59,29 @@ class MangaEntryAdapter(
     private val volumeInputs = DetailsVolumeInputs(volumePicking, StoredType.MANGA)
 
     override val state: StateFlow<EntryDetailsScreenState> =
-        model.neutralDetailsState(model.state, duplicateMarking.marks, volumeInputs) { state, marks ->
-            state.toNeutral(marks)
+        model.neutralDetailsState(model.state, duplicateMarking.marks, volumeInputs, tagAliases) {
+                state,
+                marks,
+                aliases,
+            ->
+            state.toNeutral(marks, aliases)
         }
 
     override fun setOnlyCopies(on: Boolean) = volumeInputs.setOnlyCopies(on)
 
     override fun downloadProgress(chapterId: Long) = DownloadProgress.Live { model.getDownloadProgress(chapterId) }
 
-    private fun MangaViewModel.State.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
-        MangaViewModel.State.Loading -> EntryDetailsScreenState.Loading
-        MangaViewModel.State.NotFound -> EntryDetailsScreenState.NotFound
-        is MangaViewModel.State.Success -> toNeutralLoaded(marks)
-    }
+    private fun MangaViewModel.State.toNeutral(marks: CopyMarks?, aliases: TagAliases): EntryDetailsScreenState =
+        when (this) {
+            MangaViewModel.State.Loading -> EntryDetailsScreenState.Loading
+            MangaViewModel.State.NotFound -> EntryDetailsScreenState.NotFound
+            is MangaViewModel.State.Success -> toNeutralLoaded(marks, aliases)
+        }
 
-    private fun MangaViewModel.State.Success.toNeutralLoaded(marks: CopyMarks?): EntryDetailsScreenState.Loaded {
+    private fun MangaViewModel.State.Success.toNeutralLoaded(
+        marks: CopyMarks?,
+        aliases: TagAliases,
+    ): EntryDetailsScreenState.Loaded {
         // Header, description, tags and the gallery chips all read this one entry; actions keep the raw `manga`.
         val shown = shownManga(manga, siblingChip(), customInfo, chipCustomInfo)
         val tags = shownTags(
@@ -78,6 +91,19 @@ class MangaEntryAdapter(
             anchor = manga.genre,
             members = mergedMangaById.values.map { it.genre },
         )
+        val gallery = MangaGalleryCapability(
+            sourceId = shownSource.id,
+            rawGenre = shown.genre,
+            otherTags = tagsBeyond(tags, shown.genre),
+            metadata = galleryMetadata,
+            tagQuery = shownSource.getMainSource<MetadataSource<*, *>>()?.let { it::tagSearchQuery },
+        )
+        // A gallery's tags are its source's exact namespaced ones, which aliases and labels never touch.
+        val labelled = if (gallery.chips() != null) {
+            tags?.map { LabelledTag(it, it) }
+        } else {
+            tags?.let { labelledTags(it, aliases) }
+        }
         // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
         val showInlineRelated = !model.recommendationsInMenu && (relatedLoading || relatedItems.isNotEmpty())
         return EntryDetailsScreenState.Loaded(
@@ -112,7 +138,7 @@ class MangaEntryAdapter(
                 nextUpdate = intervalManga.expectedNextUpdate,
                 isUserIntervalMode = intervalManga.fetchInterval < 0,
                 description = shown.description,
-                tags = tags,
+                tags = labelled,
                 notes = shown.notes,
                 // Expand by default for EH/EXH galleries (tags are the content, no description).
                 descriptionDefaultExpanded = isFromSource || isMetadataSource,
@@ -160,13 +186,7 @@ class MangaEntryAdapter(
                 },
                 // Always present for manga: the chips render from a namespaced genre even before the
                 // metadata object loads, and return nothing for a normal manga.
-                mangaGallery = MangaGalleryCapability(
-                    sourceId = shownSource.id,
-                    rawGenre = shown.genre,
-                    otherTags = tagsBeyond(tags, shown.genre),
-                    metadata = galleryMetadata,
-                    tagQuery = shownSource.getMainSource<MetadataSource<*, *>>()?.let { it::tagSearchQuery },
-                ),
+                mangaGallery = gallery,
             ),
             mergeSources = mergeSources,
             selectedSourceId = selectedSourceMangaId,

@@ -17,6 +17,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
@@ -29,6 +30,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.library.LabelledTag
+import reikai.domain.library.TagAlias
+import reikai.domain.library.TagAliases
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelCover
 import reikai.presentation.reader.NovelReaderViewModelHarness
@@ -61,6 +65,7 @@ class DetailsSeriesTagsConformanceTest {
         val merged: Boolean = true,
         // The sibling's own Edit info cover, which its chip shows in the header
         val siblingCustomCover: String? = null,
+        val aliases: MutableStateFlow<TagAliases> = MutableStateFlow(TagAliases.NONE),
     )
 
     class Opened(
@@ -95,20 +100,33 @@ class DetailsSeriesTagsConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `All shows every source's tags, the anchor's first and each tag once`(probe: Probe) = runTest {
-        probe.opened(this, Series()) { it.settled(it.anchor).details.tags } shouldBe
+        probe.opened(this, Series()) { it.settled(it.anchor).labels } shouldBe
             listOf("Action", "Drama", "Comedy")
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `a source chip shows that source's own tags`(probe: Probe) = runTest {
-        probe.opened(this, Series()) { it.settled(it.sibling, it.selectSibling).details.tags } shouldBe SIBLING_TAGS
+    fun `a source chip shows that source's own tags, labelled and each once`(probe: Probe) = runTest {
+        probe.opened(this, Series()) { it.settled(it.sibling, it.selectSibling).labels } shouldBe
+            listOf("Drama", "Comedy")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a new alias shows on the open page under its target, keeping the source's spelling`(probe: Probe) = runTest {
+        val series = Series()
+        probe.opened(this, series) { opened ->
+            opened.settled(opened.anchor)
+            series.aliases.value = TagAliases(listOf(TagAlias("comedy", "Humour")))
+            opened.settled(opened.anchor) { "Humour" in it.labels.orEmpty() }.details.tags
+        } shouldBe
+            listOf(LabelledTag("Action", "Action"), LabelledTag("Drama", "Drama"), LabelledTag("Humour", "Comedy"))
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `Edit info tags replace every source's own under All`(probe: Probe) = runTest {
-        probe.opened(this, Series(customTags = listOf("Mine"))) { it.settled(it.anchor).details.tags } shouldBe
+        probe.opened(this, Series(customTags = listOf("Mine"))) { it.settled(it.anchor).labels } shouldBe
             listOf("Mine")
     }
 
@@ -118,7 +136,7 @@ class DetailsSeriesTagsConformanceTest {
         probe.opened(this, Series()) { opened ->
             opened.settled(opened.anchor)
             opened.retagSibling(listOf("Horror"))
-            opened.settled(opened.anchor) { "Horror" in it.details.tags.orEmpty() }.details.tags
+            opened.settled(opened.anchor) { "Horror" in it.labels.orEmpty() }.labels
         } shouldBe listOf("Action", "Drama", "Horror")
     }
 
@@ -178,16 +196,31 @@ class DetailsSeriesTagsConformanceTest {
                 )
         }
 
+    @Test
+    fun `a gallery's tags show as its source sent them, aliases aside`() = runTest {
+        val gallery = listOf("female: x", "male: y")
+        val series = Series(
+            anchorTags = gallery,
+            siblingTags = listOf("Comedy"),
+            aliases = MutableStateFlow(TagAliases(listOf(TagAlias("female: x", "Other")))),
+        )
+
+        MangaProbe().opened(this, series) { it.settled(it.anchor).details.tags } shouldBe
+            (gallery + "Comedy").map { LabelledTag(it, it) }
+    }
+
     companion object {
         private const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
         private const val SOURCE_EXTENSIONS_FILE = "eu.kanade.tachiyomi.source.SourceExtensionsKt"
         val ANCHOR_TAGS = listOf("Action", "Drama")
-        val SIBLING_TAGS = listOf("drama", "Comedy")
+        val SIBLING_TAGS = listOf("drama", "Comedy", "COMEDY")
         const val ANCHOR_TITLE = "Anchor title"
         const val SIBLING_TITLE = "Sibling title"
 
         @JvmStatic
         fun probes() = listOf(MangaProbe(), NovelProbe())
+
+        val EntryDetailsScreenState.Loaded.labels get() = details.tags?.map { it.label }
 
         /** The loaded state viewing [viewed] with both sources' chips, once [ready] holds; [select] picks a chip first. */
         suspend fun Opened.settled(
@@ -234,7 +267,13 @@ class DetailsSeriesTagsConformanceTest {
             return try {
                 block(
                     Opened(
-                        MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking()),
+                        MangaEntryAdapter(
+                            model,
+                            mockk(relaxed = true),
+                            noDuplicateMarking(),
+                            noVolumePicking(),
+                            series.aliases,
+                        ),
                         ANCHOR,
                         SIBLING,
                         selectSibling = { model.selectSource(SIBLING) },
@@ -304,7 +343,13 @@ class DetailsSeriesTagsConformanceTest {
                 val model = harness.openDetails(anchor)
                 block(
                     Opened(
-                        NovelEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking()),
+                        NovelEntryAdapter(
+                            model,
+                            mockk(relaxed = true),
+                            noDuplicateMarking(),
+                            noVolumePicking(),
+                            series.aliases,
+                        ),
                         anchor,
                         sibling,
                         selectSibling = { model.selectSource(sibling) },

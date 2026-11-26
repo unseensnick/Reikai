@@ -137,6 +137,7 @@ class DetailsDuplicateMarksConformanceTest {
                     mockk(relaxed = true),
                     showingDuplicates(StoredType.MANGA),
                     noVolumePicking(),
+                    noTagAliases(),
                 )
                 adapter.loadedWhere { it.chapters.duplicates != null && it.hasActiveFilter }.chapters.duplicates?.copies
             } finally {
@@ -162,6 +163,7 @@ class DetailsDuplicateMarksConformanceTest {
                     mockk(relaxed = true),
                     showingDuplicates(StoredType.NOVELS),
                     noVolumePicking(),
+                    noTagAliases(),
                 )
                 adapter.loadedWhere { state ->
                     state.chapters.duplicates != null &&

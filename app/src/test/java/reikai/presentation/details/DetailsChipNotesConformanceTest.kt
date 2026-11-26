@@ -144,7 +144,7 @@ class DetailsChipNotesConformanceTest {
                 sourceManager = sources,
             ).also { store.put("manga", it) }
             return try {
-                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
+                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking(), noTagAliases())
                     .settledNotes(
                         viewed = if (chip) SIBLING else ANCHOR,
                         select = { model.selectSource(SIBLING) }.takeIf { chip },
@@ -183,7 +183,7 @@ class DetailsChipNotesConformanceTest {
                 harness.updateNovel(sibling) { notes = SIBLING_NOTES }
                 harness.merge(anchor, sibling)
                 val model = harness.openDetails(anchor)
-                NovelEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
+                NovelEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking(), noTagAliases())
                     .settledNotes(
                         viewed = if (chip) sibling else anchor,
                         select = { model.selectSource(sibling) }.takeIf { chip },

@@ -10,7 +10,7 @@ data class TagAlias(val from: String, val to: String)
 
 /**
  * The user's tag aliases, the one rule every place that compares tags applies: the tag filter and its
- * picker, `tag:` search, Group by tag, Statistics and the recommendation taste profile. Adult detection
+ * picker, `tag:` search, Group by tag, a series' page, Statistics and the taste profile. Adult detection
  * and gallery tags never take them, since those read a source's exact tags. One hop only: [addTagAlias]
  * re-points an alias at the end of a chain, so a tag never resolves to another alias.
  */

@@ -6,8 +6,8 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.TagAliases
+import reikai.domain.library.labelledTags
 import reikai.domain.library.tagKey
-import reikai.domain.library.tagLabel
 import reikai.presentation.components.EntryStatus
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.track.model.Track
@@ -241,9 +241,7 @@ object LibraryDynamicGrouping {
         val unknown = labelledGroupName(DynamicGroupKeys.UNKNOWN, unknownLabel)
         return when (groupType) {
             LibraryGroup.BY_TAG -> {
-                val tags = tagAliases.resolveAll(item.genre.orEmpty())
-                    .mapNotNull { tagLabel(it).ifBlank { null } }
-                tags.ifEmpty { listOf(unknown) }
+                labelledTags(item.genre.orEmpty(), tagAliases).map { it.label }.ifEmpty { listOf(unknown) }
             }
             LibraryGroup.BY_SOURCE -> sourceMeta[itemId].orEmpty()
                 .map { (name, key) -> "$name$SOURCE_SPLITTER$key" }

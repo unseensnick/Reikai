@@ -87,7 +87,13 @@ class DetailsNotFoundConformanceTest {
                 longArrayOf(MISSING_ID),
             ).also { store.put("manga", it) }
             return try {
-                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking()).settled()
+                MangaEntryAdapter(
+                    model,
+                    mockk(relaxed = true),
+                    noDuplicateMarking(),
+                    noVolumePicking(),
+                    noTagAliases(),
+                ).settled()
             } finally {
                 // The model stops reading before the database closes.
                 val job = model.viewModelScope.coroutineContext.job
@@ -108,6 +114,7 @@ class DetailsNotFoundConformanceTest {
                     mockk(relaxed = true),
                     noDuplicateMarking(),
                     noVolumePicking(),
+                    noTagAliases(),
                 )
                     .settled()
             }

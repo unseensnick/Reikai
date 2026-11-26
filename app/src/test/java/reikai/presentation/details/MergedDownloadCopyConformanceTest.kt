@@ -244,7 +244,8 @@ class MergedDownloadCopyConformanceTest {
             stitch = stitch,
         ).also { store.put("manga", it) }
         try {
-            val behavior = MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
+            val behavior =
+                MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking(), noTagAliases())
             return probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled, scheduler))
         } finally {
             // The model stops reading before the database closes.
@@ -291,6 +292,7 @@ class MergedDownloadCopyConformanceTest {
                     mockk(relaxed = true),
                     noDuplicateMarking(),
                     noVolumePicking(),
+                    noTagAliases(),
                 )
             probe(Group(behavior, behavior.settled(rows = 4), ids, queued, cancelled, testScheduler))
         }

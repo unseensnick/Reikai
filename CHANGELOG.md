@@ -53,7 +53,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Added
 
 - **The library filters by tag: show or hide any tag from Filter -> Tags, or from a tag on a series' page.** Save a set of tags to bring it back with one tap.
-- **Two tags that mean the same can be made one: long-press a tag in Filter -> Tags and pick the other.** Filtering, tag search, Group by tag, Statistics and recommendations then count them as one tag.
+- **Two tags that mean the same can be made one: long-press a tag in Filter -> Tags and pick the other.** Filtering, tag search, Group by tag, a series' page, Statistics and recommendations then count them as one tag.
 - **The library can show only local series, or hide them, from Filter -> Local.** A merged series counts as local when any of its sources is.
 - **Series can be hidden from the library: select them and pick More -> Hide, and bring them back from ⋮ -> Hidden entries.** They still update, but stay out of Updates and its badge; History and Statistics still show them.
 - **Library categories can be arranged by hand: pick Manual in Sort, then long-press a cover and move it.** Each move offers Undo, and Reset manual order puts a category back.
@@ -62,7 +62,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Changed
 
 - **Edit categories now lets you drag categories to reorder them under the Manga and Novels chips too.** It also works when Show is set to one type; the other type's categories keep their places.
-- **Tags now read the same in title case in Group by tag, the tag filter and Statistics, as Slice of Life.** Short all-caps tags such as BL stay as they are.
+- **Tags now read the same in title case on a series' page, in Group by tag, the tag filter and Statistics, as Slice of Life.** Short all-caps tags such as BL stay as they are.
 
 #### Fixed
 

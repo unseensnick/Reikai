@@ -155,6 +155,7 @@ class UnifiedViewMemberConformanceTest {
                 mockk(relaxed = true),
                 noDuplicateMarking(),
                 noVolumePicking(),
+                noTagAliases(),
             ).settled(installed.any { it }).shown(ids)
         } finally {
             // The model stops reading before the database closes.
@@ -180,6 +181,7 @@ class UnifiedViewMemberConformanceTest {
                 mockk(relaxed = true),
                 noDuplicateMarking(),
                 noVolumePicking(),
+                noTagAliases(),
             ).settled(installed.any { it }).shown(ids)
         }
 

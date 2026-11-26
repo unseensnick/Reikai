@@ -57,6 +57,7 @@ import eu.kanade.tachiyomi.R
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.findChildOfType
+import reikai.domain.library.LabelledTag
 import reikai.presentation.components.cachedAnimatedVector
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
@@ -74,7 +75,7 @@ import kotlin.math.roundToInt
 fun ExpandableEntryDescription(
     defaultExpandState: Boolean,
     description: String?,
-    tagsProvider: () -> List<String>?,
+    tagsProvider: () -> List<LabelledTag>?,
     notes: String,
     onTagSearch: (String) -> Unit,
     // Show only / Hide this tag in the library's tag filter; null leaves them out of the menu.
@@ -117,7 +118,7 @@ fun ExpandableEntryDescription(
                     .fillMaxWidth(),
             ) {
                 var showMenu by remember { mutableStateOf(false) }
-                var tagSelected by remember { mutableStateOf("") }
+                var tagSelected by remember { mutableStateOf(LabelledTag("", "")) }
                 DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
@@ -125,7 +126,7 @@ fun ExpandableEntryDescription(
                     DropdownMenuItem(
                         text = { Text(text = stringResource(MR.strings.action_search)) },
                         onClick = {
-                            onTagSearch(tagSelected)
+                            onTagSearch(tagSelected.spelling)
                             showMenu = false
                         },
                     )
@@ -133,14 +134,14 @@ fun ExpandableEntryDescription(
                         DropdownMenuItem(
                             text = { Text(text = stringResource(MR.strings.action_show_only_tag)) },
                             onClick = {
-                                onFilterLibraryByTag(tagSelected, true)
+                                onFilterLibraryByTag(tagSelected.label, true)
                                 showMenu = false
                             },
                         )
                         DropdownMenuItem(
                             text = { Text(text = stringResource(MR.strings.action_hide_tag)) },
                             onClick = {
-                                onFilterLibraryByTag(tagSelected, false)
+                                onFilterLibraryByTag(tagSelected.label, false)
                                 showMenu = false
                             },
                         )
@@ -148,14 +149,14 @@ fun ExpandableEntryDescription(
                     DropdownMenuItem(
                         text = { Text(text = stringResource(MR.strings.action_global_search)) },
                         onClick = {
-                            onGlobalSearch(tagSelected)
+                            onGlobalSearch(tagSelected.spelling)
                             showMenu = false
                         },
                     )
                     DropdownMenuItem(
                         text = { Text(text = stringResource(MR.strings.action_copy_to_clipboard)) },
                         onClick = {
-                            onCopyTagToClipboard(tagSelected)
+                            onCopyTagToClipboard(tagSelected.spelling)
                             showMenu = false
                         },
                     )
@@ -167,7 +168,7 @@ fun ExpandableEntryDescription(
                         NamespaceTags(
                             tags = searchMetadataChips,
                             onClick = {
-                                tagSelected = it
+                                tagSelected = LabelledTag(it, it)
                                 showMenu = true
                             },
                         )
@@ -179,7 +180,7 @@ fun ExpandableEntryDescription(
                             tags.forEach {
                                 TagsChip(
                                     modifier = DefaultTagChipModifier,
-                                    text = it,
+                                    text = it.label,
                                     onClick = {
                                         tagSelected = it
                                         showMenu = true
@@ -196,7 +197,7 @@ fun ExpandableEntryDescription(
                         items(items = tags) {
                             TagsChip(
                                 modifier = DefaultTagChipModifier,
-                                text = it,
+                                text = it.label,
                                 onClick = {
                                     tagSelected = it
                                     showMenu = true
