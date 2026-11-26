@@ -212,6 +212,7 @@ class NovelReaderViewModelHarness private constructor(
 
     /** Chapter id to the text its downloaded copy holds. */
     private val downloaded = mutableMapOf<Long, String>()
+    private val downloadedUrls = mutableSetOf<String>()
 
     /** The global Downloaded only switch. */
     val downloadedOnly = store.getBoolean(Preference.appStateKey("pref_downloaded_only"), false)
@@ -248,7 +249,7 @@ class NovelReaderViewModelHarness private constructor(
 
     private val downloadCache = mockk<NovelDownloadCache> {
         every { changes } returns MutableStateFlow(Unit)
-        every { isChapterDownloaded(any<Novel>(), any()) } answers { secondArg<NovelChapter>().id in downloaded }
+        every { isChapterDownloaded(any(), any(), any(), any()) } answers { arg<String>(3) in downloadedUrls }
         every { downloadedChapterIds(any<Novel>(), any()) } answers {
             diskProbeGate?.pass()
             secondArg<List<NovelChapter>>().mapTo(HashSet()) { it.id }.filterTo(HashSet()) { it in downloaded }
@@ -423,6 +424,7 @@ class NovelReaderViewModelHarness private constructor(
     /** Puts a copy of [chapter] on disk, holding [text]. */
     fun download(chapter: SeededChapter, text: String) {
         downloaded[chapter.id] = text
+        downloadedUrls += chapter.url
     }
 
     /** What details screens opened after it is set relink a local series through. */

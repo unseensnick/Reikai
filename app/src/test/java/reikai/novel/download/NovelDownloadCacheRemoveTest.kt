@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.isOnDevice
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.util.resetVirtualDispatchers
@@ -98,7 +99,7 @@ class NovelDownloadCacheRemoveTest {
         cache.removeChapters(novel, removed)
         advanceUntilIdle()
 
-        removed.none { cache.isChapterDownloaded(novel, it) } shouldBe true
+        removed.none { cache.isOnDevice(novel, it) } shouldBe true
     }
 
     @Test
@@ -108,7 +109,7 @@ class NovelDownloadCacheRemoveTest {
         cache.removeChapters(novel, removed)
         advanceUntilIdle()
 
-        cache.isChapterDownloaded(novel, kept) shouldBe true
+        cache.isOnDevice(novel, kept) shouldBe true
     }
 
     /** Every change rebuilds the novel's page and the library, so a batch is one change, not one per chapter. */

@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import reikai.domain.novel.isOnDevice
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.util.testAppScope
@@ -89,7 +90,7 @@ class NovelDownloadCacheRenewTest {
         }
         cache.invalidate()
         advanceUntilIdle()
-        val indexed = cache.isChapterDownloaded(novel, onDisk) to cache.isChapterDownloaded(novel, written)
+        val indexed = cache.isOnDevice(novel, onDisk) to cache.isOnDevice(novel, written)
         scope.cancel()
 
         indexed shouldBe (true to true)

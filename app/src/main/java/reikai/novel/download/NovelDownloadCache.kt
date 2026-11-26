@@ -112,17 +112,11 @@ class NovelDownloadCache(
         }
     }
 
-    // The String overload is the real query API (callers with denormalized rows avoid rebuilding a Novel);
-    // the typed one is a thin shim.
-
     fun isChapterDownloaded(source: String, title: String, chapterName: String, chapterUrl: String): Boolean {
         renewIfStale()
         val names = tree[provider.sourceDirName(source)]?.get(provider.novelDirName(title)) ?: return false
         return provider.validChapterFileNames(chapterName, chapterUrl).any { it in names }
     }
-
-    fun isChapterDownloaded(novel: Novel, chapter: NovelChapter): Boolean =
-        isChapterDownloaded(novel.source, novel.title, chapter.name, chapter.url)
 
     /**
      * Ids of the [chapters] that are downloaded, all assumed to belong to [novel]. Resolves the novel's

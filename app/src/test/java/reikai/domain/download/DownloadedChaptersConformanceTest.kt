@@ -92,7 +92,7 @@ class DownloadedChaptersConformanceTest {
                 val names = folders[firstArg<Novel>().id].orEmpty()
                 secondArg<List<NovelChapter>>().filter { it.name in names }.mapTo(HashSet()) { it.id }
             }
-            every { isChapterDownloaded(any<Novel>(), any()) } returns false
+            every { isChapterDownloaded(any(), any(), any(), any()) } returns false
         }
 
         override fun downloaded(chapters: List<Triple<Long, Long, String>>): Set<Long> =
