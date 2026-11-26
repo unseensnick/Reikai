@@ -7,6 +7,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.TagAliases
 import reikai.domain.library.tagKey
+import reikai.domain.library.tagLabel
 import reikai.presentation.components.entryStatusRes
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.track.model.Track
@@ -160,8 +161,8 @@ object LibraryDynamicGrouping {
         //
         // Keyed by the normalized name, with the first spelling seen winning the label: sources spell
         // one tag several ways ("Adult" against "ADULT"), and an exact-string key renders those as two
-        // adjacent groups. Normalizing the label would mangle acronyms (BL, NTR). Callers concatenate
-        // the manga feed first, which keeps the choice stable.
+        // adjacent groups. The label is the first spelling through tagLabel. Callers concatenate the manga
+        // feed first, which keeps the choice stable.
         val idsByKey = LinkedHashMap<String, MutableList<EntryId>>()
         val encodedByKey = LinkedHashMap<String, String>()
         for (item in deduplicated) {
@@ -233,7 +234,7 @@ object LibraryDynamicGrouping {
         return when (groupType) {
             LibraryGroup.BY_TAG -> {
                 val tags = tagAliases.resolveAll(item.genre.orEmpty())
-                    .mapNotNull { it.trim().capitalizeWords().ifBlank { null } }
+                    .mapNotNull { tagLabel(it).ifBlank { null } }
                 tags.ifEmpty { listOf(unknownLabel) }
             }
             LibraryGroup.BY_SOURCE -> sourceMeta[itemId].orEmpty()
@@ -264,7 +265,4 @@ object LibraryDynamicGrouping {
             else -> emptyList()
         }
     }
-
-    private fun String.capitalizeWords(): String =
-        split(" ").joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
 }

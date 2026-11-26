@@ -3,6 +3,7 @@ package reikai.domain.library
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.presentation.library.normalizeDynamicKey
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -81,9 +82,20 @@ class TagFilterTest {
         )
     }
 
-    @Test
-    fun `a source's ALL CAPS tag is shown capitalised`() {
-        tagChoices(listOf(listOf("MARTIAL ARTS"))).single().label shouldBe "Martial arts"
+    @ParameterizedTest
+    @CsvSource(
+        quoteCharacter = '"',
+        value = [
+            "slice of life, Slice of Life",
+            "MARTIAL ARTS, Martial Arts",
+            "boys' love, Boys' Love",
+            "the end of an era, The End of an Era",
+            "BL, BL",
+            "LitRPG, LitRPG",
+        ],
+    )
+    fun `a tag is labelled in title case with minor words and short acronyms kept`(tag: String, label: String) {
+        tagChoices(listOf(listOf(tag))).single().label shouldBe label
     }
 
     @Test

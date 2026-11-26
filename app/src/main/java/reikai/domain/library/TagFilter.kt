@@ -150,13 +150,24 @@ fun tagKey(tag: String): String {
 
 private const val TAG_SEPARATORS = "-_ \t\n\u000B\u000C\r"
 
-/** A tag as the picker shows it: a source's ALL CAPS spelling is shown capitalised, "ACTION" as "Action". */
-private fun tagLabel(tag: String): String {
-    val trimmed = tag.trim()
-    // A short one is likely an acronym (BL, GL), which capitalising would garble.
-    if (trimmed.length <= 3 || trimmed != trimmed.uppercase() || trimmed.none(Char::isLetter)) return trimmed
-    return trimmed.lowercase().replaceFirstChar(Char::uppercaseChar)
+/**
+ * A tag as every library label shows it, in title case: "slice of life" as "Slice of Life", a source's
+ * ALL CAPS "ACTION" as "Action". A minor word after the first stays lower case, and a short ALL CAPS
+ * word is taken for an acronym (BL, GL) and kept. Matching never reads this; it reads [tagKey].
+ */
+fun tagLabel(tag: String): String = tag.trim().split(' ').withIndex().joinToString(" ") { (index, word) ->
+    val isAllCaps = word.any(Char::isLetter) && word == word.uppercase()
+    val lower = word.lowercase()
+    when {
+        isAllCaps && word.length <= 3 && lower !in MINOR_WORDS -> word
+        index > 0 && lower in MINOR_WORDS -> lower
+        else -> (if (isAllCaps) lower else word).replaceFirstChar(Char::uppercaseChar)
+    }
 }
+
+private val MINOR_WORDS = setOf(
+    "a", "an", "and", "as", "at", "but", "by", "for", "in", "nor", "of", "on", "or", "per", "the", "to", "vs", "via",
+)
 
 /** One tag the picker offers: its [key], the first spelling the library shows it in, and how many series carry it. */
 data class TagChoice(val key: String, val label: String, val count: Int)

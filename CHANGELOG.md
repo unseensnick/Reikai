@@ -62,6 +62,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Changed
 
 - **Edit categories now lets you drag categories to reorder them under the Manga and Novels chips too.** It also works when Show is set to one type; the other type's categories keep their places.
+- **Tags now read the same in title case in Group by tag, the tag filter and Statistics, as Slice of Life.** Short all-caps tags such as BL stay as they are.
 
 #### Fixed
 

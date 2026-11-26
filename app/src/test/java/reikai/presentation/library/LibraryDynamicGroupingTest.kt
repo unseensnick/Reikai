@@ -150,7 +150,7 @@ class LibraryDynamicGroupingTest {
     }
 
     @Test
-    fun `BY_TAG places manga in every matching tag and capitalizes`() {
+    fun `BY_TAG places manga in every matching tag under its title-cased label`() {
         val result = build(
             listOf(
                 libraryManga(1, genre = listOf("Action", "Romance")),
@@ -159,10 +159,10 @@ class LibraryDynamicGroupingTest {
             LibraryGroup.BY_TAG,
         )
         val byName = result.mapKeys { it.key.label }
-        byName.keys shouldBe setOf("Action", "Romance", "Slice Of Life")
+        byName.keys shouldBe setOf("Action", "Romance", "Slice of Life")
         byName.getValue("Action") shouldContainExactly listOf(1L)
         byName.getValue("Romance") shouldContainExactlyInAnyOrder listOf(1L, 2L)
-        byName.getValue("Slice Of Life") shouldContainExactly listOf(2L)
+        byName.getValue("Slice of Life") shouldContainExactly listOf(2L)
     }
 
     @Test
