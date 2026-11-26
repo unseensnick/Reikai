@@ -51,7 +51,7 @@ Both types reach the shared kernels as Mihon's `LibraryItem`. Novels build it be
 
 ### Views
 
-Two views share one assembly, and every library feature works in both: Mihon's tabbed pager (one page per bucket) and the single list (`ReikaiLibraryContent`, `show_all_categories`), one `FastScrollLazyVerticalGrid` of headers (`ReikaiLibraryCategoryHeader`: sort indicator, refresh, select-all) and cells (`LibraryItemCell`, which also draws the panorama mode). `ReikaiLibraryHopperOverlay` draws the floating hopper (`ReikaiCategoryHopper`) over either view, with its picker sheet and a long-press table whose six actions go through the engine; the jump itself stays in the tab, which owns the pager and list state. Each chip's list is its own composition (`key(libraryContentType)`), and the single-list scroll and pager page are kept per chip. The toolbar title is `LibraryToolbarTitleRule`.
+Two views share one assembly, and every library feature works in both: Mihon's tabbed pager (one page per bucket) and the single list (`ReikaiLibraryContent`, `show_all_categories`), one `ReikaiFastScrollLazyVerticalGrid` of headers (`ReikaiLibraryCategoryHeader`: sort indicator, refresh, select-all) and cells (`LibraryItemCell`, which also draws the panorama mode). `ReikaiLibraryHopperOverlay` draws the floating hopper (`ReikaiCategoryHopper`) over either view, with its picker sheet and a long-press table whose six actions go through the engine; the jump itself stays in the tab, which owns the pager and list state. Each chip's list is its own composition (`key(libraryContentType)`), and the single-list scroll and pager page are kept per chip. The toolbar title is `LibraryToolbarTitleRule`.
 
 ### Hidden entries
 
@@ -102,7 +102,7 @@ Failures are recorded per content type (`trackUpdateErrors` and its novel half, 
 - `app/src/main/java/reikai/presentation/library/MangaLibraryAdapter.kt` and `app/src/main/java/reikai/presentation/library/NovelLibraryAdapter.kt`: the adapters.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt` and `app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt`: the per-type providers' models.
 - `app/src/main/java/reikai/presentation/library/MangaLibraryRows.kt` and `app/src/main/java/reikai/presentation/library/novels/NovelLibraryRows.kt`: every entry as a library row, before filters and search, and the chapter its continue-reading opens.
-- `app/src/main/java/reikai/presentation/library/LibraryItemsLayout.kt`: rows in a display mode at the library's column count, for the pager and the Statistics list.
+- `app/src/main/java/reikai/presentation/library/LibraryItemsLayout.kt`: rows in a display mode at the library's column count, as a grid or, in List mode, a column, for the pager, Hidden entries and the Statistics list. Every library view draws its cells through `libraryItemCell` in `LibraryItemCell.kt`.
 - `app/src/main/java/reikai/presentation/library/LibraryAssembly.kt`: `assembleLibrary`, `LibraryAssembled`, `presentIdsOf`.
 - `app/src/main/java/reikai/presentation/library/LibraryBucket.kt` and `app/src/main/java/reikai/presentation/library/LibraryDynamicGrouping.kt`: `LibraryBucket`, `libraryDynamicGroupingFeed`, `normalizeDynamicKey`.
 - `app/src/main/java/reikai/presentation/library/LibraryItemFields.kt`, `app/src/main/java/reikai/presentation/library/LibraryFilter.kt`, `app/src/main/java/reikai/presentation/library/LibraryQueryMatch.kt`: `libraryFilterMatches`, `LibraryFilterSettings`, `libraryQueryMatches`, `LibraryQueryOverlay`, `matchesTagTerm`.

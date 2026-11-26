@@ -5,12 +5,13 @@ import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
- * One library row drawn in [displayMode], for both content types. Mihon's pager grids and the
- * single-list view all draw through this, so the cover model, the two badge groups and the
- * continue-reading rule cannot differ between the two views.
+ * One library row drawn in [displayMode], for both content types. The pager's grids and list and the
+ * single-list view all draw through this, by [libraryItemCell], so the cover model, the two badge groups
+ * and the continue-reading rule cannot differ between the two views.
  */
 @Composable
 fun LibraryItemCell(
@@ -61,6 +62,27 @@ fun LibraryItemCell(
         )
     }
 }
+
+/**
+ * The cell [libraryCells] and [libraryRows] draw for [displayMode]: selected when its entry is in
+ * [selection], and opening only on a tap the Manual drag has not taken as the end of a long press.
+ */
+fun libraryItemCell(
+    displayMode: LibraryDisplayMode,
+    selection: Set<EntryId>,
+    onClick: (LibraryItem) -> Unit,
+    onClickContinueReading: ((LibraryItem) -> Unit)?,
+): @Composable (item: LibraryItem, onLongClick: (() -> Unit)?, tapAllowed: () -> Boolean) -> Unit =
+    { item, onLongClick, tapAllowed ->
+        LibraryItemCell(
+            item = item,
+            displayMode = displayMode,
+            isSelected = item.entryId in selection,
+            onClick = { if (tapAllowed()) onClick(item) },
+            onLongClick = onLongClick,
+            onClickContinueReading = onClickContinueReading,
+        )
+    }
 
 /** The cover's continue-reading action: only when there is something unread to resume. */
 fun continueReadingFor(item: LibraryItem, onClickContinueReading: ((LibraryItem) -> Unit)?): (() -> Unit)? =

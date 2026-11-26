@@ -266,16 +266,13 @@ fun ReikaiLibraryContent(
                             manualOrder = manualOrder,
                             reorder = reorder,
                             onLongClick = { onLongClickManga(section.bucket, it) },
-                        ) { libraryItem, longClick, tapAllowed ->
-                            LibraryItemCell(
-                                item = libraryItem,
+                            cell = libraryItemCell(
                                 displayMode = displayMode,
-                                isSelected = libraryItem.entryId in selection,
-                                onClick = { if (tapAllowed()) onClickManga(section.bucket, libraryItem) },
-                                onLongClick = longClick,
+                                selection = selection,
+                                onClick = { onClickManga(section.bucket, it) },
                                 onClickContinueReading = onClickContinueReading,
-                            )
-                        }
+                            ),
+                        )
                     }
                 }
             }

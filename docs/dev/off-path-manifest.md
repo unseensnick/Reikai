@@ -61,6 +61,10 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverViewModel.kt | mihon | reikai/presentation/details/EntryCoverViewModel.kt |
 | app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt | mihon | reikai/presentation/details/EntryDetailsColumn.kt |
 | app/src/main/java/eu/kanade/presentation/library/LibrarySettingsDialog.kt | mihon | reikai/presentation/library/LibrarySettingsSheet.kt |
+| app/src/main/java/eu/kanade/presentation/library/components/LibraryComfortableGrid.kt | mihon | reikai/presentation/library/LibraryItemsLayout.kt |
+| app/src/main/java/eu/kanade/presentation/library/components/LibraryCompactGrid.kt | mihon | reikai/presentation/library/LibraryItemsLayout.kt |
+| app/src/main/java/eu/kanade/presentation/library/components/LibraryList.kt | mihon | reikai/presentation/library/LibraryItemsLayout.kt |
+| app/src/main/java/eu/kanade/presentation/library/components/LazyLibraryGrid.kt | mihon | reikai/presentation/library/LibraryItemsLayout.kt |
 | app/src/main/java/mihon/feature/library/QueryNodeExtensions.kt | mihon | reikai/presentation/library/LibraryQueryMatch.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/CreateCategoryWithName.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/ReorderCategory.kt | mihon | reikai/presentation/category/CategoryActions.kt |
