@@ -34,7 +34,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalVolumeRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.RemoveMangaFromLibrary
@@ -74,14 +74,14 @@ internal class FlakyNotes(private val real: LocalVolumeRepository) : LocalVolume
     var failNotesAfter: Int? = null
     var failRead: ((List<VolumeOwner>) -> Boolean)? = null
 
-    override suspend fun all(type: ContentType): List<VolumeOwner> = real.all(type).also { rows ->
+    override suspend fun all(type: StoredType): List<VolumeOwner> = real.all(type).also { rows ->
         if (failRead?.invoke(rows) == true) {
             failRead = null
             error("Reading volumes failed")
         }
     }
 
-    override suspend fun setNotes(type: ContentType, series: String, key: String, notes: String) {
+    override suspend fun setNotes(type: StoredType, series: String, key: String, notes: String) {
         val left = failNotesAfter
         if (left != null) {
             if (left <= 0) error("Writing notes failed")
@@ -96,7 +96,7 @@ internal class FlakyNotes(private val real: LocalVolumeRepository) : LocalVolume
  * folder a series of its own with one volume, so one conformance test drives a combine for manga and novels alike.
  * Built after `virtualDispatchers()`, so its app scope and every IO hop run on the test's scheduler.
  */
-internal abstract class CombineWorld(val type: ContentType, protected val context: Context) {
+internal abstract class CombineWorld(val type: StoredType, protected val context: Context) {
     protected val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     protected lateinit var driver: JdbcSqliteDriver
     protected lateinit var database: Database
@@ -153,7 +153,7 @@ internal abstract class CombineWorld(val type: ContentType, protected val contex
     }
 }
 
-internal class MangaCombineWorld(context: Context) : CombineWorld(ContentType.MANGA, context) {
+internal class MangaCombineWorld(context: Context) : CombineWorld(StoredType.MANGA, context) {
     private lateinit var local: File
     private lateinit var refresh: UpdateMangaFromRemote
     private lateinit var mangaRepository: MangaRepositoryImpl
@@ -312,7 +312,7 @@ internal class MangaCombineWorld(context: Context) : CombineWorld(ContentType.MA
     }
 }
 
-internal class NovelCombineWorld(context: Context) : CombineWorld(ContentType.NOVELS, context) {
+internal class NovelCombineWorld(context: Context) : CombineWorld(StoredType.NOVELS, context) {
     private lateinit var root: File
     private lateinit var refresh: suspend (Long) -> Unit
     private lateinit var novels: NovelRepositoryImpl

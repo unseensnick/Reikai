@@ -39,6 +39,7 @@ import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.StoredType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -128,7 +129,7 @@ class ChapterTombstoneBackupTest {
         val real = ChapterTombstoneRepositoryImpl(database)
         var captured = false
         val capturingAfterItsRead = object : ChapterTombstoneRepository by real {
-            override suspend fun getByOwners(contentType: ContentType, ownerIds: List<Long>) =
+            override suspend fun getByOwners(contentType: StoredType, ownerIds: List<Long>) =
                 real.getByOwners(contentType, ownerIds).also {
                     if (!captured) {
                         captured = true
@@ -152,7 +153,7 @@ class ChapterTombstoneBackupTest {
         val real = ChapterTombstoneRepositoryImpl(database)
         var captured = false
         val capturingAfterTheChapters = object : ChapterTombstoneRepository by real {
-            override suspend fun getByOwners(contentType: ContentType, ownerIds: List<Long>) =
+            override suspend fun getByOwners(contentType: StoredType, ownerIds: List<Long>) =
                 real.getByOwners(contentType, ownerIds).also {
                     if (!captured) {
                         captured = true

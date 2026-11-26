@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import mihon.app.di.AppGraph
 import reikai.domain.chapter.ChapterNumberEdit
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.components.DownloadProgress
 import reikai.presentation.components.VolumeMoves
 import tachiyomi.core.common.preference.Preference
@@ -61,7 +61,7 @@ internal fun ViewModel.detailsSettings(graph: AppGraph): DetailsSettings = keptF
 /** The duplicate marking of this model's [type] details screen, over that type's reader switch [skipDuplicates]. */
 internal fun ViewModel.detailsDuplicateMarking(
     graph: AppGraph,
-    type: ContentType,
+    type: StoredType,
     skipDuplicates: Preference<Boolean>,
 ): DuplicateMarking = DuplicateMarking(
     type,

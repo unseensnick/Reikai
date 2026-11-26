@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /**
  * The details list as the page shows it, built with the rest of the neutral state off the main thread, since
@@ -24,7 +24,7 @@ data class DetailsVolumeViews(
 )
 
 /** What the volume views read beside a details state, with the Only copies switch the page saves and hands over. */
-class DetailsVolumeInputs(private val picking: VolumePicking, private val type: ContentType) {
+class DetailsVolumeInputs(private val picking: VolumePicking, private val type: StoredType) {
 
     data class Values(
         val onlyCopies: Boolean,

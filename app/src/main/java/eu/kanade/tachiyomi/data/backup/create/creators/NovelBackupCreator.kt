@@ -36,6 +36,7 @@ import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.library.LibraryManualOrderRepository
+import reikai.domain.library.StoredType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
@@ -79,7 +80,7 @@ class NovelBackupCreator(
     private val chunkPace = ChunkRead { readingPace.novelChapterPace(it) }
 
     private val keptStates =
-        ChapterTombstoneBackupParts(ContentType.NOVELS, tombstones, Novel::id, BackupNovel::chapterTombstones)
+        ChapterTombstoneBackupParts(StoredType.NOVELS, tombstones, Novel::id, BackupNovel::chapterTombstones)
 
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
         if (options.categories) backupNovelCategories() else emptyList()
@@ -107,7 +108,7 @@ class NovelBackupCreator(
     override suspend fun base(entries: List<Novel>): List<BackupNovel> {
         // Keyed by series path alone, so only a local novel reads it.
         val languages = localNovelLanguages.getAll()
-        val hiddenIds = libraryHides.subscribe(ContentType.NOVELS).first()
+        val hiddenIds = libraryHides.subscribe(StoredType.NOVELS).first()
         val backups = entries.map { novel ->
             novel.toBackupNovel().apply {
                 if (LocalNovelSource.isLocal(novel.source)) language = languages[novel.url]
@@ -117,14 +118,14 @@ class NovelBackupCreator(
         // A local series' grouping describes the series, not its chapters, so it rides with every entry.
         val isLocal = { novel: Novel -> LocalNovelSource.isLocal(novel.source) }
         entries.zip(backups)
-            .writeLocalVolumes(ContentType.NOVELS, localVolumes, volumePicks, isLocal, Novel::id, Novel::url)
+            .writeLocalVolumes(StoredType.NOVELS, localVolumes, volumePicks, isLocal, Novel::id, Novel::url)
         return backups
     }
 
     override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
         val novelIds = batch.map { it.first.id }
-        val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
-        val marksByNovelId = copyMarks.loadedMarks(ContentType.NOVELS)
+        val overridesByNovelId = chapterNumberOverrides.getByOwners(StoredType.NOVELS, novelIds)
+        val marksByNovelId = copyMarks.loadedMarks(StoredType.NOVELS)
         val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()

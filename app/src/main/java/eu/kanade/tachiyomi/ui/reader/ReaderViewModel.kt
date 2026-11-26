@@ -90,6 +90,7 @@ import reikai.domain.download.rowDownloadChapters
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -342,7 +343,7 @@ class ReaderViewModel(
     // it, for the chapter sheet
     fun chapterVolume(chapter: Chapter): ChapterVolume? =
         mangaChapterVolume(mangaForChapterId(chapter.mangaId), chapter.url, chapter.name)
-            ?.shown(localVolumes.looseFiles().value, localVolumes.volumes(ContentType.MANGA).value)
+            ?.shown(localVolumes.looseFiles().value, localVolumes.volumes(StoredType.MANGA).value)
 
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:
     // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on, keeping
@@ -370,7 +371,7 @@ class ReaderViewModel(
 
     // RK: the user's Never skip and copy groups, read off the held set so a page turn does not suspend
     private fun markOf(): (Chapter) -> CopyMark? {
-        val marks = copyMarks.marks(ContentType.MANGA).value
+        val marks = copyMarks.marks(StoredType.MANGA).value
         return { marks[it.mangaId]?.get(it.url) }
     }
 
@@ -642,7 +643,7 @@ class ReaderViewModel(
                 // viewer, since auto-webtoon classifies off them.
                 customInfo = getCustomMangaInfo.subscribe(mangaId).first()
                 // RK: paging reads the held marks, so their first read lands before any page turn
-                copyMarks.loadedMarks(ContentType.MANGA)
+                copyMarks.loadedMarks(StoredType.MANGA)
                 if (chapterId == -1L) chapterId = initialChapterId
 
                 // RK --> resolve the merge group up front so the chapter list spans every grouped

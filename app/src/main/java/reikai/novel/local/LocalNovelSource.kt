@@ -18,7 +18,7 @@ import reikai.data.local.isEpubBook
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.inUserOrder
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.localGroupKey
@@ -115,11 +115,11 @@ class LocalNovelSource(
     // Under the lock on the series' group, which Organize files holds from its rows to its last file step, so the
     // listing cannot read moved files against rows at other addresses and have the sync drop them.
     override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
-        seriesLocks.withSeries(ContentType.NOVELS, novelPath) { parseSeries(novelPath) }
+        seriesLocks.withSeries(StoredType.NOVELS, novelPath) { parseSeries(novelPath) }
     }
 
     override suspend fun <T> locked(novelPath: String, block: suspend () -> T): T =
-        seriesLocks.withSeries(ContentType.NOVELS, novelPath, block)
+        seriesLocks.withSeries(StoredType.NOVELS, novelPath, block)
 
     /**
      * The series at [novelPath] with its books: its own folder's and those of other folders it holds, each under
@@ -127,7 +127,7 @@ class LocalNovelSource(
      * the series' own first, until the user orders them.
      */
     private suspend fun parseSeries(novelPath: String): SourceNovel {
-        val groups = LocalGroups(userVolumes.all(ContentType.NOVELS))
+        val groups = LocalGroups(userVolumes.all(StoredType.NOVELS))
         val folders = groups.foldersOf(novelPath)
         // A member folder or book renamed or removed outside the app is left out, and the sync keeps its rows as they are.
         val missing = if (folders.any { it != novelPath }) {
@@ -154,7 +154,7 @@ class LocalNovelSource(
                     Triple(localGroupKey(novelPath, member.path, file.name.orEmpty()), file, opened)
                 }
         }.ifEmpty { throw LocalNovelMissingException(novelPath) }
-        val volumes = ordered.inUserOrder({ it.first }, userVolumes.loadedVolumes(ContentType.NOVELS)[novelPath])
+        val volumes = ordered.inUserOrder({ it.first }, userVolumes.loadedVolumes(StoredType.NOVELS)[novelPath])
         val (_, firstFile, first) = volumes.first()
         val details = series?.details()
         val meta = first.book.metadata
@@ -223,7 +223,7 @@ class LocalNovelSource(
     /** Every series in the folder: its folders holding an EPUB, then its loose EPUBs. */
     private suspend fun allSeries(): List<Series> {
         val root = storageManager.getLocalNovelsDirectory() ?: return emptyList()
-        val groups = LocalGroups(userVolumes.all(ContentType.NOVELS))
+        val groups = LocalGroups(userVolumes.all(StoredType.NOVELS))
         // Browsing skips a folder it cannot read; a refresh fails on one instead (seriesAt). A folder combined
         // into another series is that series' volumes, not one of its own.
         return root.listFiles().orEmpty().filterNot { groups.isLentWhole(it.name.orEmpty()) }.mapNotNull { entry ->

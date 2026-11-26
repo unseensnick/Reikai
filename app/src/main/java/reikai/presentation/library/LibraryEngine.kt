@@ -42,6 +42,7 @@ import reikai.data.local.LocalVolumeMove
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.storedType
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
@@ -862,7 +863,7 @@ class LibraryEngine(
 
     fun openCombineDialog() {
         val entries = selection.value
-        val type = singleContentType(entries.map { it.contentType }) ?: return
+        val type = singleContentType(entries.map { it.storedType }) ?: return
         appScope.launchIO {
             val series = combineLocalVolumes.series(type, entries.map { it.rawId })
             val canOrganize = series.all { combineLocalVolumes.canOrganize(type, it) }

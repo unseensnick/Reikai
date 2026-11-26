@@ -64,6 +64,8 @@ import reikai.domain.db.Transactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.AlignGroupCategories
@@ -450,7 +452,7 @@ class BackupRestorer(
         // are not. Pinned by RestoreCategoryGateConformanceTest.
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
         return LibraryRestore(
-            type = ContentType.NOVELS,
+            type = StoredType.NOVELS,
             fieldNumber = BackupFields.NOVELS,
             kind = "Novel",
             nouns = "novel" to "novels",
@@ -540,7 +542,7 @@ class BackupRestorer(
     ): LibraryRestore<BackupManga, Long, BackupMangaSourceRef> {
         val backupCategories = if (options.categories) summary.backupCategories else emptyList()
         return LibraryRestore(
-            type = ContentType.MANGA,
+            type = StoredType.MANGA,
             fieldNumber = BackupFields.MANGA,
             kind = "Manga",
             nouns = "manga" to "manga",
@@ -584,7 +586,7 @@ class BackupRestorer(
     // RK: what one content type's library restore spells its own way. The steps and their order are
     // restoreLibraryStream's alone, so a step added there reaches both types.
     private class LibraryRestore<B : BackupLocalVolumeFields, S, R>(
-        val type: ContentType,
+        val type: StoredType,
         val fieldNumber: Int,
         val kind: String,
         /** The type's singular and plural in the error log. */
@@ -651,9 +653,9 @@ class BackupRestorer(
         restoreIsolated("$noun merges") {
             library.merges(favorites)
             // Entries were filed one at a time from the backup, so a group can come back disagreeing.
-            alignGroupCategories.align(library.type)
+            alignGroupCategories.align(library.type.contentType)
             // A backup made before the upgrade that gathered them carries each member's own reader flags.
-            gatherGroupViewerFlags.gather(library.type)
+            gatherGroupViewerFlags.gather(library.type.contentType)
         }
         restoreIsolated("hidden $nouns") {
             restoreHiddenEntries.restore(library.type, deviceHidden, hiddenRefs) { library.restoredId(it) }

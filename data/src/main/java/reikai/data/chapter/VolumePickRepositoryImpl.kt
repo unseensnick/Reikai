@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.HeldRows
 import reikai.data.local.localSeriesId
-import reikai.data.toContentType
 import reikai.data.toDbValue
+import reikai.data.toStoredType
 import reikai.domain.chapter.VolumePickRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.data.Database
 
 @Inject
@@ -32,7 +32,7 @@ class VolumePickRepositoryImpl(
 
     // Held from app start so a details screen opens on its volume rather than flashing every volume first.
     private val all = HeldRows(
-        queries.getAll { type, entryId, key -> Triple(type.toContentType(), entryId, key) }.asFlow()
+        queries.getAll { type, entryId, key -> Triple(type.toStoredType(), entryId, key) }.asFlow()
             .map { query ->
                 query.awaitAsList().groupBy({ it.first }, { it.second to it.third }).mapValues { it.value.toMap() }
             },
@@ -40,13 +40,13 @@ class VolumePickRepositoryImpl(
         emptyMap(),
     )
 
-    private val byType = ContentType.entries.associateWith { type ->
+    private val byType = StoredType.entries.associateWith { type ->
         all.held.map { it[type].orEmpty() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
     }
 
-    override fun picks(type: ContentType): StateFlow<Map<Long, String>> = byType.getValue(type)
+    override fun picks(type: StoredType): StateFlow<Map<Long, String>> = byType.getValue(type)
 
-    override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) {
+    override suspend fun set(type: StoredType, entryId: Long, volumeKey: String?) {
         if (volumeKey == null) {
             queries.clear(type.toDbValue(), entryId)
         } else {
@@ -54,9 +54,9 @@ class VolumePickRepositoryImpl(
         }
     }
 
-    override suspend fun loadedPicks(type: ContentType): Map<Long, String> = all.loaded()[type].orEmpty()
+    override suspend fun loadedPicks(type: StoredType): Map<Long, String> = all.loaded()[type].orEmpty()
 
-    override suspend fun restore(type: ContentType, series: String, key: String) {
+    override suspend fun restore(type: StoredType, series: String, key: String) {
         // By the series' address, since the restore gave it a new id.
         val id = database.localSeriesId(type, series) ?: return
         queries.setIfAbsent(type.toDbValue(), id, key)

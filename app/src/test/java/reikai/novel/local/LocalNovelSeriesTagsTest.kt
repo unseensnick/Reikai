@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.novel.local.epub.opf
@@ -104,7 +104,7 @@ class LocalNovelSeriesTagsTest {
         Json,
         mockk(relaxed = true),
         object : LocalVolumeRepository by NoLocalVolumes {
-            override suspend fun all(type: ContentType) = owners.toList()
+            override suspend fun all(type: StoredType) = owners.toList()
         },
         LocalSeriesLocks(NoLocalVolumes).apply { open() },
     )

@@ -3,8 +3,8 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalVolumeHandBack
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -23,7 +23,7 @@ class RemoveNovelsFromLibrary(
     localVolumes: () -> LocalVolumeHandBack,
 ) : EntryLibraryRemoval(mergeManager, sourceTracker, localVolumes) {
 
-    override val contentType = ContentType.NOVELS
+    override val storedType = StoredType.NOVELS
 
     override suspend fun favoritesAt(ids: List<Long>): Map<Long, Instant> =
         novelRepository.getByIds(ids).mapNotNull { novel -> novel.favoriteAt?.let { novel.id to it } }.toMap()

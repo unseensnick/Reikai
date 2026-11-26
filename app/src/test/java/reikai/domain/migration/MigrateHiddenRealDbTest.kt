@@ -27,9 +27,10 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
 import reikai.domain.library.HideSeries
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelGroupCategories
@@ -194,7 +195,7 @@ class MigrateHiddenRealDbTest {
 }
 
 /** One type's real migrate use case; [SOURCE], [SIBLING] and [OTHER] in the library, [TARGET] stored but not. */
-abstract class HideEngine(private val type: ContentType) {
+abstract class HideEngine(private val type: StoredType) {
     private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
     protected lateinit var database: Database
     protected val prefs = ReikaiLibraryPreferences(InMemoryPreferenceStore())
@@ -227,7 +228,7 @@ abstract class HideEngine(private val type: ContentType) {
     abstract suspend fun leave(id: Long)
 
     suspend fun group(vararg ids: Long) {
-        merges.createGroup(type, ids.toList())
+        merges.createGroup(type.contentType, ids.toList())
     }
 
     suspend fun hide(id: Long) = hiddenRepo.hide(type, listOf(id))
@@ -235,7 +236,7 @@ abstract class HideEngine(private val type: ContentType) {
     fun entry(id: Long) = EntryId.of(type, id)
 }
 
-class MangaHideEngine : HideEngine(ContentType.MANGA) {
+class MangaHideEngine : HideEngine(StoredType.MANGA) {
     override fun toString() = "manga"
 
     override suspend fun seed(id: Long, favourite: Boolean) = exec(
@@ -295,7 +296,7 @@ class MangaHideEngine : HideEngine(ContentType.MANGA) {
     }
 }
 
-class NovelHideEngine : HideEngine(ContentType.NOVELS) {
+class NovelHideEngine : HideEngine(StoredType.NOVELS) {
     override fun toString() = "novel"
 
     private val novels by lazy { NovelRepositoryImpl(database) }

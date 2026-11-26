@@ -1,21 +1,21 @@
 package reikai.domain.chapter
 
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /** Tombstone rules that confirm every removal and keep nothing, for a sync test about something else. */
 object NoChapterTombstones : LocalChapterTombstones {
-    override suspend fun held(type: ContentType, isLocal: Boolean, series: String, removed: List<SyncedChapter>) =
+    override suspend fun held(type: StoredType, isLocal: Boolean, series: String, removed: List<SyncedChapter>) =
         emptySet<String>()
 
     override suspend fun confirm(
-        type: ContentType,
+        type: StoredType,
         isLocal: Boolean,
         removed: List<SyncedChapter>,
         listed: Collection<String>,
     ) = Unit
 
     override suspend fun <T> around(
-        type: ContentType,
+        type: StoredType,
         ownerId: Long,
         isLocal: Boolean,
         removed: List<SyncedChapter>,

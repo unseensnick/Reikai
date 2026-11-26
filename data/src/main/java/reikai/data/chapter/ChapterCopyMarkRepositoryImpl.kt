@@ -16,7 +16,7 @@ import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.CopyMarkReport
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.data.Database
 
 @Inject
@@ -35,47 +35,47 @@ class ChapterCopyMarkRepositoryImpl(
 
     private fun marksOf(query: Query<ChapterCopyMark>) = query.asFlow().map { byOwner(it.awaitAsList()) }
 
-    private fun of(type: ContentType) = if (type == ContentType.NOVELS) novels else manga
+    private fun of(type: StoredType) = if (type == StoredType.NOVELS) novels else manga
 
-    override fun marks(type: ContentType): StateFlow<Map<Long, Map<String, CopyMark>>> = of(type).held
+    override fun marks(type: StoredType): StateFlow<Map<Long, Map<String, CopyMark>>> = of(type).held
 
-    override suspend fun loadedMarks(type: ContentType) = of(type).loaded()
+    override suspend fun loadedMarks(type: StoredType) = of(type).loaded()
 
-    override suspend fun loadedMarks(type: ContentType, ownerId: Long): Map<String, CopyMark> =
+    override suspend fun loadedMarks(type: StoredType, ownerId: Long): Map<String, CopyMark> =
         when (type) {
-            ContentType.NOVELS -> queries.getNovelMarksOf(ownerId, ::row)
-            else -> queries.getMangaMarksOf(ownerId, ::row)
+            StoredType.NOVELS -> queries.getNovelMarksOf(ownerId, ::row)
+            StoredType.MANGA -> queries.getMangaMarksOf(ownerId, ::row)
         }.awaitAsList().associate { it.url to it.mark }
 
-    override suspend fun set(type: ContentType, marks: List<ChapterCopyMark>) {
+    override suspend fun set(type: StoredType, marks: List<ChapterCopyMark>) {
         database.transaction {
             marks.forEach {
                 val group = (it.mark as? CopyMark.Group)?.key
                 when (type) {
-                    ContentType.NOVELS -> queries.upsertNovel(it.ownerId, it.url, group)
-                    else -> queries.upsertManga(it.ownerId, it.url, group)
+                    StoredType.NOVELS -> queries.upsertNovel(it.ownerId, it.url, group)
+                    StoredType.MANGA -> queries.upsertManga(it.ownerId, it.url, group)
                 }
             }
         }
     }
 
-    override suspend fun clear(type: ContentType, ownerId: Long, urls: List<String>) {
+    override suspend fun clear(type: StoredType, ownerId: Long, urls: List<String>) {
         database.transaction {
             urls.forEach {
                 when (type) {
-                    ContentType.NOVELS -> queries.deleteNovel(ownerId, it)
-                    else -> queries.deleteManga(ownerId, it)
+                    StoredType.NOVELS -> queries.deleteNovel(ownerId, it)
+                    StoredType.MANGA -> queries.deleteManga(ownerId, it)
                 }
             }
         }
     }
 
-    override suspend fun report(type: ContentType): List<CopyMarkReport> {
+    override suspend fun report(type: StoredType): List<CopyMarkReport> {
         return when (type) {
-            ContentType.NOVELS -> queries.reportNovel { title, source, url, name, number, scanlator, group ->
+            StoredType.NOVELS -> queries.reportNovel { title, source, url, name, number, scanlator, group ->
                 CopyMarkReport(title, source, url, name, number, scanlator, markOf(group))
             }
-            else -> queries.reportManga { title, source, url, name, number, scanlator, group ->
+            StoredType.MANGA -> queries.reportManga { title, source, url, name, number, scanlator, group ->
                 CopyMarkReport(title, source.toString(), url, name, number, scanlator, markOf(group))
             }
         }.awaitAsList()

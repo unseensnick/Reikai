@@ -1,7 +1,7 @@
 package reikai.domain.chapter
 
 import kotlinx.coroutines.flow.StateFlow
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
 
@@ -35,22 +35,22 @@ enum class LooseFiles(val stored: Long) {
 /** The volumes table and which series lists each volume ([LocalVolumeOwnerRepository.all]), both by folder. */
 interface LocalVolumeRepository : LocalVolumeOwnerRepository {
     /** Every ordered or named volume of [type], by series folder. Held, so a source lists without a query. */
-    fun volumes(type: ContentType): StateFlow<Map<String, List<LocalVolume>>>
+    fun volumes(type: StoredType): StateFlow<Map<String, List<LocalVolume>>>
 
     /** [volumes] once the table has been read, for a backup or a listing that must not take the empty seed. */
-    suspend fun loadedVolumes(type: ContentType): Map<String, List<LocalVolume>>
+    suspend fun loadedVolumes(type: StoredType): Map<String, List<LocalVolume>>
 
     /** Orders [series]' volumes as [keys] lists them. */
-    suspend fun setOrder(type: ContentType, series: String, keys: List<String>)
+    suspend fun setOrder(type: StoredType, series: String, keys: List<String>)
 
     /** Names a volume [label], or back to the name its file gives when it is null. */
-    suspend fun setLabel(type: ContentType, series: String, key: String, label: String?)
+    suspend fun setLabel(type: StoredType, series: String, key: String, label: String?)
 
     /** Sets a volume's own [notes], or clears them when blank. */
-    suspend fun setNotes(type: ContentType, series: String, key: String, notes: String)
+    suspend fun setNotes(type: StoredType, series: String, key: String, notes: String)
 
     /** Stores [volumes] as a backup carried them for [series]. */
-    suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>)
+    suspend fun restore(type: StoredType, series: String, volumes: List<LocalVolume>)
 
     /** How each local manga series shows its loose files, by its folder; a series with none set reads one volume. */
     fun looseFiles(): StateFlow<Map<String, LooseFiles>>

@@ -18,4 +18,16 @@ fun ContentType.includes(type: ContentType): Boolean = this == ContentType.ALL |
 fun mixesContentTypes(types: Iterable<ContentType>): Boolean = types.distinct().size > 1
 
 /** The one type [types] all share, or null when empty or mixed: a per-type action needs exactly one. */
-fun singleContentType(types: Iterable<ContentType>): ContentType? = types.distinct().singleOrNull()
+fun <T> singleContentType(types: Iterable<T>): T? = types.distinct().singleOrNull()
+
+/** A content type a per-type table stores: [ContentType] without ALL, which is a filter and owns no rows. */
+enum class StoredType {
+    MANGA,
+    NOVELS,
+}
+
+val StoredType.contentType: ContentType
+    get() = when (this) {
+        StoredType.MANGA -> ContentType.MANGA
+        StoredType.NOVELS -> ContentType.NOVELS
+    }

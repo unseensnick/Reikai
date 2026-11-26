@@ -18,7 +18,7 @@ import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.seriesAltTitles
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.library.tagKey
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
@@ -51,7 +51,7 @@ class MangaEntryAdapter(
 
     private val duplicatesMemo = DuplicateMarksMemo<Chapter>()
 
-    private val volumeInputs = DetailsVolumeInputs(volumePicking, ContentType.MANGA)
+    private val volumeInputs = DetailsVolumeInputs(volumePicking, StoredType.MANGA)
 
     override val state: StateFlow<EntryDetailsScreenState> =
         model.neutralDetailsState(model.state, duplicateMarking.marks, volumeInputs) { state, marks ->

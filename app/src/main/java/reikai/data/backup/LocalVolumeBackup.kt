@@ -5,7 +5,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupVolumeOwner
 import eu.kanade.tachiyomi.data.backup.models.toBackup
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 import reikai.novel.local.LocalNovelSource.Companion.isChildName
 
@@ -15,7 +15,7 @@ import reikai.novel.local.LocalNovelSource.Companion.isChildName
  * a series with no chapter rows has its grouping all the same. Keyed by the series' address, so no id remaps.
  */
 suspend fun <E, B : BackupLocalVolumeFields> List<Pair<E, B>>.writeLocalVolumes(
-    type: ContentType,
+    type: StoredType,
     volumes: LocalVolumeRepository,
     picks: VolumePickRepository,
     isLocal: (E) -> Boolean,
@@ -41,7 +41,7 @@ suspend fun <E, B : BackupLocalVolumeFields> List<Pair<E, B>>.writeLocalVolumes(
  * is back ([restoredOwners], CombineLocalVolumes.restoreOwners).
  */
 suspend fun BackupLocalVolumeFields.restoreLocalVolumes(
-    type: ContentType,
+    type: StoredType,
     volumes: LocalVolumeRepository,
     picks: VolumePickRepository,
     url: String,

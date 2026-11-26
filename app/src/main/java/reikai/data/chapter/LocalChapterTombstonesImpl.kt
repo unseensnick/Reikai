@@ -13,7 +13,7 @@ import reikai.domain.chapter.Revived
 import reikai.domain.chapter.SyncedChapter
 import reikai.domain.chapter.tombstoneRevivals
 import reikai.domain.chapter.unconfirmedRemovals
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalVolumeOwnerRepository
 
@@ -27,7 +27,7 @@ class LocalChapterTombstonesImpl(
 ) : LocalChapterTombstones {
 
     override suspend fun held(
-        type: ContentType,
+        type: StoredType,
         isLocal: Boolean,
         series: String,
         removed: List<SyncedChapter>,
@@ -42,7 +42,7 @@ class LocalChapterTombstonesImpl(
     }
 
     override suspend fun confirm(
-        type: ContentType,
+        type: StoredType,
         isLocal: Boolean,
         removed: List<SyncedChapter>,
         listed: Collection<String>,
@@ -56,7 +56,7 @@ class LocalChapterTombstonesImpl(
     }
 
     override suspend fun <T> around(
-        type: ContentType,
+        type: StoredType,
         ownerId: Long,
         isLocal: Boolean,
         removed: List<SyncedChapter>,

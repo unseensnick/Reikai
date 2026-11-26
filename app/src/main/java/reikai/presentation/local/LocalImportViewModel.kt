@@ -25,7 +25,7 @@ import reikai.data.local.ImportResult
 import reikai.data.local.LocalImport
 import reikai.data.local.isLooseBook
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
@@ -103,7 +103,7 @@ class LocalImportViewModel(
      * The local series of [type] in the library a group can be added to. A loose book is left out, since it is a file and
      * not a folder to copy into; Add volumes on its details screen takes others in.
      */
-    suspend fun librarySeries(type: ContentType): List<CombinableSeries> =
+    suspend fun librarySeries(type: StoredType): List<CombinableSeries> =
         combineLocalVolumes.library(type).filterNot { isLooseBook(type, it.folder) }
 
     /** Adds group [key]'s files to group [into] of this import, as more of its volumes. */
@@ -173,7 +173,7 @@ class LocalImportViewModel(
     }
 
     /** Group [key] as [type], and the series it joins found again in that type's folder. */
-    fun setType(key: String, type: ContentType) {
+    fun setType(key: String, type: StoredType) {
         val group = state.value.groups.firstOrNull { it.key == key } ?: return
         if (!group.canBeEitherType || group.type == type) return
         updateGroup(key) { it.copy(type = type, existing = null, duplicates = emptySet(), listsUnder = null) }
@@ -195,7 +195,7 @@ class LocalImportViewModel(
     }
 
     /** The picker's answer for [type]; the next type that asks is asked in turn. */
-    fun confirmCategories(type: ContentType, categoryIds: List<Long>) {
+    fun confirmCategories(type: StoredType, categoryIds: List<Long>) {
         state.update {
             it.copy(pickCategories = null, pending = it.pending + (type to categoryIds), isImporting = true)
         }
@@ -243,12 +243,12 @@ class LocalImportViewModel(
     // The dialog dismisses before it confirms, so this keeps the answers given; a new import resets them.
     fun dismissCategories() = state.update { it.copy(pickCategories = null) }
 
-    private suspend fun batchCategories(type: ContentType): BatchCategories = when (type) {
-        ContentType.NOVELS -> novelAdder.resolveBatchCategories()
+    private suspend fun batchCategories(type: StoredType): BatchCategories = when (type) {
+        StoredType.NOVELS -> novelAdder.resolveBatchCategories()
         else -> mangaAdder.resolveBatchCategories()
     }
 
-    private fun runImport(groups: List<ImportGroup>, categories: Map<ContentType, List<Long>>) {
+    private fun runImport(groups: List<ImportGroup>, categories: Map<StoredType, List<Long>>) {
         val addToLibrary = state.value.addToLibrary
         appScope.launchIO {
             val results = groups.groupBy { it.type }.map { (type, ofType) ->
@@ -298,7 +298,7 @@ class LocalImportViewModel(
         return byKey.values.toList()
     }
 
-    data class CategoryPick(val type: ContentType, val initialSelection: List<CheckboxState.State<Category>>)
+    data class CategoryPick(val type: StoredType, val initialSelection: List<CheckboxState.State<Category>>)
 
     data class State(
         val groups: List<ImportGroup> = emptyList(),
@@ -307,7 +307,7 @@ class LocalImportViewModel(
         val isImporting: Boolean = false,
         val addToLibrary: Boolean = true,
         val pickCategories: CategoryPick? = null,
-        val pending: Map<ContentType, List<Long>> = emptyMap(),
+        val pending: Map<StoredType, List<Long>> = emptyMap(),
         val result: ImportResult? = null,
         val awaitsOpen: Boolean = false,
         /** The series the screen opens in its place, decided once when the import finished. */
@@ -321,7 +321,7 @@ class LocalImportViewModel(
 
         val isReadyToImport: Boolean get() = !isReading && isAnswered
 
-        val unaskedTypes: List<ContentType> get() = groups.map { it.type }.distinct().filter { it !in pending }
+        val unaskedTypes: List<StoredType> get() = groups.map { it.type }.distinct().filter { it !in pending }
     }
 
     @AssistedFactory

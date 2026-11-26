@@ -24,7 +24,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalGroups
@@ -96,7 +96,7 @@ enum class DuplicateChoice { Replace, KeepBoth, Skip }
  */
 data class ImportGroup(
     val key: String,
-    val type: ContentType,
+    val type: StoredType,
     val title: String,
     val author: String?,
     val cover: ByteArray?,
@@ -148,7 +148,7 @@ data class ImportResult(val series: List<ImportedSeries>, val problems: List<Imp
  */
 data class ImportedSeries(
     val key: String,
-    val type: ContentType,
+    val type: StoredType,
     val title: String,
     val path: String,
     val entry: EntryId?,
@@ -199,7 +199,7 @@ class LocalImport(
     internal suspend fun inspectAll(groups: List<ImportGroup>): Pair<List<ImportGroup>, List<ImportProblem>> {
         val problems = mutableListOf<ImportProblem>()
         // Each root listed once for the batch, since every entry's folder test is a query of its own.
-        val roots = HashMap<ContentType, List<UniFile>>()
+        val roots = HashMap<StoredType, List<UniFile>>()
         val inspected = groups.mapNotNull { group ->
             try {
                 inspectIn(group) { root -> roots.getOrPut(group.type) { root.list(context) } }
@@ -254,9 +254,9 @@ class LocalImport(
      * lands among a manga folder's loose chapters, or as a book of its own, which no row names yet. Read from the
      * table each time, so the import's second read under the lock follows a combine since the preview.
      */
-    private suspend fun seriesListingNewFiles(type: ContentType, folder: String): String =
+    private suspend fun seriesListingNewFiles(type: StoredType, folder: String): String =
         LocalGroups(owners.all(type))
-            .ownerOf(folder, if (type == ContentType.MANGA) VolumeOwner.LOOSE else VolumeOwner.WHOLE)
+            .ownerOf(folder, if (type == StoredType.MANGA) VolumeOwner.LOOSE else VolumeOwner.WHOLE)
 
     /** The folder's books by [bookIdentity], each read from its package; one that will not open is left out. */
     private fun heldBooks(present: List<UniFile>): Map<String, String> = present
@@ -354,7 +354,7 @@ class LocalImport(
                 duplicate != null && choice == DuplicateChoice.Replace -> duplicate.name.orEmpty()
                 // A book takes the series and its volume, as Organize files names it; a comic keeps its name,
                 // which names its chapter.
-                group.type == ContentType.NOVELS -> freeName(bookName(folder.name.orEmpty(), file, ++books), taken)
+                group.type == StoredType.NOVELS -> freeName(bookName(folder.name.orEmpty(), file, ++books), taken)
                 else -> freeName(file.name, taken)
             }
             runCatching {
@@ -387,17 +387,17 @@ class LocalImport(
 
     /** Stores the series the folder [path] now holds, fills in its chapters and, with [favorite], favorites it. */
     // A local series merged with an online one is stitched again from the chapters this writes.
-    private suspend fun add(type: ContentType, path: String, favorite: Boolean, categoryIds: List<Long>): Long =
+    private suspend fun add(type: StoredType, path: String, favorite: Boolean, categoryIds: List<Long>): Long =
         reconcileMergedChapters.afterPass { addUnreconciled(type, path, favorite, categoryIds) }
 
     private suspend fun addUnreconciled(
-        type: ContentType,
+        type: StoredType,
         path: String,
         favorite: Boolean,
         categoryIds: List<Long>,
     ): Long =
         when (type) {
-            ContentType.NOVELS -> {
+            StoredType.NOVELS -> {
                 // A series already stored reads its details again, as manga's refresh below does, since the books
                 // just copied in can change them; storing a new one only syncs its chapters.
                 val stored = novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)
@@ -462,7 +462,7 @@ class LocalImport(
      * name only once whole, so a failed copy leaves the old file, and its chapters' read state, as it was.
      */
     private suspend fun copy(
-        type: ContentType,
+        type: StoredType,
         file: ImportFile,
         folder: UniFile,
         name: String,
@@ -554,7 +554,7 @@ class LocalImport(
                         seriesIndex = meta.seriesIndex.takeUnless { meta.isReikaiExport },
                         identity = bookIdentity(meta.identifier, meta.seriesIndex),
                     ),
-                    type = if (book.isFixedLayout) ContentType.MANGA else ContentType.NOVELS,
+                    type = if (book.isFixedLayout) StoredType.MANGA else StoredType.NOVELS,
                     series = meta.series ?: meta.title ?: stem,
                     seriesIndex = meta.seriesIndex,
                     author = meta.author,
@@ -573,7 +573,7 @@ class LocalImport(
                 val series = comicInfo?.series?.value?.trim()?.ifEmpty { null }
                 ReadFile(
                     file = named,
-                    type = ContentType.MANGA,
+                    type = StoredType.MANGA,
                     series = series ?: seriesFromStem(stem),
                     seriesIndex = null,
                     author = comicInfo?.writer?.value?.trim(),
@@ -625,7 +625,7 @@ class LocalImport(
 
     internal class ReadFile(
         val file: ImportFile,
-        val type: ContentType,
+        val type: StoredType,
         val series: String,
         val seriesIndex: Double?,
         val author: String?,

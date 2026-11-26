@@ -15,7 +15,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.VolumePickRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.components.DownloadProgress
 
@@ -30,15 +30,15 @@ class VolumeCoverViewerTest {
     private val vol2 = ChapterVolume("Saga", "Vol 2", VolumeLabel.Number(2.0), "Vol 2 - ")
 
     private val picks = object : VolumePickRepository {
-        override fun picks(type: ContentType) = MutableStateFlow(mapOf(100L to "Vol 2"))
-        override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
-        override suspend fun loadedPicks(type: ContentType) = mapOf(100L to "Vol 2")
-        override suspend fun restore(type: ContentType, series: String, key: String) = Unit
+        override fun picks(type: StoredType) = MutableStateFlow(mapOf(100L to "Vol 2"))
+        override suspend fun set(type: StoredType, entryId: Long, volumeKey: String?) = Unit
+        override suspend fun loadedPicks(type: StoredType) = mapOf(100L to "Vol 2")
+        override suspend fun restore(type: StoredType, series: String, key: String) = Unit
     }
 
     private val files = object : VolumeFiles {
-        override suspend fun cover(type: ContentType, series: String, key: String): Any? = "$key.jpg"
-        override suspend fun description(type: ContentType, series: String, key: String): String? = null
+        override suspend fun cover(type: StoredType, series: String, key: String): Any? = "$key.jpg"
+        override suspend fun description(type: StoredType, series: String, key: String): String? = null
     }
 
     private val state = loadedDetails(

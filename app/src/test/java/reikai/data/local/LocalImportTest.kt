@@ -27,7 +27,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesBlockedException
@@ -52,7 +52,7 @@ import java.io.File
 
 /** Copying picked files into a local source folder and adding the series, for each content type. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class LocalImportTest(private val type: ContentType) {
+class LocalImportTest(private val type: StoredType) {
 
     private val context = ApplicationProvider.getApplicationContext<android.app.Application>()
     private val root = File(context.cacheDir, "local-${type.name}").apply {
@@ -119,7 +119,7 @@ class LocalImportTest(private val type: ContentType) {
         seriesLocks = seriesLocks,
         organizer = organizer,
         owners = object : LocalVolumeOwnerRepository {
-            override suspend fun all(type: ContentType) = owners
+            override suspend fun all(type: StoredType) = owners
         },
         xml = XML.v1 {},
         coverCache = mockk(),
@@ -548,7 +548,7 @@ class LocalImportTest(private val type: ContentType) {
     /** The folder holding the one file in [folder], paired with the series its local source lists that file under. */
     private fun listsUnder(folder: String): Pair<String, String> {
         val file = File(root, folder).list()!!.single()
-        val volume = mapOf(ContentType.MANGA to VolumeOwner.LOOSE)[type] ?: file
+        val volume = mapOf(StoredType.MANGA to VolumeOwner.LOOSE)[type] ?: file
         return folder to LocalGroups(owners).ownerOf(folder, volume)
     }
 
@@ -567,12 +567,12 @@ class LocalImportTest(private val type: ContentType) {
 
         // A book takes the series and its volume; a comic keeps its own name, which names its chapter.
         // A novel book is no loose chapter, so a loose row lends it nothing.
-        private val LOOSE_HOLDER = mapOf(ContentType.MANGA to "Bar", ContentType.NOVELS to "Foo")
+        private val LOOSE_HOLDER = mapOf(StoredType.MANGA to "Bar", StoredType.NOVELS to "Foo")
 
-        private val NEW_NAME = mapOf(ContentType.MANGA to "a.cbz", ContentType.NOVELS to "Foo - Vol. 1.epub")
+        private val NEW_NAME = mapOf(StoredType.MANGA to "a.cbz", StoredType.NOVELS to "Foo - Vol. 1.epub")
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-        fun types() = listOf(ContentType.MANGA, ContentType.NOVELS)
+        fun types() = listOf(StoredType.MANGA, StoredType.NOVELS)
     }
 }

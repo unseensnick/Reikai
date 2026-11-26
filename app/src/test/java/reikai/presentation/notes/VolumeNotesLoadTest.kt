@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -42,32 +42,32 @@ class VolumeNotesLoadTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a volume no longer in its series closes its notes`(type: ContentType) {
+    @EnumSource(StoredType::class)
+    fun `a volume no longer in its series closes its notes`(type: StoredType) {
         val model = model(type, key = "Gone", saved = emptyList())
 
         model.notes.missing.value shouldBe true
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a volume with no notes written opens on an empty note`(type: ContentType) {
+    @EnumSource(StoredType::class)
+    fun `a volume with no notes written opens on an empty note`(type: StoredType) {
         val model = model(type, key = volumeOf(type), saved = emptyList())
 
         model.notes.state.value?.notes shouldBe ""
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a volume opens on the notes saved for it`(type: ContentType) {
+    @EnumSource(StoredType::class)
+    fun `a volume opens on the notes saved for it`(type: StoredType) {
         val model = model(type, key = volumeOf(type), saved = listOf(LocalVolume(volumeOf(type), null, null, "Mine")))
 
         model.notes.state.value?.notes shouldBe "Mine"
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `the page heads with the name the volume was given`(type: ContentType) {
+    @EnumSource(StoredType::class)
+    fun `the page heads with the name the volume was given`(type: StoredType) {
         val model = model(type, key = volumeOf(type), saved = listOf(LocalVolume(volumeOf(type), null, "Renamed")))
 
         model.notes.state.value?.subject?.label shouldBe VolumeLabel.Name("Renamed")
@@ -77,7 +77,7 @@ class VolumeNotesLoadTest {
     @Test
     fun `a manga's loose file shown as a volume of its own has its notes page`() {
         val model = model(
-            ContentType.MANGA,
+            StoredType.MANGA,
             key = LOOSE_FILE,
             saved = emptyList(),
             loose = mapOf(SERIES to LooseFiles.EACH_ITS_OWN),
@@ -86,10 +86,10 @@ class VolumeNotesLoadTest {
         model.notes.state.value?.notes shouldBe ""
     }
 
-    private fun volumeOf(type: ContentType) = if (type == ContentType.MANGA) MANGA_VOLUME else BOOK
+    private fun volumeOf(type: StoredType) = if (type == StoredType.MANGA) MANGA_VOLUME else BOOK
 
     private fun model(
-        type: ContentType,
+        type: StoredType,
         key: String,
         saved: List<LocalVolume>,
         loose: Map<String, LooseFiles> = emptyMap(),

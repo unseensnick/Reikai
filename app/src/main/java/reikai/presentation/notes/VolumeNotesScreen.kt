@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.savedVolume
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
@@ -37,7 +37,7 @@ import tachiyomi.source.local.LocalSource
  */
 @Serializable
 data class VolumeNotesRoute(
-    val type: ContentType,
+    val type: StoredType,
     val series: String,
     val volumeKey: String,
 ) : NavKey {
@@ -45,7 +45,7 @@ data class VolumeNotesRoute(
     // Not private: a graph-contributed factory has to be visible to the generated graph code.
     @AssistedInject
     class Model(
-        @Assisted private val type: ContentType,
+        @Assisted private val type: StoredType,
         @Assisted private val series: String,
         @Assisted private val volumeKey: String,
         @AppCoroutineScope appScope: CoroutineScope,
@@ -72,26 +72,25 @@ data class VolumeNotesRoute(
 
         // The series' stored chapters, as its details page reads them; null once the series is gone.
         private suspend fun seriesVolumes(): List<ChapterVolume>? = when (type) {
-            ContentType.MANGA -> getMangaByUrlAndSourceId.await(series, LocalSource.ID)?.let { manga ->
+            StoredType.MANGA -> getMangaByUrlAndSourceId.await(series, LocalSource.ID)?.let { manga ->
                 getChaptersByMangaId.await(manga.id).mapNotNull { mangaChapterVolume(manga, it.url, it.name) }
             }
-            ContentType.NOVELS -> novels.getByUrlAndSource(series, LocalNovelSource.ID)?.let { novel ->
+            StoredType.NOVELS -> novels.getByUrlAndSource(series, LocalNovelSource.ID)?.let { novel ->
                 novelChapters.getByNovelId(novel.id).mapNotNull { novelChapterVolume(novel.url, it.url, it.name) }
             }
-            ContentType.ALL -> null
         }
 
         @AssistedFactory
         @ManualViewModelAssistedFactoryKey
         @ContributesIntoMap(AppScope::class)
         interface Factory : ManualViewModelAssistedFactory {
-            fun create(type: ContentType, series: String, volumeKey: String): Model
+            fun create(type: StoredType, series: String, volumeKey: String): Model
         }
     }
 }
 
 @Composable
-fun VolumeNotesScreen(type: ContentType, series: String, volumeKey: String) {
+fun VolumeNotesScreen(type: StoredType, series: String, volumeKey: String) {
     val viewModel = assistedMetroViewModel<VolumeNotesRoute.Model, VolumeNotesRoute.Model.Factory> {
         create(type = type, series = series, volumeKey = volumeKey)
     }

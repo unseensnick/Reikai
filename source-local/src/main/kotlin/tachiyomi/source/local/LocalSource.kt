@@ -30,7 +30,7 @@ import nl.adaptivity.xmlutil.serialization.XML
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.inUserOrder
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
@@ -114,7 +114,7 @@ class LocalSource(
             0L
         }
 
-        val groups = LocalGroups(userVolumes.all(ContentType.MANGA)) // RK
+        val groups = LocalGroups(userVolumes.all(StoredType.MANGA)) // RK
         var mangaDirs = fileSystem.getFilesInBaseDirectory()
             // Filter out files that are hidden and is not a folder
             .filter { it.isDirectory && isLocalSeriesName(it.name.orEmpty()) } // RK: nor a folder a system keeps
@@ -314,13 +314,13 @@ class LocalSource(
     private suspend fun getChapterList(manga: SManga): List<SChapter> = withIOContext {
         // RK --> under the lock on the series' whole group, which Organize files holds from its rows to its last
         // file step, so the listing cannot read moved files against rows at other addresses and drop them
-        seriesLocks.withSeries(ContentType.MANGA, manga.url) { listChapters(manga) }
+        seriesLocks.withSeries(StoredType.MANGA, manga.url) { listChapters(manga) }
     }
 
     private suspend fun listChapters(manga: SManga): List<SChapter> {
         // A series lists its own folder and the volumes of other folders it holds, each chapter at the address of
         // its own file, so grouping series into volumes moves no file (LocalGroups).
-        val groups = LocalGroups(userVolumes.all(ContentType.MANGA))
+        val groups = LocalGroups(userVolumes.all(StoredType.MANGA))
         val folders = groups.foldersOf(manga.url)
         // A member folder renamed or removed outside the app is left out, and the sync keeps its rows as they are.
         val missing = if (folders.any { it != manga.url }) {
@@ -450,7 +450,7 @@ class LocalSource(
     // A group's volumes come folder by folder, its own first, until the user orders them; a loose file shown as a
     // volume of its own is ordered by its own key, as the details screen keys it.
     private suspend fun List<SChapter>.inUserVolumeOrder(series: String, folders: List<String>): List<SChapter> {
-        val saved = userVolumes.loadedVolumes(ContentType.MANGA)[series]
+        val saved = userVolumes.loadedVolumes(StoredType.MANGA)[series]
         val each = userVolumes.loadedLooseFiles()[series] == LooseFiles.EACH_ITS_OWN
         return asReversed().groupBy { chapter ->
             localChapterUnit(chapter.url).let { (folder, volume) ->

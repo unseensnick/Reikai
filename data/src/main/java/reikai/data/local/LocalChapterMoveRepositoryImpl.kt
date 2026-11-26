@@ -8,7 +8,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.data.toDbValue
 import reikai.domain.chapter.ChapterTombstoneRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalGroups
@@ -29,7 +29,7 @@ class LocalChapterMoveRepositoryImpl(
     private val ownerQueries = database.local_volume_ownerQueries
 
     override suspend fun forgetVolumes(
-        type: ContentType,
+        type: StoredType,
         entryId: Long,
         series: String,
         volumes: Map<String, String>,
@@ -48,7 +48,7 @@ class LocalChapterMoveRepositoryImpl(
     }
 
     override suspend fun regroup(
-        type: ContentType,
+        type: StoredType,
         series: Map<String, Long>,
         remove: List<VolumeOwner>,
         add: List<VolumeOwner>,
@@ -85,7 +85,7 @@ class LocalChapterMoveRepositoryImpl(
     }
 
     override suspend fun organize(
-        type: ContentType,
+        type: StoredType,
         rename: SeriesRename,
         remove: List<VolumeOwner>,
         add: List<VolumeOwner>,
@@ -105,7 +105,7 @@ class LocalChapterMoveRepositoryImpl(
     }
 
     override suspend fun rename(
-        type: ContentType,
+        type: StoredType,
         rename: SeriesRename,
         movedUrl: (String) -> String,
     ) {
@@ -115,7 +115,7 @@ class LocalChapterMoveRepositoryImpl(
     }
 
     override suspend fun relinkMember(
-        type: ContentType,
+        type: StoredType,
         rename: SeriesRename,
         member: String,
         to: String,
@@ -127,17 +127,17 @@ class LocalChapterMoveRepositoryImpl(
         }
     }
 
-    override suspend fun localAddresses(type: ContentType): Set<String> = when (type) {
-        ContentType.NOVELS -> queries.localNovelUrls()
-        else -> queries.localMangaUrls()
+    override suspend fun localAddresses(type: StoredType): Set<String> = when (type) {
+        StoredType.NOVELS -> queries.localNovelUrls()
+        StoredType.MANGA -> queries.localMangaUrls()
     }.awaitAsList().toSet()
 
-    override suspend fun localSeriesId(type: ContentType, address: String): Long? = database.localSeriesId(
+    override suspend fun localSeriesId(type: StoredType, address: String): Long? = database.localSeriesId(
         type,
         address,
     )
 
-    private suspend fun renameRows(type: ContentType, rename: SeriesRename, movedUrl: (String) -> String) {
+    private suspend fun renameRows(type: StoredType, rename: SeriesRename, movedUrl: (String) -> String) {
         val dbType = type.toDbValue()
         setAddress(type, rename.id, rename.toSeries)
         ownerQueries.renameOwner(rename.toSeries, dbType, rename.fromSeries)
@@ -152,7 +152,7 @@ class LocalChapterMoveRepositoryImpl(
         }
         if (rename.toSeries != rename.fromSeries) queries.forgetSeriesVolumes(dbType, rename.toSeries)
         queries.renameVolumeSeries(rename.toSeries, dbType, rename.fromSeries)
-        if (type == ContentType.MANGA && rename.toSeries != rename.fromSeries) {
+        if (type == StoredType.MANGA && rename.toSeries != rename.fromSeries) {
             // The default is no row, so one a gone series left at the new name is cleared rather than inherited.
             database.local_manga_looseQueries.clear(rename.toSeries)
             database.local_manga_looseQueries.renameSeries(rename.toSeries, rename.fromSeries)
@@ -160,21 +160,21 @@ class LocalChapterMoveRepositoryImpl(
         tombstones.settle(type, rename.id, moves.map { it.toUrl })
     }
 
-    private suspend fun chapterUrls(type: ContentType, id: Long): List<String> = when (type) {
-        ContentType.NOVELS -> queries.novelChapterUrls(id)
-        else -> queries.mangaChapterUrls(id)
+    private suspend fun chapterUrls(type: StoredType, id: Long): List<String> = when (type) {
+        StoredType.NOVELS -> queries.novelChapterUrls(id)
+        StoredType.MANGA -> queries.mangaChapterUrls(id)
     }.awaitAsList()
 
-    private suspend fun setAddress(type: ContentType, id: Long, url: String) {
+    private suspend fun setAddress(type: StoredType, id: Long, url: String) {
         when (type) {
-            ContentType.NOVELS -> queries.renameNovel(url, id)
-            else -> queries.renameManga(url, id)
+            StoredType.NOVELS -> queries.renameNovel(url, id)
+            StoredType.MANGA -> queries.renameManga(url, id)
         }
     }
 
     // A tombstone at the address, a chapter with no row, moves with the rows' corrections; one landing
     // where a row already is folds onto that row in the settle that ends the transaction.
-    private suspend fun moveChapter(type: ContentType, fromOwner: Long, toOwner: Long, move: ChapterMove) {
+    private suspend fun moveChapter(type: StoredType, fromOwner: Long, toOwner: Long, move: ChapterMove) {
         val (fromUrl, toUrl) = move
         if (fromOwner == toOwner && fromUrl == toUrl) return
         val arriving = chapterIdAt(type, fromOwner, fromUrl)
@@ -183,12 +183,12 @@ class LocalChapterMoveRepositoryImpl(
             tombstones.capturing(type, fromOwner, listOf(arriving), emptyList()) { deleteChapter(type, arriving) }
         }
         when (type) {
-            ContentType.NOVELS -> {
+            StoredType.NOVELS -> {
                 queries.moveNovelChapter(toOwner, toUrl, fromOwner, fromUrl)
                 queries.moveNovelNumberOverride(toOwner, toUrl, fromOwner, fromUrl)
                 queries.moveNovelCopyMark(toOwner, toUrl, fromOwner, fromUrl)
             }
-            else -> {
+            StoredType.MANGA -> {
                 queries.moveMangaChapter(toOwner, toUrl, fromOwner, fromUrl)
                 queries.moveMangaHistory(toOwner, toUrl)
                 queries.moveMangaNumberOverride(toOwner, toUrl, fromOwner, fromUrl)
@@ -197,27 +197,27 @@ class LocalChapterMoveRepositoryImpl(
         }
         // What the moves above left behind is what the new owner already keyed at the address.
         when (type) {
-            ContentType.NOVELS -> queries.forgetNovelExtras(fromOwner, fromUrl)
-            else -> queries.forgetMangaExtras(fromOwner, fromUrl)
+            StoredType.NOVELS -> queries.forgetNovelExtras(fromOwner, fromUrl)
+            StoredType.MANGA -> queries.forgetMangaExtras(fromOwner, fromUrl)
         }.await()
         tombstones.move(type, fromOwner, fromUrl, toOwner, toUrl)
     }
 
-    private suspend fun chapterIdAt(type: ContentType, owner: Long, url: String): Long? = when (type) {
-        ContentType.NOVELS -> queries.novelChapterIdAt(owner, url)
-        else -> queries.mangaChapterIdAt(owner, url)
+    private suspend fun chapterIdAt(type: StoredType, owner: Long, url: String): Long? = when (type) {
+        StoredType.NOVELS -> queries.novelChapterIdAt(owner, url)
+        StoredType.MANGA -> queries.mangaChapterIdAt(owner, url)
     }.awaitAsOneOrNull()
 
-    private suspend fun deleteChapter(type: ContentType, id: Long) {
+    private suspend fun deleteChapter(type: StoredType, id: Long) {
         when (type) {
-            ContentType.NOVELS -> queries.deleteNovelChapter(id)
-            else -> queries.deleteMangaChapter(id)
+            StoredType.NOVELS -> queries.deleteNovelChapter(id)
+            StoredType.MANGA -> queries.deleteMangaChapter(id)
         }
     }
 }
 
 /** The id of the local series of [type] at [address]; every reader of a local series by its address asks this. */
-internal suspend fun Database.localSeriesId(type: ContentType, address: String): Long? = when (type) {
-    ContentType.NOVELS -> local_moveQueries.localNovelId(address)
-    else -> local_moveQueries.localMangaId(address)
+internal suspend fun Database.localSeriesId(type: StoredType, address: String): Long? = when (type) {
+    StoredType.NOVELS -> local_moveQueries.localNovelId(address)
+    StoredType.MANGA -> local_moveQueries.localMangaId(address)
 }.awaitAsOneOrNull()

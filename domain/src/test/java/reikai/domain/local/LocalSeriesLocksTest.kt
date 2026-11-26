@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /**
  * One lock per local series: a listing waits for the replay at start and for a holder of the same folder; a
@@ -24,7 +24,7 @@ class LocalSeriesLocksTest {
     fun `a listing waits until the journal replay has opened the locks`() = runTest {
         val locks = LocalSeriesLocks(Owners())
 
-        val listing = async { locks.withSeries(ContentType.MANGA, "Saga") { "listed" } }
+        val listing = async { locks.withSeries(StoredType.MANGA, "Saga") { "listed" } }
         repeat(3) { yield() }
         val beforeOpen = listing.isCompleted
         locks.open()
@@ -36,12 +36,12 @@ class LocalSeriesLocksTest {
     fun `the same folder in another case waits for the holder, another folder does not`() = runTest {
         val locks = LocalSeriesLocks(Owners()).apply { open() }
         val held = CompletableDeferred<Unit>()
-        launch { locks.withSeries(ContentType.MANGA, "Saga") { held.await() } }
+        launch { locks.withSeries(StoredType.MANGA, "Saga") { held.await() } }
         repeat(3) { yield() }
 
-        val sameFolder = async { locks.withSeries(ContentType.MANGA, "saga") { "same" } }
-        val otherFolder = async { locks.withSeries(ContentType.MANGA, "Other") { "other" } }
-        val otherType = async { locks.withSeries(ContentType.NOVELS, "Saga") { "novel" } }
+        val sameFolder = async { locks.withSeries(StoredType.MANGA, "saga") { "same" } }
+        val otherFolder = async { locks.withSeries(StoredType.MANGA, "Other") { "other" } }
+        val otherType = async { locks.withSeries(StoredType.NOVELS, "Saga") { "novel" } }
         repeat(3) { yield() }
         val whileHeld = listOf(sameFolder, otherFolder, otherType).map { it.isCompleted }
         held.complete(Unit)
@@ -53,7 +53,7 @@ class LocalSeriesLocksTest {
     fun `the replay's own lock does not wait for the opening it brings`() = runTest {
         val locks = LocalSeriesLocks(Owners())
 
-        locks.locked(ContentType.NOVELS, listOf("Saga")) { "replayed" } shouldBe "replayed"
+        locks.locked(StoredType.NOVELS, listOf("Saga")) { "replayed" } shouldBe "replayed"
     }
 
     @Test
@@ -61,8 +61,8 @@ class LocalSeriesLocksTest {
         val locks = LocalSeriesLocks(Owners()).apply { open() }
 
         val listed = withTimeout(1000) {
-            locks.withSeries(ContentType.MANGA, "Saga") {
-                locks.withSeries(ContentType.MANGA, "saga") { "listed inside" }
+            locks.withSeries(StoredType.MANGA, "Saga") {
+                locks.withSeries(StoredType.MANGA, "saga") { "listed inside" }
             }
         }
 
@@ -72,9 +72,9 @@ class LocalSeriesLocksTest {
     @Test
     fun `the series a holder took are free again once its block ends`() = runTest {
         val locks = LocalSeriesLocks(Owners()).apply { open() }
-        locks.withSeries(ContentType.MANGA, listOf("Saga", "Other")) { }
+        locks.withSeries(StoredType.MANGA, listOf("Saga", "Other")) { }
 
-        val again = withTimeout(1000) { locks.withSeries(ContentType.MANGA, "Other") { "free" } }
+        val again = withTimeout(1000) { locks.withSeries(StoredType.MANGA, "Other") { "free" } }
 
         again shouldBe "free"
     }
@@ -86,11 +86,11 @@ class LocalSeriesLocksTest {
         // other: in the caller's order the second would hold Other and wait on Kept while the first holds
         // Kept and waits on Other.
         val keptHeld = CompletableDeferred<Unit>()
-        launch { locks.withSeries(ContentType.MANGA, "Kept") { keptHeld.await() } }
+        launch { locks.withSeries(StoredType.MANGA, "Kept") { keptHeld.await() } }
         repeat(3) { yield() }
-        val forward = async { locks.withSeries(ContentType.MANGA, listOf("Kept", "Other")) { "forward" } }
+        val forward = async { locks.withSeries(StoredType.MANGA, listOf("Kept", "Other")) { "forward" } }
         repeat(3) { yield() }
-        val backward = async { locks.withSeries(ContentType.MANGA, listOf("Other", "Kept")) { "backward" } }
+        val backward = async { locks.withSeries(StoredType.MANGA, listOf("Other", "Kept")) { "backward" } }
         repeat(3) { yield() }
         keptHeld.complete(Unit)
 
@@ -106,8 +106,8 @@ class LocalSeriesLocksTest {
             val locks = LocalSeriesLocks(Owners()).apply { open() }
 
             shouldThrow<IllegalStateException> {
-                locks.withSeries(ContentType.MANGA, "Saga") {
-                    locks.withSeries(ContentType.MANGA, "Other") { }
+                locks.withSeries(StoredType.MANGA, "Saga") {
+                    locks.withSeries(StoredType.MANGA, "Other") { }
                 }
             }
         }
@@ -118,9 +118,9 @@ class LocalSeriesLocksTest {
         val holderDone = CompletableDeferred<Unit>()
         val outsider = CompletableDeferred<Boolean>()
 
-        locks.withSeries(ContentType.MANGA, "Saga") {
+        locks.withSeries(StoredType.MANGA, "Saga") {
             backgroundScope.launch {
-                val waited = async { locks.withSeries(ContentType.MANGA, "Saga") { true } }
+                val waited = async { locks.withSeries(StoredType.MANGA, "Saga") { true } }
                 repeat(3) { yield() }
                 outsider.complete(!waited.isCompleted)
                 holderDone.complete(Unit)
@@ -138,10 +138,10 @@ class LocalSeriesLocksTest {
         val locks = LocalSeriesLocks(owners).apply { open() }
         val releaseSaga = CompletableDeferred<Unit>()
         val releaseExtra = CompletableDeferred<Unit>()
-        launch { locks.withSeries(ContentType.MANGA, "Saga") { releaseSaga.await() } }
-        launch { locks.withSeries(ContentType.MANGA, "Extra") { releaseExtra.await() } }
+        launch { locks.withSeries(StoredType.MANGA, "Saga") { releaseSaga.await() } }
+        launch { locks.withSeries(StoredType.MANGA, "Extra") { releaseExtra.await() } }
         repeat(3) { yield() }
-        val listing = async { locks.withSeries(ContentType.MANGA, "Saga") { "listed" } }
+        val listing = async { locks.withSeries(StoredType.MANGA, "Saga") { "listed" } }
         repeat(3) { yield() }
 
         owners.rows = listOf(VolumeOwner("Extra", VolumeOwner.WHOLE, "Saga"))
@@ -159,13 +159,13 @@ class LocalSeriesLocksTest {
         val locks = LocalSeriesLocks(Owners()).apply { open() }
         val release = CompletableDeferred<Unit>()
         launch {
-            locks.withSeries(ContentType.MANGA, "Saga") {
+            locks.withSeries(StoredType.MANGA, "Saga") {
                 release.await()
-                locks.block(ContentType.MANGA, 1L, listOf("Saga"))
+                locks.block(StoredType.MANGA, 1L, listOf("Saga"))
             }
         }
         repeat(3) { yield() }
-        val listing = async { runCatching { locks.withSeries(ContentType.MANGA, "Saga") { "listed" } } }
+        val listing = async { runCatching { locks.withSeries(StoredType.MANGA, "Saga") { "listed" } } }
         repeat(3) { yield() }
         release.complete(Unit)
 
@@ -175,15 +175,15 @@ class LocalSeriesLocksTest {
     @Test
     fun `a folder two unresolved rows refuse stays refused until both are resolved`() = runTest {
         val locks = LocalSeriesLocks(Owners()).apply { open() }
-        locks.block(ContentType.NOVELS, 1L, listOf("Saga"))
-        locks.block(ContentType.NOVELS, 2L, listOf("saga", "Other"))
+        locks.block(StoredType.NOVELS, 1L, listOf("Saga"))
+        locks.block(StoredType.NOVELS, 2L, listOf("saga", "Other"))
 
         locks.unblock(1L)
 
-        listOf("Saga", "Other").map { locks.isBlocked(ContentType.NOVELS, listOf(it)) } shouldBe listOf(true, true)
+        listOf("Saga", "Other").map { locks.isBlocked(StoredType.NOVELS, listOf(it)) } shouldBe listOf(true, true)
     }
 
     private class Owners(var rows: List<VolumeOwner> = emptyList()) : LocalVolumeOwnerRepository {
-        override suspend fun all(type: ContentType) = rows
+        override suspend fun all(type: StoredType) = rows
     }
 }

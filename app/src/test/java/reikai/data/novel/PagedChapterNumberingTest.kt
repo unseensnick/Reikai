@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Database
@@ -74,7 +74,7 @@ class PagedChapterNumberingTest {
     @Test
     fun `a page sync that renumbers a chapter on another page keeps its correction`() = runTest {
         sync(PAGED, PAGE_ONE, page = "1")
-        overrides.set(ContentType.NOVELS, PAGED, "/calm", 7.0)
+        overrides.set(StoredType.NOVELS, PAGED, "/calm", 7.0)
 
         sync(PAGED, PAGE_TWO, page = "2")
 

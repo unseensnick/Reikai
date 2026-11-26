@@ -1,7 +1,7 @@
 package reikai.domain.chapter
 
 import dev.zacsweers.metro.Inject
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.ReconcileMergedChapters
 
 /**
@@ -9,7 +9,7 @@ import reikai.domain.merge.ReconcileMergedChapters
  * and [suggestion] the number its out-of-line hint offers ([ChapterNumberHint]), which the dialog opens on.
  */
 data class ChapterNumberEdit(
-    val type: ContentType,
+    val type: StoredType,
     val ownerId: Long,
     val url: String,
     val name: String,
@@ -25,7 +25,7 @@ class EditChapterNumber(
     private val reconcileMergedChapters: ReconcileMergedChapters,
 ) {
 
-    suspend fun edit(type: ContentType, ownerId: Long, url: String, name: String, number: Double, suggestion: Double?) =
+    suspend fun edit(type: StoredType, ownerId: Long, url: String, name: String, number: Double, suggestion: Double?) =
         ChapterNumberEdit(
             type,
             ownerId,

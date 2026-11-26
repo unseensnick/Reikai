@@ -9,7 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.ChapterCopyMarkRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelCompletionLatch
@@ -65,7 +65,7 @@ class NovelChapterFinish(
             stitch,
             libraryPreferences,
             incognito,
-            copyMarks.loadedMarks(ContentType.NOVELS),
+            copyMarks.loadedMarks(StoredType.NOVELS),
         )
         // Without "delete after marked as read", as in Mihon's reader: the trim behind is the reader's rule.
         setNovelReadStatus.awaitFinishedInReader(listOf(chapter) + duplicates)

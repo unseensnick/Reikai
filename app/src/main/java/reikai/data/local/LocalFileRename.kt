@@ -1,6 +1,6 @@
 package reikai.data.local
 
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournalPlan.UrlRule
 import reikai.domain.local.SeriesRename
@@ -12,7 +12,7 @@ import reikai.storage.IN_FLIGHT_SUFFIX
  * renamed volume of [SeriesRename.volumes] (old name to new) as a rule of its own.
  */
 internal suspend fun LocalChapterMoveRepository.renameSeries(
-    type: ContentType,
+    type: StoredType,
     rename: SeriesRename,
 ) {
     val (from, to) = rename.fromSeries to rename.toSeries

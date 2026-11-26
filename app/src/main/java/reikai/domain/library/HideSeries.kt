@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.storedType
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.novel.NovelMergeManager
@@ -23,13 +24,13 @@ class HideSeries(
 
     /** Every hidden entry of both types, by [EntryId], since a manga and a novel can share a row id. */
     fun subscribeAll(): Flow<Set<EntryId>> = combine(
-        repository.subscribe(ContentType.MANGA),
-        repository.subscribe(ContentType.NOVELS),
+        repository.subscribe(StoredType.MANGA),
+        repository.subscribe(StoredType.NOVELS),
     ) { manga, novels -> manga.mapTo(HashSet<EntryId>()) { EntryId.Manga(it) } + novels.map { EntryId.Novel(it) } }
 
-    suspend fun hide(ids: Collection<EntryId>) = ids.forEach { repository.hide(it.contentType, members(it)) }
+    suspend fun hide(ids: Collection<EntryId>) = ids.forEach { repository.hide(it.storedType, members(it)) }
 
-    suspend fun unhide(ids: Collection<EntryId>) = ids.forEach { repository.unhide(it.contentType, members(it)) }
+    suspend fun unhide(ids: Collection<EntryId>) = ids.forEach { repository.unhide(it.storedType, members(it)) }
 
     /**
      * A replace migration keeps the series hidden: [from]'s hide is read before [swap] and written onto [to]
@@ -40,7 +41,7 @@ class HideSeries(
     suspend fun <T> keepAcrossSwap(from: EntryId, to: EntryId, replace: Boolean, swap: suspend () -> T): T {
         val targetGroup = mergeManager(to).captureGroup(to.rawId).orderedMemberIds
         val sameSeries = targetGroup.isEmpty() || from.rawId in targetGroup
-        val carry = replace && sameSeries && repository.isHidden(from.contentType, from.rawId)
+        val carry = replace && sameSeries && repository.isHidden(from.storedType, from.rawId)
         return swap().also { if (carry) hide(listOf(to)) }
     }
 

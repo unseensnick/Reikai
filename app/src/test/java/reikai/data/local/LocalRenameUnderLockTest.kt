@@ -22,7 +22,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.storage.FakeSafProvider
 import reikai.storage.rename
@@ -90,7 +90,7 @@ class LocalRenameUnderLockTest {
             val diskDone = CompletableDeferred<Unit>()
             val rowsGo = CompletableDeferred<Unit>()
             val rename = launch {
-                locks.withSeries(ContentType.MANGA, "Series") {
+                locks.withSeries(StoredType.MANGA, "Series") {
                     check(FakeSafProvider.picked(context, File(local, "Series")).findFile("Vol 1")!!.rename("Vol 2"))
                     diskDone.complete(Unit)
                     rowsGo.await()

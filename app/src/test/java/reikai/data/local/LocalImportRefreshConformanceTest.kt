@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
 import org.robolectric.Robolectric
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.util.resetVirtualDispatchers
 import reikai.util.restubDefaultDispatcher
 import reikai.util.virtualDispatchers
@@ -21,7 +21,7 @@ import java.io.File
 
 /** An import into a series already stored reads the series' details again, through the real engine on both types. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class LocalImportRefreshConformanceTest(private val type: ContentType) {
+class LocalImportRefreshConformanceTest(private val type: StoredType) {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -33,7 +33,7 @@ class LocalImportRefreshConformanceTest(private val type: ContentType) {
     fun setUp() {
         virtualDispatchers()
         Robolectric.setupContentProvider(ImportDocuments::class.java, ImportDocuments.AUTHORITY)
-        world = if (type == ContentType.NOVELS) NovelCombineWorld(context) else MangaCombineWorld(context)
+        world = if (type == StoredType.NOVELS) NovelCombineWorld(context) else MangaCombineWorld(context)
         runTest { world.open(tmp, mapOf(ID to "Kept")) }
         restubDefaultDispatcher()
     }
@@ -50,7 +50,7 @@ class LocalImportRefreshConformanceTest(private val type: ContentType) {
     @Test
     fun `an import into a stored series reads its details again`() = runTest {
         File(world.folderOf("Kept"), "details.json").writeText("""{"title":"Kept","description":"Fresh"}""")
-        val name = if (type == ContentType.NOVELS) "two.epub" else "002.jpg"
+        val name = if (type == StoredType.NOVELS) "two.epub" else "002.jpg"
         ImportDocuments.documents["1"] = ImportDocuments.Document(name, 3L, null, "abc".toByteArray())
         val group = ImportGroup(
             key = "1",
@@ -73,6 +73,6 @@ class LocalImportRefreshConformanceTest(private val type: ContentType) {
 
         @JvmStatic
         @Parameters(name = "{0}")
-        fun types() = listOf(ContentType.MANGA, ContentType.NOVELS).map { arrayOf<Any>(it) }
+        fun types() = listOf(StoredType.MANGA, StoredType.NOVELS).map { arrayOf<Any>(it) }
     }
 }

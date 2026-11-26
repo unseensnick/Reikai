@@ -16,7 +16,7 @@ import reikai.data.rows
 import reikai.domain.chapter.ChapterTombstone
 import reikai.domain.chapter.Revival
 import reikai.domain.chapter.TombstoneSession
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import kotlin.time.Instant
@@ -53,7 +53,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, URL, order.held)
         type.seedRow(driver, CHAPTER, URL, order.incoming)
 
-        repository.capturing(type.contentType, OWNER, listOf(CHAPTER), emptyList()) {
+        repository.capturing(type.storedType, OWNER, listOf(CHAPTER), emptyList()) {
             type.deleteRow(database, CHAPTER)
         }
 
@@ -72,7 +72,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, URL, held)
         type.seedRow(driver, CHAPTER, URL, incoming)
 
-        repository.capturing(type.contentType, OWNER, listOf(CHAPTER), emptyList()) {
+        repository.capturing(type.storedType, OWNER, listOf(CHAPTER), emptyList()) {
             type.deleteRow(database, CHAPTER)
         }
 
@@ -89,7 +89,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedOwner(driver)
         type.seedTombstone(driver, URL, held)
 
-        repository.restore(type.contentType, OWNER, listOf(incoming.tombstone(type)), emptyList())
+        repository.restore(type.storedType, OWNER, listOf(incoming.tombstone(type)), emptyList())
 
         type.tombstoneState(driver, URL) shouldBe type.of(OLDER)
     }
@@ -105,7 +105,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, URL, held)
         type.seedTombstone(driver, MOVED_URL, incoming)
 
-        repository.move(type.contentType, OWNER, MOVED_URL, OWNER, URL)
+        repository.move(type.storedType, OWNER, MOVED_URL, OWNER, URL)
 
         type.tombstoneState(driver, URL) shouldBe type.of(OLDER)
     }
@@ -117,7 +117,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, URL, OLDER)
         type.seedRow(driver, CHAPTER, URL, NEWER)
 
-        repository.capturing(type.contentType, OWNER, emptyList(), listOf(Revival(URL, URL))) {}
+        repository.capturing(type.storedType, OWNER, emptyList(), listOf(Revival(URL, URL))) {}
 
         type.spentOnto(driver, URL) shouldBe Triple(type.of(FOLDED), 0L, 0L)
     }
@@ -128,7 +128,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedOwner(driver)
         type.seedTombstone(driver, URL, order.held)
 
-        repository.restore(type.contentType, OWNER, listOf(order.incoming.tombstone()), emptyList())
+        repository.restore(type.storedType, OWNER, listOf(order.incoming.tombstone()), emptyList())
 
         type.tombstoneState(driver, URL) shouldBe type.of(FOLDED)
     }
@@ -143,7 +143,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, URL, order.held)
         type.seedTombstone(driver, MOVED_URL, order.incoming)
 
-        repository.move(type.contentType, OWNER, MOVED_URL, OWNER, URL)
+        repository.move(type.storedType, OWNER, MOVED_URL, OWNER, URL)
 
         Triple(type.tombstoneState(driver, URL), type.urls(driver), type.count(driver, type.sessionTable)) shouldBe
             Triple(type.of(FOLDED), listOf(URL), 2L)
@@ -155,7 +155,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedOwner(driver)
         type.seedRow(driver, CHAPTER, URL, OLDER)
 
-        repository.restore(type.contentType, OWNER, listOf(NEWER.tombstone()), emptyList())
+        repository.restore(type.storedType, OWNER, listOf(NEWER.tombstone()), emptyList())
 
         type.spentOnto(driver, URL) shouldBe Triple(type.of(FOLDED), 0L, 0L)
     }
@@ -167,7 +167,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, URL, NEWER)
         type.seedRow(driver, CHAPTER, URL, OLDER)
 
-        repository.restore(type.contentType, OWNER, emptyList(), listOf(URL))
+        repository.restore(type.storedType, OWNER, emptyList(), listOf(URL))
 
         type.spentOnto(driver, URL) shouldBe Triple(type.of(FOLDED), 0L, 0L)
     }
@@ -178,7 +178,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedOwner(driver)
         type.seedTombstone(driver, URL, NEWER)
 
-        repository.getByOwners(type.contentType, listOf(OWNER)).getValue(OWNER) shouldBe listOf(NEWER.tombstone(type))
+        repository.getByOwners(type.storedType, listOf(OWNER)).getValue(OWNER) shouldBe listOf(NEWER.tombstone(type))
     }
 
     @ParameterizedTest
@@ -188,7 +188,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, "Series/v1/c1", NEWER)
         type.seedTombstone(driver, "Series/v10/c1", NEWER)
 
-        repository.forget(type.contentType, OWNER, listOf("Series/v1/"), emptyList())
+        repository.forget(type.storedType, OWNER, listOf("Series/v1/"), emptyList())
 
         listOf(type.urls(driver), type.count(driver, type.sessionTable)) shouldBe listOf(listOf("Series/v10/c1"), 1L)
     }
@@ -234,8 +234,8 @@ class ChapterTombstoneFoldConformanceTest {
         )
     }
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val storedType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override val tombstoneTable = "manga_chapter_tombstone"
             override val sessionTable = "manga_chapter_tombstone_session"
 
@@ -314,7 +314,7 @@ class ChapterTombstoneFoldConformanceTest {
             override suspend fun deleteOwner(driver: JdbcSqliteDriver) =
                 driver.exec("DELETE FROM manga WHERE id = $OWNER")
         },
-        NOVEL(ContentType.NOVELS) {
+        NOVEL(StoredType.NOVELS) {
             override val tombstoneTable = "novel_chapter_tombstone"
             override val sessionTable = "novel_chapter_tombstone_session"
 

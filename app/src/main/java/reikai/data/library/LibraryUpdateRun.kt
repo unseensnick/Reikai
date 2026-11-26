@@ -16,8 +16,9 @@ import logcat.logcat
 import reikai.data.task.AppTask
 import reikai.data.task.AppTaskProgress
 import reikai.domain.download.SourceContacts
-import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryHiddenRepository
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -32,7 +33,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * [runLibraryUpdate] over the graph's merge stitch and the shared Updates badge, for one [ContentType], shown
+ * [runLibraryUpdate] over the graph's merge stitch and the shared Updates badge, for one [StoredType], shown
  * on the app-state banner for as long as it runs.
  */
 @Inject
@@ -46,24 +47,24 @@ class LibraryUpdateRun(
     private val hiddenEntries: LibraryHiddenRepository,
 ) {
     suspend operator fun <E, C> invoke(
-        contentType: ContentType,
+        type: StoredType,
         entryId: (E) -> Long,
         chapterId: (C) -> Long,
         announce: suspend (List<Pair<E, List<C>>>) -> Unit,
         queueDownloads: suspend (List<Pair<E, List<C>>>) -> Unit,
         run: suspend (UpdateRunLedger<E, C>) -> Unit,
     ) {
-        val task = if (contentType == ContentType.NOVELS) AppTask.NOVEL_UPDATE else AppTask.MANGA_UPDATE
-        val mergeManager = if (contentType == ContentType.NOVELS) novelMergeManager else mangaMergeManager
+        val task = if (type == StoredType.NOVELS) AppTask.NOVEL_UPDATE else AppTask.MANGA_UPDATE
+        val mergeManager = if (type == StoredType.NOVELS) novelMergeManager else mangaMergeManager
         appTaskProgress.during(task) {
             runLibraryUpdate(
                 afterPass = { reconcileMergedChapters.afterPass(it) },
                 entryId = entryId,
                 chapterId = chapterId,
                 memberships = { mergeManager.memberships() },
-                stitchOf = { mergedChapterUnitRepository.getStitch(contentType, it) },
+                stitchOf = { mergedChapterUnitRepository.getStitch(type.contentType, it) },
                 announce = announce,
-                hidden = { hiddenEntries.subscribe(contentType).first() },
+                hidden = { hiddenEntries.subscribe(type).first() },
                 countArrivals = libraryPreferences::addNewUpdates,
                 queueDownloads = queueDownloads,
                 report = { done, total -> appTaskProgress.report(task, done, total) },

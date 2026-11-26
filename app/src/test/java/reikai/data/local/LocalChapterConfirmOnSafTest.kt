@@ -20,7 +20,7 @@ import reikai.data.chapter.LocalChapterTombstonesImpl
 import reikai.domain.chapter.LocalChapterStillPresentException
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.SyncedChapter
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
 import reikai.storage.FakeSafProvider
@@ -60,7 +60,7 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
 
     private suspend fun confirm(urls: List<String>, listed: List<String> = emptyList()) =
         tombstones.confirm(
-            type.contentType,
+            type.storedType,
             isLocal = true,
             urls.mapIndexed { i, url ->
                 SyncedChapter(
@@ -136,8 +136,8 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
     }
 
     /** Where each type keeps chapter [i] under the local root, and the url its row carries. */
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val storedType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override fun url(i: Int) = "Series/Vol 1/Ch $i"
             override fun containedUrl() = "Series/Vol 1/"
             override fun file(root: File, i: Int) = File(root, "Series/Vol 1/Ch $i")
@@ -145,7 +145,7 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
                 File(file(root, i), "001.jpg").apply { parentFile!!.mkdirs() }.writeBytes(byteArrayOf(1))
             }
         },
-        NOVELS(ContentType.NOVELS) {
+        NOVELS(StoredType.NOVELS) {
             override fun url(
                 i: Int,
             ) = LocalNovelSource.chapterPath("Series", "Vol 1.epub", EpubChapterKey("ch$i.xhtml"))

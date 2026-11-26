@@ -12,7 +12,7 @@ import reikai.data.local.ImportProblem
 import reikai.data.local.ImportResult
 import reikai.data.local.ImportedSeries
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.ComposeTestHost
 
 /** The import screen's list draws rows that look alike, rather than crashing on them. */
@@ -33,7 +33,7 @@ class ImportListTest {
 
     @Test
     fun `two series renamed into one folder are both listed`() {
-        val series = listOf("a", "b").map { ImportedSeries(it, ContentType.MANGA, "Foo", "Foo", EntryId.Manga(1L)) }
+        val series = listOf("a", "b").map { ImportedSeries(it, StoredType.MANGA, "Foo", "Foo", EntryId.Manga(1L)) }
 
         show(LocalImportViewModel.State(result = ImportResult(series, emptyList())))
 
@@ -43,8 +43,8 @@ class ImportListTest {
     @Test
     fun `a series that could not be stored offers nothing to open`() {
         val series = listOf(
-            ImportedSeries("a", ContentType.NOVELS, "Foo", "Foo", EntryId.Novel(1L)),
-            ImportedSeries("b", ContentType.MANGA, "Bar", "Bar", null),
+            ImportedSeries("a", StoredType.NOVELS, "Foo", "Foo", EntryId.Novel(1L)),
+            ImportedSeries("b", StoredType.MANGA, "Bar", "Bar", null),
         )
 
         show(LocalImportViewModel.State(result = ImportResult(series, emptyList())))

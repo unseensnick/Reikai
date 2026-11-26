@@ -3,6 +3,7 @@ package reikai.presentation.library
 import reikai.data.local.CombinableSeries
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 
@@ -50,7 +51,7 @@ sealed interface LibraryDialog {
      * where the storage can move their files, which offers Also organize files.
      */
     data class CombineVolumes(
-        val type: ContentType,
+        val type: StoredType,
         val entries: Set<EntryId>,
         val series: List<CombinableSeries>,
         val canOrganize: Boolean,

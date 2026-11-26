@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import reikai.data.local.ImportGroup
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.ComposeTestHost
 
 /** An import card on a phone at the largest font size keeps both type chips readable. */
@@ -77,7 +77,7 @@ class ImportGroupCardTest {
     private companion object {
         val GROUP = ImportGroup(
             key = "divine",
-            type = ContentType.NOVELS,
+            type = StoredType.NOVELS,
             title = "Divine Emperor of Death",
             author = "Stardust_breaker",
             cover = null,

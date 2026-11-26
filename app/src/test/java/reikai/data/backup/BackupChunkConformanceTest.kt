@@ -33,9 +33,10 @@ import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.ManualOrderPosition
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -161,8 +162,8 @@ class BackupChunkConformanceTest {
         val volumePicks = VolumePickRepositoryImpl(database, scope)
     }
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val contentType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override val statements = listOf(
                 "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, state_initialized, " +
                     "user_reader_flags, user_chapter_flags, state_cover_last_modified, user_favorite_at, " +
@@ -252,7 +253,7 @@ class BackupChunkConformanceTest {
                 )
             }
         },
-        NOVELS(ContentType.NOVELS) {
+        NOVELS(StoredType.NOVELS) {
             override val statements = listOf(
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
                     "VALUES (1, 'src', 'u1', 'T1', 0, 0, 0, 0), (2, 'src', 'u2', 'T2', 0, 0, 0, 0)",
@@ -347,7 +348,10 @@ class BackupChunkConformanceTest {
                 listOf(ChapterCopyMark(1L, "/a1", CopyMark.NeverSkip), ChapterCopyMark(2L, "/b1", CopyMark.Group(4L))),
             )
             store.manualOrder.upsert(
-                listOf(ManualOrderPosition(contentType, 1L, 1L, 5L), ManualOrderPosition(contentType, 2L, 2L, 7L)),
+                listOf(
+                    ManualOrderPosition(contentType.contentType, 1L, 1L, 5L),
+                    ManualOrderPosition(contentType.contentType, 2L, 2L, 7L),
+                ),
             )
             store.volumePicks.set(contentType, 1L, "v1")
             store.volumePicks.set(contentType, 2L, "v2")
@@ -377,7 +381,7 @@ class BackupChunkConformanceTest {
 
         // Series u1's group holds folder B whole.
         protected val grouped = object : LocalVolumeRepository by NoLocalVolumes {
-            override suspend fun all(type: ContentType) = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "u1"))
+            override suspend fun all(type: StoredType) = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "u1"))
         }
     }
 }

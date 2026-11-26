@@ -22,7 +22,7 @@ import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.ImportResult
 import reikai.data.local.LocalImport
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
@@ -162,7 +162,7 @@ class LocalImportViewModelTest {
             (listOf(group("a", first).copy(canBeEitherType = true)) to emptyList())
         coEvery { localImport.inspect(any(), any()) } coAnswers {
             val g = firstArg<ImportGroup>()
-            if (g.type == ContentType.MANGA) {
+            if (g.type == StoredType.MANGA) {
                 slowLook.complete(Unit)
                 slowGate.await()
                 g.copy(existing = "manga a")
@@ -176,7 +176,7 @@ class LocalImportViewModelTest {
         model.rename("a", "a")
         slowLook.await()
 
-        model.setType("a", ContentType.NOVELS)
+        model.setType("a", StoredType.NOVELS)
         model.state.first { s -> s.groups.single().existing == "novel a" }
         slowGate.complete(Unit)
         model.settle()
@@ -202,7 +202,7 @@ class LocalImportViewModelTest {
         model.add(listOf(second))
         model.state.first { s -> s.groups.any { it.asksAboutNewerCopies } }
 
-        model.confirmCategories(ContentType.MANGA, emptyList())
+        model.confirmCategories(StoredType.MANGA, emptyList())
         model.settle()
 
         imported.filter { it.asksAboutNewerCopies } shouldBe emptyList()
@@ -232,7 +232,7 @@ class LocalImportViewModelTest {
         model.add(listOf(more))
         model.state.first { s -> s.groups.single().files.size == 2 }
 
-        model.confirmCategories(ContentType.MANGA, emptyList())
+        model.confirmCategories(StoredType.MANGA, emptyList())
         // Long enough for a confirm that does not wait to copy the group before its second look answers.
         withTimeoutOrNull(1.seconds) { model.state.first { !it.isImporting } }
         look.complete(Unit)
@@ -244,9 +244,9 @@ class LocalImportViewModelTest {
     /** The types to ask were picked before the share landed, so the novel had no rule asked for it. */
     @Test
     fun `a content type shared in while the categories are read is imported under its own rule`() = runTest {
-        val categories = Collections.synchronizedMap(mutableMapOf<ContentType, List<Long>>())
+        val categories = Collections.synchronizedMap(mutableMapOf<StoredType, List<Long>>())
         coEvery { localImport.preview(listOf(second)) } returns
-            (listOf(group("b", second).copy(type = ContentType.NOVELS)) to emptyList())
+            (listOf(group("b", second).copy(type = StoredType.NOVELS)) to emptyList())
         coEvery { localImport.import(any(), any(), any()) } answers {
             categories[firstArg<List<ImportGroup>>().first().type] = thirdArg()
             ImportResult(emptyList(), emptyList())
@@ -262,7 +262,7 @@ class LocalImportViewModelTest {
         model.state.first { it.result != null }
         model.settle()
 
-        categories[ContentType.NOVELS] shouldBe listOf(7L)
+        categories[StoredType.NOVELS] shouldBe listOf(7L)
     }
 
     /** Import is offered while a read runs, so a tap then waits for the read rather than doing nothing. */
@@ -356,7 +356,7 @@ class LocalImportViewModelTest {
 
     private fun group(key: String, uri: Uri) = ImportGroup(
         key = key,
-        type = ContentType.MANGA,
+        type = StoredType.MANGA,
         title = key,
         author = null,
         cover = null,

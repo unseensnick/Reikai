@@ -4,8 +4,8 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.removeCovers
-import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalVolumeHandBack
 import reikai.domain.track.source.SourceTrackerDispatcher
 import tachiyomi.domain.manga.interactor.GetManga
@@ -23,7 +23,7 @@ class RemoveMangaFromLibrary(
     localVolumes: () -> LocalVolumeHandBack,
 ) : EntryLibraryRemoval(mergeManager, sourceTracker, localVolumes) {
 
-    override val contentType = ContentType.MANGA
+    override val storedType = StoredType.MANGA
 
     override suspend fun favoritesAt(ids: List<Long>): Map<Long, Instant> =
         getManga.awaitAll(ids).mapNotNull { manga -> manga.favoriteAt?.let { manga.id to it } }.toMap()

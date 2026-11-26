@@ -2,7 +2,7 @@ package reikai.data.local
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalFileJournalPlan.UrlRule
 import reikai.domain.local.VolumeOwner
 import reikai.novel.local.LocalNovelSource
@@ -17,7 +17,7 @@ class OrganizedUrlTest {
     )
 
     private fun manga(url: String, rules: List<UrlRule> = mangaRules) =
-        organizedUrl(ContentType.MANGA, url, rules, "A", "Saga")
+        organizedUrl(StoredType.MANGA, url, rules, "A", "Saga")
 
     @Test
     fun `a moved manga volume, its Extras and another folder's loose chapters take their new places`() {
@@ -41,7 +41,7 @@ class OrganizedUrlTest {
     fun `the reversed rules take a moved manga address back where it was`() {
         val back = mangaRules.map { it.reversed() }
 
-        organizedUrl(ContentType.MANGA, "Saga/Saga - Vol. 3/Ch 9.cbz", back, "Saga", "A") shouldBe "C/Ch 9.cbz"
+        organizedUrl(StoredType.MANGA, "Saga/Saga - Vol. 3/Ch 9.cbz", back, "Saga", "A") shouldBe "C/Ch 9.cbz"
     }
 
     @Test
@@ -50,7 +50,7 @@ class OrganizedUrlTest {
         val url = LocalNovelSource.chapterPath("B", "b.epub", key)
 
         organizedUrl(
-            ContentType.NOVELS,
+            StoredType.NOVELS,
             url,
             listOf(UrlRule("B", "b.epub", "Saga", "Saga - 2.epub")),
             "A",
@@ -65,9 +65,9 @@ class OrganizedUrlTest {
         val key = EpubChapterKey("ch1.xhtml")
         val url = LocalNovelSource.chapterPath("Saga.epub", "Saga.epub", key)
 
-        val rules = looseBookRules(ContentType.NOVELS, "Saga.epub", "Saga 2.epub")
+        val rules = looseBookRules(StoredType.NOVELS, "Saga.epub", "Saga 2.epub")
 
-        organizedUrl(ContentType.NOVELS, url, rules, "Saga.epub", "Saga 2.epub") shouldBe
+        organizedUrl(StoredType.NOVELS, url, rules, "Saga.epub", "Saga 2.epub") shouldBe
             LocalNovelSource.chapterPath("Saga 2.epub", "Saga 2.epub", key)
     }
 }

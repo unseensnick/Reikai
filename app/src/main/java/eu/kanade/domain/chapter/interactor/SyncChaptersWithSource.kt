@@ -20,8 +20,8 @@ import reikai.domain.chapter.SyncedChapter
 import reikai.domain.chapter.appliedTo
 import reikai.domain.chapter.chapterArrivals
 import reikai.domain.chapter.foundRelease
-import reikai.domain.library.ContentType
 import reikai.domain.library.ReleaseInterval
+import reikai.domain.library.StoredType
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterRemoteUpdate
@@ -73,13 +73,13 @@ class SyncChaptersWithSource(
         // RK --> the prepare hook, both url dedupes and number recognition run in toSourceChapters, the
         // list as a sync stores it, which the migration count peek reads too. A number the user corrected
         // replaces the source's, by the rule the novel sync applies too.
-        val overridden = chapterNumberOverrides.getByOwner(ContentType.MANGA, manga.id).appliedTo(
+        val overridden = chapterNumberOverrides.getByOwner(StoredType.MANGA, manga.id).appliedTo(
             rawSourceChapters.toSourceChapters(manga, source),
             urlOf = { it.url },
             numberOf = { it.chapterNumber },
             withNumber = { chapter, number -> chapter.copy(chapterNumber = number) },
         )
-        chapterNumberOverrides.updateSourceNumbers(ContentType.MANGA, manga.id, overridden.moved)
+        chapterNumberOverrides.updateSourceNumbers(StoredType.MANGA, manga.id, overridden.moved)
         val sourceChapters = overridden.chapters
         val sourceUrls = sourceChapters.mapTo(mutableSetOf()) { it.url }
         val sourceNumbers = sourceChapters.associate { it.url to it.chapterNumber }
@@ -131,9 +131,9 @@ class SyncChaptersWithSource(
         // as a local novel's does
         val isLocal = source.isLocal()
         val unlisted = dbChapters.filterNot { it.url in sourceUrls }
-        val held = localTombstones.held(ContentType.MANGA, isLocal, manga.url, unlisted.map { it.toSyncedChapter() })
+        val held = localTombstones.held(StoredType.MANGA, isLocal, manga.url, unlisted.map { it.toSyncedChapter() })
         val removedChapters = unlisted.filterNot { it.url in held }
-        localTombstones.confirm(ContentType.MANGA, isLocal, removedChapters.map { it.toSyncedChapter() }, sourceUrls)
+        localTombstones.confirm(StoredType.MANGA, isLocal, removedChapters.map { it.toSyncedChapter() }, sourceUrls)
         // RK <--
 
         // The source no longer lists these, so their queued downloads could only fail
@@ -160,7 +160,7 @@ class SyncChaptersWithSource(
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
         // The user's copy marks bend the rule as they do in the reader; read only when the rule runs.
         val marks = if (markDuplicateAsRead) {
-            chapterCopyMarks.loadedMarks(ContentType.MANGA, manga.id)
+            chapterCopyMarks.loadedMarks(StoredType.MANGA, manga.id)
         } else {
             emptyMap()
         }
@@ -206,7 +206,7 @@ class SyncChaptersWithSource(
         // RK --> a local series keeps a removed chapter's reading state and gives it back when the chapter
         // returns, in the write's own transaction; a chapter that came back is not new, as the novel sync rules
         val revived = localTombstones.around(
-            ContentType.MANGA,
+            StoredType.MANGA,
             manga.id,
             isLocal,
             removed = removedChapters.map { it.toSyncedChapter() },

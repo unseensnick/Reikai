@@ -9,11 +9,11 @@ import kotlinx.coroutines.flow.Flow
  */
 interface LibraryHiddenRepository {
 
-    fun subscribe(type: ContentType): Flow<Set<Long>>
+    fun subscribe(type: StoredType): Flow<Set<Long>>
 
-    suspend fun isHidden(type: ContentType, id: Long): Boolean
+    suspend fun isHidden(type: StoredType, id: Long): Boolean
 
-    suspend fun hide(type: ContentType, ids: List<Long>)
+    suspend fun hide(type: StoredType, ids: List<Long>)
 
-    suspend fun unhide(type: ContentType, ids: List<Long>)
+    suspend fun unhide(type: StoredType, ids: List<Long>)
 }

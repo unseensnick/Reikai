@@ -30,8 +30,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.StoredType
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.source.SourceKey
 import reikai.presentation.ComposeTestHost
@@ -83,7 +83,7 @@ internal fun EntryDetailsBehavior.servesThroughVolumeViews(
     state: StateFlow<EntryDetailsScreenState>,
     picking: VolumePicking,
 ) {
-    val inputs = DetailsVolumeInputs(picking, ContentType.MANGA)
+    val inputs = DetailsVolumeInputs(picking, StoredType.MANGA)
     val behavior = this
     every { behavior.volumePicking } returns picking
     every { behavior.state } returns combine(state, inputs.values, EntryDetailsScreenState::withVolumeViews)

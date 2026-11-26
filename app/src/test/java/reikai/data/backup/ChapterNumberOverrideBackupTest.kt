@@ -31,9 +31,9 @@ import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
-import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.StoredType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -72,7 +72,7 @@ class ChapterNumberOverrideBackupTest {
     @EnumSource(Type::class)
     fun `a backup carries the correction and the source's number`(type: Type) = runTest {
         type.seed(driver)
-        overrides.set(type.contentType, 1, "/c5", 6.0)
+        overrides.set(type.storedType, 1, "/c5", 6.0)
 
         type.backedUp(database, overrides) shouldBe (6.0 to 5.0)
     }
@@ -94,7 +94,7 @@ class ChapterNumberOverrideBackupTest {
 
         type.restore(database)
 
-        overrides.getByOwner(type.contentType, 1).values.toList() shouldBe
+        overrides.getByOwner(type.storedType, 1).values.toList() shouldBe
             listOf(ChapterNumberOverride("/c5", 6.0, 5.0))
     }
 
@@ -128,8 +128,8 @@ class ChapterNumberOverrideBackupTest {
         ProtoBuf.decodeFromByteArray(OlderBackupChapter.serializer(), bytes).url shouldBe "/c5"
     }
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val storedType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override val statements = listOf(
                 "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, state_initialized, " +
                     "user_reader_flags, user_chapter_flags, state_cover_last_modified, user_favorite_at, " +
@@ -181,7 +181,7 @@ class ChapterNumberOverrideBackupTest {
                 )
             }
         },
-        NOVEL(ContentType.NOVELS) {
+        NOVEL(StoredType.NOVELS) {
             override val statements = listOf(
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
                     "VALUES (1, 'src', 'u', 'T', 0, 0, 0, 0)",

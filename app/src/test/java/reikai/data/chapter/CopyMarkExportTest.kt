@@ -16,7 +16,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.CopyMarkReport
 import reikai.domain.chapter.InMemoryChapterCopyMarks
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.novel.source.NovelSourceManager
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -54,7 +54,7 @@ class CopyMarkExportTest {
         val written = ByteArrayOutputStream()
         val context = mockk<Context> { every { contentResolver.openOutputStream(any(), any()) } returns written }
         val marks = object : ChapterCopyMarkRepository by InMemoryChapterCopyMarks() {
-            override suspend fun report(type: ContentType) = if (type == ContentType.NOVELS) {
+            override suspend fun report(type: StoredType) = if (type == StoredType.NOVELS) {
                 listOf(CopyMarkReport("Novel", "plugin", "/n", "1", 1.0, null, CopyMark.NeverSkip))
             } else {
                 emptyList()

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.MainDispatcherExtension
 import reikai.util.virtualDispatchers
 
@@ -32,7 +32,7 @@ class NeutralDetailsStateTest {
 
     private val model = main.track(object : ViewModel() {})
 
-    private val noVolumes = DetailsVolumeInputs(noVolumePicking(), ContentType.MANGA)
+    private val noVolumes = DetailsVolumeInputs(noVolumePicking(), StoredType.MANGA)
 
     private fun neutral(value: Int): EntryDetailsScreenState = loadedDetails().copy(
         entryId = EntryId.Manga(value.toLong()),

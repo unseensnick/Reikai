@@ -20,7 +20,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -61,7 +61,7 @@ class ChapterNumberOverrideConformanceTest {
 
     private suspend fun corrected(type: Type, number: Double) {
         type.seed(database, driver)
-        editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", type.number(database, URL), null), number)
+        editor.save(editor.edit(type.storedType, OWNER, URL, "Chapter 5", type.number(database, URL), null), number)
     }
 
     @ParameterizedTest
@@ -90,7 +90,7 @@ class ChapterNumberOverrideConformanceTest {
 
             type.sync(database, URL to 5.5)
             val kept = type.number(database, URL)
-            editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", kept, null), null)
+            editor.save(editor.edit(type.storedType, OWNER, URL, "Chapter 5", kept, null), null)
 
             listOf(kept, type.number(database, URL)) shouldBe listOf(6.0, 5.5)
         }
@@ -111,13 +111,13 @@ class ChapterNumberOverrideConformanceTest {
     fun `correcting a chapter back to the source's number leaves no correction`(type: Type) = runTest {
         corrected(type, 6.0)
 
-        editor.save(editor.edit(type.contentType, OWNER, URL, "Chapter 5", 6.0, null), 5.0)
+        editor.save(editor.edit(type.storedType, OWNER, URL, "Chapter 5", 6.0, null), 5.0)
 
-        overrides.getByOwner(type.contentType, OWNER) shouldBe emptyMap()
+        overrides.getByOwner(type.storedType, OWNER) shouldBe emptyMap()
     }
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val storedType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override suspend fun seed(database: Database, driver: JdbcSqliteDriver) {
                 driver.execute(
                     null,
@@ -173,7 +173,7 @@ class ChapterNumberOverrideConformanceTest {
             override suspend fun number(database: Database, url: String) =
                 ChapterRepositoryImpl(database).getChapterByMangaId(OWNER).single { it.url == url }.chapterNumber
         },
-        NOVEL(ContentType.NOVELS) {
+        NOVEL(StoredType.NOVELS) {
             override suspend fun seed(database: Database, driver: JdbcSqliteDriver) {
                 driver.execute(
                     null,

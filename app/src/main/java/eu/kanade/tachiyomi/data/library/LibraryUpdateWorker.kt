@@ -50,8 +50,8 @@ import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
 import reikai.domain.download.SourceContacts
-import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.StoredType
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateSkip
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
@@ -240,7 +240,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
      */
     // RK --> the run's bookkeeping is shared with the novel update job, in LibraryUpdateRun.kt
     private suspend fun updateChapterList() = libraryUpdateRun<Manga, Chapter>(
-        ContentType.MANGA,
+        StoredType.MANGA,
         entryId = { it.id },
         chapterId = { it.id },
         announce = { updates ->

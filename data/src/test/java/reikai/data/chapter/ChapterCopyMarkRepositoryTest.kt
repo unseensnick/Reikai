@@ -9,7 +9,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.CopyMarkReport
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -24,8 +24,8 @@ class ChapterCopyMarkRepositoryTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `one owner's marks hold only that owner's chapters`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `one owner's marks hold only that owner's chapters`(type: StoredType) = runTest {
         Database.Schema.create(driver).await()
         val repository = ChapterCopyMarkRepositoryImpl(DatabaseBindings.providesDatabase(driver), backgroundScope)
         repository.set(
@@ -40,8 +40,8 @@ class ChapterCopyMarkRepositoryTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `clearing a chapter's mark leaves another owner's mark on the same url`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `clearing a chapter's mark leaves another owner's mark on the same url`(type: StoredType) = runTest {
         Database.Schema.create(driver).await()
         val repository = ChapterCopyMarkRepositoryImpl(DatabaseBindings.providesDatabase(driver), backgroundScope)
         repository.set(
@@ -56,8 +56,8 @@ class ChapterCopyMarkRepositoryTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a report names the series and the chapter a mark is on`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a report names the series and the chapter a mark is on`(type: StoredType) = runTest {
         Database.Schema.create(driver).await()
         val repository = ChapterCopyMarkRepositoryImpl(DatabaseBindings.providesDatabase(driver), backgroundScope)
         val source = seedSeriesWithChapter(type, url = "/one")
@@ -68,8 +68,8 @@ class ChapterCopyMarkRepositoryTest {
     }
 
     /** Series 1, titled "Title", with one chapter "Chapter 1" at [url]; returns its source as a report names it. */
-    private suspend fun seedSeriesWithChapter(type: ContentType, url: String): String = when (type) {
-        ContentType.NOVELS -> {
+    private suspend fun seedSeriesWithChapter(type: StoredType, url: String): String = when (type) {
+        StoredType.NOVELS -> {
             driver.execute(
                 null,
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +

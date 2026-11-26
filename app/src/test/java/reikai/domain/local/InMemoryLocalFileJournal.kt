@@ -1,13 +1,13 @@
 package reikai.domain.local
 
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /** The journal as a list, for tests whose subject is what gets written to it and replayed from it. */
 class InMemoryLocalFileJournal : LocalFileJournal {
     val entries = mutableListOf<LocalFileJournalEntry>()
     private var nextId = 1L
 
-    override suspend fun insert(type: ContentType, plan: LocalFileJournalPlan): Long =
+    override suspend fun insert(type: StoredType, plan: LocalFileJournalPlan): Long =
         nextId++.also { entries += LocalFileJournalEntry(it, type, plan) }
 
     override suspend fun update(id: Long, plan: LocalFileJournalPlan) {

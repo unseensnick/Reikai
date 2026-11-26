@@ -7,7 +7,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.domain.chapter.ChapterNumberOverride
 import reikai.domain.chapter.ChapterNumberOverrideRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.data.Database
 
 @Inject
@@ -19,33 +19,33 @@ class ChapterNumberOverrideRepositoryImpl(
 
     private val queries = database.chapter_number_overrideQueries
 
-    override suspend fun getByOwner(type: ContentType, ownerId: Long): Map<String, ChapterNumberOverride> =
+    override suspend fun getByOwner(type: StoredType, ownerId: Long): Map<String, ChapterNumberOverride> =
         when (type) {
-            ContentType.NOVELS -> queries.getNovelOverrides(ownerId, ::ChapterNumberOverride)
-            else -> queries.getMangaOverrides(ownerId, ::ChapterNumberOverride)
+            StoredType.NOVELS -> queries.getNovelOverrides(ownerId, ::ChapterNumberOverride)
+            StoredType.MANGA -> queries.getMangaOverrides(ownerId, ::ChapterNumberOverride)
         }.awaitAsList().associateBy { it.url }
 
     override suspend fun getByOwners(
-        type: ContentType,
+        type: StoredType,
         ownerIds: List<Long>,
     ): Map<Long, Map<String, ChapterNumberOverride>> {
         val mapper = { ownerId: Long, url: String, number: Double, sourceNumber: Double ->
             ownerId to ChapterNumberOverride(url, number, sourceNumber)
         }
         return when (type) {
-            ContentType.NOVELS -> queries.getNovelOverridesOf(ownerIds, mapper)
-            else -> queries.getMangaOverridesOf(ownerIds, mapper)
+            StoredType.NOVELS -> queries.getNovelOverridesOf(ownerIds, mapper)
+            StoredType.MANGA -> queries.getMangaOverridesOf(ownerIds, mapper)
         }.awaitAsList().groupBy({ it.first }, { it.second }).mapValues { (_, it) -> it.associateBy { it.url } }
     }
 
-    override suspend fun set(type: ContentType, ownerId: Long, url: String, number: Double) {
+    override suspend fun set(type: StoredType, ownerId: Long, url: String, number: Double) {
         database.transaction {
             when (type) {
-                ContentType.NOVELS -> {
+                StoredType.NOVELS -> {
                     queries.setNovelOverride(number, ownerId, url)
                     queries.applyNovelOverrides(ownerId)
                 }
-                else -> {
+                StoredType.MANGA -> {
                     queries.setMangaOverride(number, ownerId, url)
                     queries.applyMangaOverrides(ownerId)
                 }
@@ -53,14 +53,14 @@ class ChapterNumberOverrideRepositoryImpl(
         }
     }
 
-    override suspend fun clear(type: ContentType, ownerId: Long, url: String) {
+    override suspend fun clear(type: StoredType, ownerId: Long, url: String) {
         database.transaction {
             when (type) {
-                ContentType.NOVELS -> {
+                StoredType.NOVELS -> {
                     queries.clearNovelChapterNumber(ownerId, url)
                     queries.deleteNovel(ownerId, url)
                 }
-                else -> {
+                StoredType.MANGA -> {
                     queries.clearMangaChapterNumber(ownerId, url)
                     queries.deleteManga(ownerId, url)
                 }
@@ -68,27 +68,27 @@ class ChapterNumberOverrideRepositoryImpl(
         }
     }
 
-    override suspend fun restore(type: ContentType, ownerId: Long, overrides: List<ChapterNumberOverride>) {
+    override suspend fun restore(type: StoredType, ownerId: Long, overrides: List<ChapterNumberOverride>) {
         if (overrides.isEmpty()) return
         database.transaction {
             upsert(type, ownerId, overrides)
             when (type) {
-                ContentType.NOVELS -> queries.applyNovelOverrides(ownerId)
-                else -> queries.applyMangaOverrides(ownerId)
+                StoredType.NOVELS -> queries.applyNovelOverrides(ownerId)
+                StoredType.MANGA -> queries.applyMangaOverrides(ownerId)
             }
         }
     }
 
-    override suspend fun updateSourceNumbers(type: ContentType, ownerId: Long, overrides: List<ChapterNumberOverride>) {
+    override suspend fun updateSourceNumbers(type: StoredType, ownerId: Long, overrides: List<ChapterNumberOverride>) {
         if (overrides.isEmpty()) return
         database.transaction { upsert(type, ownerId, overrides) }
     }
 
-    private suspend fun upsert(type: ContentType, ownerId: Long, overrides: List<ChapterNumberOverride>) {
+    private suspend fun upsert(type: StoredType, ownerId: Long, overrides: List<ChapterNumberOverride>) {
         overrides.forEach {
             when (type) {
-                ContentType.NOVELS -> queries.upsertNovel(ownerId, it.url, it.number, it.sourceNumber)
-                else -> queries.upsertManga(ownerId, it.url, it.number, it.sourceNumber)
+                StoredType.NOVELS -> queries.upsertNovel(ownerId, it.url, it.number, it.sourceNumber)
+                StoredType.MANGA -> queries.upsertManga(ownerId, it.url, it.number, it.sourceNumber)
             }
         }
     }

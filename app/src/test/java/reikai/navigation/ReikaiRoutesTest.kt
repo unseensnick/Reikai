@@ -65,6 +65,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.source.SourceKey
 import reikai.novel.content.NovelSnippetKind
 import reikai.presentation.browse.catalogue.EntryCatalogueRoute
@@ -202,7 +203,7 @@ class ReikaiRoutesTest(private val name: String, private val route: NavKey, priv
             StatsReadingRoute to DrawnBy.MAIN,
             StatsSeriesRoute(StatsGroupKey.Score(null), "None", ContentType.ALL) to DrawnBy.MAIN,
             UpdateErrorsRoute(ContentType.NOVELS) to DrawnBy.MAIN,
-            VolumeNotesRoute(ContentType.MANGA, "Series", "Vol. 1") to DrawnBy.MAIN,
+            VolumeNotesRoute(StoredType.MANGA, "Series", "Vol. 1") to DrawnBy.MAIN,
             HomeRoute to DrawnBy.MAIN,
             DeepLinkRoute("q") to DrawnBy.MAIN,
             WebViewRoute("https://example.org", "T", 1L) to DrawnBy.MAIN,

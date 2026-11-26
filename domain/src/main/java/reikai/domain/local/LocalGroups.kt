@@ -2,7 +2,7 @@ package reikai.domain.local
 
 import kotlinx.serialization.Serializable
 import reikai.domain.chapter.LooseFiles
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /**
  * One volume of a local series listed by another series, its files left where they are: [volume] in the series
@@ -21,7 +21,7 @@ data class VolumeOwner(val folder: String, val volume: String, val owner: String
 
 interface LocalVolumeOwnerRepository {
     /** Every row of [type], read from the table each time, so a listing right after a combine sees the combine. */
-    suspend fun all(type: ContentType): List<VolumeOwner>
+    suspend fun all(type: StoredType): List<VolumeOwner>
 }
 
 /**
@@ -115,8 +115,8 @@ fun localShownVolumeKey(owner: String, folder: String, volume: String, file: Str
  * series, which is a loose book in the local folder itself, else the series folder. A manga volume folder named
  * like its series is an ordinary volume inside it, so treating it as loose would delete the whole series.
  */
-fun localVolumeContainer(type: ContentType, folder: String, volume: String): List<String> =
-    if (type == ContentType.NOVELS && folder == volume) emptyList() else listOf(folder)
+fun localVolumeContainer(type: StoredType, folder: String, volume: String): List<String> =
+    if (type == StoredType.NOVELS && folder == volume) emptyList() else listOf(folder)
 
 /** The folder and volume name [key] names in series [owner]. */
 fun localGroupUnit(owner: String, key: String): Pair<String, String> =

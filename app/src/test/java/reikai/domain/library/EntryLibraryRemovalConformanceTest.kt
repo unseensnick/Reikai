@@ -45,8 +45,8 @@ class EntryLibraryRemovalConformanceTest {
     lateinit var dir: File
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a removed entry leaves the library`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a removed entry leaves the library`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
 
         table.removal.await(listOf(ID))
@@ -55,8 +55,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `the tracker hand-out runs while the entry is still in the library`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `the tracker hand-out runs while the entry is still in the library`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
 
         table.removal.await(listOf(ID))
@@ -65,8 +65,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `the source's own tracker hears the removal`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `the source's own tracker hears the removal`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
 
         table.removal.await(listOf(ID))
@@ -75,8 +75,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a removed entry loses its cached cover`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a removed entry loses its cached cover`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
         val cover = table.cachedCover(ID).also { it.writeText("x") }
 
@@ -86,8 +86,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a removed entry loses its custom cover`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a removed entry loses its custom cover`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
         val custom = table.cache.getCustomCoverFile(table.entryId(ID)).also { it.writeText("x") }
 
@@ -97,8 +97,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a removed local entry keeps its custom cover`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a removed local entry keeps its custom cover`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID, local = true) }
         val custom = table.cache.getCustomCoverFile(table.entryId(ID)).also { it.writeText("x") }
 
@@ -108,8 +108,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `deleting a cover leaves the cover stamp alone`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `deleting a cover leaves the cover stamp alone`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
         table.cachedCover(ID).writeText("x")
 
@@ -120,8 +120,8 @@ class EntryLibraryRemovalConformanceTest {
 
     /** No cover load follows a removal, so the removal itself moves the colour under the browse cap. */
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a removed entry's cover colour is evicted by browsing past the cap`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a removed entry's cover colour is evicted by browsing past the cap`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
         val key = table.entryId(ID).signedKey()
         CoverColors.put(key, COLOR, inLibrary = true)
@@ -133,8 +133,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `an undone removal keeps the cover colour past the browse cap`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `an undone removal keeps the cover colour past the browse cap`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
         val key = table.entryId(ID).signedKey()
         CoverColors.put(key, COLOR, inLibrary = true)
@@ -146,8 +146,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a refused write takes none of the batch out`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a refused write takes none of the batch out`(type: StoredType) = runTest {
         val table = table(type).apply {
             put(ID)
             put(OTHER_ID)
@@ -160,8 +160,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a refused write keeps the covers`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a refused write keeps the covers`(type: StoredType) = runTest {
         val table = table(type).apply {
             put(ID)
             refusedIds += ID
@@ -174,8 +174,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a refused write tells the source's own tracker nothing`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a refused write tells the source's own tracker nothing`(type: StoredType) = runTest {
         val table = table(type).apply {
             put(ID)
             refusedIds += ID
@@ -187,8 +187,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `an undo tells the source's own tracker the entry is back`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `an undo tells the source's own tracker the entry is back`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
 
         table.removal.restore(table.removal.takeOut(listOf(ID)))
@@ -197,16 +197,16 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `an entry outside the library is not taken out again`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `an entry outside the library is not taken out again`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID, joinedAt = null) }
 
         table.removal.await(listOf(ID)) shouldBe emptyList()
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `taking out leaves the covers for the undo window`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `taking out leaves the covers for the undo window`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
         val cover = table.cachedCover(ID).also { it.writeText("x") }
 
@@ -216,8 +216,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `an undo puts back the date the entry joined the library`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `an undo puts back the date the entry joined the library`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
 
         table.removal.restore(table.removal.takeOut(listOf(ID)))
@@ -226,8 +226,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a removal made final hands a local series' volumes in other folders back`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a removal made final hands a local series' volumes in other folders back`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
 
         table.removal.await(listOf(ID))
@@ -236,8 +236,8 @@ class EntryLibraryRemovalConformanceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `an undone removal hands nothing back`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `an undone removal hands nothing back`(type: StoredType) = runTest {
         val table = table(type).apply { put(ID) }
 
         table.removal.restore(table.removal.takeOut(listOf(ID)))
@@ -245,9 +245,9 @@ class EntryLibraryRemovalConformanceTest {
         table.handedBack shouldBe emptyList()
     }
 
-    private fun table(type: ContentType): Table = when (type) {
-        ContentType.MANGA -> MangaTable(coverCache())
-        else -> NovelTable(coverCache())
+    private fun table(type: StoredType): Table = when (type) {
+        StoredType.MANGA -> MangaTable(coverCache())
+        StoredType.NOVELS -> NovelTable(coverCache())
     }
 
     private fun coverCache(): CoverCache {
@@ -263,10 +263,10 @@ class EntryLibraryRemovalConformanceTest {
         val coverStamps = mutableListOf<Long>()
         val inLibraryAtHandOut = mutableListOf<Boolean>()
         val toldSourceTracker = mutableListOf<Pair<EntryId, Boolean>>()
-        val handedBack = mutableListOf<Pair<ContentType, List<Long>>>()
+        val handedBack = mutableListOf<Pair<StoredType, List<Long>>>()
 
         protected val localVolumes = object : LocalVolumeHandBack {
-            override suspend fun handBack(type: ContentType, ids: List<Long>) {
+            override suspend fun handBack(type: StoredType, ids: List<Long>) {
                 handedBack += type to ids
             }
         }

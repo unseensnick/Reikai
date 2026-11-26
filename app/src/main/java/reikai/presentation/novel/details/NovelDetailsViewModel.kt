@@ -84,7 +84,7 @@ import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.ResetEntryInfo
 import reikai.domain.library.ChapterSwipeActions
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.ChapterUnit
@@ -1089,7 +1089,7 @@ class NovelDetailsViewModel(
                     // of that question itself falls back to the refresh's own message.
                     val anchor = loaded.novel
                     val candidates = localSeriesRelink.offerAfterFailure(
-                        ContentType.NOVELS,
+                        StoredType.NOVELS,
                         anchor.id,
                         LocalNovelSource.isLocal(anchor.source),
                     )
@@ -1313,7 +1313,7 @@ class NovelDetailsViewModel(
         val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
         appScope.launch {
             localSeriesRelink.relinkThenRefresh(
-                ContentType.NOVELS,
+                StoredType.NOVELS,
                 novel.id,
                 folder,
                 refresh = { refresh() },
@@ -1434,7 +1434,7 @@ class NovelDetailsViewModel(
         val chapter = loaded.chapters.firstOrNull { it.id == chapterId } ?: return
         viewModelScope.launchIO {
             val edit = editChapterNumber.edit(
-                ContentType.NOVELS,
+                StoredType.NOVELS,
                 chapter.novelId,
                 chapter.url,
                 chapter.name,

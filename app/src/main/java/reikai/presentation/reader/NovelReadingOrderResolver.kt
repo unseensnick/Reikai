@@ -3,7 +3,7 @@ package reikai.presentation.reader
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import reikai.domain.chapter.ChapterCopyMarkRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
@@ -48,7 +48,7 @@ class NovelReadingOrderResolver(
         val mapped = reading.copies?.takeIf { !sourceScoped }?.idOf(currentId) ?: currentId
         val opened = known.find { it.id == mapped } ?: chapterRepo.getById(mapped)
         val all = known + listOfNotNull(opened)
-        val marks = copyMarks.loadedMarks(ContentType.NOVELS)
+        val marks = copyMarks.loadedMarks(StoredType.NOVELS)
         val downloadedOnly = basePreferences.downloadedOnly.get()
         return novelReadingOrder(
             NovelOrderInputs(

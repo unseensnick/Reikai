@@ -13,7 +13,7 @@ import logcat.logcat
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.CopyMarkReport
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.source.service.SourceManager
@@ -31,8 +31,8 @@ suspend fun writeCopyMarkReport(
     sourceManager: SourceManager,
     novelSourceManager: NovelSourceManager,
 ): Int? {
-    val manga = marks.report(ContentType.MANGA)
-    val novels = marks.report(ContentType.NOVELS)
+    val manga = marks.report(StoredType.MANGA)
+    val novels = marks.report(StoredType.NOVELS)
     val json = buildJsonObject {
         put(
             "manga",

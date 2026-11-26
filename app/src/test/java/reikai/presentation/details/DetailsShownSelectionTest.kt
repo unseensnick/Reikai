@@ -31,8 +31,8 @@ import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.StoredType
 import reikai.domain.merge.DownloadTargets
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.components.DownloadProgress
@@ -135,15 +135,15 @@ class DetailsShownSelectionTest {
         every { fake.duplicateMarking } returns noDuplicateMarking()
         val picking = VolumePicking(
             object : VolumePickRepository {
-                override fun picks(type: ContentType) = MutableStateFlow(mapOf(100L to VOL_2.key))
-                override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
-                override suspend fun loadedPicks(type: ContentType) = mapOf(100L to VOL_2.key)
-                override suspend fun restore(type: ContentType, series: String, key: String) = Unit
+                override fun picks(type: StoredType) = MutableStateFlow(mapOf(100L to VOL_2.key))
+                override suspend fun set(type: StoredType, entryId: Long, volumeKey: String?) = Unit
+                override suspend fun loadedPicks(type: StoredType) = mapOf(100L to VOL_2.key)
+                override suspend fun restore(type: StoredType, series: String, key: String) = Unit
             },
             NoLocalVolumes,
             object : VolumeFiles {
-                override suspend fun cover(type: ContentType, series: String, key: String): Any? = null
-                override suspend fun description(type: ContentType, series: String, key: String): String? = null
+                override suspend fun cover(type: StoredType, series: String, key: String): Any? = null
+                override suspend fun description(type: StoredType, series: String, key: String): String? = null
             },
             mockk(relaxed = true),
             mockk(relaxed = true),

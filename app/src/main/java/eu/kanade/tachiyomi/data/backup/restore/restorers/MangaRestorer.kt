@@ -27,6 +27,7 @@ import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomMangaInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
 import tachiyomi.domain.backup.model.RestoredHistory
@@ -108,7 +109,7 @@ class MangaRestorer(
         }
         // RK: a local series' volume order and names, by its folder, as the novel restore keeps them
         backupMangas.forEach {
-            it.restoreLocalVolumes(ContentType.MANGA, localVolumes, volumePicks, it.url)
+            it.restoreLocalVolumes(StoredType.MANGA, localVolumes, volumePicks, it.url)
             it.looseFiles?.let { mode -> localVolumes.setLooseFiles(it.url, LooseFiles.of(mode)) }
         }
     }

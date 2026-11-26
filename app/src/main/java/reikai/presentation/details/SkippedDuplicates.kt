@@ -11,7 +11,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.LastAnswer
 import reikai.domain.chapter.duplicateCopies
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
 
@@ -32,7 +32,7 @@ data class MarkableChapter(val ownerId: Long, val url: String)
  * the screen does not cut one off.
  */
 class DuplicateMarking(
-    private val type: ContentType,
+    private val type: StoredType,
     private val repository: ChapterCopyMarkRepository,
     show: Preference<Boolean>,
     skipDuplicates: Preference<Boolean>,

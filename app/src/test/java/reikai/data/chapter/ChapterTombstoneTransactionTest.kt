@@ -17,7 +17,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -29,7 +29,7 @@ import tachiyomi.data.DatabaseBindings
  * ChapterTombstoneConformanceTest's; this pins the Android driver's.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class ChapterTombstoneTransactionTest(private val type: ContentType) {
+class ChapterTombstoneTransactionTest(private val type: StoredType) {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -77,9 +77,9 @@ class ChapterTombstoneTransactionTest(private val type: ContentType) {
         (count(chapterTable) to count(tombstoneTable)) shouldBe (0L to 1L)
     }
 
-    private val chapterTable get() = if (type == ContentType.NOVELS) "novel_chapters" else "chapter"
+    private val chapterTable get() = if (type == StoredType.NOVELS) "novel_chapters" else "chapter"
     private val tombstoneTable get() = if (type ==
-        ContentType.NOVELS
+        StoredType.NOVELS
     ) {
         "novel_chapter_tombstone"
     } else {
@@ -91,7 +91,7 @@ class ChapterTombstoneTransactionTest(private val type: ContentType) {
      * framework's statement API under Robolectric refuses, and the write under test is the delete, nested.
      */
     private suspend fun seedChapter(): Long {
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             exec(
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
                     "VALUES ($OWNER, 'local', 'Series', 'T', 0, 0, 0, 0)",
@@ -122,7 +122,7 @@ class ChapterTombstoneTransactionTest(private val type: ContentType) {
 
     /** The delete inside a transaction of its own, as the sync's `updateFromRemote` writes it, so it nests. */
     private suspend fun deleteRow(id: Long) = database.transactionWithResult {
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             database.novel_chaptersQueries.delete(id)
         } else {
             database.chapterQueries.removeChaptersWithIds(listOf(id))
@@ -142,6 +142,6 @@ class ChapterTombstoneTransactionTest(private val type: ContentType) {
 
         @JvmStatic
         @Parameters(name = "{0}")
-        fun types() = listOf(arrayOf(ContentType.MANGA), arrayOf(ContentType.NOVELS))
+        fun types() = listOf(arrayOf(StoredType.MANGA), arrayOf(StoredType.NOVELS))
     }
 }

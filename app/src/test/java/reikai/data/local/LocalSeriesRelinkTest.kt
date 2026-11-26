@@ -30,7 +30,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.rows
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -53,7 +53,7 @@ import kotlin.time.Instant
  * content types on the fake picked-folder provider.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class LocalSeriesRelinkTest(private val type: ContentType) {
+class LocalSeriesRelinkTest(private val type: StoredType) {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -294,11 +294,11 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             listOf(listOf("Saga Renamed"), true, chapterUrls("Saga").sorted())
     }
 
-    private val dbType get() = if (type == ContentType.NOVELS) 1 else 0
+    private val dbType get() = if (type == StoredType.NOVELS) 1 else 0
 
     /** Series [folder] on disk and in the database, with a row for each of its chapter files. */
     private suspend fun seeded(folder: String): Long {
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             File(root, folder).mkdirs()
             File(root, "$folder/$folder - Vol. 1.epub").writeBytes(byteArrayOf(1))
             File(root, "$folder/$folder - Vol. 2.epub").writeBytes(byteArrayOf(2))
@@ -314,7 +314,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         }
         val id = entry(folder)
         val urls = chapterUrls(folder)
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             urls.forEach { url ->
                 NovelChapterRepositoryImpl(database).insert(
                     NovelChapter(
@@ -335,7 +335,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     }
 
     /** The chapter addresses series [folder] has, as each local source lists them. */
-    private fun chapterUrls(folder: String): List<String> = if (type == ContentType.NOVELS) {
+    private fun chapterUrls(folder: String): List<String> = if (type == StoredType.NOVELS) {
         listOf(
             LocalNovelSource.chapterPath(folder, "Saga - Vol. 1.epub", EpubChapterKey("c1.xhtml")),
             LocalNovelSource.chapterPath(folder, "Saga - Vol. 2.epub", EpubChapterKey("c2.xhtml")),
@@ -344,7 +344,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         listOf("$folder/Ch 3", "$folder/Vol 1/Ch 1", "$folder/Vol 1/Ch 2", "$folder/Extra.cbz")
     }
 
-    private suspend fun entry(url: String): Long = if (type == ContentType.NOVELS) {
+    private suspend fun entry(url: String): Long = if (type == StoredType.NOVELS) {
         NovelRepositoryImpl(
             database,
         ).insert(Novel.create().copy(source = LocalNovelSource.ID, url = url, title = url))!!
@@ -360,7 +360,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     }
 
     private suspend fun markRead(url: String) = driver.exec(
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             "UPDATE novel_chapters SET read = 1 WHERE url = '$url'"
         } else {
             "UPDATE chapter SET user_read = 1 WHERE remote_url = '$url'"
@@ -368,7 +368,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     )
 
     private suspend fun urls(owner: Long, readOnly: Boolean = false): List<String> {
-        val sql = if (type == ContentType.NOVELS) {
+        val sql = if (type == StoredType.NOVELS) {
             "SELECT url FROM novel_chapters WHERE novel_id = $owner${if (readOnly) " AND read = 1" else ""} ORDER BY url"
         } else {
             "SELECT remote_url FROM chapter WHERE manga_id = $owner${if (readOnly) " AND user_read = 1" else ""} " +
@@ -379,13 +379,13 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
 
     private suspend fun readUrls(owner: Long) = urls(owner, readOnly = true)
 
-    private fun deleteRow(url: String) = if (type == ContentType.NOVELS) {
+    private fun deleteRow(url: String) = if (type == StoredType.NOVELS) {
         "DELETE FROM novel_chapters WHERE url = '$url'"
     } else {
         "DELETE FROM chapter WHERE remote_url = '$url'"
     }
 
-    private fun tombstone(owner: Long, url: String) = if (type == ContentType.NOVELS) {
+    private fun tombstone(owner: Long, url: String) = if (type == StoredType.NOVELS) {
         "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, last_text_progress, " +
             "date_fetch, removed_at) VALUES ($owner, '$url', 1, 0, 0, 0, 0)"
     } else {
@@ -393,7 +393,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1, 0, 0, 0, 0, 0)"
     }
 
-    private fun tombstoneUrls(owner: Long) = if (type == ContentType.NOVELS) {
+    private fun tombstoneUrls(owner: Long) = if (type == StoredType.NOVELS) {
         "SELECT url FROM novel_chapter_tombstone WHERE novel_id = $owner"
     } else {
         "SELECT url FROM manga_chapter_tombstone WHERE manga_id = $owner"
@@ -402,6 +402,6 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     companion object {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-        fun types() = listOf(ContentType.MANGA, ContentType.NOVELS)
+        fun types() = listOf(StoredType.MANGA, StoredType.NOVELS)
     }
 }

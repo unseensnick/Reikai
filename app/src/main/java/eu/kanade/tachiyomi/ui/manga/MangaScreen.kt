@@ -36,6 +36,7 @@ import mihon.presentation.core.util.isTabletUi
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo // RK
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
@@ -95,7 +96,7 @@ fun MangaScreen(
             val graph = context.appGraph
             val duplicates = viewModel.detailsDuplicateMarking(
                 graph,
-                ContentType.MANGA,
+                StoredType.MANGA,
                 graph.readerPreferences.skipDupe,
             )
             MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)

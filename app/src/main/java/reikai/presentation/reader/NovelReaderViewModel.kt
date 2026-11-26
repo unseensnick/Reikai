@@ -60,6 +60,7 @@ import reikai.domain.download.offersDownload
 import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.ChapterUnit
@@ -1316,7 +1317,7 @@ class NovelReaderViewModel(
                         row.copy(
                             volume = volume?.shown(
                                 localVolumes.looseFiles().value,
-                                localVolumes.volumes(ContentType.NOVELS).value,
+                                localVolumes.volumes(StoredType.NOVELS).value,
                             ),
                         )
                     }

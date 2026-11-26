@@ -26,7 +26,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import reikai.util.resetVirtualDispatchers
@@ -78,7 +78,7 @@ class DetailsDuplicateMarksConformanceTest {
         fun probes() = listOf(MangaProbe(), NovelProbe())
 
         /** A marking with "Show duplicate chapters the reader skips" and the reader's skip both on. */
-        fun showingDuplicates(type: ContentType): DuplicateMarking {
+        fun showingDuplicates(type: StoredType): DuplicateMarking {
             val store = InMemoryPreferenceStore()
             val scope = CoroutineScope(Dispatchers.Unconfined)
             return DuplicateMarking(
@@ -135,7 +135,7 @@ class DetailsDuplicateMarksConformanceTest {
                 val adapter = MangaEntryAdapter(
                     model,
                     mockk(relaxed = true),
-                    showingDuplicates(ContentType.MANGA),
+                    showingDuplicates(StoredType.MANGA),
                     noVolumePicking(),
                 )
                 adapter.loadedWhere { it.chapters.duplicates != null && it.hasActiveFilter }.chapters.duplicates?.copies
@@ -160,7 +160,7 @@ class DetailsDuplicateMarksConformanceTest {
                 val adapter = NovelEntryAdapter(
                     harness.openDetails(novelId),
                     mockk(relaxed = true),
-                    showingDuplicates(ContentType.NOVELS),
+                    showingDuplicates(StoredType.NOVELS),
                     noVolumePicking(),
                 )
                 adapter.loadedWhere { state ->

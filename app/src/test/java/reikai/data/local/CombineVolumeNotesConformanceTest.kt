@@ -15,7 +15,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 import reikai.util.resetVirtualDispatchers
 import reikai.util.restubDefaultDispatcher
@@ -26,7 +26,7 @@ import reikai.util.virtualDispatchers
  * novels each, through the real engine on both. Loose files cases are manga's only: a novel has no loose files.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class CombineVolumeNotesConformanceTest(private val type: ContentType) {
+class CombineVolumeNotesConformanceTest(private val type: StoredType) {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -37,7 +37,7 @@ class CombineVolumeNotesConformanceTest(private val type: ContentType) {
     @Before
     fun setUp() {
         virtualDispatchers()
-        world = if (type == ContentType.NOVELS) NovelCombineWorld(context) else MangaCombineWorld(context)
+        world = if (type == StoredType.NOVELS) NovelCombineWorld(context) else MangaCombineWorld(context)
         runTest { world.open(tmp, mapOf(KEPT to "Kept", OTHER to "Other", THIRD to "Third")) }
         restubDefaultDispatcher()
     }
@@ -283,7 +283,7 @@ class CombineVolumeNotesConformanceTest(private val type: ContentType) {
 
     /** Loose files is manga's only: a novel's every book is a volume, so a novel declares the case unsupported. */
     private fun mangaOnly(): MangaCombineWorld {
-        assumeTrue("A novel has no loose files", type == ContentType.MANGA)
+        assumeTrue("A novel has no loose files", type == StoredType.MANGA)
         return world as MangaCombineWorld
     }
 
@@ -294,6 +294,6 @@ class CombineVolumeNotesConformanceTest(private val type: ContentType) {
 
         @JvmStatic
         @Parameters(name = "{0}")
-        fun types() = listOf(ContentType.MANGA, ContentType.NOVELS).map { arrayOf<Any>(it) }
+        fun types() = listOf(StoredType.MANGA, StoredType.NOVELS).map { arrayOf<Any>(it) }
     }
 }

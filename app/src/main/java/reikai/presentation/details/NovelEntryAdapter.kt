@@ -10,7 +10,7 @@ import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.seriesAltTitles
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.NovelChapterListEntry
@@ -67,7 +67,7 @@ class NovelEntryAdapter(
 
     private val duplicatesMemo = DuplicateMarksMemo<NovelChapter>()
 
-    private val volumeInputs = DetailsVolumeInputs(volumePicking, ContentType.NOVELS)
+    private val volumeInputs = DetailsVolumeInputs(volumePicking, StoredType.NOVELS)
 
     override val state: StateFlow<EntryDetailsScreenState> =
         model.neutralDetailsState(model.state, duplicateMarking.marks, volumeInputs) { state, marks ->

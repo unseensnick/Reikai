@@ -1,7 +1,7 @@
 package reikai.data.local
 
 import eu.kanade.tachiyomi.util.storage.DiskUtil
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.novel.export.epubFileName
 import reikai.storage.freeName
 
@@ -25,7 +25,7 @@ data class LocalFileNames(val series: Rename, val volumes: List<Rename>, val tak
  * one format for both types. A loose book with no other volume is the series itself and takes the title.
  */
 fun localFileNames(
-    type: ContentType,
+    type: StoredType,
     folder: String,
     title: String,
     labels: List<Pair<String, String>>,
@@ -37,7 +37,7 @@ fun localFileNames(
     val taken = mutableSetOf<String>()
     val volumes = labels.map { (key, label) ->
         // A book's name keeps room for its extension, so a long title is cut before ".epub", never through it.
-        val name = if (type == ContentType.NOVELS) {
+        val name = if (type == StoredType.NOVELS) {
             organizedBookName(title, label)
         } else {
             organizedVolumeFolder(title, label)

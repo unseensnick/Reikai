@@ -8,7 +8,7 @@ import kotlinx.coroutines.async
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
@@ -60,7 +60,7 @@ class LocalSeriesRelink(
      * nothing; whether the folder is missing is read from that trusted listing, never a document's own query,
      * which a provider hiccup answers "absent" to.
      */
-    suspend fun candidates(type: ContentType, id: Long): List<String>? = withIOContext {
+    suspend fun candidates(type: StoredType, id: Long): List<String>? = withIOContext {
         val series = address(type, id) ?: return@withIOContext emptyList()
         val listed = storageManager.localRoot(type)?.listOrNull(context) ?: return@withIOContext emptyList()
         if (listed.any { it.name == series }) return@withIOContext null
@@ -72,7 +72,7 @@ class LocalSeriesRelink(
      * that is not local ([isLocal]), one with no folder holding its files, or the question failing too, which must
      * not throw out of the failure handler that asks it. Both details screens ask it.
      */
-    suspend fun offerAfterFailure(type: ContentType, id: Long, isLocal: Boolean): List<String>? =
+    suspend fun offerAfterFailure(type: StoredType, id: Long, isLocal: Boolean): List<String>? =
         if (isLocal) runCatchingCancellable { candidates(type, id) }.getOrNull()?.takeIf { it.isNotEmpty() } else null
 
     /**
@@ -80,7 +80,7 @@ class LocalSeriesRelink(
      * caller runs it on the app scope, so a closed screen does not cut the link off. Both details screens call it.
      */
     suspend fun relinkThenRefresh(
-        type: ContentType,
+        type: StoredType,
         id: Long,
         folder: String,
         refresh: suspend () -> Unit,
@@ -94,7 +94,7 @@ class LocalSeriesRelink(
      * Checked again under the lock that the old folder is still gone and [folder] still holds the files, since
      * the user may have put things back between the question and the answer.
      */
-    suspend fun relink(type: ContentType, id: Long, folder: String): LocalMoveResult = withIOContext {
+    suspend fun relink(type: StoredType, id: Long, folder: String): LocalMoveResult = withIOContext {
         val series = address(type, id) ?: return@withIOContext failed("No such series")
         seriesLocks.withSeries(type, listOf(series, folder)) {
             val listed = storageManager.localRoot(type)?.listOrNull(context)
@@ -117,7 +117,7 @@ class LocalSeriesRelink(
      * The folders series [id]'s group lists that the local folder no longer holds: renamed or removed outside the
      * app. Empty where the local folder cannot be listed whole, since a short listing would name present ones.
      */
-    suspend fun missingMembers(type: ContentType, id: Long): List<String> = withIOContext {
+    suspend fun missingMembers(type: StoredType, id: Long): List<String> = withIOContext {
         val series = address(type, id) ?: return@withIOContext emptyList()
         val listed = storageManager.localRoot(type)?.listOrNull(context) ?: return@withIOContext emptyList()
         LocalGroups(owners.all(type)).missingMembers(series, listed.mapNotNull { it.name }).toList()
@@ -127,7 +127,7 @@ class LocalSeriesRelink(
      * Where series [id]'s missing member [member] may have gone: the folders holding every chapter file it lists from
      * there, for the user to pick from, as [candidates] finds a series' own; none another series lists or holds.
      */
-    suspend fun memberCandidates(type: ContentType, id: Long, member: String): List<String> = withIOContext {
+    suspend fun memberCandidates(type: StoredType, id: Long, member: String): List<String> = withIOContext {
         val listed = storageManager.localRoot(type)?.listOrNull(context) ?: return@withIOContext emptyList()
         candidatesIn(type, id, member, listed)
     }
@@ -136,7 +136,7 @@ class LocalSeriesRelink(
      * Every entry of the local folder the user may link [member] to by hand: its folders, or its books for a loose
      * book, none another series lists or holds. Only inside the local folder, which is all a series can address.
      */
-    suspend fun memberChoices(type: ContentType, member: String): List<String> = withIOContext {
+    suspend fun memberChoices(type: StoredType, member: String): List<String> = withIOContext {
         val listed = storageManager.localRoot(type)?.listOrNull(context) ?: return@withIOContext emptyList()
         val taken = localNamesHeld(type, chapterMoves, owners)
         val book = isLooseBook(type, member)
@@ -155,10 +155,10 @@ class LocalSeriesRelink(
      * is there and free, and the series holds [member] whole, since a folder another series lists from too is that
      * series' to link. On the app scope, so a screen closing does not cut it off.
      */
-    suspend fun relinkMember(type: ContentType, id: Long, member: String, to: String): LocalMoveResult =
+    suspend fun relinkMember(type: StoredType, id: Long, member: String, to: String): LocalMoveResult =
         appScope.async { linkMember(type, id, member, to) }.await()
 
-    private suspend fun linkMember(type: ContentType, id: Long, member: String, to: String) = withIOContext {
+    private suspend fun linkMember(type: StoredType, id: Long, member: String, to: String) = withIOContext {
         val series = address(type, id) ?: return@withIOContext failed("No such series")
         seriesLocks.withSeries(type, listOf(series, to)) {
             val names = storageManager.localRoot(type)?.listOrNull(context)?.mapNotNull { it.name }
@@ -189,14 +189,14 @@ class LocalSeriesRelink(
     }
 
     // Every volume key series [id] keeps a saved order, name or picked chip under.
-    private suspend fun volumeKeys(type: ContentType, id: Long, series: String): Set<String> =
+    private suspend fun volumeKeys(type: StoredType, id: Long, series: String): Set<String> =
         owners.loadedVolumes(type)[series].orEmpty().map { it.key }.toSet() +
             listOfNotNull(volumePicks.loadedPicks(type)[id])
 
     private fun failed(reason: String) = LocalMoveResult.Failed(IllegalStateException(reason))
 
     /** The candidates among [listed], the local root's trusted listing; a folder that cannot be listed whole is none. */
-    private suspend fun candidatesIn(type: ContentType, id: Long, folder: String, listed: List<UniFile>): List<String> {
+    private suspend fun candidatesIn(type: StoredType, id: Long, folder: String, listed: List<UniFile>): List<String> {
         // Only the chapters in [folder]: a group's others sit in folders that did not move.
         val paths = localChapterUrls(type, id, novelChapterRepository, chapterRepository).filter {
             chapterVolumeUnit(type, it)?.first ==
@@ -231,12 +231,12 @@ class LocalSeriesRelink(
     }
 
     /** A chapter [url]'s file under the series folder, or null for a loose book's, which is the series itself. */
-    private fun relativePath(type: ContentType, series: String, url: String): String? = when (type) {
-        ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)
+    private fun relativePath(type: StoredType, series: String, url: String): String? = when (type) {
+        StoredType.NOVELS -> LocalNovelSource.parseChapterPath(url)
             ?.let { (folder, book) -> book.takeIf { localVolumeContainer(type, folder, book).isNotEmpty() } }
         else -> localVolumeChapter(url)?.let { "${it.volume}/${it.file}" } ?: url.substringAfter('/')
     }
 
-    private suspend fun address(type: ContentType, id: Long): String? =
+    private suspend fun address(type: StoredType, id: Long): String? =
         localSeriesRow(type, id, mangaRepository, novelRepository)?.series?.folder
 }

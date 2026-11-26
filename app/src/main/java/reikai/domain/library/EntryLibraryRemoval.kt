@@ -45,7 +45,7 @@ abstract class EntryLibraryRemoval(
     suspend fun finish(ids: List<Long>) {
         if (ids.isEmpty()) return
         deleteCovers(ids)
-        localVolumes().handBack(contentType, ids)
+        localVolumes().handBack(storedType, ids)
     }
 
     private suspend fun write(favoriteAt: Map<Long, Instant?>): Boolean = writeFavoriteAt(favoriteAt).also { written ->
@@ -57,9 +57,9 @@ abstract class EntryLibraryRemoval(
     }
 
     /** The type this removal takes out, which every entry id it writes about is of. */
-    abstract val contentType: ContentType
+    abstract val storedType: StoredType
 
-    private fun entryId(id: Long): EntryId = EntryId.of(contentType, id)
+    private fun entryId(id: Long): EntryId = EntryId.of(storedType, id)
 
     /** When each stored row among [ids] joined the library, in one read; a row not in it or gone is left out. */
     protected abstract suspend fun favoritesAt(ids: List<Long>): Map<Long, Instant>

@@ -2,7 +2,7 @@ package reikai.domain.local
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /**
  * A local file operation whose disk step and row step cannot share a transaction, written down before the
@@ -113,10 +113,10 @@ sealed interface LocalFileJournalPlan {
     }
 }
 
-data class LocalFileJournalEntry(val id: Long, val type: ContentType, val plan: LocalFileJournalPlan)
+data class LocalFileJournalEntry(val id: Long, val type: StoredType, val plan: LocalFileJournalPlan)
 
 interface LocalFileJournal {
-    suspend fun insert(type: ContentType, plan: LocalFileJournalPlan): Long
+    suspend fun insert(type: StoredType, plan: LocalFileJournalPlan): Long
     suspend fun update(id: Long, plan: LocalFileJournalPlan)
     suspend fun delete(id: Long)
     suspend fun all(): List<LocalFileJournalEntry>

@@ -13,7 +13,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.novel.model.NovelUpdate
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -52,8 +53,8 @@ class LibraryHiddenTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `leaving the library drops the hide`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `leaving the library drops the hide`(type: StoredType) = runTest {
         hides.hide(type, listOf(ID))
         favourite(type, ID, on = false)
 
@@ -61,8 +62,8 @@ class LibraryHiddenTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `an update that leaves the favourite alone keeps the hide`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `an update that leaves the favourite alone keeps the hide`(type: StoredType) = runTest {
         hides.hide(type, listOf(ID))
         notes(type, ID)
 
@@ -70,8 +71,8 @@ class LibraryHiddenTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `deleting the entry deletes its hide`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `deleting the entry deletes its hide`(type: StoredType) = runTest {
         hides.hide(type, listOf(ID))
         deleteEntry(type, ID)
 
@@ -79,8 +80,8 @@ class LibraryHiddenTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `re-adding a removed member shows its whole group`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `re-adding a removed member shows its whole group`(type: StoredType) = runTest {
         hiddenPair(type)
         favourite(type, SIBLING, on = false)
         favourite(type, SIBLING, on = true)
@@ -89,68 +90,72 @@ class LibraryHiddenTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a new member merged into a hidden group shows the group`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `a new member merged into a hidden group shows the group`(type: StoredType) = runTest {
         hiddenPair(type)
-        groups.merge(type, listOf(ID, NEWCOMER))
+        groups.merge(type.contentType, listOf(ID, NEWCOMER))
 
         hidden(type) shouldBe emptySet()
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `merging two hidden entries into a new group shows them`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `merging two hidden entries into a new group shows them`(type: StoredType) = runTest {
         hides.hide(type, listOf(ID, SIBLING))
-        groups.createGroup(type, listOf(ID, SIBLING))
+        groups.createGroup(type.contentType, listOf(ID, SIBLING))
 
         hidden(type) shouldBe emptySet()
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a migration target taking a member's place is a swap that keeps the hide`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `a migration target taking a member's place is a swap that keeps the hide`(type: StoredType) = runTest {
         hiddenPair(type)
-        groups.replaceInGroup(type, SIBLING, NEWCOMER) {}
+        groups.replaceInGroup(type.contentType, SIBLING, NEWCOMER) {}
 
         hidden(type) shouldBe setOf(ID, SIBLING)
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a migration target bringing its own group shows the group it joins`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `a migration target bringing its own group shows the group it joins`(type: StoredType) = runTest {
         hiddenPair(type)
-        groups.createGroup(type, listOf(NEWCOMER, PARTNER))
+        groups.createGroup(type.contentType, listOf(NEWCOMER, PARTNER))
         hides.hide(type, listOf(NEWCOMER, PARTNER))
-        groups.replaceInGroup(type, SIBLING, NEWCOMER) {}
+        groups.replaceInGroup(type.contentType, SIBLING, NEWCOMER) {}
 
         // The replaced member left the group, so its own row is the one left; the favourite swap drops it.
         hidden(type) shouldBe setOf(SIBLING)
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `reordering a hidden group's sources keeps it hidden`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `reordering a hidden group's sources keeps it hidden`(type: StoredType) = runTest {
         hiddenPair(type)
-        groups.setSourceOrder(type, checkNotNull(groups.getGroupId(type, ID)), listOf(SIBLING, ID))
+        groups.setSourceOrder(
+            type.contentType,
+            checkNotNull(groups.getGroupId(type.contentType, ID)),
+            listOf(SIBLING, ID),
+        )
 
         hidden(type) shouldBe setOf(ID, SIBLING)
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `undoing a split of a hidden group keeps it hidden`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `undoing a split of a hidden group keeps it hidden`(type: StoredType) = runTest {
         hiddenPair(type)
-        groups.removeFromGroup(type, listOf(SIBLING))
-        groups.materializeGroup(type, listOf(ID, SIBLING), overrideSourceRanking = false)
+        groups.removeFromGroup(type.contentType, listOf(SIBLING))
+        groups.materializeGroup(type.contentType, listOf(ID, SIBLING), overrideSourceRanking = false)
 
         hidden(type) shouldBe setOf(ID, SIBLING)
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `the favourite trigger and the join's query clear the same rows`(type: ContentType) = runTest {
-        val group = checkNotNull(groups.createGroup(type, listOf(ID, SIBLING)))
-        groups.createGroup(type, listOf(NEWCOMER, PARTNER))
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `the favourite trigger and the join's query clear the same rows`(type: StoredType) = runTest {
+        val group = checkNotNull(groups.createGroup(type.contentType, listOf(ID, SIBLING)))
+        groups.createGroup(type.contentType, listOf(NEWCOMER, PARTNER))
         val everyone = listOf(ID, SIBLING, NEWCOMER, PARTNER)
 
         hides.hide(type, everyone)
@@ -167,8 +172,8 @@ class LibraryHiddenTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `the hidden set re-emits when the trigger clears a group`(type: ContentType) = runTest {
+    @EnumSource(value = StoredType::class, names = ["MANGA", "NOVELS"])
+    fun `the hidden set re-emits when the trigger clears a group`(type: StoredType) = runTest {
         hiddenPair(type)
         favourite(type, SIBLING, on = false)
         val emissions = Channel<Set<Long>>(Channel.UNLIMITED)
@@ -183,12 +188,12 @@ class LibraryHiddenTest {
     }
 
     /** [ID] and [SIBLING] in one group, both hidden. */
-    private suspend fun hiddenPair(type: ContentType) {
-        groups.createGroup(type, listOf(ID, SIBLING))
+    private suspend fun hiddenPair(type: StoredType) {
+        groups.createGroup(type.contentType, listOf(ID, SIBLING))
         hides.hide(type, listOf(ID, SIBLING))
     }
 
-    private suspend fun hidden(type: ContentType): Set<Long> = hides.subscribe(type).first()
+    private suspend fun hidden(type: StoredType): Set<Long> = hides.subscribe(type).first()
 
     private suspend fun exec(sql: String) = driver.execute(null, sql, 0).await()
 
@@ -205,28 +210,28 @@ class LibraryHiddenTest {
         )
     }
 
-    private suspend fun favourite(type: ContentType, id: Long, on: Boolean) {
+    private suspend fun favourite(type: StoredType, id: Long, on: Boolean) {
         val at = if (on) Clock.System.now() else null
         when (type) {
-            ContentType.NOVELS -> NovelRepositoryImpl(database).update(NovelUpdate(id) { favoriteAt = at })
+            StoredType.NOVELS -> NovelRepositoryImpl(database).update(NovelUpdate(id) { favoriteAt = at })
             else -> MangaRepositoryImpl(database).update(MangaUpdate(id) { favoriteAt = at })
         }
     }
 
-    private suspend fun notes(type: ContentType, id: Long) {
+    private suspend fun notes(type: StoredType, id: Long) {
         when (type) {
-            ContentType.NOVELS -> NovelRepositoryImpl(database).update(NovelUpdate(id) { notes = "note" })
+            StoredType.NOVELS -> NovelRepositoryImpl(database).update(NovelUpdate(id) { notes = "note" })
             else -> MangaRepositoryImpl(database).update(MangaUpdate(id) { notes = "note" })
         }
     }
 
-    private suspend fun showGroup(type: ContentType, groupId: Long) = when (type) {
-        ContentType.NOVELS -> database.library_hiddenQueries.showNovelGroup(groupId)
+    private suspend fun showGroup(type: StoredType, groupId: Long) = when (type) {
+        StoredType.NOVELS -> database.library_hiddenQueries.showNovelGroup(groupId)
         else -> database.library_hiddenQueries.showMangaGroup(groupId)
     }
 
-    private suspend fun deleteEntry(type: ContentType, id: Long) = when (type) {
-        ContentType.NOVELS -> exec("DELETE FROM novels WHERE _id = $id")
+    private suspend fun deleteEntry(type: StoredType, id: Long) = when (type) {
+        StoredType.NOVELS -> exec("DELETE FROM novels WHERE _id = $id")
         else -> exec("DELETE FROM manga WHERE id = $id")
     }
 

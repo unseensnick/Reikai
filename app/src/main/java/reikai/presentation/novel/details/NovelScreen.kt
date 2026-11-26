@@ -29,6 +29,7 @@ import reikai.data.local.LocalImport
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -95,7 +96,7 @@ fun NovelScreen(novelId: Long, fromSource: Boolean) {
             val graph = context.appGraph
             val duplicates = viewModel.detailsDuplicateMarking(
                 graph,
-                ContentType.NOVELS,
+                StoredType.NOVELS,
                 graph.novelPreferences.readerSkipDuplicateChapters(),
             )
             NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, graph.volumePicking)

@@ -5,7 +5,7 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.core.common.util.system.ImageUtil
 
 /** How picked files name the series they become. */
@@ -32,7 +32,7 @@ class LocalImportSeriesTest {
     fun `a lone EPUB volume is named after its series, as it would be beside its siblings`() {
         val volume = LocalImport.ReadFile(
             file = ImportFile(mockk(), "foo-4.epub", 1L),
-            type = ContentType.NOVELS,
+            type = StoredType.NOVELS,
             series = "Foo",
             seriesIndex = 4.0,
             author = null,

@@ -4,7 +4,7 @@ import dev.zacsweers.metro.Inject
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.download.NovelRemovableDownloads
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.expandToUnits
 import reikai.domain.novel.NovelChapterRepository
@@ -59,7 +59,7 @@ class DeleteNovelChaptersBehindReader(
             stitch,
             libraryPreferences,
             incognito,
-            copyMarks.loadedMarks(ContentType.NOVELS),
+            copyMarks.loadedMarks(StoredType.NOVELS),
         )
             .map { it.copy(read = true) }
         val removable = removableDownloads(listOf(target) + duplicates)

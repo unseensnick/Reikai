@@ -9,7 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.exec
 import reikai.domain.chapter.Revival
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import java.io.File
@@ -27,14 +27,14 @@ class ChapterTombstoneGrowthTest {
     lateinit var tmp: File
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `removing and reviving a whole library repeatedly leaves nothing behind`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `removing and reviving a whole library repeatedly leaves nothing behind`(type: StoredType) = runTest {
         val driver = JdbcSqliteDriver("jdbc:sqlite:${File(tmp, "$type.db").absolutePath}")
         driver.exec("PRAGMA foreign_keys = ON")
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
         val repository = ChapterTombstoneRepositoryImpl(database)
-        val novel = type == ContentType.NOVELS
+        val novel = type == StoredType.NOVELS
         database.transaction { (1..SERIES).forEach { owner -> seedOwner(driver, novel, owner.toLong()) } }
         val kept = mutableListOf<Pair<Long, Long>>()
 

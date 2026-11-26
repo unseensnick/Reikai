@@ -3,7 +3,7 @@ package reikai.data.local
 import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localVolumeContainer
 import reikai.novel.local.LocalNovelSource
@@ -29,14 +29,14 @@ class LocalChapterFiles(
 ) {
 
     /** The address prefix of the container [url] is read out of, or null for a chapter that is its own file. */
-    fun containerOf(type: ContentType, url: String): String? = when (type) {
-        ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)
+    fun containerOf(type: StoredType, url: String): String? = when (type) {
+        StoredType.NOVELS -> LocalNovelSource.parseChapterPath(url)
             ?.let { (series, volume) -> LocalNovelSource.volumePathPrefix(series, volume) }
         else -> url.takeIf(::isLocalVolumeExtras)
     }
 
     /** The names in the type's local folder, from a listing trusted whole; one that cannot be trusted fails the refresh. */
-    fun rootNames(type: ContentType): Set<String> =
+    fun rootNames(type: StoredType): Set<String> =
         (
             storageManager.localRoot(
                 type,
@@ -49,16 +49,16 @@ class LocalChapterFiles(
     fun listings(): Listings = Listings()
 
     inner class Listings {
-        private val entries = HashMap<Pair<ContentType, List<String>>, Map<String, UniFile>?>()
+        private val entries = HashMap<Pair<StoredType, List<String>>, Map<String, UniFile>?>()
 
         /** Whether the file the chapter at [url] is read from is in its folder, by that folder's trusted listing. */
-        suspend fun present(type: ContentType, url: String): Boolean = withIOContext {
+        suspend fun present(type: StoredType, url: String): Boolean = withIOContext {
             val (parent, name) = place(type, url) ?: return@withIOContext false
             entriesOf(type, parent)?.containsKey(name) == true
         }
 
         /** The folder at [path] under the type's root as name to file, or null when a listing above shows it absent. */
-        private fun entriesOf(type: ContentType, path: List<String>): Map<String, UniFile>? {
+        private fun entriesOf(type: StoredType, path: List<String>): Map<String, UniFile>? {
             val key = type to path
             // Not getOrPut, which re-runs its body for a stored null, and an absent folder is stored as null.
             if (key in entries) return entries[key]
@@ -72,8 +72,8 @@ class LocalChapterFiles(
     }
 
     /** The folder path and the name of the file [url] is read from, or null for an address no local file has. */
-    private fun place(type: ContentType, url: String): Pair<List<String>, String>? = when (type) {
-        ContentType.NOVELS -> {
+    private fun place(type: StoredType, url: String): Pair<List<String>, String>? = when (type) {
+        StoredType.NOVELS -> {
             val (series, volume) = LocalNovelSource.parseChapterPath(url) ?: return null
             if (!LocalNovelSource.isChildName(series) || !LocalNovelSource.isChildName(volume)) return null
             localVolumeContainer(type, series, volume) to volume

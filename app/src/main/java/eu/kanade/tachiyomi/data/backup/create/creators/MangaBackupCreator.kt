@@ -29,6 +29,7 @@ import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryHiddenRepository
 import reikai.domain.library.LibraryManualOrderRepository
+import reikai.domain.library.StoredType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -83,7 +84,7 @@ class MangaBackupCreator(
 
     // RK: kept states, with their history only under History too, shared with novels
     private val keptStates =
-        ChapterTombstoneBackupParts(ContentType.MANGA, tombstones, Manga::id, BackupManga::chapterTombstones)
+        ChapterTombstoneBackupParts(StoredType.MANGA, tombstones, Manga::id, BackupManga::chapterTombstones)
 
     // RK --> the option gates, the choice of which manga to back up and the chunking live in the driver
     // shared with novels (reikai.data.backup.backupEntries), so this class answers one part at a time for
@@ -101,7 +102,7 @@ class MangaBackupCreator(
 
     override suspend fun base(entries: List<Manga>): List<BackupManga> {
         val excludedScanlatorsByMangaId = mangaRepository.getExcludedScanlatorsByMangaIds(entries.map { it.id })
-        val hiddenIds = libraryHides.subscribe(ContentType.MANGA).first() // RK
+        val hiddenIds = libraryHides.subscribe(StoredType.MANGA).first() // RK
         val backups = entries.map { entry ->
             // Entry for this manga
             val mangaObject = entry.toBackupManga()
@@ -127,7 +128,7 @@ class MangaBackupCreator(
         }
         // A local series' grouping describes the series, not its chapters, so it rides with every entry.
         val batch = entries.zip(backups)
-        batch.writeLocalVolumes(ContentType.MANGA, localVolumes, volumePicks, { it.isLocal() }, Manga::id, Manga::url)
+        batch.writeLocalVolumes(StoredType.MANGA, localVolumes, volumePicks, { it.isLocal() }, Manga::id, Manga::url)
         val looseBySeries = localVolumes.loadedLooseFiles()
         batch.forEach { (entry, backup) -> if (entry.isLocal()) backup.looseFiles = looseBySeries[entry.url]?.stored }
         return backups
@@ -135,8 +136,8 @@ class MangaBackupCreator(
 
     override suspend fun chapters(batch: List<Pair<Manga, BackupManga>>) {
         val mangaIds = batch.map { it.first.id }
-        val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
-        val marksByMangaId = copyMarks.loadedMarks(ContentType.MANGA) // RK
+        val overridesByMangaId = chapterNumberOverrides.getByOwners(StoredType.MANGA, mangaIds)
+        val marksByMangaId = copyMarks.loadedMarks(StoredType.MANGA) // RK
         batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
             val marks = marksByMangaId[entry.id].orEmpty() // RK

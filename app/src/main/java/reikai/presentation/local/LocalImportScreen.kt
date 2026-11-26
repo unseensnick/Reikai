@@ -74,7 +74,8 @@ import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.LocalImport
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.library.labelRes
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.readableColumn
@@ -198,7 +199,7 @@ fun LocalImportScreen(initialUris: List<String>) {
             onDismissRequest = viewModel::dismissCategories,
             onEditCategories = { navigator.push(CategoryRoute) },
             onConfirm = { include, _ -> viewModel.confirmCategories(pick.type, include) },
-            title = stringResource(pick.type.labelRes),
+            title = stringResource(pick.type.contentType.labelRes),
         )
     }
 }
@@ -236,7 +237,7 @@ internal fun ImportList(
     padding: PaddingValues,
     state: LocalImportViewModel.State,
     onRename: (ImportGroup) -> Unit,
-    onType: (String, ContentType) -> Unit,
+    onType: (String, StoredType) -> Unit,
     onRemove: (String) -> Unit,
     onOpen: (EntryId) -> Unit,
     onSeparate: (String, Boolean) -> Unit = { _, _ -> },
@@ -336,7 +337,7 @@ internal fun GroupCard(
     group: ImportGroup,
     enabled: Boolean,
     onRename: () -> Unit,
-    onType: (ContentType) -> Unit,
+    onType: (StoredType) -> Unit,
     onRemove: () -> Unit,
     onSeparate: (Boolean) -> Unit = {},
     onDuplicateChoice: (DuplicateChoice) -> Unit = {},
@@ -385,7 +386,13 @@ internal fun GroupCard(
                 val count = pluralStringResource(MR.plurals.local_import_file_count, group.files.size, group.files.size)
                 Text(
                     // A series that cannot change type says which it is; one that can shows the choice below.
-                    text = if (group.canBeEitherType) count else "$count · ${stringResource(group.type.labelRes)}",
+                    text = if (group.canBeEitherType) {
+                        count
+                    } else {
+                        "$count · ${stringResource(
+                            group.type.contentType.labelRes,
+                        )}"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -393,12 +400,12 @@ internal fun GroupCard(
                 if (group.canBeEitherType) {
                     // Wraps, so a large font size moves a chip to the next line instead of crushing it.
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
-                        listOf(ContentType.NOVELS, ContentType.MANGA).forEach { type ->
+                        listOf(StoredType.NOVELS, StoredType.MANGA).forEach { type ->
                             FilterChip(
                                 selected = group.type == type,
                                 onClick = { onType(type) },
                                 enabled = enabled,
-                                label = { Text(stringResource(type.labelRes)) },
+                                label = { Text(stringResource(type.contentType.labelRes)) },
                             )
                         }
                     }

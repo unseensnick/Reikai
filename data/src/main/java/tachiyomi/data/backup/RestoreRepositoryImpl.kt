@@ -27,6 +27,7 @@ import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ManualOrderPosition
+import reikai.domain.library.StoredType
 import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.model.RestoredHistory
@@ -90,14 +91,14 @@ class RestoreRepositoryImpl(
             },
         )
         restoreChapters(manga, entry.chapters)
-        chapterNumberOverrides.restore(ContentType.MANGA, manga.id, entry.chapterNumberOverrides) // RK
+        chapterNumberOverrides.restore(StoredType.MANGA, manga.id, entry.chapterNumberOverrides) // RK
         val marks = entry.copyMarks.map { (url, mark) -> ChapterCopyMark(manga.id, url, mark) } // RK
-        copyMarks.set(ContentType.MANGA, marks) // RK
+        copyMarks.set(StoredType.MANGA, marks) // RK
         restoreTracking(manga, entry.tracks)
         restoreHistory(manga, entry.history)
         readingLog.restore(ContentType.MANGA, manga.id, entry.readingSessions) // RK
         // RK: after the chapters and their history, so a tombstone meets the row it belongs to
-        tombstones.restore(ContentType.MANGA, manga.id, entry.chapterTombstones, entry.chapters.map { it.url })
+        tombstones.restore(StoredType.MANGA, manga.id, entry.chapterTombstones, entry.chapters.map { it.url })
         restoreExcludedScanlators(manga, entry.excludedScanlators)
         // RK --> an entry without either leaves the device's own alone, as the forks do
         entry.searchMetadata?.let { mangaMetadataRepository.insertFlatMetadata(it.forManga(manga.id)) }

@@ -7,7 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 import tachiyomi.domain.manga.model.Manga
 
@@ -273,8 +273,8 @@ class EntryVolumesTest {
     /** Only a novel's group lists a book as a member; a manga folder is a folder whatever its name. */
     @Test
     fun `a missing member named like a book is a file only for a novel`() {
-        val manga = missingVolumes(ContentType.MANGA, listOf("Extras.epub"), emptyList()).single().isFile
-        val novel = missingVolumes(ContentType.NOVELS, listOf("Extras.epub"), emptyList()).single().isFile
+        val manga = missingVolumes(StoredType.MANGA, listOf("Extras.epub"), emptyList()).single().isFile
+        val novel = missingVolumes(StoredType.NOVELS, listOf("Extras.epub"), emptyList()).single().isFile
 
         (manga to novel) shouldBe (false to true)
     }

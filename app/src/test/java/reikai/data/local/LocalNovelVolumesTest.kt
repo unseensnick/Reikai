@@ -40,7 +40,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.rows
 import reikai.domain.chapter.InMemoryChapterCopyMarks
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.merge.ReconcileMergedChapters
@@ -214,7 +214,7 @@ class LocalNovelVolumesTest {
         runTest {
             markRead("Other", "Other 1.epub")
 
-            val move = onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
+            val move = onApp { combine.combine(StoredType.NOVELS, series(KEPT), listOf(series(OTHER))) }
 
             listOf(move.result is LocalMoveResult.Moved, books(KEPT), readBooks(KEPT), books(OTHER), takenOut) shouldBe
                 listOf(
@@ -229,7 +229,7 @@ class LocalNovelVolumesTest {
     @Test
     fun `a combine's Undo gives the other series its books back, read`() = runTest {
         markRead("Other", "Other 1.epub")
-        val move = onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
+        val move = onApp { combine.combine(StoredType.NOVELS, series(KEPT), listOf(series(OTHER))) }
 
         val undone = onApp { move.undo() }
 
@@ -243,7 +243,7 @@ class LocalNovelVolumesTest {
         refresh(KEPT)
         markRead("Kept", "Kept 2.epub")
 
-        val move = onApp { combine.splitOut(ContentType.NOVELS, series(KEPT), listOf("Kept 2.epub"), "Split") }
+        val move = onApp { combine.splitOut(StoredType.NOVELS, series(KEPT), listOf("Kept 2.epub"), "Split") }
         val split = novels.getByUrlAndSource("Split", LocalNovelSource.ID)!!.id
 
         listOf(move.created == split, root.list()!!.sorted(), books(KEPT), readBooks(split)) shouldBe
@@ -256,10 +256,10 @@ class LocalNovelVolumesTest {
         book("Kept/Kept 2.epub")
         refresh(KEPT)
         markRead("Kept", "Kept 2.epub")
-        onApp { combine.splitOut(ContentType.NOVELS, series(KEPT), listOf("Kept 2.epub"), "Split") }
+        onApp { combine.splitOut(StoredType.NOVELS, series(KEPT), listOf("Kept 2.epub"), "Split") }
         val split = novels.getByUrlAndSource("Split", LocalNovelSource.ID)!!.id
 
-        onApp { combine.handBack(ContentType.NOVELS, listOf(split)) }
+        onApp { combine.handBack(StoredType.NOVELS, listOf(split)) }
 
         readBooks(KEPT) to driver.rows("SELECT count(*) FROM local_volume_owner") { it.getLong(0)!! } shouldBe
             (listOf("Kept/Kept 2.epub") to listOf(0L))
@@ -276,7 +276,7 @@ class LocalNovelVolumesTest {
                 "VALUES (8, '${LocalNovelSource.ID}', 'Gone', 'Gone', 0, 0, 0)",
         )
 
-        combine.library(ContentType.NOVELS).map { it.id }.sorted() shouldBe listOf(KEPT, OTHER)
+        combine.library(StoredType.NOVELS).map { it.id }.sorted() shouldBe listOf(KEPT, OTHER)
     }
 
     /** A backup made after Other was combined into Kept, restored where Other is still a series of its own. */
@@ -286,7 +286,7 @@ class LocalNovelVolumesTest {
 
         onApp {
             combine.restoreOwners(
-                ContentType.NOVELS,
+                StoredType.NOVELS,
                 listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
                 emptyList(),
             )
@@ -300,14 +300,14 @@ class LocalNovelVolumesTest {
     @Test
     fun `a restore from before a combine folds the novels' chapters onto the kept series and keeps it out`() =
         runTest {
-            onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }.finish()
+            onApp { combine.combine(StoredType.NOVELS, series(KEPT), listOf(series(OTHER))) }.finish()
             val url = urls(KEPT, readOnly = false).single { it.startsWith("Other") }
             driver.exec(
                 "INSERT INTO novel_chapters(novel_id, url, name, read, bookmark, chapter_number, source_order, " +
                     "date_fetch) VALUES ($OTHER, '$url', 'c1', 1, 0, 1.0, 0, 0)",
             )
 
-            onApp { combine.restoreOwners(ContentType.NOVELS, emptyList(), listOf("Kept", "Other")) }
+            onApp { combine.restoreOwners(StoredType.NOVELS, emptyList(), listOf("Kept", "Other")) }
 
             Triple(books(OTHER), readBooks(KEPT), takenOut) shouldBe
                 Triple(emptyList(), listOf("Other/Other 1.epub"), listOf(OTHER, OTHER))
@@ -321,7 +321,7 @@ class LocalNovelVolumesTest {
         // A chapter of the book that left it before: kept state with no row.
         tombstone(KEPT, LocalNovelSource.chapterPath("Kept", "Kept 2.epub", EpubChapterKey("OEBPS/gone.xhtml")))
 
-        val result = onApp { combine.deleteVolumes(ContentType.NOVELS, KEPT, listOf("Kept 2.epub")) }
+        val result = onApp { combine.deleteVolumes(StoredType.NOVELS, KEPT, listOf("Kept 2.epub")) }
 
         listOf(result is LocalMoveResult.Moved, File(root, "Kept/Kept 2.epub").exists(), books(KEPT), tombstones(KEPT))
             .shouldBe(listOf(true, false, listOf("Kept/Kept 1.epub"), emptyList<String>()))
@@ -333,7 +333,7 @@ class LocalNovelVolumesTest {
         book("Kept/Kept 2.epub")
         refresh(KEPT)
         markRead("Kept", "Kept 2.epub")
-        onApp { combine.deleteVolumes(ContentType.NOVELS, KEPT, listOf("Kept 2.epub")) }
+        onApp { combine.deleteVolumes(StoredType.NOVELS, KEPT, listOf("Kept 2.epub")) }
         book("Kept/Kept 2.epub")
 
         refresh(KEPT)
@@ -367,14 +367,14 @@ class LocalNovelVolumesTest {
     @Test
     fun `a combine's Undo after an organize moved its books is refused rather than reported done`() = runTest {
         markRead("Other", "Other 1.epub")
-        val move = onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }
+        val move = onApp { combine.combine(StoredType.NOVELS, series(KEPT), listOf(series(OTHER))) }
         val names = combine.organizePlan(
-            ContentType.NOVELS,
+            StoredType.NOVELS,
             series(KEPT),
             "Kept",
             listOf("Kept 1.epub" to "1", "Other/Other 1.epub" to "2"),
         )
-        onApp { combine.organizeFiles(ContentType.NOVELS, series(KEPT), names) }
+        onApp { combine.organizeFiles(StoredType.NOVELS, series(KEPT), names) }
 
         val undone = onApp { move.undo() }
 
@@ -392,8 +392,8 @@ class LocalNovelVolumesTest {
 
     private suspend fun organizeLone(id: Long): LocalVolumeMove {
         val series = series(id)
-        val names = combine.organizePlan(ContentType.NOVELS, series, "Saga", listOf("Lone.epub" to "1"))
-        return onApp { combine.organizeFiles(ContentType.NOVELS, series, names) }
+        val names = combine.organizePlan(StoredType.NOVELS, series, "Saga", listOf("Lone.epub" to "1"))
+        return onApp { combine.organizeFiles(StoredType.NOVELS, series, names) }
     }
 
     // The JVM has no native archive library, so every book opens as one small in-memory book of one chapter.
@@ -425,7 +425,7 @@ class LocalNovelVolumesTest {
             "VALUES ($id, '${LocalNovelSource.ID}', '$url', '$url', 0, 0, 0, 0)",
     )
 
-    private suspend fun series(id: Long) = combine.series(ContentType.NOVELS, listOf(id)).single()
+    private suspend fun series(id: Long) = combine.series(StoredType.NOVELS, listOf(id)).single()
 
     /** Each chapter row's series folder and book, which is what a volume move changes. */
     private suspend fun books(owner: Long, readOnly: Boolean = false) = urls(owner, readOnly).map { url ->

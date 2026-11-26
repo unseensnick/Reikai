@@ -30,7 +30,8 @@ import reikai.domain.chapter.savedVolume
 import reikai.domain.chapter.volumeNumberIn
 import reikai.domain.chapter.volumeRuns
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.entry.storedType
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
@@ -145,37 +146,37 @@ class VolumePicking(
     private val relink: LocalSeriesRelink,
     @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
-    suspend fun library(type: ContentType): List<CombinableSeries> = combine.library(type)
+    suspend fun library(type: StoredType): List<CombinableSeries> = combine.library(type)
 
-    suspend fun seriesFolder(entry: EntryId) = combine.folderOf(entry.contentType, entry.rawId)
+    suspend fun seriesFolder(entry: EntryId) = combine.folderOf(entry.storedType, entry.rawId)
 
     /** Deletes [entry]'s volumes [keys] from the device, for good. */
     suspend fun deleteVolumes(entry: EntryId, keys: List<String>): LocalMoveResult =
-        combine.deleteVolumes(entry.contentType, entry.rawId, keys)
+        combine.deleteVolumes(entry.storedType, entry.rawId, keys)
 
     suspend fun series(entry: EntryId): CombinableSeries? =
-        combine.series(entry.contentType, listOf(entry.rawId)).firstOrNull()
+        combine.series(entry.storedType, listOf(entry.rawId)).firstOrNull()
 
     /** Moves [others] into [series] as its volumes. */
     suspend fun addVolumes(
-        type: ContentType,
+        type: StoredType,
         series: CombinableSeries,
         others: List<CombinableSeries>,
     ): LocalVolumeMove =
         combine.combine(type, series, others)
 
     /** Takes [series]' volumes [keys] out into one series of their own named [title]. */
-    suspend fun splitOut(type: ContentType, series: CombinableSeries, keys: List<String>, title: String) =
+    suspend fun splitOut(type: StoredType, series: CombinableSeries, keys: List<String>, title: String) =
         combine.splitOut(type, series, keys, title)
 
-    suspend fun cover(type: ContentType, series: String, key: String): Any? = files.cover(type, series, key)
+    suspend fun cover(type: StoredType, series: String, key: String): Any? = files.cover(type, series, key)
 
-    suspend fun description(type: ContentType, series: String, key: String): String? =
+    suspend fun description(type: StoredType, series: String, key: String): String? =
         files.description(type, series, key)
 
-    fun picks(type: ContentType): StateFlow<Map<Long, String>> = picks.picks(type)
+    fun picks(type: StoredType): StateFlow<Map<Long, String>> = picks.picks(type)
 
-    fun saved(type: ContentType): StateFlow<Map<String, List<LocalVolume>>> = volumes.volumes(type)
+    fun saved(type: StoredType): StateFlow<Map<String, List<LocalVolume>>> = volumes.volumes(type)
 
     /** How each local manga series shows its loose files; a novel has none. */
     fun looseFiles(): StateFlow<Map<String, LooseFiles>> = volumes.looseFiles()
@@ -189,62 +190,62 @@ class VolumePicking(
     }
 
     fun pick(entry: EntryId, volumeKey: String?) {
-        appScope.launchIO { picks.set(entry.contentType, entry.rawId, volumeKey) }
+        appScope.launchIO { picks.set(entry.storedType, entry.rawId, volumeKey) }
     }
 
     /** Orders [series]' volumes as [keys] lists them, then [relist]s, since the source lists in that order. */
-    fun reorder(type: ContentType, series: String, keys: List<String>, relist: () -> Unit) {
+    fun reorder(type: StoredType, series: String, keys: List<String>, relist: () -> Unit) {
         appScope.launchIO {
             volumes.setOrder(type, series, keys)
             withUIContext { relist() }
         }
     }
 
-    fun rename(type: ContentType, series: String, key: String, label: String?) {
+    fun rename(type: StoredType, series: String, key: String, label: String?) {
         appScope.launchIO { volumes.setLabel(type, series, key, label) }
     }
 
     /** What Organize files gives [entry]'s files from its [title] and volume [labels], with the series it moves. */
     suspend fun renamePlan(entry: EntryId, title: String, labels: List<Pair<String, String>>) =
-        series(entry)?.let { it to combine.organizePlan(entry.contentType, it, title, labels) }
+        series(entry)?.let { it to combine.organizePlan(entry.storedType, it, title, labels) }
 
     /** Moves [series]' files into its folder and names them as [names] gives them. */
-    suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames, title: String?) =
+    suspend fun renameFiles(type: StoredType, series: CombinableSeries, names: LocalFileNames, title: String?) =
         combine.organizeFiles(type, series, names, title)
 
     /** The folders of [entry]'s group renamed or removed outside the app, which its screen asks about. */
-    suspend fun missingMembers(entry: EntryId): List<String> = relink.missingMembers(entry.contentType, entry.rawId)
+    suspend fun missingMembers(entry: EntryId): List<String> = relink.missingMembers(entry.storedType, entry.rawId)
 
     /** The folders [entry]'s missing [member] may now be, by the chapter files they hold. */
     suspend fun memberCandidates(entry: EntryId, member: String) =
-        relink.memberCandidates(entry.contentType, entry.rawId, member)
+        relink.memberCandidates(entry.storedType, entry.rawId, member)
 
     /** Every folder (or book) in the local folder [entry]'s missing [member] could be linked to by hand. */
-    suspend fun memberChoices(entry: EntryId, member: String) = relink.memberChoices(entry.contentType, member)
+    suspend fun memberChoices(entry: EntryId, member: String) = relink.memberChoices(entry.storedType, member)
 
     /** Links [entry]'s missing [member] to [to]. */
     suspend fun relinkMember(entry: EntryId, member: String, to: String): LocalMoveResult =
-        relink.relinkMember(entry.contentType, entry.rawId, member, to)
+        relink.relinkMember(entry.storedType, entry.rawId, member, to)
 
     /** Takes [entry]'s missing [member] out of its group. */
     suspend fun removeMember(entry: EntryId, member: String): LocalMoveResult {
         val own = series(entry) ?: return LocalMoveResult.Failed(IllegalStateException("No such series"))
-        return combine.removeMember(entry.contentType, own, member)
+        return combine.removeMember(entry.storedType, own, member)
     }
 
     /** Whether [entry]'s group is refused until an organize or an import Replace that cannot finish is resolved. */
     suspend fun waitsForRepair(entry: EntryId): Boolean =
-        series(entry)?.let { combine.waitsForRepair(entry.contentType, it) } == true
+        series(entry)?.let { combine.waitsForRepair(entry.storedType, it) } == true
 
     /** Forgets what [entry] waits on, moving no file. */
     suspend fun forgetUnfinished(entry: EntryId) {
         val own = series(entry) ?: return
-        combine.forgetUnfinished(entry.contentType, own)
+        combine.forgetUnfinished(entry.storedType, own)
     }
 
     /** Whether [entry]'s storage can move and rename files, without which Organize files is not offered. */
     suspend fun canOrganize(entry: EntryId): Boolean =
-        series(entry)?.let { combine.canOrganize(entry.contentType, it) } == true
+        series(entry)?.let { combine.canOrganize(entry.storedType, it) } == true
 
     // App-wide, since a request made on one screen (a combine in the library, a split) opens on another.
     private val organizeRequests = MutableStateFlow(emptyMap<EntryId, OrganizeRequest>())
@@ -388,22 +389,22 @@ fun List<EntryChapterListItem.Volume>.duplicateIndexByKey(): Map<String, Int> =
 
 /** What a local volume's own files hold for its page: a cover the cover loader takes, and a description. */
 interface VolumeFiles {
-    suspend fun cover(type: ContentType, series: String, key: String): Any?
+    suspend fun cover(type: StoredType, series: String, key: String): Any?
 
-    suspend fun description(type: ContentType, series: String, key: String): String?
+    suspend fun description(type: StoredType, series: String, key: String): String?
 }
 
 /** A manga volume folder's own picture and ComicInfo summary, or a novel book's cover and description. */
 @Inject
 @ContributesBinding(AppScope::class)
 class LocalVolumeFiles(private val manga: LocalSource, private val novels: LocalNovelSource) : VolumeFiles {
-    override suspend fun cover(type: ContentType, series: String, key: String): Any? = when (type) {
-        ContentType.NOVELS -> novels.volumeCover(series, key)
+    override suspend fun cover(type: StoredType, series: String, key: String): Any? = when (type) {
+        StoredType.NOVELS -> novels.volumeCover(series, key)
         else -> withIOContext { manga.volumeCover(series, key)?.uri }
     }
 
-    override suspend fun description(type: ContentType, series: String, key: String): String? = when (type) {
-        ContentType.NOVELS -> novels.volumeDescription(series, key)
+    override suspend fun description(type: StoredType, series: String, key: String): String? = when (type) {
+        StoredType.NOVELS -> novels.volumeDescription(series, key)
         else -> manga.volumeDescription(series, key)
     }
 }

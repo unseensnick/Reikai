@@ -113,7 +113,7 @@ import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.ResetEntryInfo
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaChapterSettings
@@ -784,7 +784,7 @@ class MangaViewModel(
             // RK --> a local series whose folder is gone may have been renamed outside the app, so the
             // folders holding its files are offered in place of the failure; a failure of that question
             // itself must not throw out of this handler, so it falls back to the message
-            val candidates = localSeriesRelink.offerAfterFailure(ContentType.MANGA, manga.id, manga.isLocal())
+            val candidates = localSeriesRelink.offerAfterFailure(StoredType.MANGA, manga.id, manga.isLocal())
             if (candidates != null) {
                 dialog.value = Dialog.RelinkSeries(manga.title, candidates)
                 return
@@ -805,7 +805,7 @@ class MangaViewModel(
         val manga = successState?.manga ?: return
         appScope.launch {
             localSeriesRelink.relinkThenRefresh(
-                ContentType.MANGA,
+                StoredType.MANGA,
                 manga.id,
                 folder,
                 refresh = { fetchAllFromSource() },
@@ -1370,7 +1370,7 @@ class MangaViewModel(
         val chapter = state.chapters.firstOrNull { it.id == chapterId }?.chapter ?: return
         viewModelScope.launchIO {
             val edit = editChapterNumber.edit(
-                ContentType.MANGA,
+                StoredType.MANGA,
                 chapter.mangaId,
                 chapter.url,
                 chapter.name,

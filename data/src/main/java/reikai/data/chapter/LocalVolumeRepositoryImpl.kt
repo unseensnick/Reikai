@@ -13,13 +13,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.HeldRows
-import reikai.data.toContentType
 import reikai.data.toDbValue
+import reikai.data.toStoredType
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.orderEnd
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 import tachiyomi.data.Database
 
@@ -35,7 +35,7 @@ class LocalVolumeRepositoryImpl(
 
     private val byType = HeldRows(
         queries.getAll { type, series, key, position, label, notes ->
-            Triple(type.toContentType(), series, LocalVolume(key, position, label, notes))
+            Triple(type.toStoredType(), series, LocalVolume(key, position, label, notes))
         }.asFlow()
             .map { query -> query.awaitAsList().groupBy { it.first } }
             .map { rows -> rows.mapValues { (_, typed) -> typed.groupBy({ it.second }, { it.third }) } },
@@ -43,29 +43,29 @@ class LocalVolumeRepositoryImpl(
         emptyMap(),
     )
 
-    private val flows = ContentType.entries.associateWith { type ->
+    private val flows = StoredType.entries.associateWith { type ->
         byType.held.map { it[type].orEmpty() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
     }
 
-    override fun volumes(type: ContentType): StateFlow<Map<String, List<LocalVolume>>> = flows.getValue(type)
+    override fun volumes(type: StoredType): StateFlow<Map<String, List<LocalVolume>>> = flows.getValue(type)
 
-    override suspend fun loadedVolumes(type: ContentType) = byType.loaded()[type].orEmpty()
+    override suspend fun loadedVolumes(type: StoredType) = byType.loaded()[type].orEmpty()
 
-    override suspend fun setOrder(type: ContentType, series: String, keys: List<String>) {
+    override suspend fun setOrder(type: StoredType, series: String, keys: List<String>) {
         database.transaction {
             keys.forEachIndexed { index, key -> queries.setPosition(type.toDbValue(), series, key, index.toLong()) }
         }
     }
 
-    override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) {
+    override suspend fun setLabel(type: StoredType, series: String, key: String, label: String?) {
         queries.setLabel(type.toDbValue(), series, key, label?.trim()?.ifEmpty { null })
     }
 
-    override suspend fun setNotes(type: ContentType, series: String, key: String, notes: String) {
+    override suspend fun setNotes(type: StoredType, series: String, key: String, notes: String) {
         queries.setNotes(type.toDbValue(), series, key, notes.ifBlank { null })
     }
 
-    override suspend fun all(type: ContentType): List<VolumeOwner> =
+    override suspend fun all(type: StoredType): List<VolumeOwner> =
         database.local_volume_ownerQueries.getAll(type.toDbValue()) { folder, volume, owner ->
             VolumeOwner(folder, volume, owner)
         }.awaitAsList()
@@ -90,7 +90,7 @@ class LocalVolumeRepositoryImpl(
         }
     }
 
-    override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {
+    override suspend fun restore(type: StoredType, series: String, volumes: List<LocalVolume>) {
         if (volumes.isEmpty()) return
         database.transaction {
             // The device's ordered volumes the backup does not name, ones added since it was taken, move after

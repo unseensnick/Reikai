@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 
 class ContentTypeColumnTest {
 
@@ -29,6 +31,13 @@ class ContentTypeColumnTest {
     @Test
     fun `an unknown stored value fails loudly`() {
         shouldThrow<IllegalStateException> { 2L.toContentType() }
+    }
+
+    @ParameterizedTest
+    @EnumSource(StoredType::class)
+    fun `a stored type is stored as its content type is`(type: StoredType) {
+        type.toDbValue() shouldBe type.contentType.toDbValue()
+        type.toDbValue().toStoredType() shouldBe type
     }
 
     @Test

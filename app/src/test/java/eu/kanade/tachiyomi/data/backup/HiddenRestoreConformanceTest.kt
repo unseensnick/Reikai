@@ -29,8 +29,9 @@ import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
-import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -132,7 +133,7 @@ class HiddenRestoreConformanceTest {
 data class HiddenRestoreEntry(val url: String, val hidden: Boolean = false)
 
 /** One content type's restore over a fresh in-memory database. */
-abstract class HiddenWorld(private val type: ContentType) : AutoCloseable {
+abstract class HiddenWorld(private val type: StoredType) : AutoCloseable {
     private var driver: JdbcSqliteDriver? = null
     protected lateinit var database: Database
     protected val merges by lazy { MergeGroupRepositoryImpl(database) }
@@ -157,7 +158,7 @@ abstract class HiddenWorld(private val type: ContentType) : AutoCloseable {
     abstract suspend fun hiddenIds(): List<Long>
 
     suspend fun group(vararg urls: String) {
-        merges.createGroup(type, urls.map { idOf(it) })
+        merges.createGroup(type.contentType, urls.map { idOf(it) })
     }
 
     suspend fun hide(vararg urls: String) {
@@ -174,7 +175,7 @@ abstract class HiddenWorld(private val type: ContentType) : AutoCloseable {
     }
 }
 
-class MangaHiddenWorld : HiddenWorld(ContentType.MANGA) {
+class MangaHiddenWorld : HiddenWorld(StoredType.MANGA) {
     override fun toString() = "manga"
 
     override suspend fun device(url: String, favourite: Boolean) {
@@ -222,7 +223,7 @@ class MangaHiddenWorld : HiddenWorld(ContentType.MANGA) {
     }
 }
 
-class NovelHiddenWorld : HiddenWorld(ContentType.NOVELS) {
+class NovelHiddenWorld : HiddenWorld(StoredType.NOVELS) {
     override fun toString() = "novel"
 
     private val novels by lazy { NovelRepositoryImpl(database) }

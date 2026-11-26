@@ -6,7 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
 /** A marking with duplicates switched off, for a details test whose subject is not them. */
@@ -14,7 +14,7 @@ fun noDuplicateMarking(): DuplicateMarking {
     val store = InMemoryPreferenceStore()
     val scope = CoroutineScope(Dispatchers.Unconfined)
     return DuplicateMarking(
-        ContentType.MANGA,
+        StoredType.MANGA,
         InMemoryChapterCopyMarks(),
         store.getBoolean("show_skipped_duplicates", false),
         store.getBoolean("skip_dupe", false),
@@ -28,9 +28,9 @@ fun noVolumePicking() = VolumePicking(
     NoVolumePicks,
     NoLocalVolumes,
     object : VolumeFiles {
-        override suspend fun cover(type: ContentType, series: String, key: String): Any? = null
+        override suspend fun cover(type: StoredType, series: String, key: String): Any? = null
 
-        override suspend fun description(type: ContentType, series: String, key: String): String? = null
+        override suspend fun description(type: StoredType, series: String, key: String): String? = null
     },
     mockk(relaxed = true),
     mockk(relaxed = true),

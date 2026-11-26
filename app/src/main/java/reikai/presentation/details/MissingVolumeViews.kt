@@ -18,7 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import reikai.data.local.isLooseBook
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.localGroupUnit
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -32,7 +32,7 @@ data class MissingVolume(val folder: String, val volume: EntryChapterListItem.Vo
 
 /** [missing]'s folders of a [type] series, each named by its one volume on screen where it held one, else by the folder. */
 internal fun missingVolumes(
-    type: ContentType,
+    type: StoredType,
     missing: List<String>,
     chips: List<EntryChapterListItem.Volume>,
 ): List<MissingVolume> = missing.map { folder ->

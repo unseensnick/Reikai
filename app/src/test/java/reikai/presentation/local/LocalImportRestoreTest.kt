@@ -23,7 +23,7 @@ import reikai.data.local.ImportFile
 import reikai.data.local.ImportGroup
 import reikai.data.local.ImportResult
 import reikai.data.local.LocalImport
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
@@ -141,7 +141,7 @@ class LocalImportRestoreTest {
 
     private fun group() = ImportGroup(
         key = "alpha",
-        type = ContentType.MANGA,
+        type = StoredType.MANGA,
         title = TITLE,
         author = null,
         cover = null,

@@ -49,9 +49,9 @@ import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.download.DownloadIndexRules
-import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
@@ -601,8 +601,8 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         structural(touched)
         val copied = notesOf(others.map { it.first })
         inApp("combine ${others.map { it.second }} into ${kept.second}") {
-            val series = app.combine.series(ContentType.MANGA, listOf(kept.first) + others.map { it.first })
-            val move = app.combine.combine(ContentType.MANGA, series.first(), series.drop(1))
+            val series = app.combine.series(StoredType.MANGA, listOf(kept.first) + others.map { it.first })
+            val move = app.combine.combine(StoredType.MANGA, series.first(), series.drop(1))
             moved(move, touched)
             if (move.result is LocalMoveResult.Moved) combines[move] = kept.second to copied
         }
@@ -619,8 +619,8 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val touched = groupFolders(listOf(folder, title))
         structural(touched)
         inApp("split $keys of $folder out as $title") {
-            val series = app.combine.series(ContentType.MANGA, listOf(id)).single()
-            moved(app.combine.splitOut(ContentType.MANGA, series, keys, title), touched)
+            val series = app.combine.series(StoredType.MANGA, listOf(id)).single()
+            moved(app.combine.splitOut(StoredType.MANGA, series, keys, title), touched)
         }
     }
 
@@ -638,9 +638,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         structural(touched)
         var landed = false
         inApp("organize files of $folder as $title, $labels") {
-            val series = app.combine.series(ContentType.MANGA, listOf(id)).single()
-            val names = app.combine.organizePlan(ContentType.MANGA, series, title, labels)
-            val move = app.combine.organizeFiles(ContentType.MANGA, series, names)
+            val series = app.combine.series(StoredType.MANGA, listOf(id)).single()
+            val names = app.combine.organizePlan(StoredType.MANGA, series, title, labels)
+            val move = app.combine.organizeFiles(StoredType.MANGA, series, names)
             landed = move.result is LocalMoveResult.Moved
             if (landed) renames += move
             moved(move, touched + names.series.to)
@@ -710,7 +710,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val held = before.filterValues { paths -> paths.any { it.drop(2).take(2) in volumes } }.keys
         var clean = false
         inApp("delete volumes $keys of $folder") {
-            val result = app.combine.deleteVolumes(ContentType.MANGA, id, keys)
+            val result = app.combine.deleteVolumes(StoredType.MANGA, id, keys)
             clean = result is LocalMoveResult.Moved
             trace += "    -> ${result::class.simpleName}"
         }
@@ -790,7 +790,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     }
 
     private suspend fun volumeNotes(series: String): Map<String, String> =
-        app.volumes.loadedVolumes(ContentType.MANGA)[series].orEmpty()
+        app.volumes.loadedVolumes(StoredType.MANGA)[series].orEmpty()
             .mapNotNull { volume -> volume.notes?.let { volume.key to it } }.toMap()
 
     private suspend fun notesOf(ids: List<Long>): Set<String> =
@@ -817,7 +817,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val uri = ImportDocuments.uri(id)
         val group = ImportGroup(
             key = id,
-            type = ContentType.MANGA,
+            type = StoredType.MANGA,
             title = joins ?: "Imp${word()}",
             author = null,
             cover = null,
@@ -919,10 +919,10 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val stranded = localManga().filter { !File(local, it.second).exists() }
         val (id, folder) = stranded.randomOrNull(rng) ?: return
         inApp("relink $folder") {
-            val candidates = app.relink.candidates(ContentType.MANGA, id)
+            val candidates = app.relink.candidates(StoredType.MANGA, id)
             trace += "    candidates $candidates"
             val to = candidates?.randomOrNull(rng) ?: return@inApp
-            trace += "    -> ${app.relink.relink(ContentType.MANGA, id, to)}"
+            trace += "    -> ${app.relink.relink(StoredType.MANGA, id, to)}"
         }
     }
 
@@ -948,22 +948,22 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     /** What the missing-volume dialog offers: link to a candidate, link to any folder chosen, or take it out. */
     private suspend fun fixMemberStep() {
         val missing = owned().flatMap { (id, folder) ->
-            app.relink.missingMembers(ContentType.MANGA, id).map { Triple(id, folder, it) }
+            app.relink.missingMembers(StoredType.MANGA, id).map { Triple(id, folder, it) }
         }
         val (id, folder, member) = missing.randomOrNull(rng) ?: return
         val choice = rng.nextInt(3)
         inApp("fix missing member $member of $folder (choice $choice)") {
             val result = when (choice) {
                 0 -> app.combine.removeMember(
-                    ContentType.MANGA,
-                    app.combine.series(ContentType.MANGA, listOf(id)).single(),
+                    StoredType.MANGA,
+                    app.combine.series(StoredType.MANGA, listOf(id)).single(),
                     member,
                 )
                 else -> {
                     val offered = if (choice == 1) {
-                        app.relink.memberCandidates(ContentType.MANGA, id, member)
+                        app.relink.memberCandidates(StoredType.MANGA, id, member)
                     } else {
-                        app.relink.memberChoices(ContentType.MANGA, member)
+                        app.relink.memberChoices(StoredType.MANGA, member)
                     }
                     trace += "    offered $offered"
                     val to = offered.randomOrNull(rng) ?: return@inApp
@@ -974,7 +974,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
                         renamedMembers.entries.filter { it.value == member }
                             .forEach { chaptersUnder(File(local, it.key)).forEach { ch -> ch.uncertain = true } }
                     }
-                    app.relink.relinkMember(ContentType.MANGA, id, member, to).also {
+                    app.relink.relinkMember(StoredType.MANGA, id, member, to).also {
                         if (it is LocalMoveResult.Moved) renamedMembers.entries.removeIf { e -> e.value == member }
                     }
                 }
@@ -1044,7 +1044,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         )
         // Owner rows regroup chapters across series, so the restore applies them once every series is back.
         app.combine.restoreOwners(
-            ContentType.MANGA,
+            StoredType.MANGA,
             batch.flatMap { (_, backup) -> backup.restoredOwners(backup.url) },
             batch.map { (_, backup) -> backup.url },
         )
@@ -1249,9 +1249,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     private suspend fun audit() {
         trace += "  audit"
         localManga().filter { !File(local, it.second).exists() }.forEach { (id, _) ->
-            app.relink.candidates(ContentType.MANGA, id)?.singleOrNull()?.let {
+            app.relink.candidates(StoredType.MANGA, id)?.singleOrNull()?.let {
                 runCatching {
-                    app.relink.relink(ContentType.MANGA, id, it)
+                    app.relink.relink(StoredType.MANGA, id, it)
                 }.onFailure { e -> if (e !is LocalSeriesBlockedException) throw e }
             }
         }
@@ -1294,11 +1294,11 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
 private class DirectLocalVolumes(
     private val database: Database,
 ) : LocalVolumeRepository by LocalVolumeRepositoryImpl(database, CoroutineScope(Job().apply { cancel() })) {
-    private fun ContentType.db() = if (this == ContentType.NOVELS) 1L else 0L
+    private fun StoredType.db() = if (this == StoredType.NOVELS) 1L else 0L
 
-    override fun volumes(type: ContentType) = MutableStateFlow(emptyMap<String, List<LocalVolume>>())
+    override fun volumes(type: StoredType) = MutableStateFlow(emptyMap<String, List<LocalVolume>>())
 
-    override suspend fun loadedVolumes(type: ContentType): Map<String, List<LocalVolume>> =
+    override suspend fun loadedVolumes(type: StoredType): Map<String, List<LocalVolume>> =
         database.local_volumeQueries.getAll().awaitAsList().filter { it.content_type == type.db() }
             .groupBy({ it.series }, { LocalVolume(it.volume_key, it.position, it.label, it.notes) })
 

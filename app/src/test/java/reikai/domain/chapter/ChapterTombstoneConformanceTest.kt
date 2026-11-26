@@ -37,7 +37,7 @@ import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.rows
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
 import reikai.novel.host.ChapterItem
@@ -75,7 +75,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
     private lateinit var database: Database
     private lateinit var tombstones: LocalChapterTombstones
     private val owners = object : LocalVolumeOwnerRepository {
-        override suspend fun all(type: ContentType) = database.local_volume_ownerQueries
+        override suspend fun all(type: StoredType) = database.local_volume_ownerQueries
             .getAll(type.db) { folder, volume, owner -> VolumeOwner(folder, volume, owner) }.awaitAsList()
     }
 
@@ -135,7 +135,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         type.setState(driver, type.memberUrl)
         driver.exec(
             "INSERT INTO local_volume_owner(content_type, folder, volume_key, owner) " +
-                "VALUES (${type.contentType.db}, 'Member', '/', 'Series')",
+                "VALUES (${type.storedType.db}, 'Member', '/', 'Series')",
         )
         type.file(root, type.memberUrl).parentFile!!.deleteRecursively()
 
@@ -227,7 +227,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         val id = type.chapterId(driver, type.url(2))
 
         runCatching {
-            ChapterTombstoneRepositoryImpl(database).capturing(type.contentType, OWNER, listOf(id), emptyList()) {
+            ChapterTombstoneRepositoryImpl(database).capturing(type.storedType, OWNER, listOf(id), emptyList()) {
                 // In a transaction of its own, as the sync's write is, so the failure after it must undo a nested commit
                 database.transactionWithResult { type.deleteRow(database, id) }
                 error("the write failed after the delete")
@@ -279,8 +279,8 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         val sessions: List<Pair<Long, Long>>,
     )
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val storedType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override val marked = State(true, true, 7, 20, 0, READ_AT, 60_000, SESSIONS)
 
             override val memberUrl = "Member/c9.cbz"
@@ -391,7 +391,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
             override suspend fun deleteOwner(driver: JdbcSqliteDriver) =
                 driver.exec("DELETE FROM manga WHERE id = $OWNER")
         },
-        NOVEL(ContentType.NOVELS) {
+        NOVEL(StoredType.NOVELS) {
             override val marked = State(true, true, 4200, 1234, 5000, READ_AT, 60_000, SESSIONS)
 
             override val memberUrl = LocalNovelSource.chapterPath("Member", "Vol9.epub", EpubChapterKey("c9.xhtml"))
@@ -542,7 +542,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         private const val OWNER = 1L
 
         // How the tables store a content type.
-        private val ContentType.db get() = if (this == ContentType.NOVELS) 1L else 0L
+        private val StoredType.db get() = if (this == StoredType.NOVELS) 1L else 0L
         private const val READ_AT = 1_700_000_000_000L
         private val SESSIONS = listOf(1_700_000_000_000L to 30_000L, 1_700_000_100_000L to 30_000L)
         private val UNREAD = State(false, false, 0, 0, 0, null, null, emptyList())

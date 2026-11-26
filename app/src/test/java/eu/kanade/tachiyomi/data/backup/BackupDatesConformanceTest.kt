@@ -28,9 +28,9 @@ import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
-import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.StoredType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -88,8 +88,8 @@ class BackupDatesConformanceTest {
         val readAtOnWire: Long? = null,
     )
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val contentType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override suspend fun backUp(dates: Dates, marks: ChapterCopyMarkRepository): ByteArray {
                 val manga = Manga.create().copy(
                     id = ID,
@@ -167,10 +167,10 @@ class BackupDatesConformanceTest {
                     val marks = InMemoryChapterCopyMarks()
                     mangaRestorer(harness.database, copyMarks = marks)
                         .restore(listOf(ProtoBuf.decodeFromByteArray(BackupManga.serializer(), wire)), emptyList())
-                    marks.loadedMarks(ContentType.MANGA).values.flatMap { it.entries }.associate { it.key to it.value }
+                    marks.loadedMarks(StoredType.MANGA).values.flatMap { it.entries }.associate { it.key to it.value }
                 }
         },
-        NOVEL(ContentType.NOVELS) {
+        NOVEL(StoredType.NOVELS) {
             override suspend fun backUp(dates: Dates, marks: ChapterCopyMarkRepository): ByteArray {
                 val novel = Novel.create().copy(
                     id = ID,
@@ -251,7 +251,7 @@ class BackupDatesConformanceTest {
                 } finally {
                     driver.close()
                 }
-                return marks.loadedMarks(ContentType.NOVELS).values.flatMap { it.entries }.associate {
+                return marks.loadedMarks(StoredType.NOVELS).values.flatMap { it.entries }.associate {
                     it.key to
                         it.value
                 }

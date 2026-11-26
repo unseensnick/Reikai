@@ -11,7 +11,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.lockedAtCurrentAddress
@@ -133,7 +133,7 @@ class UpdateMangaFromRemote(
                     mangaRepository.getMangaById(held.id).url.takeIf { it != held.url }?.let { held.copy(url = it) }
                         ?: held
                 },
-                { url, block -> seriesLocks.withSeries(ContentType.MANGA, url, block) },
+                { url, block -> seriesLocks.withSeries(StoredType.MANGA, url, block) },
                 refresh,
             )
         } catch (e: LocalSeriesBlockedException) {

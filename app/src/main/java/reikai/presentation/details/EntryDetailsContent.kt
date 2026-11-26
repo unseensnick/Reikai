@@ -57,7 +57,7 @@ import reikai.domain.chapter.savedVolume
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.entry.storedType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
@@ -149,7 +149,7 @@ fun EntryDetailsContent(
     var onlyCopies by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(onlyCopies) { behavior.setOnlyCopies(onlyCopies) }
     val copies = CopiesFilter(on = state.volumeViews.onlyCopies) { onlyCopies = !onlyCopies }
-    val type = state.entryId.contentType
+    val type = state.entryId.storedType
     val savedVolumes by behavior.volumePicking.saved(type).collectAsState()
     val looseFiles by behavior.volumePicking.looseFiles().collectAsState()
     val structural = state.volumeViews.structural
@@ -889,7 +889,7 @@ private fun LazyListScope.entryChapterItems(
                 volume = item,
                 onSelect = { behavior.toggleChapterBlock(item.chapterIds) },
                 onMarkRead = { read -> behavior.markChaptersRead(item.chapterIds, read) },
-                coverOf = { behavior.volumePicking.cover(state.entryId.contentType, item.series, item.key) },
+                coverOf = { behavior.volumePicking.cover(state.entryId.storedType, item.series, item.key) },
             )
             is EntryChapterListItem.Chapter -> {
                 // Typed as the stable Chapter, so the lambdas compare it by value rather than by instance.

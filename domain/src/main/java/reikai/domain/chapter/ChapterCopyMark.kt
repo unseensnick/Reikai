@@ -1,7 +1,7 @@
 package reikai.domain.chapter
 
 import kotlinx.coroutines.flow.StateFlow
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /** A hand-made correction to [chapterCopySets] for one chapter, for when the rule folds or misses one. */
 sealed interface CopyMark {
@@ -43,17 +43,17 @@ data class CopyMarkReport(
 
 interface ChapterCopyMarkRepository {
     /** Every mark of [type] by owner, then url. The marks are made by hand, so the whole set is held. */
-    fun marks(type: ContentType): StateFlow<Map<Long, Map<String, CopyMark>>>
+    fun marks(type: StoredType): StateFlow<Map<Long, Map<String, CopyMark>>>
 
     /** [marks] once the table has been read, for a backup or a finish that must not take the empty seed. */
-    suspend fun loadedMarks(type: ContentType): Map<Long, Map<String, CopyMark>>
+    suspend fun loadedMarks(type: StoredType): Map<Long, Map<String, CopyMark>>
 
     /** One owner's marks by url, read as the table stands, for a sync that runs once per series. */
-    suspend fun loadedMarks(type: ContentType, ownerId: Long): Map<String, CopyMark>
+    suspend fun loadedMarks(type: StoredType, ownerId: Long): Map<String, CopyMark>
 
-    suspend fun set(type: ContentType, marks: List<ChapterCopyMark>)
+    suspend fun set(type: StoredType, marks: List<ChapterCopyMark>)
 
-    suspend fun clear(type: ContentType, ownerId: Long, urls: List<String>)
+    suspend fun clear(type: StoredType, ownerId: Long, urls: List<String>)
 
-    suspend fun report(type: ContentType): List<CopyMarkReport>
+    suspend fun report(type: StoredType): List<CopyMarkReport>
 }

@@ -63,6 +63,7 @@ import reikai.domain.download.SourceContacts
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.StoredType
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelChapterSettings
@@ -589,7 +590,7 @@ class NovelReaderViewModelHarness private constructor(
                 novelRepo,
                 chapterRepo,
                 object : ChapterCopyMarkRepository by copyMarks {
-                    override suspend fun loadedMarks(type: ContentType): Map<Long, Map<String, CopyMark>> {
+                    override suspend fun loadedMarks(type: StoredType): Map<Long, Map<String, CopyMark>> {
                         orderGate?.let { gate ->
                             orderGate = null
                             gate.await()

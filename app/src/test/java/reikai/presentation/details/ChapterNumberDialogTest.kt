@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import reikai.domain.chapter.ChapterNumberEdit
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /** What the number dialog accepts, a chapter's number written with a point or a comma, and what it opens on. */
 class ChapterNumberDialogTest {
@@ -36,5 +36,5 @@ class ChapterNumberDialogTest {
     }
 
     private fun edit(number: Double, suggestion: Double?) =
-        ChapterNumberEdit(ContentType.NOVELS, 1L, "/c", "Chapter", number, sourceNumber = null, suggestion = suggestion)
+        ChapterNumberEdit(StoredType.NOVELS, 1L, "/c", "Chapter", number, sourceNumber = null, suggestion = suggestion)
 }

@@ -48,6 +48,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReleaseInterval
+import reikai.domain.library.StoredType
 import reikai.domain.library.novelCategoryFlagsToMangaLayout
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
@@ -130,13 +131,13 @@ class NovelRestorer(
         val chapters = restoreChapters(novelId, backupNovel.chapters)
         restoreWords(chapters, backupNovel.chapters)
         chapterNumberOverrides.restore(
-            ContentType.NOVELS,
+            StoredType.NOVELS,
             novelId,
             backedUpOverrides(backupNovel.chapters, { it.url }, { it.chapterNumber }, { it.sourceChapterNumber }),
         )
-        backupNovel.restoreLocalVolumes(ContentType.NOVELS, localVolumes, volumePicks, backupNovel.url)
+        backupNovel.restoreLocalVolumes(StoredType.NOVELS, localVolumes, volumePicks, backupNovel.url)
         copyMarks.set(
-            ContentType.NOVELS,
+            StoredType.NOVELS,
             backedUpCopyMarks(backupNovel.chapters, { it.url }, { it.copyMark })
                 .map { (url, mark) -> ChapterCopyMark(novelId, url, mark) },
         )
@@ -153,7 +154,7 @@ class NovelRestorer(
         readingLog.restore(ContentType.NOVELS, novelId, backupNovel.readingSessions.map { it.toUrlReadingSession() })
         // After the chapters and their history, so a tombstone meets the row it belongs to, as manga's does.
         tombstones.restore(
-            ContentType.NOVELS,
+            StoredType.NOVELS,
             novelId,
             backupNovel.chapterTombstones.map { it.toChapterTombstone(ChapterProgress.Percent.FULL) },
             backupNovel.chapters.map { it.url },

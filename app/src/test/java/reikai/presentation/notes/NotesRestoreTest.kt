@@ -33,7 +33,7 @@ import reikai.data.chapter.LocalVolumeRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.entry.EntryId
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
@@ -136,7 +136,7 @@ class NotesRestoreTest(private val editor: Editor) {
             Editor.NOVEL -> Triple(EntryId.Novel(GONE).detailsRoute(), NovelNotesRoute(GONE), BELOW)
             Editor.VOLUME -> Triple(
                 EntryId.Novel(novelId).detailsRoute(),
-                VolumeNotesRoute(ContentType.NOVELS, "Gone", BOOK),
+                VolumeNotesRoute(StoredType.NOVELS, "Gone", BOOK),
                 DETAILS,
             )
         }
@@ -156,14 +156,14 @@ class NotesRestoreTest(private val editor: Editor) {
     private fun screen(): NavKey = when (editor) {
         Editor.MANGA -> MangaNotesRoute(mangaId)
         Editor.NOVEL -> NovelNotesRoute(novelId)
-        Editor.VOLUME -> VolumeNotesRoute(ContentType.NOVELS, SERIES, BOOK)
+        Editor.VOLUME -> VolumeNotesRoute(StoredType.NOVELS, SERIES, BOOK)
     }
 
     private fun write(notes: String) = runTest {
         when (editor) {
             Editor.MANGA -> UpdateMangaNotes(db.mangas)(mangaId, notes)
             Editor.NOVEL -> novels.update(NovelUpdate(novelId) { this.notes = notes })
-            Editor.VOLUME -> volumes.setNotes(ContentType.NOVELS, SERIES, BOOK, notes)
+            Editor.VOLUME -> volumes.setNotes(StoredType.NOVELS, SERIES, BOOK, notes)
         }
     }
 
@@ -173,7 +173,7 @@ class NotesRestoreTest(private val editor: Editor) {
             notes = when (editor) {
                 Editor.MANGA -> GetManga(db.mangas).await(mangaId)!!.notes
                 Editor.NOVEL -> novels.getById(novelId)!!.notes
-                Editor.VOLUME -> volumes.loadedVolumes(ContentType.NOVELS)[SERIES]?.single()?.notes.orEmpty()
+                Editor.VOLUME -> volumes.loadedVolumes(StoredType.NOVELS)[SERIES]?.single()?.notes.orEmpty()
             }
         }
         return notes
@@ -194,7 +194,7 @@ class NotesRestoreTest(private val editor: Editor) {
             },
             VolumeNotesRoute.Model.Factory::class to {
                 object : VolumeNotesRoute.Model.Factory {
-                    override fun create(type: ContentType, series: String, volumeKey: String) =
+                    override fun create(type: StoredType, series: String, volumeKey: String) =
                         VolumeNotesRoute.Model(
                             type,
                             series,

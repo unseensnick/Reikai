@@ -18,7 +18,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -77,11 +77,11 @@ class ChapterNumberRecognitionConformanceTest {
         type.seed(driver)
         type.sync(database, FOUR, NIGHT)
         val stored = type.state(database, NIGHT.first).number
-        editor.save(editor.edit(type.contentType, OWNER, NIGHT.first, NIGHT.second, stored, null), 7.0)
+        editor.save(editor.edit(type.storedType, OWNER, NIGHT.first, NIGHT.second, stored, null), 7.0)
 
         type.sync(database, FOUR, NIGHT, TWO)
         val kept = type.state(database, NIGHT.first).number
-        editor.save(editor.edit(type.contentType, OWNER, NIGHT.first, NIGHT.second, kept, null), null)
+        editor.save(editor.edit(type.storedType, OWNER, NIGHT.first, NIGHT.second, kept, null), null)
 
         listOf(kept, type.state(database, NIGHT.first).number) shouldBe listOf(7.0, 3.0)
     }
@@ -113,8 +113,8 @@ class ChapterNumberRecognitionConformanceTest {
 
     data class State(val number: Double, val read: Boolean)
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val storedType: StoredType) {
+        MANGA(StoredType.MANGA) {
             override suspend fun seed(driver: JdbcSqliteDriver) {
                 driver.execute(
                     null,
@@ -161,7 +161,7 @@ class ChapterNumberRecognitionConformanceTest {
                 ChapterRepositoryImpl(database).getChapterByMangaId(OWNER).single { it.url == url }
                     .let { State(it.chapterNumber, it.read) }
         },
-        NOVEL(ContentType.NOVELS) {
+        NOVEL(StoredType.NOVELS) {
             override suspend fun seed(driver: JdbcSqliteDriver) {
                 driver.execute(
                     null,

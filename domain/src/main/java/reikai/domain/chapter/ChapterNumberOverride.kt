@@ -1,6 +1,6 @@
 package reikai.domain.chapter
 
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /**
  * A chapter number the user corrected, keyed by the chapter's owner and url so a refresh that deletes
@@ -11,22 +11,22 @@ import reikai.domain.library.ContentType
 data class ChapterNumberOverride(val url: String, val number: Double, val sourceNumber: Double)
 
 interface ChapterNumberOverrideRepository {
-    suspend fun getByOwner(type: ContentType, ownerId: Long): Map<String, ChapterNumberOverride>
+    suspend fun getByOwner(type: StoredType, ownerId: Long): Map<String, ChapterNumberOverride>
 
     /** [getByOwner] for each of [ownerIds]; an owner with no correction is absent. */
-    suspend fun getByOwners(type: ContentType, ownerIds: List<Long>): Map<Long, Map<String, ChapterNumberOverride>>
+    suspend fun getByOwners(type: StoredType, ownerIds: List<Long>): Map<Long, Map<String, ChapterNumberOverride>>
 
     /** Corrects the chapter at [url] to [number], keeping the source's own the first time. */
-    suspend fun set(type: ContentType, ownerId: Long, url: String, number: Double)
+    suspend fun set(type: StoredType, ownerId: Long, url: String, number: Double)
 
     /** Puts the source's number back on the chapter at [url] and forgets the correction. */
-    suspend fun clear(type: ContentType, ownerId: Long, url: String)
+    suspend fun clear(type: StoredType, ownerId: Long, url: String)
 
     /** Stores [overrides] as a backup carried them and writes each onto its chapter row. */
-    suspend fun restore(type: ContentType, ownerId: Long, overrides: List<ChapterNumberOverride>)
+    suspend fun restore(type: StoredType, ownerId: Long, overrides: List<ChapterNumberOverride>)
 
     /** Records a new source number under corrections the source has since renumbered. */
-    suspend fun updateSourceNumbers(type: ContentType, ownerId: Long, overrides: List<ChapterNumberOverride>)
+    suspend fun updateSourceNumbers(type: StoredType, ownerId: Long, overrides: List<ChapterNumberOverride>)
 }
 
 /** A sync's chapters with each correction in place of the source's number, and the corrections whose

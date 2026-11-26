@@ -38,7 +38,7 @@ import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.Revived
 import reikai.domain.chapter.SyncedChapter
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
 import reikai.storage.FakeSafProvider
@@ -114,7 +114,7 @@ class LocalRenameVsSyncRaceTest {
         markRead("Series/Vol 1/Ch 1")
         val stale = listed()
 
-        locks.withSeries(ContentType.MANGA, "Series") { renameVolumeOnDiskAndRows("Vol 1", "Vol 2") }
+        locks.withSeries(StoredType.MANGA, "Series") { renameVolumeOnDiskAndRows("Vol 1", "Vol 2") }
 
         shouldThrow<LocalChapterStillPresentException> { sync(stale) }
         (readUrls() to tombstoneUrls()) shouldBe (listOf("Series/Vol 2/Ch 1") to emptyList())
@@ -163,14 +163,14 @@ class LocalRenameVsSyncRaceTest {
     private val renamingBeforeTheWrite by lazy {
         object : LocalChapterTombstones by tombstones {
             override suspend fun <T> around(
-                type: ContentType,
+                type: StoredType,
                 ownerId: Long,
                 isLocal: Boolean,
                 removed: List<SyncedChapter>,
                 arriving: List<SyncedChapter>,
                 write: suspend () -> T,
             ): Revived<T> {
-                locks.withSeries(ContentType.MANGA, "Series") { renameVolumeOnDiskAndRows("Vol 1", "Vol 2") }
+                locks.withSeries(StoredType.MANGA, "Series") { renameVolumeOnDiskAndRows("Vol 1", "Vol 2") }
                 return tombstones.around(type, ownerId, isLocal, removed, arriving, write)
             }
         }
@@ -195,7 +195,7 @@ class LocalRenameVsSyncRaceTest {
     private suspend fun renameVolumeOnDiskAndRows(from: String, to: String) {
         check(FakeSafProvider.picked(context, File(local, "Series")).findFile(from)!!.rename(to))
         LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)).renameSeries(
-            ContentType.MANGA,
+            StoredType.MANGA,
             SeriesRename(OWNER, "Series", "Series", mapOf(from to to)),
         )
     }

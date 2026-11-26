@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.util.resetVirtualDispatchers
 import reikai.util.virtualDispatchers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -25,7 +25,7 @@ class DuplicateMarkingTest {
     @Test
     fun `the marks stop being read when the last collector leaves`() = runTest {
         val marking = DuplicateMarking(
-            ContentType.MANGA,
+            StoredType.MANGA,
             repository,
             store.getBoolean("show_skipped_duplicates", true),
             store.getBoolean("skip_dupe", true),
@@ -34,12 +34,12 @@ class DuplicateMarkingTest {
         )
         val collector = backgroundScope.launch { marking.marks.collect {} }
         runCurrent()
-        repository.marks(ContentType.MANGA).subscriptionCount.first { it == 1 }
+        repository.marks(StoredType.MANGA).subscriptionCount.first { it == 1 }
 
         collector.cancel()
         runCurrent()
 
-        repository.marks(ContentType.MANGA).subscriptionCount.value shouldBe 0
+        repository.marks(StoredType.MANGA).subscriptionCount.value shouldBe 0
     }
 
     /** With either switch off the reader skips no copies, so the list marks none. */
@@ -51,7 +51,7 @@ class DuplicateMarkingTest {
         marked: Boolean,
     ) = runTest {
         val marking = DuplicateMarking(
-            ContentType.MANGA,
+            StoredType.MANGA,
             repository,
             store.getBoolean("show_skipped_duplicates", show),
             store.getBoolean("skip_dupe", skip),
@@ -69,7 +69,7 @@ class DuplicateMarkingTest {
         virtualDispatchers(StandardTestDispatcher(testScheduler))
         try {
             val marking = DuplicateMarking(
-                ContentType.MANGA,
+                StoredType.MANGA,
                 repository,
                 store.getBoolean("show_skipped_duplicates", true),
                 store.getBoolean("skip_dupe", true),
@@ -85,7 +85,7 @@ class DuplicateMarkingTest {
             )
             advanceUntilIdle()
 
-            val grouped = repository.marks(ContentType.MANGA).value.mapValues { it.value.keys }
+            val grouped = repository.marks(StoredType.MANGA).value.mapValues { it.value.keys }
             grouped shouldBe mapOf(1L to setOf("/a", "/b"))
         } finally {
             resetVirtualDispatchers()

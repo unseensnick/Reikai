@@ -16,7 +16,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.GatedLocalFileJournal
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan.FileStep
@@ -31,7 +31,7 @@ import java.io.File
  * with their rows, are LocalMovesUnderLockTest's and LocalNovelVolumesTest's.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class LocalOrganizerTest(private val type: ContentType) {
+class LocalOrganizerTest(private val type: StoredType) {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -176,6 +176,6 @@ class LocalOrganizerTest(private val type: ContentType) {
     companion object {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-        fun types() = listOf(ContentType.MANGA, ContentType.NOVELS)
+        fun types() = listOf(StoredType.MANGA, StoredType.NOVELS)
     }
 }

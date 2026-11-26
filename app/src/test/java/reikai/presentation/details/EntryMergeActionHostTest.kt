@@ -25,8 +25,8 @@ import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalVolumeMove
-import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
+import reikai.domain.library.StoredType
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.GroupSnapshot
 import reikai.domain.merge.MergeManager
@@ -248,7 +248,7 @@ class EntryMergeActionHostTest {
     private class MemoryRemoval : EntryLibraryRemoval(mockk(relaxed = true), mockk(relaxed = true), {
         mockk(relaxed = true)
     }) {
-        override val contentType = ContentType.MANGA
+        override val storedType = StoredType.MANGA
 
         val favoriteAt: MutableMap<Long, Instant?> = Collections.synchronizedMap(
             mutableMapOf<Long, Instant?>(

@@ -17,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import reikai.data.local.CombineLocalVolumes
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.VolumePickRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.components.DownloadProgress
 
@@ -29,15 +29,15 @@ class UnfinishedOrganizeWiringTest {
     val compose = createComposeRule()
 
     private val picks = object : VolumePickRepository {
-        override fun picks(type: ContentType) = MutableStateFlow(emptyMap<Long, String>())
-        override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
-        override suspend fun loadedPicks(type: ContentType) = emptyMap<Long, String>()
-        override suspend fun restore(type: ContentType, series: String, key: String) = Unit
+        override fun picks(type: StoredType) = MutableStateFlow(emptyMap<Long, String>())
+        override suspend fun set(type: StoredType, entryId: Long, volumeKey: String?) = Unit
+        override suspend fun loadedPicks(type: StoredType) = emptyMap<Long, String>()
+        override suspend fun restore(type: StoredType, series: String, key: String) = Unit
     }
 
     private val files = object : VolumeFiles {
-        override suspend fun cover(type: ContentType, series: String, key: String): Any? = null
-        override suspend fun description(type: ContentType, series: String, key: String): String? = null
+        override suspend fun cover(type: StoredType, series: String, key: String): Any? = null
+        override suspend fun description(type: StoredType, series: String, key: String): String? = null
     }
 
     private fun behaviorOver(combine: CombineLocalVolumes) = mockk<EntryDetailsBehavior>(relaxed = true).also { fake ->
@@ -75,7 +75,7 @@ class UnfinishedOrganizeWiringTest {
         compose.waitForIdle()
 
         coVerifyOrder {
-            combine.forgetUnfinished(ContentType.MANGA, any())
+            combine.forgetUnfinished(StoredType.MANGA, any())
             behavior.refresh()
         }
     }

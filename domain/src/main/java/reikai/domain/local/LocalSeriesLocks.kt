@@ -8,7 +8,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -25,19 +25,19 @@ import kotlin.coroutines.CoroutineContext
 @Inject
 class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
 
-    private val locks = ConcurrentHashMap<Pair<ContentType, String>, Mutex>()
+    private val locks = ConcurrentHashMap<Pair<StoredType, String>, Mutex>()
     private val replayed = CompletableDeferred<Unit>()
 
-    suspend fun <T> withSeries(type: ContentType, folder: String, block: suspend () -> T): T =
+    suspend fun <T> withSeries(type: StoredType, folder: String, block: suspend () -> T): T =
         withSeries(type, listOf(folder), block)
 
-    suspend fun <T> withSeries(type: ContentType, folders: Collection<String>, block: suspend () -> T): T {
+    suspend fun <T> withSeries(type: StoredType, folders: Collection<String>, block: suspend () -> T): T {
         replayed.await()
         return locked(type, folders, block)
     }
 
     /** [withSeries] for the replay itself, which runs before [open] and so cannot wait on it. */
-    suspend fun <T> locked(type: ContentType, folders: Collection<String>, block: suspend () -> T): T {
+    suspend fun <T> locked(type: StoredType, folders: Collection<String>, block: suspend () -> T): T {
         val held = currentCoroutineContext()[HeldSeries]?.keys.orEmpty()
         while (true) {
             val keys = keysOf(type, folders)
@@ -62,12 +62,12 @@ class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
     }
 
     // Every folder of each named series' group, since a group lists across its folders.
-    private suspend fun keysOf(type: ContentType, folders: Collection<String>) =
+    private suspend fun keysOf(type: StoredType, folders: Collection<String>) =
         LocalGroups(owners.all(type)).closure(folders).mapTo(sortedSetOf(KEY_ORDER)) { type to it.lowercase() }
 
     private class Held<T>(val value: T)
 
-    private suspend fun <T> acquire(keys: List<Pair<ContentType, String>>, index: Int, block: suspend () -> T): T =
+    private suspend fun <T> acquire(keys: List<Pair<StoredType, String>>, index: Int, block: suspend () -> T): T =
         if (index == keys.size) {
             block()
         } else {
@@ -82,11 +82,11 @@ class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
     val isOpen: Boolean get() = replayed.isCompleted
 
     // The folders each unresolved journal row refuses, by row id, so one row resolving never opens another's.
-    private val blocked = ConcurrentHashMap<Long, Set<Pair<ContentType, String>>>()
+    private val blocked = ConcurrentHashMap<Long, Set<Pair<StoredType, String>>>()
 
-    private fun isRefused(key: Pair<ContentType, String>) = blocked.values.any { key in it }
+    private fun isRefused(key: Pair<StoredType, String>) = blocked.values.any { key in it }
 
-    private fun refuseBlocked(keys: Collection<Pair<ContentType, String>>, repairing: Boolean) {
+    private fun refuseBlocked(keys: Collection<Pair<StoredType, String>>, repairing: Boolean) {
         if (isOpen && !repairing && keys.any(::isRefused)) throw LocalSeriesBlockedException(keys.map { it.second })
     }
 
@@ -96,13 +96,13 @@ class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
      * book aside, and a listing would read that as chapters gone. The journal keeps the row, which a retry in this
      * process ([repairing]) or the next start's replay finishes or reverses. A row blocked again adds its folders.
      */
-    fun block(type: ContentType, holder: Long, folders: Collection<String>) {
+    fun block(type: StoredType, holder: Long, folders: Collection<String>) {
         val keys = folders.mapTo(HashSet()) { type to it.lowercase() }
         blocked.merge(holder, keys) { held, more -> held + more }
     }
 
     /** Whether any folder of [folders]' groups is refused ([block]). */
-    suspend fun isBlocked(type: ContentType, folders: Collection<String>): Boolean =
+    suspend fun isBlocked(type: StoredType, folders: Collection<String>): Boolean =
         keysOf(type, folders).any(::isRefused)
 
     /** Lets row [holder]'s folders be held again, once it is resolved; a folder another row refuses stays refused. */
@@ -111,7 +111,7 @@ class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
     }
 
     /** [locked] for the repair of a blocked organize, the one holder its own block lets through. */
-    suspend fun <T> repairing(type: ContentType, folders: Collection<String>, block: suspend () -> T): T =
+    suspend fun <T> repairing(type: StoredType, folders: Collection<String>, block: suspend () -> T): T =
         withContext(Repairing()) { locked(type, folders, block) }
 
     private class Repairing : AbstractCoroutineContextElement(Repairing) {
@@ -119,12 +119,12 @@ class LocalSeriesLocks(private val owners: LocalVolumeOwnerRepository) {
     }
 
     /** The series the current coroutine holds, so a listing inside a move runs without waiting on it. */
-    private class HeldSeries(val keys: Set<Pair<ContentType, String>>) : AbstractCoroutineContextElement(HeldSeries) {
+    private class HeldSeries(val keys: Set<Pair<StoredType, String>>) : AbstractCoroutineContextElement(HeldSeries) {
         companion object Key : CoroutineContext.Key<HeldSeries>
     }
 
     private companion object {
-        val KEY_ORDER = compareBy<Pair<ContentType, String>>({ it.first.ordinal }, { it.second })
+        val KEY_ORDER = compareBy<Pair<StoredType, String>>({ it.first.ordinal }, { it.second })
     }
 }
 

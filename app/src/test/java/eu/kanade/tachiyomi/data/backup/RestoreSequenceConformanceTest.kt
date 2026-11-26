@@ -17,6 +17,8 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.backup.RestoreHiddenEntries
 import reikai.data.local.CombineLocalVolumes
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.merge.AlignGroupCategories
 import reikai.domain.merge.GatherGroupViewerFlags
 
@@ -46,7 +48,7 @@ class RestoreSequenceConformanceTest {
         // The other type's library runs too, with nothing in it, so only this type's steps are recorded.
         val combineLocalVolumes = mockk<CombineLocalVolumes> {
             coEvery { restoreOwners(any(), any(), any()) } answers
-                { if (firstArg<ContentType>() == type) steps += "local volumes" }
+                { if (firstArg<StoredType>().contentType == type) steps += "local volumes" }
         }
         val align = mockk<AlignGroupCategories> {
             coEvery { align(any()) } answers { if (firstArg<ContentType>() == type) steps += "align" }
@@ -57,7 +59,7 @@ class RestoreSequenceConformanceTest {
         val hidden = mockk<RestoreHiddenEntries> {
             coEvery { deviceHidden(any()) } returns emptySet()
             coEvery { restore<Any>(any(), any(), any(), any()) } answers {
-                if (firstArg<ContentType>() == type) steps += "hidden"
+                if (firstArg<StoredType>().contentType == type) steps += "hidden"
             }
         }
 

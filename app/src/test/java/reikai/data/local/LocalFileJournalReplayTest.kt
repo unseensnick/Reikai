@@ -18,7 +18,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.GatedLocalFileJournal
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
@@ -34,7 +34,7 @@ import kotlin.time.Duration.Companion.seconds
  * series until a retry finds it. Organize files' own replay is LocalOrganizer's, pinned in LocalMovesUnderLockTest.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class LocalFileJournalReplayTest(private val type: ContentType) {
+class LocalFileJournalReplayTest(private val type: StoredType) {
 
     @get:Rule
     val tmp = TemporaryFolder()
@@ -48,7 +48,7 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
 
     @Before
     fun setUp() {
-        val book = if (type == ContentType.NOVELS) "Series - Vol 1.epub" else "Vol 1.cbz"
+        val book = if (type == StoredType.NOVELS) "Series - Vol 1.epub" else "Vol 1.cbz"
         old = File(tmp.newFolder("local", "Series"), book).apply { writeText("older") }
         part = File(old.parentFile, "$book.part").apply { writeText("newer") }
         aside = File(old.parentFile, "$book.old")
@@ -217,6 +217,6 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
     companion object {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-        fun types() = listOf(ContentType.MANGA, ContentType.NOVELS)
+        fun types() = listOf(StoredType.MANGA, StoredType.NOVELS)
     }
 }

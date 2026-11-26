@@ -1,6 +1,6 @@
 package reikai.domain.chapter
 
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import kotlin.time.Instant
 
 /** A chapter as a sync names it to the tombstone rules: its stored [id] (unset for one arriving), url and number. */
@@ -114,10 +114,10 @@ suspend fun unconfirmedRemovals(
  */
 interface ChapterTombstoneRepository {
     /** The urls of the tombstones [ownerId] holds. */
-    suspend fun byOwner(type: ContentType, ownerId: Long): List<String>
+    suspend fun byOwner(type: StoredType, ownerId: Long): List<String>
 
     /** Every tombstone of each of [ownerIds], whole. */
-    suspend fun getByOwners(type: ContentType, ownerIds: List<Long>): Map<Long, List<ChapterTombstone>>
+    suspend fun getByOwners(type: StoredType, ownerIds: List<Long>): Map<Long, List<ChapterTombstone>>
 
     /**
      * Runs [write], a sync's one transaction, inside one that first keeps the state of the rows at
@@ -125,7 +125,7 @@ interface ChapterTombstoneRepository {
      * [write] stored at its url, consuming it. A failure anywhere rolls all three back.
      */
     suspend fun <T> capturing(
-        type: ContentType,
+        type: StoredType,
         ownerId: Long,
         removedIds: List<Long>,
         revivals: List<Revival>,
@@ -136,27 +136,27 @@ interface ChapterTombstoneRepository {
      * Moves the tombstone at [fromUrl] of [fromOwner] under [toOwner] and [toUrl], folding onto one already
      * there. Called inside the transaction that moves the chapter's address; [settle] follows it.
      */
-    suspend fun move(type: ContentType, fromOwner: Long, fromUrl: String, toOwner: Long, toUrl: String)
+    suspend fun move(type: StoredType, fromOwner: Long, fromUrl: String, toOwner: Long, toUrl: String)
 
     /**
      * Applies and consumes each of [ownerId]'s tombstones at [urls] whose url a chapter row holds again: the
      * keys the calling transaction wrote, never the owner's whole table, so a tombstone and row meeting
      * elsewhere for a moment (a restore in flight) is not folded by an unrelated move.
      */
-    suspend fun settle(type: ContentType, ownerId: Long, urls: Collection<String>)
+    suspend fun settle(type: StoredType, ownerId: Long, urls: Collection<String>)
 
     /**
      * Drops [ownerId]'s tombstones at urls starting with any of [urlPrefixes], and at each of [urls] exactly: the user
      * deleted those files.
      */
-    suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>, urls: List<String>)
+    suspend fun forget(type: StoredType, ownerId: Long, urlPrefixes: List<String>, urls: List<String>)
 
     /**
      * Folds a backup's [tombstones] in under [ownerId], then settles them and the restored [chapterUrls]
      * against the chapter rows: a backup tombstone onto a device row, a device tombstone onto a restored row.
      */
     suspend fun restore(
-        type: ContentType,
+        type: StoredType,
         ownerId: Long,
         tombstones: List<ChapterTombstone>,
         chapterUrls: Collection<String>,
@@ -170,14 +170,14 @@ interface LocalChapterTombstones {
      * folder no longer holds ([reikai.domain.local.LocalGroups.missingMembers]): the sync keeps their rows as they
      * are, since the listing could not read that folder at all. Asked before [confirm].
      */
-    suspend fun held(type: ContentType, isLocal: Boolean, series: String, removed: List<SyncedChapter>): Set<String>
+    suspend fun held(type: StoredType, isLocal: Boolean, series: String, removed: List<SyncedChapter>): Set<String>
 
     /** Fails the sync with [LocalChapterStillPresentException] before a [removed] chapter whose file is still there. */
-    suspend fun confirm(type: ContentType, isLocal: Boolean, removed: List<SyncedChapter>, listed: Collection<String>)
+    suspend fun confirm(type: StoredType, isLocal: Boolean, removed: List<SyncedChapter>, listed: Collection<String>)
 
     /** [ChapterTombstoneRepository.capturing] around [write], with the revivals [tombstoneRevivals] finds. */
     suspend fun <T> around(
-        type: ContentType,
+        type: StoredType,
         ownerId: Long,
         isLocal: Boolean,
         removed: List<SyncedChapter>,

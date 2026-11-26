@@ -20,6 +20,7 @@ import reikai.data.coil.withCoverFallbacks
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.storedType
 import reikai.domain.merge.DetailsRemoval
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.components.ManageMergeSourceRow
@@ -156,7 +157,7 @@ fun EntryDetailsDialogHost(
             val coverFallbacks = (page as? EntryDetailsScreenState.Loaded)?.details?.header?.coverFallbacks.orEmpty()
             // A picked volume shows its own cover, the one its header draws; one with none shows the series'.
             val volume = dialog.volume
-            val type = (page as? EntryDetailsScreenState.Loaded)?.entryId?.contentType
+            val type = (page as? EntryDetailsScreenState.Loaded)?.entryId?.storedType
             val volumeCover by produceState<Any?>(if (volume == null) null else VolumeCoverLoading, volume, type) {
                 value =
                     if (volume == null ||

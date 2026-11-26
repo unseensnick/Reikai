@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.VolumePickRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.components.DownloadProgress
 
@@ -30,16 +30,16 @@ class VolumeSwitchHeaderTest {
     private val picked = MutableStateFlow(mapOf(100L to "Vol 1"))
 
     private val picks = object : VolumePickRepository {
-        override fun picks(type: ContentType) = picked
-        override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
-        override suspend fun loadedPicks(type: ContentType) = picked.value
-        override suspend fun restore(type: ContentType, series: String, key: String) = Unit
+        override fun picks(type: StoredType) = picked
+        override suspend fun set(type: StoredType, entryId: Long, volumeKey: String?) = Unit
+        override suspend fun loadedPicks(type: StoredType) = picked.value
+        override suspend fun restore(type: StoredType, series: String, key: String) = Unit
     }
 
     // Vol 2's files never finish reading, so the page stays in the window between the pick and its load.
     private val files = object : VolumeFiles {
-        override suspend fun cover(type: ContentType, series: String, key: String): Any? = null
-        override suspend fun description(type: ContentType, series: String, key: String): String? =
+        override suspend fun cover(type: StoredType, series: String, key: String): Any? = null
+        override suspend fun description(type: StoredType, series: String, key: String): String? =
             if (key == "Vol 1") "First volume blurb" else awaitCancellation()
     }
 

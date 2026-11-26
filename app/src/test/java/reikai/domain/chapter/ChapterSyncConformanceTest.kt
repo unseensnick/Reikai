@@ -22,7 +22,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
@@ -150,8 +150,8 @@ class ChapterSyncConformanceTest {
     /** What a sync reports: whether it found a release, and the urls of the chapters it calls new. */
     data class Synced(val foundRelease: Boolean, val newUrls: List<String>)
 
-    enum class Type(val excludesGroups: Boolean, val contentType: ContentType) {
-        MANGA(excludesGroups = true, ContentType.MANGA) {
+    enum class Type(val excludesGroups: Boolean, val contentType: StoredType) {
+        MANGA(excludesGroups = true, StoredType.MANGA) {
             override suspend fun seed(driver: JdbcSqliteDriver) {
                 driver.execute(
                     null,
@@ -210,7 +210,7 @@ class ChapterSyncConformanceTest {
             override suspend fun isRead(database: Database, url: String) =
                 ChapterRepositoryImpl(database).getChapterByMangaId(OWNER).single { it.url == url }.read
         },
-        NOVEL(excludesGroups = false, ContentType.NOVELS) {
+        NOVEL(excludesGroups = false, StoredType.NOVELS) {
             override suspend fun seed(driver: JdbcSqliteDriver) {
                 driver.execute(
                     null,

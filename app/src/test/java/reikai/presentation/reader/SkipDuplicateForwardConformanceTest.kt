@@ -10,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.CopyMark
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.util.resetVirtualDispatchers
 import reikai.util.virtualDispatchers
 
@@ -135,7 +135,7 @@ class SkipDuplicateForwardConformanceTest {
                 val kept = harness.chapter(51L, manga, 5.0, scanlator = "y", order = 950L)
                 harness.chapter(60L, manga, 6.0, scanlator = "x")
                 harness.copyMarks.set(
-                    ContentType.MANGA,
+                    StoredType.MANGA,
                     listOf(ChapterCopyMark(manga.id, kept.url, CopyMark.NeverSkip)),
                 )
                 harness.open(manga, chapterId = 50L, preferences = mapOf("skip_dupe" to true)) { _, state ->
@@ -199,7 +199,7 @@ class SkipDuplicateForwardConformanceTest {
                 val five = harness.chapter(novel, 5.0)
                 val kept = harness.chapter(novel, 5.0, url = "/chapter/$novel/5-again", sourceOrder = 6L)
                 harness.chapter(novel, 6.0, sourceOrder = 7L)
-                harness.copyMarks.set(ContentType.NOVELS, listOf(ChapterCopyMark(novel, kept.url, CopyMark.NeverSkip)))
+                harness.copyMarks.set(StoredType.NOVELS, listOf(ChapterCopyMark(novel, kept.url, CopyMark.NeverSkip)))
                 harness.novelPreferences.readerSkipDuplicateChapters().set(true)
                 val model = harness.open(novel, five.id)
                 scope.advanceUntilIdle()

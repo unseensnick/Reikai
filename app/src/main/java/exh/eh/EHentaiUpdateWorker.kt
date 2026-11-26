@@ -40,8 +40,8 @@ import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.download.SourceContacts
-import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryHiddenRepository
+import reikai.domain.library.StoredType
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.source.SourceKey
@@ -228,7 +228,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             val count = withContext(NonCancellable) {
                 visibleArrivalCount(
                     updatedManga.map { (manga, new) -> manga.id to new.size },
-                    hidden = { hiddenEntries.subscribe(ContentType.MANGA).first() },
+                    hidden = { hiddenEntries.subscribe(StoredType.MANGA).first() },
                     memberships = { mangaMergeManager.memberships() },
                 )
             }

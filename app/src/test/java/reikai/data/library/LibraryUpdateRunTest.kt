@@ -23,8 +23,9 @@ import reikai.data.task.AppTaskProgress
 import reikai.data.task.BannerTask
 import reikai.data.task.bannerTask
 import reikai.domain.download.SourceContacts
-import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryHiddenRepository
+import reikai.domain.library.StoredType
+import reikai.domain.library.contentType
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
@@ -280,16 +281,16 @@ class LibraryUpdateRunTest {
 
     /** Each content type reads its own memberships and stitch, or a group would not collapse. */
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `with series merging on a copy of a chapter the group had is not announced`(type: ContentType) = runTest {
-        val managers = TestMergeManagers(mapOf(type to mapOf(1L to 7L, 2L to 7L)), mergingOn = true)
+    @EnumSource(StoredType::class)
+    fun `with series merging on a copy of a chapter the group had is not announced`(type: StoredType) = runTest {
+        val managers = TestMergeManagers(mapOf(type.contentType to mapOf(1L to 7L, 2L to 7L)), mergingOn = true)
         val run = LibraryUpdateRun(
             ReconcileMergedChapters(mockk(), stitchers = emptySet()),
             managers.manga,
             managers.novel,
             mockk<MergedChapterUnitRepository> {
                 coEvery { getStitch(any(), any()) } returns emptyList()
-                coEvery { getStitch(type, any()) } returns stitch
+                coEvery { getStitch(type.contentType, any()) } returns stitch
             },
             LibraryPreferences(InMemoryPreferenceStore()),
             AppTaskProgress(),
@@ -309,8 +310,8 @@ class LibraryUpdateRunTest {
 
     /** Both jobs run through [LibraryUpdateRun], so each shows as the one library update banner. */
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a run's progress reaches the app-state banner while it runs`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a run's progress reaches the app-state banner while it runs`(type: StoredType) = runTest {
         val tasks = AppTaskProgress()
         var shown: BannerTask? = null
 
@@ -329,8 +330,8 @@ class LibraryUpdateRunTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a run that fails leaves the app-state banner`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a run that fails leaves the app-state banner`(type: StoredType) = runTest {
         val tasks = AppTaskProgress()
 
         shouldThrow<IOException> {
@@ -349,7 +350,7 @@ class LibraryUpdateRunTest {
     /** The banner merges both update kinds, so only the running map tells which one a run marked. */
     @ParameterizedTest
     @CsvSource("MANGA, MANGA_UPDATE", "NOVELS, NOVEL_UPDATE")
-    fun `a run marks its own type's update as running`(type: ContentType, task: AppTask) = runTest {
+    fun `a run marks its own type's update as running`(type: StoredType, task: AppTask) = runTest {
         val tasks = AppTaskProgress()
         var running = emptySet<AppTask>()
 
@@ -365,13 +366,13 @@ class LibraryUpdateRunTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a run leaves off the badge only its own type's hidden series`(type: ContentType) = runTest {
+    @EnumSource(StoredType::class)
+    fun `a run leaves off the badge only its own type's hidden series`(type: StoredType) = runTest {
         val preferences = LibraryPreferences(InMemoryPreferenceStore())
         // Entry 3 is hidden under this run's type alone; entry 4 is hidden under neither.
         val runType = type
         val hidden = object : LibraryHiddenRepository by NoHiddenEntries {
-            override fun subscribe(type: ContentType) = flowOf(setOf(3L).takeIf { type == runType }.orEmpty())
+            override fun subscribe(type: StoredType) = flowOf(setOf(3L).takeIf { type == runType }.orEmpty())
         }
 
         bannerRun(type, AppTaskProgress(), preferences, hidden)<Entry, Row>(
@@ -392,13 +393,13 @@ class LibraryUpdateRunTest {
     @ParameterizedTest
     @MethodSource("mergedHideBadgeCases")
     fun `a merged series with a hidden member follows the library's hiding on the badge`(
-        type: ContentType,
+        type: StoredType,
         mergingOn: Boolean,
         expected: Int,
     ) = runTest {
         val preferences = LibraryPreferences(InMemoryPreferenceStore())
         val hidden = object : LibraryHiddenRepository by NoHiddenEntries {
-            override fun subscribe(type: ContentType) = flowOf(setOf(3L))
+            override fun subscribe(type: StoredType) = flowOf(setOf(3L))
         }
         val memberships = mapOf(3L to 9L, 4L to 9L)
 
@@ -417,14 +418,14 @@ class LibraryUpdateRunTest {
     }
 
     private fun bannerRun(
-        type: ContentType,
+        type: StoredType,
         tasks: AppTaskProgress,
         preferences: LibraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         hidden: LibraryHiddenRepository = NoHiddenEntries,
         memberships: Map<Long, Long> = emptyMap(),
         mergingOn: Boolean = true,
     ): LibraryUpdateRun {
-        val managers = TestMergeManagers(mapOf(type to memberships), mergingOn = mergingOn)
+        val managers = TestMergeManagers(mapOf(type.contentType to memberships), mergingOn = mergingOn)
         return LibraryUpdateRun(
             ReconcileMergedChapters(mockk(), stitchers = emptySet()),
             managers.manga,
@@ -453,9 +454,9 @@ class LibraryUpdateRunTest {
 
     /** With merging off every source is its own card, so a stored group collapses nothing. */
     @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `with series merging off a copy of a chapter the group had is announced`(type: ContentType) = runTest {
-        val managers = TestMergeManagers(mapOf(type to mapOf(1L to 7L, 2L to 7L)), mergingOn = false)
+    @EnumSource(StoredType::class)
+    fun `with series merging off a copy of a chapter the group had is announced`(type: StoredType) = runTest {
+        val managers = TestMergeManagers(mapOf(type.contentType to mapOf(1L to 7L, 2L to 7L)), mergingOn = false)
         val run = LibraryUpdateRun(
             ReconcileMergedChapters(mockk(), stitchers = emptySet()),
             managers.manga,
@@ -479,7 +480,7 @@ class LibraryUpdateRunTest {
 
     companion object {
         @JvmStatic
-        fun mergedHideBadgeCases() = listOf(ContentType.MANGA, ContentType.NOVELS).flatMap {
+        fun mergedHideBadgeCases() = listOf(StoredType.MANGA, StoredType.NOVELS).flatMap {
             listOf(Arguments.of(it, true, 0), Arguments.of(it, false, 1))
         }
     }
@@ -487,8 +488,8 @@ class LibraryUpdateRunTest {
 
 /** No entry hidden, for the runs whose badge this test does not look at. */
 private object NoHiddenEntries : LibraryHiddenRepository {
-    override fun subscribe(type: ContentType) = flowOf(emptySet<Long>())
-    override suspend fun isHidden(type: ContentType, id: Long) = false
-    override suspend fun hide(type: ContentType, ids: List<Long>) = Unit
-    override suspend fun unhide(type: ContentType, ids: List<Long>) = Unit
+    override fun subscribe(type: StoredType) = flowOf(emptySet<Long>())
+    override suspend fun isHidden(type: StoredType, id: Long) = false
+    override suspend fun hide(type: StoredType, ids: List<Long>) = Unit
+    override suspend fun unhide(type: StoredType, ids: List<Long>) = Unit
 }

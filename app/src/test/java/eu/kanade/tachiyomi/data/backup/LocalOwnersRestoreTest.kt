@@ -10,7 +10,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.data.local.CombineLocalVolumes
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 
 /** The volumes a local series lists from other folders come back as a combine applies them, once every series is. */
@@ -55,12 +55,12 @@ class LocalOwnersRestoreTest {
 
         coVerify {
             combine.restoreOwners(
-                ContentType.MANGA,
+                StoredType.MANGA,
                 listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
                 listOf("Kept"),
             )
             combine.restoreOwners(
-                ContentType.NOVELS,
+                StoredType.NOVELS,
                 listOf(VolumeOwner("Side", VolumeOwner.WHOLE, "Saga")),
                 listOf("Saga"),
             )

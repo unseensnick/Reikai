@@ -1,6 +1,6 @@
 package reikai.domain.local
 
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /** One chapter of a local series going to another series under another address. */
 data class ChapterMove(val fromUrl: String, val toUrl: String)
@@ -25,7 +25,7 @@ interface LocalChapterMoveRepository {
      * what is keyed by owner and address, its address unchanged; [volumes]' saved order and names move too.
      */
     suspend fun regroup(
-        type: ContentType,
+        type: StoredType,
         series: Map<String, Long>,
         remove: List<VolumeOwner>,
         add: List<VolumeOwner>,
@@ -39,7 +39,7 @@ interface LocalChapterMoveRepository {
      * [inTransaction] (the journal's note that the rows landed), so a kill leaves either all of it or none.
      */
     suspend fun organize(
-        type: ContentType,
+        type: StoredType,
         rename: SeriesRename,
         remove: List<VolumeOwner>,
         add: List<VolumeOwner>,
@@ -56,7 +56,7 @@ interface LocalChapterMoveRepository {
      * loose one under Each its own) has no prefix of its own, and is forgotten at its address among [chapters].
      */
     suspend fun forgetVolumes(
-        type: ContentType,
+        type: StoredType,
         entryId: Long,
         series: String,
         volumes: Map<String, String>,
@@ -70,7 +70,7 @@ interface LocalChapterMoveRepository {
      * volumes' saved order, labels and picked chip, which are keyed by folder and file names. Saved rows already
      * at the new names are ones whose files are gone, and are replaced.
      */
-    suspend fun rename(type: ContentType, rename: SeriesRename, movedUrl: (String) -> String)
+    suspend fun rename(type: StoredType, rename: SeriesRename, movedUrl: (String) -> String)
 
     /**
      * Links the member folder [member] of series [rename] (whose own address does not change) to [to], in one
@@ -78,7 +78,7 @@ interface LocalChapterMoveRepository {
      * writes, as Organize files' rows step writes it, with each address through [movedUrl].
      */
     suspend fun relinkMember(
-        type: ContentType,
+        type: StoredType,
         rename: SeriesRename,
         member: String,
         to: String,
@@ -86,8 +86,8 @@ interface LocalChapterMoveRepository {
     )
 
     /** The address of every local series of [type] in the database, in the library or not. */
-    suspend fun localAddresses(type: ContentType): Set<String>
+    suspend fun localAddresses(type: StoredType): Set<String>
 
     /** The id of the local series of [type] at [address], in the library or not, or null where none is. */
-    suspend fun localSeriesId(type: ContentType, address: String): Long?
+    suspend fun localSeriesId(type: StoredType, address: String): Long?
 }

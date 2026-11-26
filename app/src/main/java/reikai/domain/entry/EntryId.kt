@@ -2,6 +2,7 @@ package reikai.domain.entry
 
 import kotlinx.serialization.Serializable
 import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /**
  * Neutral identity for a content entry the shared content layer drives, so shared behaviour and UI can
@@ -29,8 +30,20 @@ sealed interface EntryId {
     companion object {
         /** The entry of [type] with row id [rawId]. */
         fun of(type: ContentType, rawId: Long): EntryId = if (type == ContentType.NOVELS) Novel(rawId) else Manga(rawId)
+
+        fun of(type: StoredType, rawId: Long): EntryId = when (type) {
+            StoredType.MANGA -> Manga(rawId)
+            StoredType.NOVELS -> Novel(rawId)
+        }
     }
 }
+
+/** The type whose tables hold this entry's rows; an entry is never [ContentType.ALL]. */
+val EntryId.storedType: StoredType
+    get() = when (this) {
+        is EntryId.Manga -> StoredType.MANGA
+        is EntryId.Novel -> StoredType.NOVELS
+    }
 
 /**
  * The name a content entry's custom cover file is stored under in the shared `CoverCache`. Both content

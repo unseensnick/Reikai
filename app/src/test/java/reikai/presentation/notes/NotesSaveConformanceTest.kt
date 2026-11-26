@@ -16,7 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -87,12 +87,12 @@ class NotesSaveConformanceTest {
                 },
             ).notes::update
             Editor.VOLUME -> VolumeNotesRoute.Model(
-                ContentType.NOVELS,
+                StoredType.NOVELS,
                 SERIES,
                 BOOK,
                 appScope,
                 mockk<LocalVolumeRepository> {
-                    coEvery { loadedVolumes(ContentType.NOVELS) } returns
+                    coEvery { loadedVolumes(StoredType.NOVELS) } returns
                         mapOf(SERIES to listOf(LocalVolume(BOOK, null, null, INITIAL)))
                     coEvery { loadedLooseFiles() } returns emptyMap()
                     coEvery { setNotes(any(), any(), any(), any()) } answers { writes += arg<String>(3) }

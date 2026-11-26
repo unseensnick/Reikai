@@ -47,9 +47,9 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.download.SourceContacts
-import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
+import reikai.domain.library.StoredType
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateSkip
 import reikai.domain.novel.NovelChapterRepository
@@ -160,7 +160,7 @@ class NovelUpdateWorker(
     }
 
     private suspend fun updateNovels(categoryId: Long) = libraryUpdateRun<Novel, NovelChapter>(
-        ContentType.NOVELS,
+        StoredType.NOVELS,
         entryId = { it.id },
         chapterId = { it.id },
         announce = { notifier.showResults(it) },

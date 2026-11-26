@@ -17,7 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalSeriesLocks
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -95,7 +95,7 @@ class LocalNovelFolderTest {
         val waitedInside = CompletableDeferred<Boolean>()
 
         source.locked("Saga") {
-            val other = backgroundScope.async { locks.withSeries(ContentType.NOVELS, "saga") { "moved" } }
+            val other = backgroundScope.async { locks.withSeries(StoredType.NOVELS, "saga") { "moved" } }
             repeat(3) { yield() }
             waitedInside.complete(!other.isCompleted)
         }

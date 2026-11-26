@@ -31,9 +31,9 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.db.PassThroughTransactions
-import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryHiddenRepository
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.StoredType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -65,8 +65,8 @@ class LocalFilesBackupRoundTripTest {
         try {
             val volumes = LocalVolumeRepositoryImpl(before.database, backgroundScope)
             type.seedSeries(before.driver, id = 1, url = SERIES)
-            volumes.setOrder(type.contentType, SERIES, listOf("vol2", "vol1"))
-            volumes.setLabel(type.contentType, SERIES, "vol1", "First")
+            volumes.setOrder(type.storedType, SERIES, listOf("vol2", "vol1"))
+            volumes.setLabel(type.storedType, SERIES, "vol1", "First")
             (OWNERS + VolumeOwner("C", "x", "Elsewhere")).forEach {
                 before.exec(
                     "INSERT INTO local_volume_owner(content_type, folder, volume_key, owner) " +
@@ -77,7 +77,7 @@ class LocalFilesBackupRoundTripTest {
                 "INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES (${type.db}, 1, 'vol2')",
             )
             type.tombstoneStatements(ownerId = 1).forEach { before.exec(it) }
-            val keptBefore = ChapterTombstoneRepositoryImpl(before.database).getByOwners(type.contentType, listOf(1))[1]
+            val keptBefore = ChapterTombstoneRepositoryImpl(before.database).getByOwners(type.storedType, listOf(1))[1]
 
             val wire = type.backUp(before.database, volumes, VolumePickRepositoryImpl(before.database, backgroundScope))
             // The device the restore lands on already holds another series at id 1.
@@ -89,16 +89,16 @@ class LocalFilesBackupRoundTripTest {
 
             Restored(
                 newId = newId,
-                volumes = restoredVolumes.loadedVolumes(type.contentType)[SERIES],
+                volumes = restoredVolumes.loadedVolumes(type.storedType)[SERIES],
                 // Applied once every series is back, by CombineLocalVolumes.restoreOwners, so read from the wire here.
                 owners = type.carriedOwners(wire),
-                pick = restoredPicks.loadedPicks(type.contentType)[newId],
+                pick = restoredPicks.loadedPicks(type.storedType)[newId],
                 kept = ChapterTombstoneRepositoryImpl(
                     after.database,
-                ).getByOwners(type.contentType, listOf(newId))[newId],
+                ).getByOwners(type.storedType, listOf(newId))[newId],
             ) shouldBe Restored(
                 newId = 2,
-                volumes = volumes.loadedVolumes(type.contentType)[SERIES],
+                volumes = volumes.loadedVolumes(type.storedType)[SERIES],
                 owners = OWNERS,
                 pick = "vol2",
                 kept = keptBefore,
@@ -130,7 +130,7 @@ class LocalFilesBackupRoundTripTest {
             type.restore(after.database, wire, LocalVolumeRepositoryImpl(after.database, backgroundScope), picks)
             val newId = type.idOf(after.database, SERIES)
 
-            withTimeout(5.seconds) { picks.picks(type.contentType).first { newId in it } }[newId] shouldBe "vol2"
+            withTimeout(5.seconds) { picks.picks(type.storedType).first { newId in it } }[newId] shouldBe "vol2"
         } finally {
             before.driver.close()
             after.driver.close()
@@ -160,7 +160,7 @@ class LocalFilesBackupRoundTripTest {
 
             type.restore(after.database, wire, LocalVolumeRepositoryImpl(after.database, backgroundScope), picks)
 
-            picks.loadedPicks(type.contentType) shouldBe mapOf(1L to "vol1")
+            picks.loadedPicks(type.storedType) shouldBe mapOf(1L to "vol1")
         } finally {
             before.driver.close()
             after.driver.close()
@@ -212,8 +212,8 @@ class LocalFilesBackupRoundTripTest {
         }
     }
 
-    enum class Type(val contentType: ContentType, val db: Long) {
-        MANGA(ContentType.MANGA, 0) {
+    enum class Type(val storedType: StoredType, val db: Long) {
+        MANGA(StoredType.MANGA, 0) {
             override suspend fun seedSeries(driver: JdbcSqliteDriver, id: Long, url: String) {
                 driver.execute(
                     null,
@@ -286,7 +286,7 @@ class LocalFilesBackupRoundTripTest {
             override fun carriedOwners(wire: ByteArray) =
                 ProtoBuf.decodeFromByteArray(BackupManga.serializer(), wire).restoredOwners(SERIES)
         },
-        NOVEL(ContentType.NOVELS, 1) {
+        NOVEL(StoredType.NOVELS, 1) {
             override suspend fun seedSeries(driver: JdbcSqliteDriver, id: Long, url: String) {
                 driver.execute(
                     null,

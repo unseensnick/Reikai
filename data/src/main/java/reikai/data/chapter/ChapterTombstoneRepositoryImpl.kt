@@ -9,7 +9,7 @@ import reikai.domain.chapter.ChapterTombstone
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.Revival
 import reikai.domain.chapter.TombstoneSession
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.readinglog.isLoggableSession
 import tachiyomi.core.common.util.lang.toLong
 import tachiyomi.data.Database
@@ -25,23 +25,23 @@ class ChapterTombstoneRepositoryImpl(
 
     private val queries = database.chapter_tombstoneQueries
 
-    override suspend fun byOwner(type: ContentType, ownerId: Long): List<String> = when (type) {
-        ContentType.NOVELS -> queries.novelByOwner(ownerId)
+    override suspend fun byOwner(type: StoredType, ownerId: Long): List<String> = when (type) {
+        StoredType.NOVELS -> queries.novelByOwner(ownerId)
         else -> queries.mangaByOwner(ownerId)
     }.awaitAsList()
 
-    override suspend fun getByOwners(type: ContentType, ownerIds: List<Long>): Map<Long, List<ChapterTombstone>> {
+    override suspend fun getByOwners(type: StoredType, ownerIds: List<Long>): Map<Long, List<ChapterTombstone>> {
         if (ownerIds.isEmpty()) return emptyMap()
         val sessions = HashMap<Pair<Long, String>, MutableList<TombstoneSession>>()
         val session = { owner: Long, url: String, endedAt: Long, duration: Long ->
             sessions.getOrPut(owner to url) { mutableListOf() } += TombstoneSession(endedAt, duration)
         }
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             queries.novelSessionsOfOwners(ownerIds, session).awaitAsList()
         } else {
             queries.mangaSessionsOfOwners(ownerIds, session).awaitAsList()
         }
-        val rows = if (type == ContentType.NOVELS) {
+        val rows = if (type == StoredType.NOVELS) {
             queries.novelOfOwners(ownerIds) {
                     owner,
                     url,
@@ -85,7 +85,7 @@ class ChapterTombstoneRepositoryImpl(
     }
 
     override suspend fun <T> capturing(
-        type: ContentType,
+        type: StoredType,
         ownerId: Long,
         removedIds: List<Long>,
         revivals: List<Revival>,
@@ -93,7 +93,7 @@ class ChapterTombstoneRepositoryImpl(
     ): T = database.transactionWithResult {
         if (removedIds.isNotEmpty()) {
             val now = Clock.System.now().toEpochMilliseconds()
-            if (type == ContentType.NOVELS) {
+            if (type == StoredType.NOVELS) {
                 queries.captureNovel(now, removedIds)
                 queries.captureNovelSessions(removedIds)
             } else {
@@ -106,9 +106,9 @@ class ChapterTombstoneRepositoryImpl(
         result
     }
 
-    override suspend fun move(type: ContentType, fromOwner: Long, fromUrl: String, toOwner: Long, toUrl: String) {
+    override suspend fun move(type: StoredType, fromOwner: Long, fromUrl: String, toOwner: Long, toUrl: String) {
         if (fromOwner == toOwner && fromUrl == toUrl) return
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             queries.moveNovel(toOwner, toUrl, fromOwner, fromUrl)
             queries.moveNovelSessions(toOwner, toUrl, fromOwner, fromUrl)
         } else {
@@ -118,9 +118,9 @@ class ChapterTombstoneRepositoryImpl(
         consume(type, fromOwner, fromUrl)
     }
 
-    override suspend fun settle(type: ContentType, ownerId: Long, urls: Collection<String>) {
+    override suspend fun settle(type: StoredType, ownerId: Long, urls: Collection<String>) {
         if (urls.isEmpty()) return
-        val settled = if (type == ContentType.NOVELS) {
+        val settled = if (type == StoredType.NOVELS) {
             queries.novelSettled(ownerId, urls)
         } else {
             queries.mangaSettled(ownerId, urls)
@@ -129,10 +129,10 @@ class ChapterTombstoneRepositoryImpl(
     }
 
     // One transaction: a tombstone dropped without its sessions would hand them to the next chapter at its url.
-    override suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>, urls: List<String>) {
+    override suspend fun forget(type: StoredType, ownerId: Long, urlPrefixes: List<String>, urls: List<String>) {
         database.transaction {
             urlPrefixes.forEach { prefix ->
-                if (type == ContentType.NOVELS) {
+                if (type == StoredType.NOVELS) {
                     queries.forgetNovel(ownerId, prefix)
                     queries.forgetNovelSessions(ownerId, prefix)
                 } else {
@@ -145,7 +145,7 @@ class ChapterTombstoneRepositoryImpl(
     }
 
     override suspend fun restore(
-        type: ContentType,
+        type: StoredType,
         ownerId: Long,
         tombstones: List<ChapterTombstone>,
         chapterUrls: Collection<String>,
@@ -156,12 +156,12 @@ class ChapterTombstoneRepositoryImpl(
         }
     }
 
-    private suspend fun fold(type: ContentType, ownerId: Long, tombstone: ChapterTombstone) = with(tombstone) {
+    private suspend fun fold(type: StoredType, ownerId: Long, tombstone: ChapterTombstone) = with(tombstone) {
         val fetch = dateFetch.toEpochMilliseconds()
         // From a file, so held to the reading log's own check, as every other restored session is.
         val sessions = sessions.filter { isLoggableSession(Instant.fromEpochMilliseconds(it.endedAt), it.duration) }
         val readAt = historyReadAt?.toEpochMilliseconds()
-        if (type == ContentType.NOVELS) {
+        if (type == StoredType.NOVELS) {
             queries.foldNovel(
                 ownerId, url, read.toLong(), bookmark.toLong(), progress, length, listenedMs, fetch,
                 readAt, historyDuration, removedAt,
@@ -177,8 +177,8 @@ class ChapterTombstoneRepositoryImpl(
     }
 
     /** The tombstone at [tombstoneUrl] onto the row at [url], then gone. */
-    private suspend fun apply(type: ContentType, ownerId: Long, url: String, tombstoneUrl: String) {
-        if (type == ContentType.NOVELS) {
+    private suspend fun apply(type: StoredType, ownerId: Long, url: String, tombstoneUrl: String) {
+        if (type == StoredType.NOVELS) {
             queries.applyNovel(ownerId, tombstoneUrl, url)
             queries.applyNovelHistory(url, ownerId, tombstoneUrl)
             queries.applyNovelWords(url, ownerId, tombstoneUrl)
@@ -191,8 +191,8 @@ class ChapterTombstoneRepositoryImpl(
         consume(type, ownerId, tombstoneUrl)
     }
 
-    private suspend fun consume(type: ContentType, ownerId: Long, url: String) {
-        if (type == ContentType.NOVELS) {
+    private suspend fun consume(type: StoredType, ownerId: Long, url: String) {
+        if (type == StoredType.NOVELS) {
             queries.consumeNovelSessions(ownerId, url)
             queries.consumeNovel(ownerId, url)
         } else {

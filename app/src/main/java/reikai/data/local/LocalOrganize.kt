@@ -11,7 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
@@ -66,10 +66,10 @@ class LocalOrganizer(
     private val retrying = ConcurrentHashMap.newKeySet<Long>()
 
     // The folders each unresolved journal row refuses, by row, which is how [forget] finds the rows a series waits on.
-    private val holding = ConcurrentHashMap<Long, Pair<ContentType, List<String>>>()
+    private val holding = ConcurrentHashMap<Long, Pair<StoredType, List<String>>>()
 
     /** Runs [plan] from its first step; the caller holds the lock on every folder it names. */
-    suspend fun run(type: ContentType, plan: Organize): LocalMoveResult {
+    suspend fun run(type: StoredType, plan: Organize): LocalMoveResult {
         // Before the journal, so a folder whose query hiccups fails the organize with nothing to put back. Read once:
         // a second query failing after the row is written would refuse the series with nothing done.
         val root = reach(plan.root)
@@ -79,7 +79,7 @@ class LocalOrganizer(
     }
 
     /** Takes up [plan], journal row [id], where a kill left it, before any listing can read the half-done state. */
-    suspend fun replay(type: ContentType, id: Long, plan: Organize) {
+    suspend fun replay(type: StoredType, id: Long, plan: Organize) {
         val root = reach(plan.root) ?: return block(type, id, plan)
         // The step a kill cut off may have landed before its note did; one that cannot be told is left for a
         // retry, since going on or putting back would each be wrong for one of the two answers.
@@ -90,7 +90,7 @@ class LocalOrganizer(
         if (result is LocalMoveResult.Failed) logcat(LogPriority.WARN, result.error) { "Organize $id left for later" }
     }
 
-    private suspend fun carryOn(type: ContentType, id: Long, plan: Organize, root: UniFile): LocalMoveResult {
+    private suspend fun carryOn(type: StoredType, id: Long, plan: Organize, root: UniFile): LocalMoveResult {
         var at = plan
         // The names each move's target folder holds, read once for a run of moves: loose chapters go one by one
         // into one folder, and re-listing it for each would grow with the square of their count.
@@ -151,7 +151,7 @@ class LocalOrganizer(
     }
 
     private suspend fun putBack(
-        type: ContentType,
+        type: StoredType,
         id: Long,
         plan: Organize,
         failure: Exception,
@@ -170,18 +170,18 @@ class LocalOrganizer(
         return if (result is LocalMoveResult.Moved) LocalMoveResult.Failed(failure) else result
     }
 
-    private fun blocked(type: ContentType, id: Long, plan: Organize, failure: Exception): LocalMoveResult {
+    private fun blocked(type: StoredType, id: Long, plan: Organize, failure: Exception): LocalMoveResult {
         block(type, id, plan)
         return LocalMoveResult.Failed(failure)
     }
 
-    private fun block(type: ContentType, id: Long, plan: Organize) = holdUntilRepaired(type, id, plan.folders()) {
+    private fun block(type: StoredType, id: Long, plan: Organize) = holdUntilRepaired(type, id, plan.folders()) {
         val left = it as? Organize ?: return@holdUntilRepaired
         locks.repairing(type, left.folders()) { if (stillReads(id, left)) replay(type, id, left) }
     }
 
     /** Holds series folder [series] until import Replace row [id], whose old book was left aside, is mended. */
-    fun holdReplace(type: ContentType, id: Long, series: String) = holdUntilRepaired(type, id, listOf(series)) {
+    fun holdReplace(type: StoredType, id: Long, series: String) = holdUntilRepaired(type, id, listOf(series)) {
         val left = it as? LocalFileJournalPlan.Replace ?: return@holdUntilRepaired
         locks.repairing(type, listOf(series)) { if (stillReads(id, left)) replayReplace(context, journal, id, left) }
     }
@@ -197,7 +197,7 @@ class LocalOrganizer(
      * so the next listing reads the files where they are. Under the rows' own repair hold, so a retry already running
      * finishes first. The user's way out of a row no retry can resolve.
      */
-    suspend fun forget(type: ContentType, folders: Collection<String>) {
+    suspend fun forget(type: StoredType, folders: Collection<String>) {
         val wanted = folders.mapTo(HashSet()) { it.lowercase() }
         holding.filter { (_, held) -> held.first == type && held.second.any { it.lowercase() in wanted } }
             .forEach { (id, held) ->
@@ -214,7 +214,7 @@ class LocalOrganizer(
      * import Replace whose old book was left aside.
      */
     private fun holdUntilRepaired(
-        type: ContentType,
+        type: StoredType,
         id: Long,
         folders: List<String>,
         repair: suspend (LocalFileJournalPlan) -> Unit,
@@ -247,7 +247,7 @@ class LocalOrganizer(
         }
     }
 
-    private suspend fun writeRows(type: ContentType, plan: Organize, forward: Boolean, note: suspend () -> Unit) {
+    private suspend fun writeRows(type: StoredType, plan: Organize, forward: Boolean, note: suspend () -> Unit) {
         val from = if (forward) plan.fromSeries else plan.toSeries
         val to = if (forward) plan.toSeries else plan.fromSeries
         val keys = if (forward) plan.volumeKeys else plan.volumeKeys.entries.associate { (a, b) -> b to a }
@@ -367,18 +367,18 @@ private fun Organize.strayed(cut: FileStep.Move, stray: MoveOutcome.Strayed): Or
 
 /** Every chapter address series [id] of [type] lists. */
 internal suspend fun localChapterUrls(
-    type: ContentType,
+    type: StoredType,
     id: Long,
     novelChapters: NovelChapterRepository,
     mangaChapters: ChapterRepository,
 ): List<String> = when (type) {
-    ContentType.NOVELS -> novelChapters.getByNovelId(id).map { it.url }
+    StoredType.NOVELS -> novelChapters.getByNovelId(id).map { it.url }
     else -> mangaChapters.getChapterByMangaId(id).map { it.url }
 }
 
 /** A local chapter address's folder and volume (a manga volume folder or [VolumeOwner.LOOSE], a novel's book). */
-internal fun chapterVolumeUnit(type: ContentType, url: String): Pair<String, String>? = when (type) {
-    ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)?.let { (series, book, _) -> series to book }
+internal fun chapterVolumeUnit(type: StoredType, url: String): Pair<String, String>? = when (type) {
+    StoredType.NOVELS -> LocalNovelSource.parseChapterPath(url)?.let { (series, book, _) -> series to book }
     else -> localChapterUnit(url)
 }
 
@@ -386,7 +386,7 @@ internal fun chapterVolumeUnit(type: ContentType, url: String): Pair<String, Str
  * Chapter [url] at its address once [rules] have moved its volume, or, for any other volume of the series' own
  * folder [from], once that folder is [to]. Addresses of other folders no rule names stay as they are.
  */
-internal fun organizedUrl(type: ContentType, url: String, rules: List<UrlRule>, from: String, to: String): String {
+internal fun organizedUrl(type: StoredType, url: String, rules: List<UrlRule>, from: String, to: String): String {
     val (folder, volume) = chapterVolumeUnit(type, url) ?: return url
     val file = localChapterFile(url)
     val rule = rules.firstOrNull {
@@ -395,7 +395,7 @@ internal fun organizedUrl(type: ContentType, url: String, rules: List<UrlRule>, 
         ?: UrlRule(from, volume, to, volume).takeIf { folder == from }
         ?: return url
     return when (type) {
-        ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)?.let { (_, _, key) ->
+        StoredType.NOVELS -> LocalNovelSource.parseChapterPath(url)?.let { (_, _, key) ->
             LocalNovelSource.chapterPath(rule.toFolder, rule.toVolume, key)
         } ?: url
         else -> localChapterUrl(rule.toFolder, rule.toVolume, file)
@@ -403,7 +403,7 @@ internal fun organizedUrl(type: ContentType, url: String, rules: List<UrlRule>, 
 }
 
 /** A loose book's one volume is the book itself, so it takes the new name along with its folder. */
-internal fun looseBookRules(type: ContentType, from: String, to: String): List<UrlRule> =
+internal fun looseBookRules(type: StoredType, from: String, to: String): List<UrlRule> =
     if (isLooseBook(type, from)) listOf(UrlRule(from, from, to, to)) else emptyList()
 
 /**

@@ -3,7 +3,7 @@ package reikai.domain.local
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 
 /** Which series lists which local volume, from the rows a combine, a split and an organize write. */
 class LocalGroupsTest {
@@ -70,11 +70,11 @@ class LocalGroupsTest {
     fun `holding one series of a group holds every folder it lists, so a listing inside needs no other`() = runTest {
         val locks = LocalSeriesLocks(
             object : LocalVolumeOwnerRepository {
-                override suspend fun all(type: ContentType) = groups.rows
+                override suspend fun all(type: StoredType) = groups.rows
             },
         ).apply { open() }
 
-        locks.withSeries(ContentType.MANGA, "A") { locks.withSeries(ContentType.MANGA, "B") { "listed" } } shouldBe
+        locks.withSeries(StoredType.MANGA, "A") { locks.withSeries(StoredType.MANGA, "B") { "listed" } } shouldBe
             "listed"
     }
 

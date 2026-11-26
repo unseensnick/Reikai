@@ -3,7 +3,7 @@ package reikai.data.backup
 import eu.kanade.tachiyomi.data.backup.models.BackupChapterTombstone
 import eu.kanade.tachiyomi.data.backup.models.toBackup
 import reikai.domain.chapter.ChapterTombstoneRepository
-import reikai.domain.library.ContentType
+import reikai.domain.library.StoredType
 import kotlin.reflect.KMutableProperty1
 
 /**
@@ -12,7 +12,7 @@ import kotlin.reflect.KMutableProperty1
  * a local series whose every chapter is gone has kept states and no chapter rows.
  */
 class ChapterTombstoneBackupParts<E, B>(
-    private val type: ContentType,
+    private val type: StoredType,
     private val tombstones: ChapterTombstoneRepository,
     private val id: (E) -> Long,
     private val field: KMutableProperty1<B, List<BackupChapterTombstone>>,
