@@ -21,6 +21,14 @@ class NovelChapterMatchKeyTest {
     }
 
     @Test
+    fun `the novel key folds accented letters to their base letter`() {
+        val accented = NovelChapterAggregation.matchKey(chapter("Capítulo 12: La caída", 12.0))
+        val plain = NovelChapterAggregation.matchKey(chapter("Capitulo 12 - La caida", 12.0))
+
+        accented shouldBe plain
+    }
+
+    @Test
     fun `the novel key falls back to the number for a numeric-only title`() {
         NovelChapterAggregation.matchKey(chapter("42", 42.0)) shouldBe "n:42.0"
     }

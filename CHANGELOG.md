@@ -162,6 +162,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A merged series of adult galleries now shows every gallery again once its extension is back, instead of keeping one until the next new chapter.**
 - **Pulling to refresh a merged series now downloads one copy of each new chapter, as a library update does, instead of one per source.**
 - **Leaving a merged series' page right after changing its sources, their order or the scan group filter no longer leaves the change half done.** That covers an Undo in Manage sources too.
+- **A merged novel whose sources spell chapter titles with and without accents now lists each chapter once.** Existing merged novels rebuild their chapter list once after the update.
 - **Removing a merged source from the library while merging is off now leaves the other sources their tracker.** Turning merging back on used to show the series with none.
 ### Downloads
 

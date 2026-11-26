@@ -7,6 +7,7 @@ import reikai.domain.merge.MergedChapters
 import reikai.domain.merge.stampedReadingOrder
 import reikai.domain.merge.unstitchedChapters
 import reikai.domain.novel.model.NovelChapter
+import reikai.util.foldDiacritics
 
 /**
  * Pure cross-source chapter stitcher for merged novel groups, the novel analogue of
@@ -116,7 +117,8 @@ object NovelChapterAggregation {
 
     // Removed rather than turned into a space: one site writes "Courts" for "Court's", and the split
     // "court s" lost its "s" as a label word. Some sites put a double quote or a replacement character
-    // where the apostrophe goes, or zero-width characters inside a word.
+    // where the apostrophe goes, or zero-width characters inside a word. Removed before the accent
+    // fold, which would turn the acute accent sign into a space and a mark.
     private val elided = Regex("""['`\u00B4\u2018\u2019\u201C\u201D\uFFFD\p{Cf}]""")
 
     // Drops label words anywhere and only the LEADING chapter-number tokens; a number that follows a
@@ -127,7 +129,8 @@ object NovelChapterAggregation {
     private fun normalizedTitle(name: String): String {
         val out = mutableListOf<String>()
         var seenWord = false
-        for (token in name.lowercase().replace(elided, "").replace(nonAlphanumeric, " ").trim().split(' ')) {
+        val words = name.replace(elided, "").foldDiacritics().lowercase().replace(nonAlphanumeric, " ")
+        for (token in words.trim().split(' ')) {
             when {
                 token.isEmpty() || token in labelWords -> {}
                 numberToken.matches(token) -> if (seenWord) out.add(token)

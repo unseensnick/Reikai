@@ -1,0 +1,9 @@
+-- The novel stitch rules changed: titles now match across accented letters ("caída" and "caida"). A
+-- group with no ranking recorded reads as stale, and listing it in merged_group_pending makes the next
+-- reconcile check it, so each novel group restitches once. The units stay until then.
+DELETE FROM merged_group_ranking
+WHERE group_id IN (SELECT group_id FROM merge_group_novel);
+
+INSERT INTO merged_group_pending(group_id)
+SELECT DISTINCT group_id FROM merge_group_novel
+WHERE group_id NOT IN (SELECT group_id FROM merged_group_pending WHERE claimed = 0);

@@ -137,7 +137,7 @@ A TachiyomiSY or Komikku backup keeps each merge on the merged entry's own row, 
 - **A merged chapter shows the winning copy's page progress.** Partial progress on another copy is not merged.
 - **A chapter whose file sits on a copy the stitch does not show still streams when opened.** Reading the hidden copy would open a different chapter row, with its own history and position.
 - **A recents row's download indicator answers for its own copy only.** It is evaluated as the row draws, so asking every copy would multiply a disk probe by the group size on each recomposition.
-- **Some novel titles stay unmatched on purpose.** Normalization handles apostrophes, curly quotes and zero-width characters; a missing space (`theCold`), a hyphen against a space, and titles the sites really spell differently are left, since closing them needs fuzzy matching.
+- **Some novel titles stay unmatched on purpose.** Normalization handles apostrophes, curly quotes, zero-width characters and accented letters; a missing space (`theCold`), a hyphen against a space, and titles the sites really spell differently are left, since closing them needs fuzzy matching.
 - **Sorting a chapter list "By source" follows the source's own listing**, through the stamped `sourceOrder`, never the stored chapter number.
 
 ## Decisions

@@ -1,6 +1,6 @@
 package reikai.domain.recommendation
 
-import java.text.Normalizer
+import reikai.util.foldDiacritics
 
 /**
  * Normalizes a manga title into a dedup key. One NFKD pass does both decompositions (fullwidth to
@@ -11,14 +11,11 @@ import java.text.Normalizer
  */
 object TitleNormalizer {
 
-    private val combiningMarks = Regex("\\p{Mn}+")
     private val nonAlphanumeric = Regex("[^\\p{L}\\p{N}]+")
 
     fun normalize(title: String): String {
         if (title.isBlank()) return ""
-        val decomposed = Normalizer.normalize(title, Normalizer.Form.NFKD)
-        val noMarks = combiningMarks.replace(decomposed, "")
-        return noMarks.lowercase().replace(nonAlphanumeric, " ").trim()
+        return title.foldDiacritics().lowercase().replace(nonAlphanumeric, " ").trim()
     }
 
     /** [title]'s dedup key, or null when nothing is left to match on (a blank or punctuation-only title). */
