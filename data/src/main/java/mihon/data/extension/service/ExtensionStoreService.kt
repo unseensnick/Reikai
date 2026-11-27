@@ -22,6 +22,7 @@ import mihon.domain.extension.model.ExtensionStore
 import okio.BufferedSource
 import okio.buffer
 import okio.gzip
+import reikai.data.extension.cappedAsStoreIndex
 import reikai.data.extension.isIReaderIndex
 import reikai.data.extension.readIReaderExtensions
 import reikai.data.extension.readIReaderStore
@@ -44,7 +45,8 @@ class ExtensionStoreService(
         var updatedIndexUrl: String = indexUrl
         return try {
             val response = network.client.newCall(GET(updatedIndexUrl)).awaitSuccess()
-            val store = response.body.source().decompressIfGzipped().use { source ->
+            // RK: capped, so an oversized index fails the fetch
+            val store = response.body.source().decompressIfGzipped().cappedAsStoreIndex().use { source ->
                 val networkStore = when (source.peek().readByte()) {
                     // "[..."
                     0x5B.toByte() -> run {
@@ -54,7 +56,9 @@ class ExtensionStoreService(
                         // RK: an IReader index has no repo.json to go on to
                         readIReaderStore(indexUrl, source.peek(), json)?.let { return Result.success(it) }
                         updatedIndexUrl = indexUrl.replace("/index.min.json", "/repo.json")
-                        network.client.newCall(GET(updatedIndexUrl)).awaitSuccess().body.source().use {
+                        // RK: capped
+                        val repo = network.client.newCall(GET(updatedIndexUrl)).awaitSuccess()
+                        repo.body.source().cappedAsStoreIndex().use {
                             json.decodeFromBufferedSource<NetworkLegacyExtensionRepo>(it)
                         }
                     }
@@ -88,7 +92,8 @@ class ExtensionStoreService(
         try {
             val extensions = if (store.extensionListUrl != null) {
                 val response = network.client.newCall(GET(store.extensionListUrl!!)).awaitSuccess()
-                response.body.source().decompressIfGzipped().use { source ->
+                // RK: capped
+                response.body.source().decompressIfGzipped().cappedAsStoreIndex().use { source ->
                     when (source.peek().readByte()) {
                         // "{..."
                         0x7B.toByte() -> json.decodeFromBufferedSource<NetworkExtensionStore.ExtensionList>(source)
@@ -100,7 +105,8 @@ class ExtensionStoreService(
                 }
             } else if (!store.isLegacy) {
                 val response = network.client.newCall(GET(store.indexUrl)).awaitSuccess()
-                response.body.source().decompressIfGzipped().use { source ->
+                // RK: capped
+                response.body.source().decompressIfGzipped().cappedAsStoreIndex().use { source ->
                     when (source.peek().readByte()) {
                         // "{..."
                         0x7B.toByte() -> json.decodeFromBufferedSource<NetworkExtensionStore>(source)
@@ -114,14 +120,15 @@ class ExtensionStoreService(
                 }
                 // RK -->
             } else if (store.isIReaderIndex) {
-                network.client.newCall(GET(store.indexUrl)).awaitSuccess().body.source().use {
+                network.client.newCall(GET(store.indexUrl)).awaitSuccess().body.source().cappedAsStoreIndex().use {
                     readIReaderExtensions(store, it, json)
                 }
                 // RK <--
             } else {
                 val storeBaseUrl = store.indexUrl.removeSuffix("/repo.json")
                 val response = network.client.newCall(GET("$storeBaseUrl/index.min.json")).awaitSuccess()
-                response.body.source().use { source ->
+                // RK: capped
+                response.body.source().cappedAsStoreIndex().use { source ->
                     json.decodeFromBufferedSource<List<NetworkLegacyExtension>>(source)
                         .map { it.toAvailableExtension(store, storeBaseUrl) }
                 }
