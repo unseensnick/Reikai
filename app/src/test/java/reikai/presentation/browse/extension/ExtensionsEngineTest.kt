@@ -6,6 +6,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -13,6 +14,8 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -22,6 +25,9 @@ import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelExtensionFormat
+import reikai.util.resetVirtualDispatchers
+import reikai.util.virtualDispatchers
+import kotlin.time.Duration.Companion.seconds
 
 /** One install pipeline can serve both content types, and the chip still shows only its own. */
 class ExtensionsEngineTest {
@@ -125,6 +131,33 @@ class ExtensionsEngineTest {
         state.updatesByType shouldBe emptyMap()
     }
 
+    /** A screen reopened after its list stopped, say back from adding a repo, must not show "No repos yet" first. */
+    @Test
+    fun `a list reopened after it stopped never replays its empty state from before`() = runTest(dispatcher) {
+        val rows = MutableStateFlow(emptyList<BrowseExtensionRow>())
+        val repos = MutableStateFlow(emptySet<ContentType>())
+        val preferences = mockk<ReikaiSourcePreferences> {
+            every { browseContentType.changes() } returns MutableStateFlow(ContentType.ALL)
+        }
+        virtualDispatchers(dispatcher)
+        try {
+            val engine =
+                ExtensionsEngine(listOf(ChangingProvider(rows, repos)), MutableStateFlow<String?>(null), preferences)
+            val screen = launch { engine.state.collect {} }
+            advanceUntilIdle()
+            check(engine.state.value.isEmpty && !engine.state.value.hasRepos)
+            screen.cancel()
+            advanceTimeBy(6.seconds)
+            rows.value = listOf(row(ExtensionKey.Manga("m")))
+            repos.value = setOf(ContentType.MANGA)
+
+            engine.state.first().isEmpty shouldBe false
+            engine.viewModelScope.coroutineContext.job.cancelAndJoin()
+        } finally {
+            resetVirtualDispatchers()
+        }
+    }
+
     private suspend fun TestScope.settledState(
         chip: ContentType,
         vararg providers: ExtensionsProvider,
@@ -166,6 +199,17 @@ class ExtensionsEngineTest {
         override val reposFor = flowOf(reposFor)
         override val isRefreshing = flowOf(false)
         override val needsInstallPermission = flowOf(needsInstallPermission)
+        override fun refresh() = Unit
+        override fun updateAll(rows: List<BrowseExtensionRow>) = Unit
+    }
+
+    private class ChangingProvider(
+        override val rows: Flow<List<BrowseExtensionRow>?>,
+        override val reposFor: Flow<Set<ContentType>>,
+    ) : ExtensionsProvider {
+        override val contentTypes = setOf(ContentType.MANGA)
+        override val isRefreshing = flowOf(false)
+        override val needsInstallPermission = flowOf(false)
         override fun refresh() = Unit
         override fun updateAll(rows: List<BrowseExtensionRow>) = Unit
     }

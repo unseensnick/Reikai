@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import tachiyomi.core.common.util.lang.launchIO
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 @Inject
@@ -49,14 +50,17 @@ class ExtensionsViewModel(
     // the one list both content types render into. What is left is the apk data and the verbs.
     // The four lists stay as the interactor partitioned them, so the provider reads a row's section
     // off which list it came from rather than deriving that split a second time.
+    // What the list is built from resets once stopped, as ExtensionsEngine.state does, so a reopened
+    // list never starts from a stale one.
+    private val listSharing = SharingStarted.WhileSubscribed(5.seconds, replayExpiration = Duration.ZERO)
     val extensions: StateFlow<Extensions?> = getExtensions.subscribe()
         .flowOn(Dispatchers.IO)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+        .stateIn(viewModelScope, listSharing, null)
 
     /** The novel apks, partitioned the same way; the verbs below serve both kinds. */
     val novelExtensions: StateFlow<Extensions?> = getExtensions.subscribe(Extension.Kind.TACHIYOMI_NOVEL)
         .flowOn(Dispatchers.IO)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
+        .stateIn(viewModelScope, listSharing, null)
 
     val currentDownloads: StateFlow<Map<String, InstallStep>>
         field = MutableStateFlow<Map<String, InstallStep>>(hashMapOf())
@@ -64,7 +68,7 @@ class ExtensionsViewModel(
     /** Whether an extension store is added at all, so an empty list can say which kind of empty. */
     val hasRepos: StateFlow<Boolean> = getExtensionStoreCount()
         .map { it > 0 }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), true)
+        .stateIn(viewModelScope, listSharing, true)
 
     /** Whether installing needs the system's install-unknown-apps permission granted first. */
     val needsInstallPermission: StateFlow<Boolean> = basePreferences.extensionInstaller.changes()

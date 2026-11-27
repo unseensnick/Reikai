@@ -71,6 +71,20 @@ class LnPluginManagerViewModelTest {
         prefs.addedRepoUrls().set(setOf(REPO))
     }
 
+    /** Replaying it would draw "No repos yet" over a repo added while the screen was away. */
+    @Test
+    fun `a model no screen watched past the stop timeout replays no stale list`() = runTest(dispatcher) {
+        val model = model()
+        val watching = launch { model.state.collect {} }
+        advanceUntilIdle()
+        check(model.state.value.hasLoaded)
+
+        watching.cancel()
+        advanceUntilIdle()
+
+        model.state.value.hasLoaded shouldBe false
+    }
+
     @Test
     fun `nothing is fetched while no screen watches the model`() = runTest(dispatcher) {
         model()

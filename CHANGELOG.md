@@ -472,6 +472,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
 - **Extensions from a repository added while the app starts are trusted right away, not after a restart.**
+- **Returning to Extensions after adding a repo no longer flashes No repos yet before the list loads.**
 - **A novel plugin that keeps failing to load no longer holds up every novel screen.** It is retried at most once a minute, and Retry or Re-check extensions still retries it at once.
 - **An enhanced source installed in its all-languages version now follows that version's description settings and lists alternative titles in every language.** It had read details as English and judged a series finished by its English chapters only.
 - **Requests that reach a site through WebView to get past Cloudflare no longer fail when several sites load at once.**

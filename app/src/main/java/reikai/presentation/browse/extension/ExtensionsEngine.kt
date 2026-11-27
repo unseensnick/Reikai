@@ -25,6 +25,7 @@ import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.ProviderList
 import reikai.presentation.browse.ProviderLoad
 import reikai.presentation.browse.debouncedBrowseQuery
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -87,7 +88,9 @@ class ExtensionsEngine(
         // The typed query itself is not debounced, so the back gesture and the empty-state message
         // answer to what is in the field rather than to what the list last filtered on.
         .combine(query) { state, typed -> state.copy(query = typed) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+        // Back to the seed once stopped, which reads as loading: a list replayed from before a repo was
+        // added would draw "No repos yet" until the fresh one arrived. A return within the timeout keeps it.
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds, replayExpiration = Duration.ZERO), State())
 
     fun refresh() = activeProviders().forEach { it.refresh() }
 

@@ -45,6 +45,7 @@ import reikai.novel.update.LnPluginUpdateNotifier
 import reikai.novel.update.LnPluginUpdates
 import reikai.novel.update.findPluginUpdates
 import tachiyomi.core.common.util.lang.launchIO
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -87,6 +88,7 @@ class LnPluginManagerViewModel(
         .onEach { updateNotifier.setPending(it.found) }
         .onStart<RepoFetch?> { emit(null) }
 
+    // Reset once stopped, as ExtensionsEngine.state is, so a reopened list never starts from a stale one.
     val state: StateFlow<State> = combine(
         installed,
         installer.failures,
@@ -108,7 +110,7 @@ class LnPluginManagerViewModel(
             inProgress = installs.inProgress,
             errors = installs.errors,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds, replayExpiration = Duration.ZERO), State())
 
     fun refresh() {
         viewModelScope.launchIO { registries.refresh() }
