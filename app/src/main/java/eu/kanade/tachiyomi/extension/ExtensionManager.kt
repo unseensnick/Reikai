@@ -94,6 +94,11 @@ class ExtensionManager(
     // A full load replaces both maps, so install events wait for it and apply on top instead of being overwritten
     private val loadMutex = Mutex()
 
+    // RK --> a listing fetch assigns the listings wholesale from the stores it read when it started, so
+    // fetches run one at a time: a slow one landing after a newer one would drop a store just added.
+    private val listingMutex = Mutex()
+    // RK <--
+
     @Volatile
     private var stores = emptyList<ExtensionStore>()
 
@@ -319,15 +324,19 @@ class ExtensionManager(
      * Finds the available extensions in the stores and updates [availableExtensionListFlow].
      */
     suspend fun findAvailableExtensions() {
-        val extensions: List<Extension.Available> = try {
-            fetchExtensions()
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
-            withUIContext { context.toast(MR.strings.extension_api_error) }
-            return
-        }
+        // RK --> one listing fetch at a time, see listingMutex
+        listingMutex.withLock {
+            val extensions: List<Extension.Available> = try {
+                fetchExtensions()
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e)
+                withUIContext { context.toast(MR.strings.extension_api_error) }
+                return
+            }
 
-        setAvailableExtensions(extensions)
+            setAvailableExtensions(extensions)
+        }
+        // RK <--
     }
 
     /**
@@ -335,16 +344,21 @@ class ExtensionManager(
      * installed extensions that have an update. Stays silent when the stores can't be reached.
      */
     suspend fun checkForUpdates() {
-        val extensions = try {
-            refreshStores() // RK
-            fetchExtensions()
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
-            return
-        }
+        // RK --> one listing fetch at a time, see listingMutex
+        val extensions = listingMutex.withLock {
+            val extensions = try {
+                refreshStores()
+                fetchExtensions()
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e)
+                return
+            }
 
-        initialized.await()
-        setAvailableExtensions(extensions)
+            initialized.await()
+            setAvailableExtensions(extensions)
+            extensions
+        }
+        // RK <--
 
         // RK --> novel apks share the notice, since one store index lists both
         val names = extensionsTheNoticeCovers()
@@ -493,8 +507,9 @@ class ExtensionManager(
         }
     }
 
-    // RK: shared, so Update all over the rows a store outage left without a listing fetches once
-    private val listingRefetch = SharedRefresh { setAvailableExtensions(fetchExtensions()) }
+    // RK: shared, so Update all over the rows a store outage left without a listing fetches once, and
+    // behind listingMutex as every listing fetch is
+    private val listingRefetch = SharedRefresh { listingMutex.withLock { setAvailableExtensions(fetchExtensions()) } }
 
     fun cancelInstallUpdateExtension(extension: Extension) {
         installer.cancelInstall(extension.pkgName)
