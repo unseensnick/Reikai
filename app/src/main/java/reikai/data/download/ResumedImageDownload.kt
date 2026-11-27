@@ -17,8 +17,9 @@ object ResumedImageDownload {
 
     /**
      * Writes the image into [open]'s stream, appended to the [existingSize] bytes on disk when the answer
-     * continues them, and returns the response whose body was written, consumed. [stored] reads the file
-     * from an offset to its end; [fetch] asks the source from an offset, 0 for the whole image.
+     * continues them, and returns the response whose body was written, consumed. [stored] reads at most
+     * [OVERLAP] bytes, the file's tail from an offset, never the whole image; [fetch] asks the source
+     * from an offset, 0 for the whole image.
      */
     suspend fun write(
         existingSize: Long,
