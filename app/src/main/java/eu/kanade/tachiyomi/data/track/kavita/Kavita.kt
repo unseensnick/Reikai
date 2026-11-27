@@ -129,8 +129,12 @@ class Kavita(
                 (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }
                     .reduce(Long::or) and Long.MAX_VALUE
             }
-            val preferences = runBlocking { sourceManager.value.get(sourceId) as ConfigurableSource }
-                .sourcePreferences()
+            // RK -->
+            // A slot whose Kavita extension is not installed has no settings; skip it like an unconfigured one.
+            val preferences = runBlocking { sourceManager.value.get(sourceId) as? ConfigurableSource }
+                ?.sourcePreferences()
+                ?: continue
+            // RK <--
 
             val prefApiUrl = preferences.getString("APIURL", "")
             val prefApiKey = preferences.getString("APIKEY", "")
