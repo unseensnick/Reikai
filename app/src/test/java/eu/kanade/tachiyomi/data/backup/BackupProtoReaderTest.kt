@@ -108,6 +108,21 @@ class BackupProtoReaderTest {
         error.message shouldBe "Invalid backup"
     }
 
+    // A misbehaving storage app can hand back no stream, which `!!` turned into a blank error notice.
+    @Test
+    fun `a backup the storage app gives no stream for fails with the unreadable message`() = runTest {
+        val context = mockk<Context> {
+            every { contentResolver.openInputStream(any()) } returns null
+            every { stringResource(MR.strings.invalid_backup_file_unreadable) } returns "Couldn't open"
+        }
+
+        val error = shouldThrow<IOException> {
+            BackupProtoReader(context).read(mockk<Uri>()) { _, _ -> }
+        }
+
+        error.message shouldBe "Couldn't open"
+    }
+
     @Test
     fun `a truncated backup reads as invalid`() = runTest {
         val entry = ProtoBuf.encodeToByteArray(BackupManga.serializer(), BackupManga(source = 1L, url = "m"))

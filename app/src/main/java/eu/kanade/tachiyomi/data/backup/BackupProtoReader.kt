@@ -13,6 +13,7 @@ import okio.source
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
+import java.io.FileNotFoundException
 import java.io.IOException
 
 class BackupProtoReader(
@@ -24,7 +25,9 @@ class BackupProtoReader(
      */
     suspend fun read(uri: Uri, onField: suspend (fieldNumber: Int, data: ByteArray) -> Unit) {
         withIOContext {
-            context.contentResolver.openInputStream(uri)!!.use { inputStream ->
+            val stream = context.contentResolver.openInputStream(uri)
+                ?: throw FileNotFoundException(context.stringResource(MR.strings.invalid_backup_file_unreadable))
+            stream.use { inputStream ->
                 val source = inputStream.source().buffer()
 
                 val peeked = source.peek().apply {

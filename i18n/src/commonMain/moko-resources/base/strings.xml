@@ -1250,6 +1250,8 @@
     <string name="invalid_backup_file_error">Full error:</string>
     <string name="invalid_backup_file_json">JSON backup not supported</string>
     <string name="invalid_backup_file_unknown">Backup file is corrupted</string>
+    <!-- RK: the storage app gave no stream for the chosen backup -->
+    <string name="invalid_backup_file_unreadable">Couldn\'t open the backup file</string>
     <!-- RK: the backup's extension apps and plugins that no repo here or trusted at restore lists -->
     <string name="backup_restore_missing_extensions">Extensions to install:</string>
     <string name="restore_install_extensions">Missing extensions</string>
