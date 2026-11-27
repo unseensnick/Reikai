@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
+import okio.Buffer
 import org.junit.jupiter.api.Test
 import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.NovelChapterNavigationClient.Companion.decide
@@ -80,18 +81,28 @@ class NovelChapterNavigationClientTest {
     fun `a cached SVG is served as SVG, which Chromium never sniffs`() {
         imageResponseType(
             null,
-            """<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>""".toByteArray(),
+            Buffer().writeUtf8("""<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>"""),
         ) shouldBe
             "image/svg+xml"
     }
 
     @Test
     fun `a cached raster picture is left for Chromium to sniff`() {
-        imageResponseType(null, byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)) shouldBe "image/*"
+        imageResponseType(null, Buffer().write(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47))) shouldBe "image/*"
     }
 
     @Test
     fun `a type the response named is kept`() {
-        imageResponseType("image/webp", byteArrayOf()) shouldBe "image/webp"
+        imageResponseType("image/webp", Buffer()) shouldBe "image/webp"
+    }
+
+    @Test
+    fun `sniffing a picture leaves all of it to stream`() {
+        val svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>"
+        val body = Buffer().writeUtf8(svg)
+
+        imageResponseType(null, body)
+
+        body.readUtf8() shouldBe svg
     }
 }

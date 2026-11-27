@@ -13,9 +13,10 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.runInterruptible
 import logcat.LogPriority
+import okio.BufferedSource
 import reikai.data.coil.NovelImage
 import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.web.NovelWebFonts
@@ -40,8 +41,8 @@ class NovelChapterNavigationClient(
     private val images: NovelWebImages,
     /** The reading font, served from an address this viewport handed out. */
     private val fonts: NovelWebFonts,
-    /** A supervisor scope the reader cancels on close, which cancels a fetch still in flight rather than
-     *  leaving a WebView thread waiting on it until the network times out. */
+    /** A supervisor scope the reader cancels on close, which cancels a fetch still in flight and closes a
+     *  picture the WebView is still reading, rather than leaving its thread on it until the network times out. */
     private val scope: CoroutineScope,
     /** Closes the reader once the renderer died; the WebView takes nothing but destroy() from here on. */
     private val onRendererGone: () -> Unit,
@@ -59,14 +60,21 @@ class NovelChapterNavigationClient(
         val image = images.imageFor(request.url.toString()) ?: return null
         val fresh = images.isRetry(request.url.toString())
         return try {
-            // The body is read inside the scope too, interruptibly, so closing the reader stops it mid-transfer.
-            val (bytes, mimeType) = runBlocking {
+            // Streamed rather than copied, so a picture is never whole in the heap; the stream is bound to the
+            // scope, so closing the reader stops a transfer the WebView is still reading.
+            val (type, body) = runBlocking {
                 scope.async(Dispatchers.IO) {
                     val result = fetchImage(image, fresh)
-                    runInterruptible { result.source.use { it.source().readByteArray() } } to result.mimeType
+                    val body = ScopedImageStream(result.source, scope.coroutineContext.job)
+                    try {
+                        body.read { imageResponseType(result.mimeType, it) } to body
+                    } catch (e: Throwable) {
+                        body.close()
+                        throw e
+                    }
                 }.await()
             }
-            WebResourceResponse(imageResponseType(mimeType, bytes), null, ByteArrayInputStream(bytes))
+            WebResourceResponse(type, null, body)
         } catch (e: Exception) {
             logcat(LogPriority.DEBUG, e) { "Failed to load a chapter image" }
             // Only an error status is accepted here; a redirect or an unknown code throws.
@@ -110,15 +118,13 @@ class NovelChapterNavigationClient(
  * The type a picture is served under. The disk cache keeps none, and Chromium sniffs a raster format but
  * never SVG, which it draws only when named so: a cached SVG served untyped failed on every open after the first.
  */
-internal fun imageResponseType(mimeType: String?, bytes: ByteArray): String {
+internal fun imageResponseType(mimeType: String?, body: BufferedSource): String {
     if (mimeType != null) return mimeType
-    val head = String(
-        bytes,
-        0,
-        minOf(bytes.size, SNIFF_BYTES),
-        Charsets.UTF_8,
-    ).trimStart('\uFEFF', ' ', '\n', '\r', '\t')
+    // Peeked, so the whole picture is still there to stream.
+    val peek = body.peek()
+    peek.request(SNIFF_BYTES)
+    val head = peek.buffer.readUtf8(minOf(peek.buffer.size, SNIFF_BYTES)).trimStart('\uFEFF', ' ', '\n', '\r', '\t')
     return if (head.startsWith("<svg") || (head.startsWith("<?xml") && "<svg" in head)) "image/svg+xml" else "image/*"
 }
 
-private const val SNIFF_BYTES = 512
+private const val SNIFF_BYTES = 512L
