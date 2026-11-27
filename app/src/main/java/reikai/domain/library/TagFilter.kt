@@ -105,19 +105,27 @@ fun ReikaiLibraryPreferences.clearTag(key: String) =
     editTags(key) { tag, include, exclude -> include - tag to exclude - tag }
 
 /**
- * Writes the filter's tags as [edit] makes them from tag [key], every key read through the aliases first. A
- * saved filter or a filter from before an alias still holds a tag's old name, which the library already reads
- * as the new one; compared raw, a tap on the new name would add it beside the old instead of cycling it.
+ * Writes the filter's tags as [edit] makes them from tag [key], edited as the library reads them, so a tap on
+ * an alias's target cycles a tag stored under the alias. The sets keep what the user picked: an untouched tag
+ * keeps its stored name and [key] is stored as tapped, so removing the alias gives the old tag back.
  */
 private fun ReikaiLibraryPreferences.editTags(
     key: String,
     edit: (tag: String, include: Set<String>, exclude: Set<String>) -> Pair<Set<String>, Set<String>>,
 ) {
     val aliases = currentTagAliases()
-    val stored = currentTagFilter().through(aliases)
-    val (include, exclude) = edit(aliases.resolveKey(key), stored.include, stored.exclude)
-    filterTagsInclude.set(include)
-    filterTagsExclude.set(exclude)
+    val tag = aliases.resolveKey(key)
+    val stored = currentTagFilter()
+    val read = stored.through(aliases)
+    val (include, exclude) = edit(tag, read.include, read.exclude)
+    // An edit only ever adds the tapped tag, so a read tag no stored one gives is that one.
+    fun Set<String>.storedAs(edited: Set<String>): Set<String> {
+        val kept = filterTo(HashSet()) { aliases.resolveKey(it) in edited }
+        if (tag in edited && kept.none { aliases.resolveKey(it) == tag }) kept += key
+        return kept
+    }
+    filterTagsInclude.set(stored.include.storedAs(include))
+    filterTagsExclude.set(stored.exclude.storedAs(exclude))
 }
 
 fun ReikaiLibraryPreferences.clearTagFilter() {

@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -123,6 +125,15 @@ class TagFilterPickerTest {
         compose.setContent { ComposeTestHost { TagFilterStrip(tagFilter) } }
 
         compose.onNodeWithText("Hiding Slice of Life").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the strip shows a tag stored under an alias and its target once`() {
+        preferences.filterTagsInclude.set(setOf("harem", "romance"))
+        preferences.tagAliases.set(listOf(TagAlias("Harem", "Romance")))
+        compose.setContent { ComposeTestHost { TagFilterStrip(tagFilter) } }
+
+        compose.onAllNodesWithText("Romance").assertCountEquals(1)
     }
 
     @Test

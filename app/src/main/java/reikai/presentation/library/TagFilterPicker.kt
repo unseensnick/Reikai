@@ -536,9 +536,11 @@ private fun TriStateChip(
 @Composable
 fun TagFilterStrip(tagFilter: LibraryTagFilter, modifier: Modifier = Modifier) {
     val preferences = tagFilter.preferences
-    val filter by rememberTagFilter(tagFilter)
-    if (!filter.isActive) return
+    val stored by rememberTagFilter(tagFilter)
+    if (!stored.isActive) return
     val aliases = rememberTagAliases(preferences)
+    // One chip per tag as the library reads it, so a tag stored under an alias and its target show once.
+    val filter = remember(stored, aliases) { stored.through(aliases) }
     // The stored keys are folded, so the chips show the spelling the library uses where one is found. Folded
     // once per showing and per alias change, as the picker folds, so a tap on a chip only drops a key.
     val labels by produceState(emptyMap<String, String>(), aliases) {
@@ -548,7 +550,7 @@ fun TagFilterStrip(tagFilter: LibraryTagFilter, modifier: Modifier = Modifier) {
     }
 
     // Before the library loads no spelling is known yet, so the folded key stands in, capitalised.
-    fun labelOf(key: String) = aliases.resolveKey(key).let { labels[it] ?: it.replaceFirstChar(Char::uppercaseChar) }
+    fun labelOf(key: String) = labels[key] ?: key.replaceFirstChar(Char::uppercaseChar)
     Row(
         modifier = modifier
             .fillMaxWidth()

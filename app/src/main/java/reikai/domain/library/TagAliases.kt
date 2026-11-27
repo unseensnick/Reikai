@@ -43,11 +43,6 @@ fun ReikaiLibraryPreferences.addTagAlias(from: String, to: String) {
     val list = tagAliases.get()
     val target = TagAliases(list).resolve(to).trim()
     if (tagKey(from) == tagKey(target)) return
-    // The tag filter keeps working on the tag it now reads as.
-    val fromKey = tagKey(from)
-    val toKey = tagKey(target)
-    if (fromKey in filterTagsInclude.get()) filterTagsInclude.set(filterTagsInclude.get() - fromKey + toKey)
-    if (fromKey in filterTagsExclude.get()) filterTagsExclude.set(filterTagsExclude.get() - fromKey + toKey)
     tagAliases.set(
         list.filterNot { tagKey(it.from) == tagKey(from) }
             .map { if (tagKey(it.to) == tagKey(from)) it.copy(to = target) else it } +

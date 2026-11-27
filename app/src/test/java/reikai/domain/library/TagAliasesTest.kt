@@ -39,11 +39,20 @@ class TagAliasesTest {
     }
 
     @Test
-    fun `a tag the filter shows moves to the tag it now reads as`() {
+    fun `removing an alias gives the filter back the tag that was picked`() {
         val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
-        preferences.filterTagsInclude.set(setOf("sci fi"))
-        preferences.addTagAlias("Sci-fi", "Science Fiction")
-        preferences.filterTagsInclude.get() shouldBe setOf("science fiction")
+        preferences.filterTagsInclude.set(setOf("harem"))
+        preferences.addTagAlias("Harem", "Romance")
+        preferences.removeTagAlias("Harem")
+        preferences.filterTagsInclude.get() shouldBe setOf("harem")
+    }
+
+    @Test
+    fun `while an alias exists the filter reads as its target`() {
+        val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
+        preferences.filterTagsInclude.set(setOf("harem"))
+        preferences.addTagAlias("Harem", "Romance")
+        preferences.currentTagFilter().through(preferences.currentTagAliases()).include shouldBe setOf("romance")
     }
 
     @Test
@@ -55,10 +64,12 @@ class TagAliasesTest {
     }
 
     @Test
-    fun `a tag the filter hides moves to the tag it now reads as`() {
+    fun `a tag edited while an alias exists leaves the other tags as they were picked`() {
         val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
-        preferences.filterTagsExclude.set(setOf("sci fi"))
-        preferences.addTagAlias("Sci-fi", "Science Fiction")
-        preferences.filterTagsExclude.get() shouldBe setOf("science fiction")
+        preferences.filterTagsInclude.set(setOf("harem"))
+        preferences.addTagAlias("Harem", "Romance")
+        preferences.hideTag("gore")
+        preferences.removeTagAlias("Harem")
+        preferences.currentTagFilter().let { it.include to it.exclude } shouldBe (setOf("harem") to setOf("gore"))
     }
 }
